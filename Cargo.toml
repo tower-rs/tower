@@ -1,0 +1,16 @@
+[package]
+
+name = "tokio-service"
+version = "0.1.0"
+license = "MIT/Apache-2.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+description = """
+The core `Service` trait for Tokio.
+"""
+documentation = "https://tokio-rs.github.io/tokio-service"
+homepage = "https://github.com/tokio-rs/tokio-service"
+repository = "https://github.com/tokio-rs/tokio-service"
+readme = "README.md"
+
+[dependencies]
+futures = { git = "https://github.com/alexcrichton/futures-rs", default-features = false }
