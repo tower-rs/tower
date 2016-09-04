@@ -136,19 +136,19 @@ use futures::{Future, IntoFuture};
 /// The above timeout implementation is decoupled from the underlying protocol
 /// and is also decoupled from client or server concerns. In other words, the
 /// same timeout middleware could be used in either a client or a server.
-pub trait Service: Send + 'static {
+pub trait Service {
 
     /// Requests handled by the service.
-    type Req: Send + 'static;
+    type Req;
 
     /// Responses given by the service.
-    type Resp: Send + 'static;
+    type Resp;
 
     /// Errors produced by the service.
-    type Error: Send + 'static;
+    type Error;
 
     /// The future response value.
-    type Fut: Future<Item = Self::Resp, Error = Self::Error> + Send + 'static;
+    type Fut: Future<Item = Self::Resp, Error = Self::Error>;
 
     /// Process the request and return the response asynchronously.
     fn call(&self, req: Self::Req) -> Self::Fut;
