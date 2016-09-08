@@ -11,7 +11,7 @@ extern crate futures;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use futures::{Future, IntoFuture};
+use futures::{Async, Future, IntoFuture};
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
@@ -139,19 +139,22 @@ use futures::{Future, IntoFuture};
 pub trait Service {
 
     /// Requests handled by the service.
-    type Req;
+    type Request;
 
     /// Responses given by the service.
-    type Resp;
+    type Response;
 
     /// Errors produced by the service.
     type Error;
 
     /// The future response value.
-    type Fut: Future<Item = Self::Resp, Error = Self::Error>;
+    type Future: Future<Item = Self::Response, Error = Self::Error>;
 
     /// Process the request and return the response asynchronously.
-    fn call(&self, req: Self::Req) -> Self::Fut;
+    fn call(&self, req: Self::Request) -> Self::Future;
+
+    /// Returns `Async::Ready` when the service is ready to accept a request.
+    fn poll_ready(&self) -> Async<()>;
 }
 
 /// A service implemented by a closure.
@@ -183,13 +186,17 @@ impl<F, R, S> Service for SimpleService<F, R>
           <S::Future as Future>::Item: Send + 'static,
           <S::Future as Future>::Error: Send + 'static,
 {
-    type Req = R;
-    type Resp = S::Item;
+    type Request = R;
+    type Response = S::Item;
     type Error = S::Error;
-    type Fut = S::Future;
+    type Future = S::Future;
 
-    fn call(&self, req: R) -> Self::Fut {
+    fn call(&self, req: R) -> Self::Future {
         (self.f)(req).into_future()
+    }
+
+    fn poll_ready(&self) -> Async<()> {
+        Async::Ready(())
     }
 }
 
