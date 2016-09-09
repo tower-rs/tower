@@ -8,10 +8,11 @@
 
 extern crate futures;
 
+use futures::{Async, Future, IntoFuture};
+
+use std::io;
 use std::marker::PhantomData;
 use std::sync::Arc;
-
-use futures::{Async, Future, IntoFuture};
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
@@ -157,6 +158,25 @@ pub trait Service {
     fn poll_ready(&self) -> Async<()>;
 }
 
+/// Creates new `Service` values.
+pub trait NewService {
+
+    /// Requests handled by the service
+    type Request;
+
+    /// Responses given by the service
+    type Response;
+
+    /// Errors produced by the service
+    type Error;
+
+    /// The `Service` value created by this factory
+    type Item: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
+
+    /// Create and return a new service value.
+    fn new_service(&self) -> io::Result<Self::Item>;
+}
+
 /// A service implemented by a closure.
 pub struct SimpleService<F, R> {
     f: Arc<F>,
@@ -175,6 +195,19 @@ impl<F, R> SimpleService<F, R> {
             f: Arc::new(f),
             _ty: PhantomData,
         }
+    }
+}
+
+impl<T> NewService for T
+    where T: Service + Clone,
+{
+    type Item = T;
+    type Request = T::Request;
+    type Response = T::Response;
+    type Error = T::Error;
+
+    fn new_service(&self) -> io::Result<T> {
+        Ok(self.clone())
     }
 }
 
