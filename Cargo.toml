@@ -13,4 +13,4 @@ repository = "https://github.com/tokio-rs/tokio-service"
 readme = "README.md"
 
 [dependencies]
-futures = { git = "https://github.com/alexcrichton/futures-rs", default-features = false }
+futures = "0.1"
