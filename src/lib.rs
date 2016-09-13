@@ -82,7 +82,7 @@ use std::sync::Arc;
 /// More often than not, all the pieces needed for writing robust, scalable
 /// network applications are the same no matter the underlying protocol. By
 /// unifying the API for both clients and servers in a protocol agnostic way,
-/// it is possible to write middlware that provide these pieces in in a
+/// it is possible to write middleware that provide these pieces in in a
 /// reusable way.
 ///
 /// For example, take timeouts as an example:
