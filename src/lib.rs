@@ -241,3 +241,37 @@ impl<F, R> Clone for SimpleService<F, R> {
         }
     }
 }
+
+impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, Future = F>>
+    where F: Future<Item = U, Error = E>
+{
+    type Request = T;
+    type Response = U;
+    type Error = E;
+    type Future = F;
+
+    fn call(&self, request: T) -> F {
+        (**self).call(request)
+    }
+
+    fn poll_ready(&self) -> Async<()> {
+        (**self).poll_ready()
+    }
+}
+
+impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, Future = F> + Send + 'static>
+    where F: Future<Item = U, Error = E>
+{
+    type Request = T;
+    type Response = U;
+    type Error = E;
+    type Future = F;
+
+    fn call(&self, request: T) -> F {
+        (**self).call(request)
+    }
+
+    fn poll_ready(&self) -> Async<()> {
+        (**self).poll_ready()
+    }
+}
