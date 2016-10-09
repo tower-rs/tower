@@ -23,7 +23,7 @@ use std::sync::Arc;
 /// # Functional
 ///
 /// A `Service` is a function from a `Request`. It immediately returns a
-/// `Future` representing the the eventual completion of processing the
+/// `Future` representing the eventual completion of processing the
 /// request. The actual request processing may happen at any time in the
 /// future, on any thread or executor. The processing may depend on calling
 /// other services. At some point in the future, the processing will complete,
@@ -62,7 +62,7 @@ use std::sync::Arc;
 ///
 /// A client consumes a service by using a `Service` value. The client may
 /// issue requests by invoking `call` and passing the request as an argument.
-/// It then waits receives the response by waiting for the returned future.
+/// It then receives the response by waiting for the returned future.
 ///
 /// As an example, here is how a Redis request would be issued:
 ///
@@ -82,7 +82,7 @@ use std::sync::Arc;
 /// More often than not, all the pieces needed for writing robust, scalable
 /// network applications are the same no matter the underlying protocol. By
 /// unifying the API for both clients and servers in a protocol agnostic way,
-/// it is possible to write middleware that provide these pieces in in a
+/// it is possible to write middleware that provide these pieces in a
 /// reusable way.
 ///
 /// For example, take timeouts as an example:
