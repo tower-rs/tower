@@ -8,7 +8,7 @@
 
 extern crate futures;
 
-use futures::{Async, Future, IntoFuture};
+use futures::{Future, IntoFuture};
 
 use std::io;
 use std::marker::PhantomData;
@@ -153,14 +153,10 @@ pub trait Service {
 
     /// Process the request and return the response asynchronously.
     fn call(&self, req: Self::Request) -> Self::Future;
-
-    /// Returns `Async::Ready` when the service is ready to accept a request.
-    fn poll_ready(&self) -> Async<()>;
 }
 
 /// Creates new `Service` values.
 pub trait NewService {
-
     /// Requests handled by the service
     type Request;
 
@@ -171,27 +167,27 @@ pub trait NewService {
     type Error;
 
     /// The `Service` value created by this factory
-    type Item: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
+    type Instance: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
 
     /// Create and return a new service value.
-    fn new_service(&self) -> io::Result<Self::Item>;
+    fn new_service(&self) -> io::Result<Self::Instance>;
 }
 
 /// A service implemented by a closure.
-pub struct SimpleService<F, R> {
+pub struct FnService<F, R> {
     f: Arc<F>,
     _ty: PhantomData<fn() -> R>, // don't impose Sync on R
 }
 
 /// Returns a `Service` backed by the given closure.
-pub fn simple_service<F, R>(f: F) -> SimpleService<F, R> {
-    SimpleService::new(f)
+pub fn fn_service<F, R>(f: F) -> FnService<F, R> {
+    FnService::new(f)
 }
 
-impl<F, R> SimpleService<F, R> {
-    /// Create and return a new `SimpleService` backed by the given function.
-    pub fn new(f: F) -> SimpleService<F, R> {
-        SimpleService {
+impl<F, R> FnService<F, R> {
+    /// Create and return a new `FnService` backed by the given function.
+    pub fn new(f: F) -> FnService<F, R> {
+        FnService {
             f: Arc::new(f),
             _ty: PhantomData,
         }
@@ -201,7 +197,7 @@ impl<F, R> SimpleService<F, R> {
 impl<T> NewService for T
     where T: Service + Clone,
 {
-    type Item = T;
+    type Instance = T;
     type Request = T::Request;
     type Response = T::Response;
     type Error = T::Error;
@@ -211,7 +207,7 @@ impl<T> NewService for T
     }
 }
 
-impl<F, R, S> Service for SimpleService<F, R>
+impl<F, R, S> Service for FnService<F, R>
     where F: Fn(R) -> S + Sync + Send + 'static,
           R: Send + 'static,
           S: IntoFuture + Send + 'static,
@@ -227,15 +223,11 @@ impl<F, R, S> Service for SimpleService<F, R>
     fn call(&self, req: R) -> Self::Future {
         (self.f)(req).into_future()
     }
-
-    fn poll_ready(&self) -> Async<()> {
-        Async::Ready(())
-    }
 }
 
-impl<F, R> Clone for SimpleService<F, R> {
-    fn clone(&self) -> SimpleService<F, R> {
-        SimpleService {
+impl<F, R> Clone for FnService<F, R> {
+    fn clone(&self) -> FnService<F, R> {
+        FnService {
             f: self.f.clone(),
             _ty: PhantomData,
         }
@@ -253,10 +245,6 @@ impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, F
     fn call(&self, request: T) -> F {
         (**self).call(request)
     }
-
-    fn poll_ready(&self) -> Async<()> {
-        (**self).poll_ready()
-    }
 }
 
 impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, Future = F> + Send + 'static>
@@ -269,9 +257,5 @@ impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, F
 
     fn call(&self, request: T) -> F {
         (**self).call(request)
-    }
-
-    fn poll_ready(&self) -> Async<()> {
-        (**self).poll_ready()
     }
 }
