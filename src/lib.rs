@@ -12,6 +12,7 @@ use futures::{Future, IntoFuture};
 
 use std::io;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// An asynchronous function from `Request` to a `Response`.
@@ -173,47 +174,72 @@ pub trait NewService {
     fn new_service(&self) -> io::Result<Self::Instance>;
 }
 
+impl<F, R> NewService for F
+    where F: Fn() -> io::Result<R>,
+          R: Service,
+{
+    type Request = R::Request;
+    type Response = R::Response;
+    type Error = R::Error;
+    type Instance = R;
+
+    fn new_service(&self) -> io::Result<R> {
+        (*self)()
+    }
+}
+
+impl<S: NewService + ?Sized> NewService for Arc<S> {
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Instance = S::Instance;
+
+    fn new_service(&self) -> io::Result<S::Instance> {
+        (**self).new_service()
+    }
+}
+
+impl<S: NewService + ?Sized> NewService for Rc<S> {
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Instance = S::Instance;
+
+    fn new_service(&self) -> io::Result<S::Instance> {
+        (**self).new_service()
+    }
+}
+
 /// A service implemented by a closure.
 pub struct FnService<F, R> {
-    f: Arc<F>,
+    f: F,
     _ty: PhantomData<fn() -> R>, // don't impose Sync on R
 }
 
 /// Returns a `Service` backed by the given closure.
-pub fn fn_service<F, R>(f: F) -> FnService<F, R> {
+pub fn fn_service<F, R, S>(f: F) -> FnService<F, R>
+    where F: Fn(R) -> S,
+          S: IntoFuture,
+{
     FnService::new(f)
 }
 
-impl<F, R> FnService<F, R> {
+impl<F, R, S> FnService<F, R>
+    where F: Fn(R) -> S,
+          S: IntoFuture,
+{
     /// Create and return a new `FnService` backed by the given function.
     pub fn new(f: F) -> FnService<F, R> {
         FnService {
-            f: Arc::new(f),
+            f: f,
             _ty: PhantomData,
         }
     }
 }
 
-impl<T> NewService for T
-    where T: Service + Clone,
-{
-    type Instance = T;
-    type Request = T::Request;
-    type Response = T::Response;
-    type Error = T::Error;
-
-    fn new_service(&self) -> io::Result<T> {
-        Ok(self.clone())
-    }
-}
-
 impl<F, R, S> Service for FnService<F, R>
-    where F: Fn(R) -> S + Sync + Send + 'static,
-          R: Send + 'static,
-          S: IntoFuture + Send + 'static,
-          S::Future: Send + 'static,
-          <S::Future as Future>::Item: Send + 'static,
-          <S::Future as Future>::Error: Send + 'static,
+    where F: Fn(R) -> S,
+          S: IntoFuture
 {
     type Request = R;
     type Response = S::Item;
@@ -225,37 +251,35 @@ impl<F, R, S> Service for FnService<F, R>
     }
 }
 
-impl<F, R> Clone for FnService<F, R> {
-    fn clone(&self) -> FnService<F, R> {
-        FnService {
-            f: self.f.clone(),
-            _ty: PhantomData,
-        }
-    }
-}
+impl<S: Service + ?Sized> Service for Box<S> {
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
 
-impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, Future = F>>
-    where F: Future<Item = U, Error = E>
-{
-    type Request = T;
-    type Response = U;
-    type Error = E;
-    type Future = F;
-
-    fn call(&self, request: T) -> F {
+    fn call(&self, request: S::Request) -> S::Future {
         (**self).call(request)
     }
 }
 
-impl<T, U, E, F> Service for Box<Service<Request = T, Response = U, Error = E, Future = F> + Send + 'static>
-    where F: Future<Item = U, Error = E>
-{
-    type Request = T;
-    type Response = U;
-    type Error = E;
-    type Future = F;
+impl<S: Service + ?Sized> Service for Rc<S> {
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
 
-    fn call(&self, request: T) -> F {
+    fn call(&self, request: S::Request) -> S::Future {
+        (**self).call(request)
+    }
+}
+
+impl<S: Service + ?Sized> Service for Arc<S> {
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn call(&self, request: S::Request) -> S::Future {
         (**self).call(request)
     }
 }
