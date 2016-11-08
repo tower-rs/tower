@@ -8,10 +8,9 @@
 
 extern crate futures;
 
-use futures::{Future, IntoFuture};
+use futures::Future;
 
 use std::io;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
