@@ -47,7 +47,7 @@ use std::sync::Arc;
 ///     type Error = http::Error;
 ///     type Fut = Box<Future<Item = Self::Resp, Error = http::Error>>;
 ///
-///     fn call(&self, req: http::Request) -> Self::Fut {
+///     fn call(&mut self, req: http::Request) -> Self::Fut {
 ///         // Create the HTTP response
 ///         let resp = http::Response::ok()
 ///             .with_body(b"hello world\n");
@@ -120,7 +120,7 @@ use std::sync::Arc;
 ///     type Error = T::Error;
 ///     type Fut = Box<Future<Item = Self::Resp, Error = Self::Error>>;
 ///
-///     fn call(&self, req: Self::Req) -> Self::Fut {
+///     fn call(&mut self, req: Self::Req) -> Self::Fut {
 ///         let timeout = self.timer.timeout(self.delay)
 ///             .and_then(|timeout| Err(Self::Error::from(timeout)));
 ///
@@ -152,7 +152,7 @@ pub trait Service {
     type Future: Future<Item = Self::Response, Error = Self::Error>;
 
     /// Process the request and return the response asynchronously.
-    fn call(&self, req: Self::Request) -> Self::Future;
+    fn call(&mut self, req: Self::Request) -> Self::Future;
 }
 
 /// Creates new `Service` values.
@@ -215,29 +215,7 @@ impl<S: Service + ?Sized> Service for Box<S> {
     type Error = S::Error;
     type Future = S::Future;
 
-    fn call(&self, request: S::Request) -> S::Future {
-        (**self).call(request)
-    }
-}
-
-impl<S: Service + ?Sized> Service for Rc<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&self, request: S::Request) -> S::Future {
-        (**self).call(request)
-    }
-}
-
-impl<S: Service + ?Sized> Service for Arc<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&self, request: S::Request) -> S::Future {
+    fn call(&mut self, request: S::Request) -> S::Future {
         (**self).call(request)
     }
 }
