@@ -42,12 +42,12 @@ use std::sync::Arc;
 ///
 /// ```rust,ignore
 /// impl Service for HelloWorld {
-///     type Req = http::Request;
-///     type Resp = http::Response;
+///     type Request = http::Request;
+///     type Response = http::Response;
 ///     type Error = http::Error;
-///     type Fut = Box<Future<Item = Self::Resp, Error = http::Error>>;
+///     type Future = Box<Future<Item = Self::Response, Error = http::Error>>;
 ///
-///     fn call(&mut self, req: http::Request) -> Self::Fut {
+///     fn call(&mut self, req: http::Request) -> Self::Future {
 ///         // Create the HTTP response
 ///         let resp = http::Response::ok()
 ///             .with_body(b"hello world\n");
@@ -115,12 +115,12 @@ use std::sync::Arc;
 ///     where T: Service,
 ///           T::Error: From<Expired>,
 /// {
-///     type Req = T::Req;
-///     type Resp = T::Resp;
+///     type Request = T::Request;
+///     type Response = T::Response;
 ///     type Error = T::Error;
-///     type Fut = Box<Future<Item = Self::Resp, Error = Self::Error>>;
+///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
-///     fn call(&mut self, req: Self::Req) -> Self::Fut {
+///     fn call(&mut self, req: Self::Request) -> Self::Future {
 ///         let timeout = self.timer.timeout(self.delay)
 ///             .and_then(|timeout| Err(Self::Error::from(timeout)));
 ///
