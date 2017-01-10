@@ -47,7 +47,7 @@ use std::sync::Arc;
 ///     type Error = http::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = http::Error>>;
 ///
-///     fn call(&self, req: http::Request) -> Self::Fut {
+///     fn call(&self, req: http::Request) -> Self::Future {
 ///         // Create the HTTP response
 ///         let resp = http::Response::ok()
 ///             .with_body(b"hello world\n");
@@ -120,7 +120,7 @@ use std::sync::Arc;
 ///     type Error = T::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
-///     fn call(&self, req: Self::Req) -> Self::Fut {
+///     fn call(&self, req: Self::Req) -> Self::Future {
 ///         let timeout = self.timer.timeout(self.delay)
 ///             .and_then(|timeout| Err(Self::Error::from(timeout)));
 ///
