@@ -5,7 +5,7 @@ Definition of the core `Service` trait in Tokio
 [![Build Status](https://travis-ci.org/tokio-rs/tokio-service.svg?branch=master)](https://travis-ci.org/tokio-rs/tokio-service)
 [![Build status](https://ci.appveyor.com/api/projects/status/qgostmtadmlqae8n?svg=true)](https://ci.appveyor.com/project/alexcrichton/tokio-service)
 
-[Documentation](https://tokio-rs.github.io/tokio-service)
+[Documentation](https://docs.rs/tokio-service)
 
 ## Usage
 
@@ -21,6 +21,10 @@ Next, add this to your crate:
 ```rust
 extern crate tokio_service;
 ```
+
+You can find extensive examples and tutorials in addition to the [API
+documentation](https://docs.rs/tokio-service) at
+[https://tokio.rs](https://tokio.rs)
 
 # License
 
