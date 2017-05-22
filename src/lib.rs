@@ -24,7 +24,7 @@ use std::sync::Arc;
 ///
 /// # Functional
 ///
-/// A `Service` is a function from a `Request`. It immediately returns a
+/// A `Service` is a function of a `Request`. It immediately returns a
 /// `Future` representing the eventual completion of processing the
 /// request. The actual request processing may happen at any time in the
 /// future, on any thread or executor. The processing may depend on calling
