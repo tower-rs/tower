@@ -10,6 +10,10 @@
 
 extern crate futures;
 
+mod middleware;
+
+pub use middleware::{Middleware, MiddlewareChain};
+
 use futures::{Future, IntoFuture};
 
 use std::io;
@@ -89,57 +93,6 @@ use std::sync::Arc;
 ///
 /// For example, take timeouts as an example:
 ///
-/// ```rust,ignore
-/// use tower::Service;
-/// use futures::Future;
-/// use std::time::Duration;
-///
-/// use tokio_timer::Timer;
-///
-/// pub struct Timeout<T> {
-///     upstream: T,
-///     delay: Duration,
-///     timer: Timer,
-/// }
-///
-/// pub struct Expired;
-///
-/// impl<T> Timeout<T> {
-///     pub fn new(upstream: T, delay: Duration) -> Timeout<T> {
-///         Timeout {
-///             upstream: upstream,
-///             delay: delay,
-///             timer: Timer::default(),
-///         }
-///     }
-/// }
-///
-/// impl<T> Service for Timeout<T>
-///     where T: Service,
-///           T::Error: From<Expired>,
-/// {
-///     type Request = T::Request;
-///     type Response = T::Response;
-///     type Error = T::Error;
-///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
-///
-///     fn call(&self, req: Self::Req) -> Self::Future {
-///         let timeout = self.timer.sleep(self.delay)
-///             .and_then(|_| Err(Self::Error::from(Expired)));
-///
-///         self.upstream.call(req)
-///             .select(timeout)
-///             .map(|(v, _)| v)
-///             .map_err(|(e, _)| e)
-///             .boxed()
-///     }
-/// }
-///
-/// ```
-///
-/// The above timeout implementation is decoupled from the underlying protocol
-/// and is also decoupled from client or server concerns. In other words, the
-/// same timeout middleware could be used in either a client or a server.
 pub trait Service {
 
     /// Requests handled by the service.
@@ -156,6 +109,13 @@ pub trait Service {
 
     /// Process the request and return the response asynchronously.
     fn call(&self, req: Self::Request) -> Self::Future;
+
+    /// Wrap this service in middleware.
+    fn wrap<M: Middleware<Self>>(self, middleware: M) -> M::Wrapped
+        where Self: Sized
+    {
+        middleware.wrap(self)
+    }
 }
 
 /// Creates new `Service` values.
