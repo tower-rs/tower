@@ -1,12 +1,12 @@
-//! Definition of the core `Service` trait to Tokio
+//! Definition of the core `Service` trait to Tower
 //!
 //! More information can be found on [the trait] itself and online at
-//! [https://tokio.rs](https://tokio.rs)
+//! [https://tower.rs](https://tower.rs)
 //!
 //! [the trait]: trait.Service.html
 
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tokio-service/0.1")]
+#![doc(html_root_url = "https://docs.rs/tower/0.1")]
 
 extern crate futures;
 
@@ -20,7 +20,7 @@ use std::sync::Arc;
 ///
 /// The `Service` trait is a simplified interface making it easy to write
 /// network applications in a modular and reusable way, decoupled from the
-/// underlying protocol. It is one of Tokio's fundamental abstractions.
+/// underlying protocol. It is one of Tower's fundamental abstractions.
 ///
 /// # Functional
 ///
@@ -90,18 +90,19 @@ use std::sync::Arc;
 /// For example, take timeouts as an example:
 ///
 /// ```rust,ignore
-/// use tokio::Service;
+/// use tower::Service;
 /// use futures::Future;
 /// use std::time::Duration;
 ///
-/// // Not yet implemented, but soon :)
-/// use tokio::timer::{Timer, Expired};
+/// use tokio_timer::Timer;
 ///
 /// pub struct Timeout<T> {
 ///     upstream: T,
 ///     delay: Duration,
 ///     timer: Timer,
 /// }
+///
+/// pub struct Expired;
 ///
 /// impl<T> Timeout<T> {
 ///     pub fn new(upstream: T, delay: Duration) -> Timeout<T> {
@@ -123,8 +124,8 @@ use std::sync::Arc;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
 ///     fn call(&self, req: Self::Req) -> Self::Future {
-///         let timeout = self.timer.timeout(self.delay)
-///             .and_then(|timeout| Err(Self::Error::from(timeout)));
+///         let timeout = self.timer.sleep(self.delay)
+///             .and_then(|_| Err(Self::Error::from(Expired)));
 ///
 ///         self.upstream.call(req)
 ///             .select(timeout)
