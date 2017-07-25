@@ -10,7 +10,7 @@
 
 extern crate futures;
 
-use futures::Future;
+use futures::{Future, IntoFuture};
 
 use std::io;
 use std::rc::Rc;
@@ -171,21 +171,26 @@ pub trait NewService {
     /// The `Service` value created by this factory
     type Instance: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
 
-    /// Create and return a new service value.
-    fn new_service(&self) -> io::Result<Self::Instance>;
+    /// The future of the `Service` instance.
+    type Future: Future<Item = Self::Instance, Error = io::Error>;
+
+    /// Create and return a new service value asynchronously.
+    fn new_service(&self) -> Self::Future;
 }
 
-impl<F, R> NewService for F
-    where F: Fn() -> io::Result<R>,
-          R: Service,
+impl<F, R, S> NewService for F
+    where F: Fn() -> R,
+          R: IntoFuture<Item = S, Error = io::Error>,
+          S: Service,
 {
-    type Request = R::Request;
-    type Response = R::Response;
-    type Error = R::Error;
-    type Instance = R;
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Instance = S;
+    type Future = R::Future;
 
-    fn new_service(&self) -> io::Result<R> {
-        (*self)()
+    fn new_service(&self) -> Self::Future {
+        (*self)().into_future()
     }
 }
 
@@ -194,8 +199,9 @@ impl<S: NewService + ?Sized> NewService for Arc<S> {
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S::Instance;
+    type Future = S::Future;
 
-    fn new_service(&self) -> io::Result<S::Instance> {
+    fn new_service(&self) -> Self::Future {
         (**self).new_service()
     }
 }
@@ -205,8 +211,9 @@ impl<S: NewService + ?Sized> NewService for Rc<S> {
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S::Instance;
+    type Future = S::Future;
 
-    fn new_service(&self) -> io::Result<S::Instance> {
+    fn new_service(&self) -> Self::Future {
         (**self).new_service()
     }
 }
