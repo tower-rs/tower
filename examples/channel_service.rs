@@ -113,7 +113,7 @@ impl Service for ChannelService {
 
     fn poll_ready(&mut self) -> Poll<(), Error> {
         self.tx.lock().unwrap().poll_ready()
-            .map_err(|_| Error::AtCapacity)
+            .map_err(|_| Error::Failed)
     }
 
     fn call(&self, request: String) -> ResponseFuture {
