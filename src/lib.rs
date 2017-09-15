@@ -12,7 +12,6 @@ extern crate futures;
 
 use futures::{Future, IntoFuture};
 
-use std::io;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -173,7 +172,7 @@ pub trait NewService {
     type Instance: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
 
     /// The future of the `Service` instance.
-    type Future: Future<Item = Self::Instance, Error = io::Error>;
+    type Future: Future<Item = Self::Instance>;
 
     /// Create and return a new service value asynchronously.
     fn new_service(&self) -> Self::Future;
@@ -181,7 +180,7 @@ pub trait NewService {
 
 impl<F, R, S> NewService for F
     where F: Fn() -> R,
-          R: IntoFuture<Item = S, Error = io::Error>,
+          R: IntoFuture<Item = S>,
           S: Service,
 {
     type Request = S::Request;
