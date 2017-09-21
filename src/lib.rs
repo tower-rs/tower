@@ -203,7 +203,7 @@ impl<S: NewService + ?Sized> NewService for Arc<S> {
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S::Instance;
-    type InitError = <S::Future as Future>::Error;
+    type InitError = S::InitError;
     type Future = S::Future;
 
     fn new_service(&self) -> Self::Future {
@@ -216,7 +216,7 @@ impl<S: NewService + ?Sized> NewService for Rc<S> {
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S::Instance;
-    type InitError = <S::Future as Future>::Error;
+    type InitError = S::InitError;
     type Future = S::Future;
 
     fn new_service(&self) -> Self::Future {
