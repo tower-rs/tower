@@ -1,11 +1,8 @@
-# tokio-service
+# tower
 
-Definition of the core `Service` trait in Tokio
+fn(Request) -> Future<Response>
 
-[![Build Status](https://travis-ci.org/tokio-rs/tokio-service.svg?branch=master)](https://travis-ci.org/tokio-rs/tokio-service)
-[![Build status](https://ci.appveyor.com/api/projects/status/qgostmtadmlqae8n?svg=true)](https://ci.appveyor.com/project/alexcrichton/tokio-service)
-
-[Documentation](https://docs.rs/tokio-service)
+[![Build Status](https://travis-ci.org/carllerche/tower.svg?branch=master)](https://travis-ci.org/carllerche/tower)
 
 ## Usage
 
@@ -13,22 +10,22 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tokio-service = { git = "https://github.com/tokio-rs/tokio-service" }
+tower = { git = "https://github.com/carllerche/tower" }
 ```
 
 Next, add this to your crate:
 
 ```rust
-extern crate tokio_service;
+extern crate tower;
 ```
 
 You can find extensive examples and tutorials in addition to the [API
-documentation](https://docs.rs/tokio-service) at
-[https://tokio.rs](https://tokio.rs)
+documentation](https://docs.rs/tower) at
+[https://tower.rs](https://tower.rs)
 
 # License
 
-`tokio-service` is primarily distributed under the terms of both the MIT
+`tower` is primarily distributed under the terms of both the MIT
 license and the Apache License (Version 2.0), with portions covered by various
 BSD-like licenses.
 
