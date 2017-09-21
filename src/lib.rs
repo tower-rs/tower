@@ -181,16 +181,16 @@ pub trait NewService {
     fn new_service(&self) -> Self::Future;
 }
 
-impl<F, R, S> NewService for F
+impl<F, R, E, S> NewService for F
     where F: Fn() -> R,
-          R: IntoFuture<Item = S>,
+          R: IntoFuture<Item = S, Error = E>,
           S: Service,
 {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S;
-    type InitError = <R::Future as Future>::Error;
+    type InitError = E;
     type Future = R::Future;
 
     fn new_service(&self) -> Self::Future {
