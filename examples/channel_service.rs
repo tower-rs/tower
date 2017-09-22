@@ -29,13 +29,12 @@ use tokio_timer::Timer;
 
 use std::io;
 use std::time::Duration;
-use std::sync::Mutex;
 
 /// Service that dispatches requests to a side task using a channel.
 #[derive(Debug)]
 pub struct ChannelService {
     // Send the request and a oneshot Sender to push the response into.
-    tx: Mutex<Sender>,
+    tx: Sender,
 }
 
 type Sender = mpsc::Sender<(String, oneshot::Sender<String>)>;
@@ -82,6 +81,7 @@ impl NewService for NewChannelService {
     type Request = String;
     type Response = String;
     type Error = Error;
+    type InitError = io::Error;
     type Instance = ChannelService;
     type Future = FutureResult<Self::Instance, io::Error>;
 
@@ -99,7 +99,7 @@ impl NewService for NewChannelService {
                         Ok(())
                     })
             }))
-            .map(|_| ChannelService { tx: Mutex::new(tx) })
+            .map(|_| ChannelService { tx })
             .map_err(|_| io::ErrorKind::Other.into())
             .into_future()
     }
@@ -112,14 +112,14 @@ impl Service for ChannelService {
     type Future = ResponseFuture;
 
     fn poll_ready(&mut self) -> Poll<(), Error> {
-        self.tx.lock().unwrap().poll_ready()
+        self.tx.poll_ready()
             .map_err(|_| Error::Failed)
     }
 
-    fn call(&self, request: String) -> ResponseFuture {
+    fn call(&mut self, request: String) -> ResponseFuture {
         let (tx, rx) = oneshot::channel();
 
-        match self.tx.lock().unwrap().try_send((request, tx)) {
+        match self.tx.try_send((request, tx)) {
             Ok(_) => {}
             Err(_) => {
                 return ResponseFuture { rx: None };

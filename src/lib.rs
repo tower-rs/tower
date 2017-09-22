@@ -49,7 +49,11 @@ use std::sync::Arc;
 ///     type Error = http::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = http::Error>>;
 ///
-///     fn call(&self, req: http::Request) -> Self::Future {
+///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+///         Ok(Async::Ready(()))
+///     }
+///
+///     fn call(&mut self, req: http::Request) -> Self::Future {
 ///         // Create the HTTP response
 ///         let resp = http::Response::ok()
 ///             .with_body(b"hello world\n");
@@ -123,7 +127,11 @@ use std::sync::Arc;
 ///     type Error = T::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
-///     fn call(&self, req: Self::Req) -> Self::Future {
+///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+///         Ok(Async::Ready(()))
+///     }
+///
+///     fn call(&mut self, req: Self::Req) -> Self::Future {
 ///         let timeout = self.timer.sleep(self.delay)
 ///             .and_then(|_| Err(Self::Error::from(Expired)));
 ///
@@ -186,7 +194,7 @@ pub trait Service {
     /// implementations should take care to not call `poll_ready`. If the
     /// service is at capacity and the request is unable to be handled, the
     /// returned `Future` should resolve to an error.
-    fn call(&self, req: Self::Request) -> Self::Future;
+    fn call(&mut self, req: Self::Request) -> Self::Future;
 }
 
 /// Future yielding a `Service` once the service is ready to process a request
@@ -289,7 +297,7 @@ impl<S: Service + ?Sized> Service for Box<S> {
         (**self).poll_ready()
     }
 
-    fn call(&self, request: S::Request) -> S::Future {
+    fn call(&mut self, request: S::Request) -> S::Future {
         (**self).call(request)
     }
 }
