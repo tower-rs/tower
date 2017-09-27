@@ -8,9 +8,10 @@
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/tower/0.1")]
 
+#[macro_use]
 extern crate futures;
 
-use futures::{Future, IntoFuture};
+use futures::{Future, IntoFuture, Poll};
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -48,7 +49,11 @@ use std::sync::Arc;
 ///     type Error = http::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = http::Error>>;
 ///
-///     fn call(&self, req: http::Request) -> Self::Future {
+///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+///         Ok(Async::Ready(()))
+///     }
+///
+///     fn call(&mut self, req: http::Request) -> Self::Future {
 ///         // Create the HTTP response
 ///         let resp = http::Response::ok()
 ///             .with_body(b"hello world\n");
@@ -122,7 +127,11 @@ use std::sync::Arc;
 ///     type Error = T::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
-///     fn call(&self, req: Self::Req) -> Self::Future {
+///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+///         Ok(Async::Ready(()))
+///     }
+///
+///     fn call(&mut self, req: Self::Req) -> Self::Future {
 ///         let timeout = self.timer.sleep(self.delay)
 ///             .and_then(|_| Err(Self::Error::from(Expired)));
 ///
@@ -139,6 +148,16 @@ use std::sync::Arc;
 /// The above timeout implementation is decoupled from the underlying protocol
 /// and is also decoupled from client or server concerns. In other words, the
 /// same timeout middleware could be used in either a client or a server.
+///
+/// # Backpressure
+///
+/// Calling an at capacity `Service` (i.e., it temporarily unable to process a
+/// request) should result in an error. The caller is responsible for ensuring
+/// that the service is ready to receive the request before calling it.
+///
+/// `Service` provides a mechanism by which the caller is able to coordinate
+/// readiness. `Service::poll_ready` returns `Ready` if the service expects that
+/// it is able to process a request.
 pub trait Service {
 
     /// Requests handled by the service.
@@ -153,8 +172,34 @@ pub trait Service {
     /// The future response value.
     type Future: Future<Item = Self::Response, Error = Self::Error>;
 
+    /// A future yielding the service when it is ready to accept a request.
+    fn ready(self) -> Ready<Self> where Self: Sized {
+        Ready { inner: Some(self) }
+    }
+
+    /// Returns `Ready` when the service is able to process requests.
+    ///
+    /// If the service is at capacity, then `NotReady` is returned and the task
+    /// is notified when the service becomes ready again. This function is
+    /// expected to be called while on a task.
+    ///
+    /// This is a **best effort** implementation. False positives are permitted.
+    /// It is permitted for the service to return `Ready` from a `poll_ready`
+    /// call and the next invocation of `call` results in an error.
+    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+
     /// Process the request and return the response asynchronously.
-    fn call(&self, req: Self::Request) -> Self::Future;
+    ///
+    /// This function is expected to be callable off task. As such,
+    /// implementations should take care to not call `poll_ready`. If the
+    /// service is at capacity and the request is unable to be handled, the
+    /// returned `Future` should resolve to an error.
+    fn call(&mut self, req: Self::Request) -> Self::Future;
+}
+
+/// Future yielding a `Service` once the service is ready to process a request
+pub struct Ready<T> {
+    inner: Option<T>,
 }
 
 /// Creates new `Service` values.
@@ -179,6 +224,24 @@ pub trait NewService {
 
     /// Create and return a new service value asynchronously.
     fn new_service(&self) -> Self::Future;
+}
+
+impl<T> Future for Ready<T>
+where T: Service,
+{
+    type Item = T;
+    type Error = T::Error;
+
+    fn poll(&mut self) -> Poll<T, T::Error> {
+        match self.inner {
+            Some(ref mut service) => {
+                let _ = try_ready!(service.poll_ready());
+            }
+            None => panic!("called `poll` after future completed"),
+        }
+
+        Ok(self.inner.take().unwrap().into())
+    }
 }
 
 impl<F, R, E, S> NewService for F
@@ -230,29 +293,11 @@ impl<S: Service + ?Sized> Service for Box<S> {
     type Error = S::Error;
     type Future = S::Future;
 
-    fn call(&self, request: S::Request) -> S::Future {
-        (**self).call(request)
+    fn poll_ready(&mut self) -> Poll<(), S::Error> {
+        (**self).poll_ready()
     }
-}
 
-impl<S: Service + ?Sized> Service for Rc<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&self, request: S::Request) -> S::Future {
-        (**self).call(request)
-    }
-}
-
-impl<S: Service + ?Sized> Service for Arc<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&self, request: S::Request) -> S::Future {
+    fn call(&mut self, request: S::Request) -> S::Future {
         (**self).call(request)
     }
 }
