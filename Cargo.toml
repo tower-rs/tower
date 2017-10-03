@@ -22,6 +22,7 @@ members = [
   "tower-filter",
   "tower-mock",
   "tower-rate-limit",
+  "tower-reconnect",
   "tower-route",
   "tower-timeout",
 ]
