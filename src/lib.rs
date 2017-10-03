@@ -214,13 +214,13 @@ pub trait NewService {
     type Error;
 
     /// The `Service` value created by this factory
-    type Instance: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
+    type Service: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
 
     /// Errors produced while building a service.
     type InitError;
 
     /// The future of the `Service` instance.
-    type Future: Future<Item = Self::Instance, Error = Self::InitError>;
+    type Future: Future<Item = Self::Service, Error = Self::InitError>;
 
     /// Create and return a new service value asynchronously.
     fn new_service(&self) -> Self::Future;
@@ -252,7 +252,7 @@ impl<F, R, E, S> NewService for F
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
-    type Instance = S;
+    type Service = S;
     type InitError = E;
     type Future = R::Future;
 
@@ -265,7 +265,7 @@ impl<S: NewService + ?Sized> NewService for Arc<S> {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
-    type Instance = S::Instance;
+    type Service = S::Service;
     type InitError = S::InitError;
     type Future = S::Future;
 
@@ -278,7 +278,7 @@ impl<S: NewService + ?Sized> NewService for Rc<S> {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
-    type Instance = S::Instance;
+    type Service = S::Service;
     type InitError = S::InitError;
     type Future = S::Future;
 

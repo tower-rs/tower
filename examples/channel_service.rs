@@ -82,8 +82,8 @@ impl NewService for NewChannelService {
     type Response = String;
     type Error = Error;
     type InitError = io::Error;
-    type Instance = ChannelService;
-    type Future = FutureResult<Self::Instance, io::Error>;
+    type Service = ChannelService;
+    type Future = FutureResult<Self::Service, io::Error>;
 
     fn new_service(&self) -> Self::Future {
         let (tx, rx) = mpsc::channel::<(String, oneshot::Sender<String>)>(self.buffer);
