@@ -4,7 +4,7 @@ extern crate tower;
 use futures::Stream;
 use tower::{NewService, Service};
 
-use std::net::SocketAddr;
+use std::hash::Hash;
 
 pub trait Discover: Stream {
     type Request;
@@ -18,8 +18,10 @@ pub trait Discover: Stream {
                             Error = Self::ServiceError>;
 }
 
-pub trait Destination {
-    fn destination(&self) -> &SocketAddr;
+pub trait Key {
+    type Key: Hash + Eq;
+
+    fn key(&self) -> &Self::Key;
 }
 
 pub struct NewServiceSet<T> {
@@ -27,7 +29,7 @@ pub struct NewServiceSet<T> {
 }
 
 impl<T, U> Discover for T
-where U: NewService + Destination,
+where U: NewService + Key,
       T: Stream<Item = NewServiceSet<U>>,
 {
     type Request = U::Request;
