@@ -14,6 +14,17 @@ homepage = "https://tower.rs"
 repository = "https://github.com/tower-rs/tower"
 readme = "README.md"
 
+[workspace]
+
+members = [
+  "./",
+  "tower-filter",
+  "tower-mock",
+  "tower-rate-limit",
+  "tower-route",
+  "tower-timeout",
+]
+
 [dependencies]
 futures = "0.1"
 
@@ -22,3 +33,6 @@ log = "0.3"
 env_logger = "0.4"
 tokio-timer = "0.1"
 futures-cpupool = "0.1"
+
+[replace]
+"futures:0.1.16" = { git = "https://github.com/carllerche/futures-rs", branch = "test-harness" }

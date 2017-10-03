@@ -1,0 +1,12 @@
+[package]
+name = "tower-rate-limit"
+version = "0.1.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+
+[dependencies]
+futures = "0.1"
+tower = { version = "0.1", path = "../" }
+tokio-timer = "0.1"
+
+[dev-dependencies]
+tower-mock = { version = "0.1", path = "../tower-mock" }
