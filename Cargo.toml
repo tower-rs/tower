@@ -18,6 +18,7 @@ readme = "README.md"
 
 members = [
   "./",
+  "tower-balance",
   "tower-discover",
   "tower-filter",
   "tower-mock",

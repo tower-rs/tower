@@ -1,0 +1,9 @@
+[package]
+name = "tower-balance"
+version = "0.1.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+
+[dependencies]
+futures = "0.1"
+tower = { version = "0.1", path = "../" }
+tower-discover = { version = "0.1", path = "../tower-discover" }
