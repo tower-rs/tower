@@ -7,3 +7,5 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 futures = "0.1"
 tower = { version = "0.1", path = "../" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
+tower-reconnect = { version = "0.1", path = "../tower-reconnect" }
+ordermap = "0.2"
