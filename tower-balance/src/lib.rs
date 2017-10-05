@@ -1,14 +1,12 @@
 extern crate futures;
 extern crate tower;
 extern crate tower_discover;
-extern crate tower_reconnect;
 extern crate ordermap;
 
 use futures::{Future, Poll, Async};
 
 use tower::Service;
-use tower_discover::{Discover};
-use tower_reconnect::Reconnect;
+use tower_discover::Discover;
 
 use ordermap::OrderMap;
 
@@ -30,7 +28,7 @@ pub enum Error<T, U> {
 pub struct ResponseFuture<T>
 where T: Discover,
 {
-    inner: <Reconnect<T::NewService> as Service>::Future,
+    inner: <T::Service as Service>::Future,
 }
 
 /// Round-robin based load balancing
@@ -41,7 +39,7 @@ where T: Discover,
     discover: T,
 
     /// The endpoints managed by the balancer
-    endpoints: OrderMap<T::Key, Reconnect<T::NewService>>,
+    endpoints: OrderMap<T::Key, T::Service>,
 
     /// Balancer entry to use when handling the next request
     pos: usize,
@@ -131,7 +129,7 @@ where T: Discover,
     ///
     /// This function may panic if `poll_ready` did not return `Ready`
     /// immediately prior.
-    fn next(&mut self) -> &mut Reconnect<T::NewService> {
+    fn next(&mut self) -> &mut T::Service {
         let pos = self.pos;
         self.inc_pos();
 
@@ -156,8 +154,7 @@ where T: Discover,
                 Insert(key, val) => {
                     // TODO: What to do if there already is an entry with the
                     // given `key` in the set?
-                    self.endpoints.entry(key)
-                        .or_insert_with(|| Reconnect::new(val));
+                    self.endpoints.entry(key).or_insert(val);
                 }
                 Remove(key) => {
                     // TODO: What to do if there is no entry?
@@ -187,15 +184,7 @@ where T: Discover,
     type Error = Error<T::Error, T::DiscoverError>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use tower_reconnect::Error::*;
-
-        self.inner.poll().map_err(|e| {
-            match e {
-                Inner(v) => Error::Inner(v),
-                NotReady => Error::NotReady,
-                // The connect variant can only happen in poll_ready
-                Connect(_) => unreachable!(),
-            }
-        })
+        self.inner.poll()
+            .map_err(Error::Inner)
     }
 }
