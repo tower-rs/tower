@@ -7,4 +7,4 @@ mod either;
 mod option;
 mod service_fn;
 
-pub use service_fn::ServiceFn;
+pub use service_fn::{ServiceFn, NewServiceFn};
