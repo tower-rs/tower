@@ -27,6 +27,7 @@ members = [
   "tower-reconnect",
   "tower-route",
   "tower-timeout",
+  "tower-util",
 ]
 
 [dependencies]
