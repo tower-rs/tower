@@ -1,3 +1,7 @@
+//! Contains `OptionService` and related types and functions.
+//!
+//! See `OptionService` documentation for more details.
+//!
 use futures::{Future, Poll};
 use tower::Service;
 
