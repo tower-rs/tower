@@ -287,6 +287,21 @@ impl<S: NewService + ?Sized> NewService for Rc<S> {
     }
 }
 
+impl<'a, S: Service + 'a> Service for &'a mut S {
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn poll_ready(&mut self) -> Poll<(), S::Error> {
+        (**self).poll_ready()
+    }
+
+    fn call(&mut self, request: S::Request) -> S::Future {
+        (**self).call(request)
+    }
+}
+
 impl<S: Service + ?Sized> Service for Box<S> {
     type Request = S::Request;
     type Response = S::Response;
