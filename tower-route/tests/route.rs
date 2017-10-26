@@ -1,4 +1,5 @@
 extern crate futures;
+extern crate futures_test;
 extern crate tower;
 extern crate tower_route;
 
@@ -7,14 +8,14 @@ use tower_route::*;
 
 use futures::*;
 use futures::future::FutureResult;
-use futures::executor::TestHarness;
+use futures_test::Harness;
 
 use std::collections::HashMap;
 
 macro_rules! assert_ready {
     ($service:expr) => {{
         let s = $service;
-        let mut t = TestHarness::new(future::poll_fn(|| s.poll_ready()));
+        let mut t = Harness::poll_fn(|| s.poll_ready());
         assert!(t.poll().unwrap().is_ready());
     }};
 }
@@ -22,7 +23,7 @@ macro_rules! assert_ready {
 macro_rules! assert_not_ready {
     ($service:expr) => {{
         let s = $service;
-        let mut t = TestHarness::new(future::poll_fn(|| s.poll_ready()));
+        let mut t = Harness::poll_fn(|| s.poll_ready());
         assert!(!t.poll().unwrap().is_ready());
     }};
 }
@@ -80,7 +81,7 @@ fn inner_service_not_ready() {
     let mut service = Route::new(recognize);
 
     let resp = service.call("two".into());
-    let mut resp = TestHarness::new(resp);
+    let mut resp = Harness::new(resp);
     assert!(!resp.poll().unwrap().is_ready());
 
     assert_not_ready!(&mut service);
