@@ -1,56 +1,131 @@
 use futures::{Future, Poll};
 use tower::Service;
 
-/// A boxed `Service` object.
+use std::fmt;
+
+/// A boxed `Service` trait object.
 ///
-/// `Boxed` turns a service into a trait object, allowing the response future
-/// type to be dynamic.
+/// `BoxService` turns a service into a trait object, allowing the response
+/// future type to be dynamic. This type requires both the service and the
+/// response future to be `Send`.
+pub struct BoxService<T, U, E> {
+    inner: Box<Service<Request = T,
+                      Response = U,
+                         Error = E,
+                        Future = BoxFuture<U, E>> + Send>,
+}
+
+/// A boxed `Future + Send` trait object.
+///
+/// This type alias represents a boxed future that is `Send` and can be moved
+/// across threads.
+pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send>;
+
+/// A boxed `Service` trait object.
+pub struct UnsyncBoxService<T, U, E> {
+    inner: Box<Service<Request = T,
+                      Response = U,
+                         Error = E,
+                        Future = UnsyncBoxFuture<U, E>>>,
+}
+
+/// A boxed `Future` trait object.
+///
+/// This type alias represents a boxed future that is *not* `Send` and must
+/// remain on the current thread.
+pub type UnsyncBoxFuture<T, E> = Box<Future<Item = T, Error = E>>;
+
 #[derive(Debug)]
-pub struct Boxed<S> {
+struct Boxed<S> {
     inner: S,
 }
 
 #[derive(Debug)]
-struct BoxedUnsync<S> {
+struct UnsyncBoxed<S> {
     inner: S,
+}
+
+// ===== impl BoxService =====
+
+impl<T, U, E> BoxService<T, U, E>
+{
+    pub fn new<S>(inner: S) -> Self
+        where S: Service<Request = T, Response = U, Error = E> + Send + 'static,
+              S::Future: Send + 'static,
+    {
+        let inner = Box::new(Boxed { inner });
+        BoxService { inner }
+    }
+}
+
+impl<T, U, E> Service for BoxService<T, U, E>
+{
+    type Request = T;
+    type Response = U;
+    type Error = E;
+    type Future = BoxFuture<U, E>;
+
+    fn poll_ready(&mut self) -> Poll<(), E> {
+        self.inner.poll_ready()
+    }
+
+    fn call(&mut self, request: T) -> BoxFuture<U, E> {
+        self.inner.call(request)
+    }
+}
+
+impl<T, U, E> fmt::Debug for BoxService<T, U, E>
+where T: fmt::Debug,
+      U: fmt::Debug,
+      E: fmt::Debug,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("BoxService")
+            .finish()
+    }
+}
+
+// ===== impl UnsyncBoxService =====
+
+impl<T, U, E> UnsyncBoxService<T, U, E>
+{
+    pub fn new<S>(inner: S) -> Self
+        where S: Service<Request = T, Response = U, Error = E> + 'static,
+              S::Future: 'static,
+    {
+        let inner = Box::new(UnsyncBoxed { inner });
+        UnsyncBoxService { inner }
+    }
+}
+
+impl<T, U, E> Service for UnsyncBoxService<T, U, E>
+{
+    type Request = T;
+    type Response = U;
+    type Error = E;
+    type Future = UnsyncBoxFuture<U, E>;
+
+    fn poll_ready(&mut self) -> Poll<(), E> {
+        self.inner.poll_ready()
+    }
+
+    fn call(&mut self, request: T) -> UnsyncBoxFuture<U, E> {
+        self.inner.call(request)
+    }
+}
+
+impl<T, U, E> fmt::Debug for UnsyncBoxService<T, U, E>
+where T: fmt::Debug,
+      U: fmt::Debug,
+      E: fmt::Debug,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("UnsyncBoxService")
+            .finish()
+    }
 }
 
 // ===== impl Boxed =====
-
-impl<S> Boxed<S>
-where S: Service + 'static,
-      S::Future: 'static,
-{
-    /// Return a new boxed `Service + Send`.
-    ///
-    /// Both the service AND the response future must be *Send*. This allows the
-    /// returned service object to be moved across threads.
-    pub fn new(inner: S)
-        -> Box<Service<Request = S::Request,
-                      Response = S::Response,
-                         Error = S::Error,
-                        Future = Box<Future<Item = S::Response,
-                                           Error = S::Error> + Send>> + Send>
-    where S: Send,
-          S::Future: Send,
-    {
-        Box::new(Boxed { inner })
-    }
-
-    /// Returns a new boxed `Service`.
-    ///
-    /// The returned service is **not** `Send` and must remain on the thread
-    /// that it got constructed on.
-    pub fn unsync(inner: S)
-        -> Box<Service<Request = S::Request,
-                      Response = S::Response,
-                         Error = S::Error,
-                        Future = Box<Future<Item = S::Response,
-                                           Error = S::Error>>>>
-    {
-        Box::new(BoxedUnsync { inner })
-    }
-}
 
 impl<S> Service for Boxed<S>
 where S: Service + 'static,
@@ -71,9 +146,9 @@ where S: Service + 'static,
     }
 }
 
-// ===== impl BoxedUnsync =====
+// ===== impl UnsyncBoxed =====
 
-impl<S> Service for BoxedUnsync<S>
+impl<S> Service for UnsyncBoxed<S>
 where S: Service + 'static,
       S::Future: 'static,
 {

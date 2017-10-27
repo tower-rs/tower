@@ -5,10 +5,10 @@ extern crate tower;
 
 pub mod either;
 pub mod option;
-mod boxed;
+pub mod boxed;
 mod service_fn;
 
-pub use boxed::Boxed;
+pub use boxed::BoxService;
 pub use either::EitherService;
 pub use service_fn::NewServiceFn;
 pub use option::OptionService;
