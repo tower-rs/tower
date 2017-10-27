@@ -1,7 +1,5 @@
-use futures::{IntoFuture, Poll};
+use futures::IntoFuture;
 use tower::{Service, NewService};
-
-use std::marker::PhantomData;
 
 /// A `NewService` implemented by a closure.
 pub struct NewServiceFn<T> {
@@ -34,31 +32,5 @@ where T: Fn() -> R,
 
     fn new_service(&self) -> Self::Future {
         (self.f)().into_future()
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use futures::{future, Future};
-    use std::rc::Rc;
-
-    #[test]
-    fn smoke() {
-        fn f<T>(service: &mut T)
-        where T: Service<Request = u32,
-                        Response = Rc<u32>,
-                        Error = ()> + Sync
-        {
-            let resp = service.call(123);
-            assert_eq!(*resp.wait().unwrap(), 456);
-        }
-
-        let mut service = ServiceFn::new(|request| {
-            assert_eq!(request, 123);
-            future::ok(Rc::new(456))
-        });
-
-        f(&mut service);
     }
 }

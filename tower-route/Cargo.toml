@@ -6,4 +6,7 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 [dependencies]
 futures = "0.1"
 tower = { version = "0.1", path = "../" }
-futures-borrow = { git = "https://github.com/carllerche/futures-borrow" }
+futures-borrow = { git = "https://github.com/carllerche/better-future" }
+
+[dev-dependencies]
+futures-test = { git = "https://github.com/carllerche/better-future" }
