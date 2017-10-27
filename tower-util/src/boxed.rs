@@ -1,13 +1,73 @@
+//! Trait object `Service` instances
+//!
+//! Dynamically dispatched `Service` objects allow for erasing the underlying
+//! `Service` type and using the `Service` intances as opaque handles. This can
+//! be useful when the service instance cannot be explictly named for whatever
+//! reason.
+//!
+//! There are two variants of service objects. `BoxService` requires both the
+//! service and the response future to be `Send`. These values can move freely
+//! across threads. `UnsyncBoxService` requires both the service and the
+//! response future to remain on the current thread. This is useful for
+//! representing services that are backed by `Rc` or other non-`Send` types.
+//!
+//! # Examples
+//!
+//! ```
+//! # extern crate futures;
+//! # extern crate tower;
+//! # extern crate tower_util;
+//! # use futures::*;
+//! # use futures::future::FutureResult;
+//! # use tower::*;
+//! # use tower_util::*;
+//! // Respond to requests using a closure. Since closures cannot be named,
+//! // `ServiceFn` cannot be named either
+//! pub struct ServiceFn<F> {
+//!     f: F,
+//! }
+//!
+//! impl<F> Service for ServiceFn<F>
+//! where F: Fn(String) -> String,
+//! {
+//!     type Request = String;
+//!     type Response = String;
+//!     type Error = ();
+//!     type Future = FutureResult<String, ()>;
+//!
+//!     fn poll_ready(&mut self) -> Poll<(), ()> {
+//!         Ok(().into())
+//!     }
+//!
+//!     fn call(&mut self, request: String) -> FutureResult<String, ()> {
+//!         future::ok((self.f)(request))
+//!     }
+//! }
+//!
+//! pub fn main() {
+//!     let f = |mut request: String| {
+//!         request.push_str(" response");
+//!         request
+//!     };
+//!
+//!     let service: BoxService<String, String, ()> =
+//!         BoxService::new(ServiceFn { f });
+//! # drop(service);
+//! }
+//! ```
+
 use futures::{Future, Poll};
 use tower::Service;
 
 use std::fmt;
 
-/// A boxed `Service` trait object.
+/// A boxed `Service + Send` trait object.
 ///
 /// `BoxService` turns a service into a trait object, allowing the response
 /// future type to be dynamic. This type requires both the service and the
 /// response future to be `Send`.
+///
+/// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
     inner: Box<Service<Request = T,
                       Response = U,
