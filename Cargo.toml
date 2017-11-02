@@ -25,7 +25,7 @@ members = [
   "tower-mock",
   "tower-rate-limit",
   "tower-reconnect",
-  "tower-route",
+  "tower-router",
   "tower-timeout",
   "tower-util",
 ]

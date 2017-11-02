@@ -16,7 +16,7 @@ use std::mem;
 use self::ResponseState::*;
 
 /// Routes requests to an inner service based on the request.
-pub struct Route<T> {
+pub struct Router<T> {
     recognize: Borrow<T>,
 }
 
@@ -60,7 +60,7 @@ where T: Recognize,
     state: ResponseState<T>,
 }
 
-/// Error produced by the `Route` service
+/// Error produced by the `Router` service
 ///
 /// TODO: Make variants priv
 #[derive(Debug)]
@@ -88,18 +88,18 @@ where T: Recognize
     Invalid,
 }
 
-// ===== impl Route =====
+// ===== impl Router =====
 
-impl<T> Route<T>
+impl<T> Router<T>
 where T: Recognize
 {
     /// Create a new router
     pub fn new(recognize: T) -> Self {
-        Route { recognize: Borrow::new(recognize) }
+        Router { recognize: Borrow::new(recognize) }
     }
 }
 
-impl<T> Service for Route<T>
+impl<T> Service for Router<T>
 where T: Recognize,
 {
     type Request = T::Request;
