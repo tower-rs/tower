@@ -1,10 +1,10 @@
 extern crate futures;
 extern crate futures_test;
 extern crate tower;
-extern crate tower_route;
+extern crate tower_router;
 
 use tower::Service;
-use tower_route::*;
+use tower_router::*;
 
 use futures::*;
 use futures::future::FutureResult;
@@ -34,7 +34,7 @@ fn basic_routing() {
     recognize.map.insert("one".into(), StringService::ok("hello"));
     recognize.map.insert("two".into(), StringService::ok("world"));
 
-    let mut service = Route::new(recognize);
+    let mut service = Router::new(recognize);
 
     // Router is ready by default
     assert_ready!(&mut service);
@@ -61,7 +61,7 @@ fn inner_service_err() {
     recognize.map.insert("one".into(), StringService::ok("hello"));
     recognize.map.insert("two".into(), StringService::err());
 
-    let mut service = Route::new(recognize);
+    let mut service = Router::new(recognize);
 
     let resp = service.call("two".into());
     assert!(resp.wait().is_err());
@@ -78,7 +78,7 @@ fn inner_service_not_ready() {
     recognize.map.insert("one".into(), MaybeService::new("hello"));
     recognize.map.insert("two".into(), MaybeService::none());
 
-    let mut service = Route::new(recognize);
+    let mut service = Router::new(recognize);
 
     let resp = service.call("two".into());
     let mut resp = Harness::new(resp);

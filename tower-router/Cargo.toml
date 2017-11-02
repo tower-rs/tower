@@ -1,5 +1,5 @@
 [package]
-name = "tower-route"
+name = "tower-router"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
 
