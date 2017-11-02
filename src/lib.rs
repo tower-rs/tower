@@ -197,6 +197,28 @@ pub trait Service {
     fn call(&mut self, req: Self::Request) -> Self::Future;
 }
 
+/// An asynchronous function from `Request` to a `Response`.
+///
+/// `ReadyService` is similar to `Service`, except that it is always able to
+/// accept a request. This request may either complete successfully or resolve
+/// to an error.
+pub trait ReadyService {
+    /// Requests handled by the service.
+    type Request;
+
+    /// Responses returned by the service.
+    type Response;
+
+    /// Errors produced by the service.
+    type Error;
+
+    /// The future response value.
+    type Future: Future<Item = Self::Response, Error = Self::Error>;
+
+    /// Process the request and return the response asynchronously.
+    fn call(&mut self, req: Self::Request) -> Self::Future;
+}
+
 /// Future yielding a `Service` once the service is ready to process a request
 pub struct Ready<T> {
     inner: Option<T>,
