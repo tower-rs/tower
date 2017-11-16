@@ -13,6 +13,7 @@ documentation = "https://docs.rs/tower"
 homepage = "https://tower.rs"
 repository = "https://github.com/tower-rs/tower"
 readme = "README.md"
+publish = false
 
 [workspace]
 
