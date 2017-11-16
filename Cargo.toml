@@ -2,7 +2,7 @@
 
 name = "tower"
 version = "0.1.0"
-license = "MIT/Apache-2.0"
+license = "MIT"
 authors = ["Carl Lerche <me@carllerche.com>"]
 description = """
 An extensible request / response system, used to construct high-concurrency
