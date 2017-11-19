@@ -41,6 +41,7 @@ where T: Service,
 }
 
 /// Errors produced by `Buffer`.
+#[derive(Debug)]
 pub enum Error<T> {
     Inner(T),
     Closed,

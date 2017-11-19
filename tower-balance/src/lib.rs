@@ -19,6 +19,7 @@ where T: Discover,
 }
 
 /// Error produced by `Balance`
+#[derive(Debug)]
 pub enum Error<T, U> {
     Inner(T),
     Balance(U),
