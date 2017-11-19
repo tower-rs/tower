@@ -18,6 +18,7 @@ pub struct ResponseFuture<T> {
 }
 
 /// Error produced by `OptionService` responding to a request.
+#[derive(Debug)]
 pub enum Error<T> {
     Inner(T),
     None,
