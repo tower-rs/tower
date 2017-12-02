@@ -1,4 +1,6 @@
 extern crate futures;
+#[macro_use]
+extern crate log;
 extern crate tower;
 
 use futures::{Future, Async, Poll};
