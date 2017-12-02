@@ -83,7 +83,7 @@ where T: NewService
                             return Ok(Async::NotReady);
                         }
                         Err(e) => {
-                            trace!("poll_ready; connecting error: {:?}", e);
+                            trace!("poll_ready; error");
                             state = Idle;
                             ret = Err(Error::Connect(e));
                             break;
@@ -102,6 +102,7 @@ where T: NewService
                             return Ok(Async::NotReady);
                         }
                         Err(_) => {
+                            trace!("poll_ready; error");
                             state = Idle;
                         }
                     }
