@@ -65,19 +65,23 @@ where T: NewService
         loop {
             match self.state {
                 Idle => {
+                    trace!("poll_ready; idle");
                     let fut = self.new_service.new_service();
                     self.state = Connecting(fut);
                     continue;
                 }
                 Connecting(ref mut f) => {
+                    trace!("poll_ready; connecting");
                     match f.poll() {
                         Ok(Async::Ready(service)) => {
                             state = Connected(service);
                         }
                         Ok(Async::NotReady) => {
+                            trace!("poll_ready; not ready");
                             return Ok(Async::NotReady);
                         }
                         Err(e) => {
+                            trace!("poll_ready; connecting error: {:?}", e);
                             state = Idle;
                             ret = Err(Error::Connect(e));
                             break;
@@ -85,11 +89,14 @@ where T: NewService
                     }
                 }
                 Connected(ref mut inner) => {
+                    trace!("poll_ready; connected");
                     match inner.poll_ready() {
                         Ok(Async::Ready(_)) => {
+                            trace!("poll_ready; ready");
                             return Ok(Async::Ready(()));
                         }
                         Ok(Async::NotReady) => {
+                            trace!("poll_ready; not ready");
                             return Ok(Async::NotReady);
                         }
                         Err(_) => {
@@ -108,6 +115,8 @@ where T: NewService
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
         use self::State::*;
+
+        trace!("call");
 
         let service = match self.state {
             Connected(ref mut service) => service,
@@ -139,6 +148,8 @@ impl<T: NewService> Future for ResponseFuture<T> {
     type Error = Error<T::Error, T::InitError>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        trace!("poll response");
+
         match self.inner {
             Some(ref mut f) => {
                 f.poll().map_err(Error::Inner)
