@@ -2,20 +2,31 @@
 language: rust
 sudo: false
 
-rust:
-  - stable
-  - nightly
-
-before_script:
-  - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
+matrix:
+  include:
+  - rust: nightly
+  - rust: stable
+    before_deploy: cargo doc --all --no-deps
+  allow_failures:
+    - rust: nightly
 
 script:
-  - cargo build
-  - cargo test
-  - cargo doc --no-deps
+- cargo test
 
-after_success:
-  - travis-cargo --only nightly doc-upload
+deploy:
+  provider:  pages
+  skip_cleanup: true
+  github_token: $GH_TOKEN
+  target_branch: gh-pages
+  local_dir: target/doc
+  on:
+    branch: master
+    repo: tower-rs/tower
+    rust: stable
+
+env:
+  global:
+    secure: e3Rw+pE2XE5N9q/irDo4Od9K1+mGg1HZmanNjDW2abA0m+FaxpqmtSxDcPvsHEpms/vLVLg5AGN+nP7EDhNwHhm8gPjwdaNJi3v60+p3+oQz3bhR53t+8KFR35C3XuP17mXOLYbvM7zhFieQiRwknxcVh+oTHejZk7/tY511JfhQV4R72M9LGgfUCN+mvOTwyCuZ+UuTnxkklVQ2RzlzkZ8XTbfIw7P4DoHEbWCf1vV2D/sSdb73bU26Y9GggCHb+VFDlX+Xtu8BTAB+NHzNXlGcWqzvg0yAqepGUyFO9hbUjN1jj28IEdKeGRJi3lw50i+ZeX5a8+OBjzbFuGEtmBO1dfCMJxLNIWsLu5bd3t65pBHMzXIipJ5x6SfDtAREn8uK1GbP44bhTp+USDDaoUaZujlF8u1R7RJtbeUwYHZj3qDdeqSIVawDMPcWeR5lulUZu/Qna13PJtXAiM6oVy0HmRlqlDT5HvXyYX+vm8MGji8z+LL6eBim8MzSD93aEJhA/bBpkLTbpFGFtiypzx95DxSoNhogo2dhUE9noM+gKEDoSUDBdmUNiYdSIZKFaSej8DrLjwqDKAuDJlWzfYxNVe8CAjBsf3PB22MRTGAGTOt/70pUJOQjJ4Ec2wwJxAJu1mFGMprJ41nen5th3GwQO6Y7eFF67s7uI8R8rto=
 
 notifications:
   email:
