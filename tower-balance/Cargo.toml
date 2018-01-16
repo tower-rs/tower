@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 futures = "0.1"
+rand = "0.4"
 tower = { version = "0.1", path = "../" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
 ordermap = "0.2"
