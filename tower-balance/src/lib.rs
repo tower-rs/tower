@@ -15,34 +15,56 @@ use tower_discover::Discover;
 pub mod load;
 pub mod select;
 
-pub use load::{Load, PollLoad, WithLoad};
+pub use load::{Load, Loaded};
 pub use select::Select;
 
-/// Balances requests across a set of inner services.
-pub struct Balance<D, L, S>
+/// Creates a new Power of Two Choices load balancer.
+pub fn power_of_two_choices<D, R>(discover: D, rng: R)
+    -> Balance<D, select::PowerOfTwoChoices<D::Key, D::Service, R>>
 where
     D: Discover,
     D::Key: Clone,
-    L: WithLoad<Service = D::Service>,
-    S: Select<Key = D::Key, Service = L::PollLoad>,
+    D::Service: Loaded,
+    R: Rng,
+{
+    Balance::new(discover, select::PowerOfTwoChoices::new(rng))
+}
+
+/// Creates a new Round Robin balancer.
+///
+/// The balancer selects each node in order. This order is not strictly enforced.
+pub fn round_robin<D>(discover: D)
+    -> Balance<D, select::RoundRobin<D::Key, D::Service>>
+where
+    D: Discover,
+    D::Service: Loaded,
+    D::Key: Clone,
+{
+    Balance::new(discover, select::RoundRobin::default())
+}
+
+/// Balances requests across a set of inner services.
+pub struct Balance<D, S>
+where
+    D: Discover,
+    D::Key: Clone,
+    D::Service: Loaded,
+    S: Select<Key = D::Key, Loaded = D::Service>,
 {
     /// Provides endpoints from service discovery.
     discover: D,
 
-    /// Wraps endpoint services with a load metric.
-    with_load: L,
-
     /// Determines which endpoint is ready to be used next.
     select: S,
 
-    /// Holds the key of an endpoint that has been selected to be used next.
-    ready_endpoint: Option<D::Key>,
+    /// Newly-added endpoints that have not yet become ready.
+    not_ready: OrderMap<D::Key, D::Service>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
-    endpoints: OrderMap<D::Key, L::PollLoad>,
+    ready: OrderMap<D::Key, D::Service>,
 
-    /// Newly-added endpoints that have not yet become ready.
-    new_endpoints: OrderMap<D::Key, L::PollLoad>,
+    /// Holds the key of an endpoint that has been selected to be used next.
+    selected: Option<D::Key>,
 }
 
 /// Error produced by `Balance`
@@ -57,69 +79,75 @@ pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
 
 // ===== impl Balance =====
 
-impl<D, L, S> Balance<D, L, S>
+impl<D, S> Balance<D, S>
 where
     D: Discover,
     D::Key: Clone,
-    L: WithLoad<Service = D::Service>,
-    S: Select<Key = D::Key, Service = L::PollLoad>,
+    D::Service: Loaded,
+    S: Select<Key = D::Key, Loaded = D::Service>,
 {
     /// Creates a new balancer.
-    pub fn new(discover: D, with_load: L, select: S) -> Self {
+    pub fn new(discover: D, select: S) -> Self {
         Self {
             discover,
             select,
-            with_load,
-            ready_endpoint: None,
-            endpoints: OrderMap::default(),
-            new_endpoints: OrderMap::default(),
+            not_ready: OrderMap::default(),
+            ready: OrderMap::default(),
+            selected: None,
         }
     }
 
-    /// Polls discovery for updates.
-    ///
-    /// Returns ready iff there is at least ones endpoint.
-    fn poll_discover(&mut self) -> Poll<(), Error<<L::PollLoad as Service>::Error, D::DiscoverError>> {
+    fn update_from_discover(&mut self) -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
         use tower_discover::Change::*;
 
-        for idx in self.new_endpoints.len()-1..0 {
-            let poll = {
-                let (_, mut svc) = self.new_endpoints.get_index_mut(idx).unwrap();
-                svc.poll_ready().map_err(Error::Inner)?
-            };
-
-            if poll.is_ready() {
-                let (key, svc) = self.new_endpoints.swap_remove_index(idx).unwrap();
-                self.endpoints.insert(key, svc);
-            }
-        }
-
-        while let Async::Ready(change) = try!(self.discover.poll().map_err(Error::Balance)) {
+        while let Async::Ready(change) = self.discover.poll().map_err(Error::Balance)? {
             match change {
-                Insert(key, svc) => {
-                    if self.endpoints.contains_key(&key) || self.new_endpoints.contains_key(&key) {
+                Insert(key, mut svc) => {
+                    if self.ready.contains_key(&key) || self.not_ready.contains_key(&key) {
                         // Ignore duplicate endpoints.
                         continue;
                     }
 
-                    let mut svc = self.with_load.with_load(svc);
-
-                    let poll = svc.poll_load().map_err(Error::Inner)?;
-                    if poll.is_ready() {
-                        self.endpoints.insert(key, svc);
+                    if svc.poll_ready().map_err(Error::Inner)?.is_ready() {
+                        self.ready.insert(key, svc);
                     } else {
-                        self.new_endpoints.insert(key, svc);
+                        self.not_ready.insert(key, svc);
                     }
                 }
 
                 Remove(key) => {
-                    self.endpoints.remove(&key);
-                    self.new_endpoints.remove(&key);
+                    let _ejected = match self.ready.remove(&key) {
+                        None => self.not_ready.remove(&key),
+                        Some(s) => Some(s),
+                    };
+                    // TODO we need some sort of graceful shutdown here.
                 }
             }
         }
 
-        if self.endpoints.is_empty() {
+        Ok(())
+    }
+
+    /// Polls unready nodes for readiness.
+    ///
+    /// Returns ready iff there is at least one ready node.
+    fn poll_not_ready(&mut self) -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
+        // Poll all  not-ready endpoints to ensure they
+        // Iterate through the not-ready endpoints from right to left to prevent removals
+        // from reordering nodes in a way that could prevent a node from being polled.
+        for idx in self.not_ready.len()-1..0 {
+            let poll = {
+                let (_, mut svc) = self.not_ready.get_index_mut(idx).unwrap();
+                svc.poll_ready().map_err(Error::Inner)?
+            };
+
+            if poll.is_ready() {
+                let (key, svc) = self.not_ready.swap_remove_index(idx).unwrap();
+                self.ready.insert(key, svc);
+            }
+        }
+
+        if self.ready.is_empty() {
             Ok(Async::NotReady)
         } else {
             Ok(Async::Ready(()))
@@ -127,72 +155,32 @@ where
     }
 }
 
-impl<D> Balance<
-    D,
-    load::WithConstant<D::Service>,
-    select::RoundRobin<D::Key, load::Constant<D::Service>>,
->
+impl<D, S> Service for Balance<D, S>
 where
     D: Discover,
     D::Key: Clone,
+    D::Service: Loaded,
+    S: Select<Key = D::Key, Loaded = D::Service>,
 {
-    /// Creates a new balancer.
-    ///
-    /// The balancer selects each node in order. This order is not strictly enforced.
-    pub fn round_robin(discover: D) -> Self {
-        let load = load::WithConstant::min();
-        let select = select::RoundRobin::default();
-        Self::new(discover, load, select)
-    }
-}
-
-impl<D, R> Balance<
-    D,
-    load::WithPendingRequests<D::Service>,
-    select::PowerOfTwoChoices<D::Key, load::PendingRequests<D::Service>, R>,
->
-where
-    D: Discover,
-    D::Key: Clone,
-    R: Rng,
-{
-    /// Creates a new balancer.
-    ///
-    /// The balancer selects the least-loaded endpoint using Mitzenmacher's _Power of Two
-    /// Choices_.
-    pub fn pending_requests_p2c(discover: D, rng: R) -> Self {
-        let load = load::WithPendingRequests::default();
-        let select = select::PowerOfTwoChoices::new(rng);
-        Self::new(discover, load, select)
-    }
-}
-
-impl<D, L, S> Service for Balance<D, L, S>
-where
-    D: Discover,
-    D::Key: Clone,
-    L: WithLoad<Service = D::Service>,
-    S: Select<Key = D::Key, Service = L::PollLoad>,
-{
-    type Request = <L::PollLoad as Service>::Request;
-    type Response = <L::PollLoad as Service>::Response;
-    type Error = Error<<L::PollLoad as Service>::Error, D::DiscoverError>;
-    type Future = ResponseFuture<<L::PollLoad as Service>::Future, D::DiscoverError>;
+    type Request = <D::Service as Service>::Request;
+    type Response = <D::Service as Service>::Response;
+    type Error = Error<<D::Service as Service>::Error, D::DiscoverError>;
+    type Future = ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        try_ready!(self.poll_discover());
-        assert!(!self.endpoints.is_empty(), "Balance is ready when there are endpoints");
+        self.update_from_discover()?;
+        try_ready!(self.poll_not_ready());
+        debug_assert!(!self.ready.is_empty(), "Balance is ready when there are endpoints");
 
-        let nodes = self.endpoints.iter_mut();
-        let key =  try_ready!(self.select.poll_next_ready(nodes).map_err(Error::Inner));
-        self.ready_endpoint = Some(key.clone());
+        let key = self.select.call(&self.ready);
+        self.selected = Some(key.clone());
 
         Ok(Async::Ready(()))
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
-        let key = self.ready_endpoint.take().expect("not ready");
-        let svc = self.endpoints.get_mut(&key).expect("not ready");
+        let key = self.selected.take().expect("not ready");
+        let svc = self.ready.get_mut(&key).expect("not ready");
 
         ResponseFuture(svc.call(request), PhantomData)
     }

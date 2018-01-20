@@ -1,9 +1,7 @@
-use futures::Poll;
-use ordermap::IterMut;
+use ordermap::OrderMap;
 use std::hash::Hash;
-use tower::Service;
 
-use PollLoad;
+use Loaded;
 
 mod p2c;
 mod round_robin;
@@ -14,15 +12,12 @@ pub use self::round_robin::RoundRobin;
 /// A strategy for selecting nodes.
 pub trait Select {
     type Key: Hash + Eq;
-    type Service: PollLoad;
+    type Loaded: Loaded;
 
     /// Returns the key of a ready endpoint.
     ///
     /// ## Panics
     ///
-    /// If `endpoints` is empty.
-    fn poll_next_ready<'s>(
-        &mut self,
-        nodes: IterMut<'s, Self::Key, Self::Service>
-    ) -> Poll<&'s Self::Key, <Self::Service as Service>::Error>;
+    /// If `ready` is empty.
+    fn call<'s>(&mut self, ready: &'s OrderMap<Self::Key, Self::Loaded>) -> &'s Self::Key;
 }

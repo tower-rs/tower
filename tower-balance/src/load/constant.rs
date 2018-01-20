@@ -1,24 +1,17 @@
-use futures::{Async, Poll};
-use std::marker::PhantomData;
+use futures::Poll;
 use tower::Service;
 
-use {Load, PollLoad, WithLoad};
+use {Load, Loaded};
 
-/// Wraps a `Service` so that `PollLoad::poll_load` returns a constant `Load`.
-pub struct Constant<S: Service> {
+/// Wraps a `Service` so that `Loaded::poll_load` returns a constant `Load`.
+pub struct Constant<S> {
     inner: S,
     load: Load,
 }
 
-/// Wraps `Service`s with `Constant`.
-pub struct WithConstant<S: Service> {
-    load: Load,
-    _p: PhantomData<S>,
-}
-
 // ===== impl Constant =====
 
-impl<S: Service> Constant<S> {
+impl<S> Constant<S> {
     pub fn new(inner: S, load: Load) -> Self {
         Self {
             inner,
@@ -35,6 +28,12 @@ impl<S: Service> Constant<S> {
     }
 }
 
+impl<S> Loaded for Constant<S> {
+    fn load(&self) -> Load {
+        self.load
+    }
+}
+
 impl<S: Service> Service for Constant<S> {
     type Request = S::Request;
     type Response = S::Response;
@@ -47,48 +46,5 @@ impl<S: Service> Service for Constant<S> {
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
         self.inner.call(req)
-    }
-}
-
-impl<S: Service> PollLoad for Constant<S> {
-    fn poll_load(&mut self) -> Poll<Load, S::Error> {
-        try_ready!(self.inner.poll_ready());
-        Ok(Async::Ready(self.load))
-    }
-}
-
-// ===== impl WithConstant =====
-
-impl<S: Service> WithConstant<S> {
-    pub fn new(load: Load) -> Self {
-        WithConstant { load, _p: PhantomData }
-    }
-
-    pub fn min() -> Self {
-        Self::new(Load::MIN)
-    }
-
-    pub fn max() -> Self {
-        Self::new(Load::MAX)
-    }
-}
-
-impl<S: Service> Clone for WithConstant<S> {
-    fn clone(&self) -> Self {
-        Self {
-            load: self.load,
-            _p: PhantomData,
-        }
-    }
-}
-
-impl<S: Service> Copy for WithConstant<S> {}
-
-impl<S: Service> WithLoad for WithConstant<S> {
-    type Service = S;
-    type PollLoad = Constant<S>;
-
-    fn with_load(&self, from: S) -> Self::PollLoad {
-        Constant::new(from, self.load)
     }
 }

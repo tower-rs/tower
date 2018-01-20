@@ -1,26 +1,25 @@
-use futures::{Async, Poll};
-use ordermap::IterMut;
+use ordermap::OrderMap;
 use rand::Rng;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use {PollLoad,  Select};
+use {Loaded,  Select};
 
 /// Selects nodes by choosing the lesser-loaded of pairs of randomly-selected nodes.
-pub struct PowerOfTwoChoices<K, S, R>
+pub struct PowerOfTwoChoices<K, L, R>
 where
     K: Hash + Eq,
-    S: PollLoad,
+    L: Loaded,
     R: Rng,
 {
     rng: R,
-    _p: PhantomData<(K, S)>,
+    _p: PhantomData<(K, L)>,
 }
 
-impl<K, S, R: Rng> PowerOfTwoChoices<K, S, R>
+impl<K, L, R: Rng> PowerOfTwoChoices<K, L, R>
 where
     K: Hash + Eq,
-    S: PollLoad,
+    L: Loaded,
     R: Rng,
 {
     pub fn new(rng: R) -> Self {
@@ -28,53 +27,35 @@ where
     }
 }
 
-impl<K, S, R> Select for PowerOfTwoChoices<K, S, R>
+impl<K, L, R> Select for PowerOfTwoChoices<K, L, R>
 where
     K: Hash + Eq,
-    S: PollLoad,
+    L: Loaded,
     R: Rng,
 {
     type Key = K;
-    type Service = S;
+    type Loaded = L;
 
-    fn poll_next_ready<'s>(&mut self, iter: IterMut<'s, K, S>) -> Poll<&'s Self::Key, S::Error> {
-        let mut nodes = iter.collect::<Vec<_>>();
-        assert!(!nodes.is_empty(), "must select over empty nodess");
 
-        // Randomly select pairs of nodes to compare until a ready node is found. If both
-        // nodes are ready, the lesser-loaded endpoint is used.
-        while !nodes.is_empty() {
-            if nodes.len() == 1 {
-                // If only one node is present, ensure that it's ready before returning it.
-                let (key, svc) = nodes.pop().unwrap();
-                return Ok(svc.poll_load()?.map(|_| key));
-            }
+    fn call<'s>(&mut self, ready: &'s OrderMap<Self::Key, Self::Loaded>) -> &'s Self::Key {
+        assert!(!ready.is_empty(), "must select over empty nodess");
 
-            let (key0, load0) = {
-                let i = self.rng.gen::<usize>() % nodes.len();
-                let (k, s) = nodes.swap_remove(i);
-                (k, s.poll_load()?)
-            };
+        let (key0, load0) = {
+            let i = self.rng.gen::<usize>() % ready.len();
+            let (k, s) = ready.get_index(i).expect("out of bounds");
+            (k, s.load())
+        };
 
-            let (key1, load1) = {
-                let i = self.rng.gen::<usize>() % nodes.len();
-                let (k, s) = nodes.swap_remove(i);
-                (k, s.poll_load()?)
-            };
+        let (key1, load1) = {
+            let i = self.rng.gen::<usize>() % ready.len();
+            let (k, s) = ready.get_index(i).expect("out of bounds");
+            (k, s.load())
+        };
 
-            let key = match (load0, load1) {
-                (Async::NotReady, Async::NotReady) => {
-                    // Neither node is ready, so continue to inspect additional nodes.
-                    continue;
-                }
-                (Async::Ready(_), Async::NotReady) => key0,
-                (Async::NotReady, Async::Ready(_)) => key1,
-                (Async::Ready(l0), Async::Ready(l1)) => if l0 < l1 { key0 } else { key1 },
-            };
-
-            return Ok(Async::Ready(key));
+        if load0 <= load1 {
+            key0
+        }  else {
+            key1
         }
-
-        Ok(Async::NotReady)
     }
 }

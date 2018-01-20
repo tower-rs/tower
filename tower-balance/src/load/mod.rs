@@ -1,26 +1,14 @@
-use futures::Poll;
-use tower::Service;
-
 mod constant;
 mod pending_requests;
 
-pub use self::constant::{Constant, WithConstant};
-pub use self::pending_requests::{PendingRequests, WithPendingRequests};
+pub use self::constant::Constant;
+pub use self::pending_requests::PendingRequests;
 
-/// A `Service` that has a load metric when it is ready.
-pub trait PollLoad: Service {
+pub trait Loaded {
     /// Returns a `Load` metric for the underlying `Service`, if the service is ready.
     ///
     /// Must not return a value unless `Service::poll_ready` would return `Async::Ready`.
-    fn poll_load(&mut self) -> Poll<Load, Self::Error>;
-}
-
-/// Wraps services so that they implement `PollLoad`.
-pub trait WithLoad {
-    type Service: Service;
-    type PollLoad: PollLoad;
-
-    fn with_load(&self, from: Self::Service) -> Self::PollLoad;
+    fn load(&self) -> Load;
 }
 
 /// Describes a relative load associated with an endpoint.

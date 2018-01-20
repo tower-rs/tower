@@ -1,27 +1,26 @@
-use futures::{Async, Poll};
-use ordermap::IterMut;
+use ordermap::OrderMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use {PollLoad,  Select};
+use {Loaded,  Select};
 
 /// Selects nodes sequentially.
 ///
 /// Note that ordering is not strictly enforced, especially when nodes are removed.
-pub struct RoundRobin<K, S>
+pub struct RoundRobin<K, L>
 where
     K: Hash + Eq,
-    S: PollLoad,
+    L: Loaded,
 {
     /// References the index of the next node to be polled.
     pos: usize,
-    _p: PhantomData<(K, S)>,
+    _p: PhantomData<(K, L)>,
 }
 
-impl<K, S> Default for RoundRobin<K, S>
+impl<K, L> Default for RoundRobin<K, L>
 where
     K: Hash + Eq,
-    S: PollLoad,
+    L: Loaded,
 {
     fn default() -> Self {
         Self {
@@ -31,34 +30,23 @@ where
     }
 }
 
-impl<K, S> Select for RoundRobin<K, S>
+impl<K, L> Select for RoundRobin<K, L>
 where
     K: Hash + Eq,
-    S: PollLoad,
+    L: Loaded,
 {
     type Key = K;
-    type Service = S;
+    type Loaded = L;
 
-    fn poll_next_ready<'s>(&mut self, iter: IterMut<'s, K, S>) -> Poll<&'s Self::Key, S::Error> {
-        let mut nodes = iter.collect::<Vec<_>>();
-        assert!(!nodes.is_empty(), "poll_next_ready be called with a non-empty set of endpoints");
+    fn call<'s>(&mut self, ready: &'s OrderMap<K, L>) -> &'s Self::Key {
+        assert!(!ready.is_empty(), "call be called with a non-empty set of endpoints");
 
-        let len = nodes.len();
-        for _ in 0..len {
-            let idx = self.pos % len;
-            self.pos = (idx + 1) % len;
+        let len = ready.len();
 
-            let ready = {
-                let (_, ref mut svc) = nodes[idx];
-                svc.poll_load()?.is_ready()
-            };
+        let idx = self.pos % len;
+        self.pos = (idx + 1) % len;
 
-            if ready {
-                let (ref key, _) = nodes[idx];
-                return Ok(Async::Ready(key));
-            }
-        }
-
-        Ok(Async::NotReady)
+        let (ref key, _) = ready.get_index(idx).expect("out of bounds");
+        key
     }
 }
