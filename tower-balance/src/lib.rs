@@ -12,59 +12,59 @@ use std::marker::PhantomData;
 use tower::Service;
 use tower_discover::Discover;
 
+pub mod choose;
 pub mod load;
-pub mod select;
 
 pub use load::{Load, Loaded};
-pub use select::Select;
+pub use choose::Choose;
 
 /// Creates a new Power of Two Choices load balancer.
 pub fn power_of_two_choices<D, R>(discover: D, rng: R)
-    -> Balance<D, select::PowerOfTwoChoices<D::Key, D::Service, R>>
+    -> Balance<D, choose::PowerOfTwoChoices<D::Key, D::Service, R>>
 where
     D: Discover,
     D::Key: Clone,
     D::Service: Loaded,
     R: Rng,
 {
-    Balance::new(discover, select::PowerOfTwoChoices::new(rng))
+    Balance::new(discover, choose::PowerOfTwoChoices::new(rng))
 }
 
 /// Creates a new Round Robin balancer.
 ///
 /// The balancer selects each node in order. This order is not strictly enforced.
 pub fn round_robin<D>(discover: D)
-    -> Balance<D, select::RoundRobin<D::Key, D::Service>>
+    -> Balance<D, choose::RoundRobin<D::Key, D::Service>>
 where
     D: Discover,
     D::Service: Loaded,
     D::Key: Clone,
 {
-    Balance::new(discover, select::RoundRobin::default())
+    Balance::new(discover, choose::RoundRobin::default())
 }
 
 /// Balances requests across a set of inner services.
-pub struct Balance<D, S>
+pub struct Balance<D, C>
 where
     D: Discover,
     D::Key: Clone,
     D::Service: Loaded,
-    S: Select<Key = D::Key, Loaded = D::Service>,
+    C: Choose<Key = D::Key, Loaded = D::Service>,
 {
     /// Provides endpoints from service discovery.
     discover: D,
 
     /// Determines which endpoint is ready to be used next.
-    select: S,
+    choose: C,
 
-    /// Newly-added endpoints that have not yet become ready.
-    not_ready: OrderMap<D::Key, D::Service>,
+    /// Holds the key of an endpoint that has been selected to be used next.
+    chosen: Option<D::Key>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
     ready: OrderMap<D::Key, D::Service>,
 
-    /// Holds the key of an endpoint that has been selected to be used next.
-    selected: Option<D::Key>,
+    /// Newly-added endpoints that have not yet become ready.
+    not_ready: OrderMap<D::Key, D::Service>,
 }
 
 /// Error produced by `Balance`
@@ -79,21 +79,21 @@ pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
 
 // ===== impl Balance =====
 
-impl<D, S> Balance<D, S>
+impl<D, C> Balance<D, C>
 where
     D: Discover,
     D::Key: Clone,
     D::Service: Loaded,
-    S: Select<Key = D::Key, Loaded = D::Service>,
+    C: Choose<Key = D::Key, Loaded = D::Service>,
 {
     /// Creates a new balancer.
-    pub fn new(discover: D, select: S) -> Self {
+    pub fn new(discover: D, choose: C) -> Self {
         Self {
             discover,
-            select,
-            not_ready: OrderMap::default(),
+            choose,
+            chosen: None,
             ready: OrderMap::default(),
-            selected: None,
+            not_ready: OrderMap::default(),
         }
     }
 
@@ -155,12 +155,12 @@ where
     }
 }
 
-impl<D, S> Service for Balance<D, S>
+impl<D, C> Service for Balance<D, C>
 where
     D: Discover,
     D::Key: Clone,
     D::Service: Loaded,
-    S: Select<Key = D::Key, Loaded = D::Service>,
+    C: Choose<Key = D::Key, Loaded = D::Service>,
 {
     type Request = <D::Service as Service>::Request;
     type Response = <D::Service as Service>::Response;
@@ -172,14 +172,14 @@ where
         try_ready!(self.poll_not_ready());
         debug_assert!(!self.ready.is_empty(), "Balance is ready when there are endpoints");
 
-        let key = self.select.call(&self.ready);
-        self.selected = Some(key.clone());
+        let key = self.choose.call(&self.ready);
+        self.chosen = Some(key.clone());
 
         Ok(Async::Ready(()))
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
-        let key = self.selected.take().expect("not ready");
+        let key = self.chosen.take().expect("not ready");
         let svc = self.ready.get_mut(&key).expect("not ready");
 
         ResponseFuture(svc.call(request), PhantomData)

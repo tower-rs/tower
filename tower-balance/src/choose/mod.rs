@@ -10,7 +10,7 @@ pub use self::p2c::PowerOfTwoChoices;
 pub use self::round_robin::RoundRobin;
 
 /// A strategy for selecting nodes.
-pub trait Select {
+pub trait Choose {
     type Key: Hash + Eq;
     type Loaded: Loaded;
 

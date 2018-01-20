@@ -2,9 +2,9 @@ use ordermap::OrderMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use {Loaded,  Select};
+use {Loaded,  Choose};
 
-/// Selects nodes sequentially.
+/// Chooses nodes sequentially.
 ///
 /// Note that ordering is not strictly enforced, especially when nodes are removed.
 pub struct RoundRobin<K, L>
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<K, L> Select for RoundRobin<K, L>
+impl<K, L> Choose for RoundRobin<K, L>
 where
     K: Hash + Eq,
     L: Loaded,

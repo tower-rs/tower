@@ -3,9 +3,9 @@ use rand::Rng;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use {Loaded,  Select};
+use {Loaded,  Choose};
 
-/// Selects nodes by choosing the lesser-loaded of pairs of randomly-selected nodes.
+/// Chooses nodes by choosing the lesser-loaded of pairs of randomly-selected nodes.
 pub struct PowerOfTwoChoices<K, L, R>
 where
     K: Hash + Eq,
@@ -27,7 +27,7 @@ where
     }
 }
 
-impl<K, L, R> Select for PowerOfTwoChoices<K, L, R>
+impl<K, L, R> Choose for PowerOfTwoChoices<K, L, R>
 where
     K: Hash + Eq,
     L: Loaded,
