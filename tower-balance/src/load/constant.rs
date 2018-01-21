@@ -1,9 +1,10 @@
-use futures::Poll;
+use futures::{Async, Poll};
 use tower::Service;
+use tower_discover::{Change, Discover};
 
 use {Load, Loaded};
 
-/// Wraps a type so that `Loaded::load` returns a constant `Load`.
+/// Wraps a type so that `Loaded::load` returns a constant value.
 pub struct Constant<T> {
     inner: T,
     load: Load,
@@ -26,7 +27,6 @@ impl<T> Loaded for Constant<T> {
     }
 }
 
-/// Proxies `Service`.
 impl<S: Service> Service for Constant<S> {
     type Request = S::Request;
     type Response = S::Response;
@@ -39,5 +39,27 @@ impl<S: Service> Service for Constant<S> {
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
         self.inner.call(req)
+    }
+}
+
+/// Proxies `Discover` such that all changes are wrapped with a constant load.
+impl<D: Discover> Discover for Constant<D> {
+    type Key = D::Key;
+    type Request = D::Request;
+    type Response = D::Response;
+    type Error = D::Error;
+    type Service = Constant<D::Service>;
+    type DiscoverError = D::DiscoverError;
+
+    /// Yields the next discovery change set.
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+        use self::Change::*;
+
+        let change = match try_ready!(self.inner.poll()) {
+            Insert(k, svc) => Insert(k, Constant::new(svc, self.load)),
+            Remove(k) => Remove(k),
+        };
+
+        Ok(Async::Ready(change))
     }
 }

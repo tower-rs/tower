@@ -2,6 +2,7 @@ use futures::{Future, Poll, Async};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tower::Service;
+use tower_discover::{Change, Discover};
 
 use {Load, Loaded};
 
@@ -18,6 +19,11 @@ use {Load, Loaded};
 pub struct PendingRequests<T> {
     inner: T,
     pending: Arc<AtomicUsize>,
+}
+
+/// Wraps `inner`'s services with `PendingRequests`.
+pub struct WithPendingRequests<D: Discover> {
+    inner: D,
 }
 
 /// Ensures that `pending` is decremented.
@@ -78,6 +84,35 @@ impl<S: Service> Service for PendingRequests<S> {
             pending: Some(self.incr_pending()),
             inner: self.inner.call(req),
         }
+    }
+}
+
+// ===== impl WithPendingRequests =====
+
+impl<D: Discover> WithPendingRequests<D> {
+    pub fn new(inner: D) -> Self {
+        Self { inner }
+    }
+}
+
+impl<D: Discover> Discover for WithPendingRequests<D> {
+    type Key = D::Key;
+    type Request = D::Request;
+    type Response = D::Response;
+    type Error = D::Error;
+    type Service = PendingRequests<D::Service>;
+    type DiscoverError = D::DiscoverError;
+
+    /// Yields the next discovery change set.
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+        use self::Change::*;
+
+        let change = match try_ready!(self.inner.poll()) {
+            Insert(k, svc) => Insert(k, PendingRequests::new(svc)),
+            Remove(k) => Remove(k),
+        };
+
+        Ok(Async::Ready(change))
     }
 }
 

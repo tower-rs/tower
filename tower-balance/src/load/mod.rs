@@ -2,7 +2,7 @@ mod constant;
 mod pending_requests;
 
 pub use self::constant::Constant;
-pub use self::pending_requests::PendingRequests;
+pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 
 /// Describes a relative load associated with an endpoint on [0.0, 1.0].
 ///

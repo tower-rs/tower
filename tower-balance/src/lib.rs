@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate futures;
 extern crate ordermap;
 extern crate rand;
@@ -6,6 +7,7 @@ extern crate tower_discover;
 
 use futures::{Future, Poll, Async};
 use ordermap::OrderMap;
+use rand::Rng;
 use std::marker::PhantomData;
 use tower::Service;
 use tower_discover::Discover;
@@ -13,10 +15,45 @@ use tower_discover::Discover;
 pub mod choose;
 pub mod load;
 
-pub use choose::{Choose, RoundRobin, PowerOfTwoChoices};
+pub use choose::Choose;
 pub use load::{Load, Loaded};
 
+/// Chooses nodes using the [Power of Two Choices][p2c].
+///
+/// This configuration is prefered when a load metric is known.
+///
+/// As described in the [Finagle Guide][finagle]:
+/// > The algorithm randomly picks two nodes from the set of ready endpoints and selects
+/// > the least loaded of the two. By repeatedly using this strategy, we can expect a
+/// > manageable upper bound on the maximum load of any server.
+/// >
+/// > The maximum load variance between any two servers is bound by `ln(ln(n))` where `n`
+/// > is the number of servers in the cluster.
+///
+/// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
+/// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+pub fn power_of_two_choices<D, R>(discover: D, rng: R) -> PowerOfTwoChoices<D, R>
+where
+    D: Discover,
+    D::Service: Loaded,
+    R: Rng,
+{
+    Balance::new(discover, choose::PowerOfTwoChoices::new(rng))
+}
+
+/// Attempts to choose nodes sequentially.
+///
+/// This configuration is prefered no load metric is known.
+pub fn round_robin<D: Discover>(discover: D) -> RoundRobin<D> {
+    Balance::new(load::Constant::new(discover, Load::MAX), choose::RoundRobin::default())
+}
+
+pub type PowerOfTwoChoices<D, R> = Balance<D, choose::PowerOfTwoChoices<R>>;
+
+pub type RoundRobin<D> = Balance<load::Constant<D>, choose::RoundRobin>;
+
 /// Balances requests across a set of inner services.
+#[derive(Debug)]
 pub struct Balance<D: Discover, C> {
     /// Provides endpoints from service discovery.
     discover: D,
@@ -24,13 +61,11 @@ pub struct Balance<D: Discover, C> {
     /// Determines which endpoint is ready to be used next.
     choose: C,
 
-    /// Holds the key of an endpoint that has been selected to be used next.
+    /// Holds an index into `ready`, indicating the node that has been chosen to dispatch
+    /// the next request.
     chosen_ready_index: Option<usize>,
 
-    /// Holds the key of an endpoint after a request has been dispatched to it.
-    ///
-    /// This is so that `poll_ready` can check to see if this node should be moved to
-    /// `not_ready`.
+    /// Holds an index into `ready`, indicating the node that dispatched the last request.
     dispatched_ready_index: Option<usize>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
@@ -70,6 +105,9 @@ where
         }
     }
 
+    /// Polls `discover` for updates, adding new items to `not_ready`.
+    ///
+    /// Removals may alter the order of either `ready` or `not_ready`.
     fn update_from_discover(&mut self)
         -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
@@ -103,8 +141,8 @@ where
     /// Calls `poll_ready` on all services in `not_ready`.
     ///
     /// When `poll_ready` returns ready, the node is removed from `not_ready` and inserted
-    /// into `ready`.
-    fn promote_not_ready(&mut self)
+    /// into `ready`, potentially altering the order of `ready` and/or `not_ready`.
+    fn promote_to_ready(&mut self)
         -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
         // Iterate through the not-ready endpoints from right to left to prevent removals
@@ -131,7 +169,7 @@ where
     /// If the key exists in `ready`, poll its readiness.
     ///
     /// If the node exists in `ready` and does not poll as ready, it is moved to
-    /// `not_ready`.
+    /// `not_ready`, potentially altering the order of `ready` and/or `not_ready`.
     pub fn poll_ready_index(&mut self, idx: usize)
         -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>>
     {
@@ -168,21 +206,19 @@ where
     /// When `Async::Ready` is returned, `chosen_ready_index` is set with a valid index
     /// into `ready` referring to a `Service` that is ready to disptach a request.
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        // Check the readiness of a previously-chosen node, moving it to not-ready if
-        // appropriate. This must be done before changing `ready`, since it can reorder
-        // nodes.
+        // Before `ready` is altered, clear out any chosen index.
+        self.chosen_ready_index = None;
+
+        // Before `ready` is altered, check the readiness of the last-used node, moving it
+        // to `not_ready` if appropriate.
         if let Some(idx) = self.dispatched_ready_index.take() {
-            // XXX Should we swallow per-endpoint errors?
+            // XXX Should we handle per-endpoint errors?
             self.poll_ready_index(idx).expect("invalid dispatched ready key")?;
         }
 
-        // Updating from discovery adds new nodes to `not_ready` and may remove nodes from
-        // either `ready` or `not_ready`; so, even though `chosen_ready_index` is
-        // typically None, `poll_ready` may be called multuple times without `call` being
-        // invoked, so we need to take care to clear out this state.
-        self.chosen_ready_index = None;
+        // Update `ready` and `not_ready`.
         self.update_from_discover()?;
-        self.promote_not_ready()?;
+        self.promote_to_ready()?;
 
         // Choose a node from `ready` and ensure that it's still ready, since it's
         // possible that it was added some time ago. Continue doing this until a chosen
@@ -194,7 +230,7 @@ where
                 _ => self.choose.call(&self.ready),
             };
 
-            // XXX Should we swallow per-endpoint errors?
+            // XXX Should we handle per-endpoint errors?
             if self.poll_ready_index(idx).expect("invalid ready index")?.is_ready() {
                 self.chosen_ready_index = Some(idx);
                 return Ok(Async::Ready(()));
