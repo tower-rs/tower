@@ -6,7 +6,6 @@ extern crate tower_discover;
 
 use futures::{Future, Poll, Async};
 use ordermap::OrderMap;
-use rand::Rng;
 use std::marker::PhantomData;
 use tower::Service;
 use tower_discover::Discover;
@@ -14,33 +13,8 @@ use tower_discover::Discover;
 pub mod choose;
 pub mod load;
 
-pub use choose::Choose;
+pub use choose::{Choose, RoundRobin, PowerOfTwoChoices};
 pub use load::{Load, Loaded};
-
-/// Creates a new Power of Two Choices load balancer.
-pub fn power_of_two_choices<D, R>(discover: D, rng: R)
-    -> Balance<D, choose::PowerOfTwoChoices<D::Key, D::Service, R>>
-where
-    D: Discover,
-    D::Key: Clone,
-    D::Service: Loaded,
-    R: Rng,
-{
-    Balance::new(discover, choose::PowerOfTwoChoices::new(rng))
-}
-
-/// Creates a new Round Robin balancer.
-///
-/// The balancer selects each node in order. This order is not strictly enforced.
-pub fn round_robin<D>(discover: D)
-    -> Balance<D, choose::RoundRobin<D::Key, D::Service>>
-where
-    D: Discover,
-    D::Service: Loaded,
-    D::Key: Clone,
-{
-    Balance::new(discover, choose::RoundRobin::default())
-}
 
 /// Balances requests across a set of inner services.
 pub struct Balance<D, C>
@@ -196,7 +170,8 @@ where
 
     /// Prepares the balancer to process a request.
     ///
-    /// When `Async::Ready` is returned, `chosen` has a value that refers to a
+    /// When `Async::Ready` is returned, `chosen_ready_index` is set with a valid index
+    /// into `ready` referring to a `Service` that is ready to disptach a request.
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // Check the readiness of a previously-chosen node, moving it to not-ready if
         // appropriate. This must be done before changing `ready`, since it can reorder
@@ -217,10 +192,11 @@ where
         // Choose a node from `ready` and ensure that it's still ready, since it's
         // possible that it was added some time ago. Continue doing this until a chosen
         // node is ready or there are no ready nodes.
-        while !self.ready.is_empty() {
-            let (idx, ..) = {
-                let key = self.choose.call(&self.ready);
-                self.ready.get_pair_index(key).expect("invalid ready key")
+        loop {
+            let idx = match self.ready.len() {
+                0 => return Ok(Async::NotReady),
+                1 => 0,
+                _ => self.choose.call(&self.ready),
             };
 
             // XXX Should we swallow per-endpoint errors?
@@ -229,8 +205,6 @@ where
                 return Ok(Async::Ready(()));
             }
         }
-
-        return Ok(Async::NotReady);
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {

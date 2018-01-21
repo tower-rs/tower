@@ -38,15 +38,12 @@ where
     type Key = K;
     type Loaded = L;
 
-    fn call<'s>(&mut self, ready: &'s OrderMap<K, L>) -> &'s Self::Key {
-        assert!(!ready.is_empty(), "call be called with a non-empty set of endpoints");
+    fn call(&mut self, ready: &OrderMap<K, L>) -> usize {
+        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
 
         let len = ready.len();
-
         let idx = self.pos % len;
         self.pos = (idx + 1) % len;
-
-        let (ref key, _) = ready.get_index(idx).expect("out of bounds");
-        key
+        idx
     }
 }

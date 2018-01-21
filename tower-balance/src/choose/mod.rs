@@ -14,10 +14,10 @@ pub trait Choose {
     type Key: Hash + Eq;
     type Loaded: Loaded;
 
-    /// Returns the key of a ready endpoint.
+    /// Returns the index of a ready endpoint.
     ///
     /// ## Panics
     ///
     /// If `ready` is empty.
-    fn call<'s>(&mut self, ready: &'s OrderMap<Self::Key, Self::Loaded>) -> &'s Self::Key;
+    fn call(&mut self, ready: &OrderMap<Self::Key, Self::Loaded>) -> usize;
 }
