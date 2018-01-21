@@ -1,7 +1,5 @@
 use ordermap::OrderMap;
 use rand::Rng;
-use std::hash::Hash;
-use std::marker::PhantomData;
 
 use {Load, Loaded,  Choose};
 
@@ -17,46 +15,28 @@ use {Load, Loaded,  Choose};
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-pub struct PowerOfTwoChoices<K, L, R>
-where
-    K: Hash + Eq,
-    L: Loaded,
-    R: Rng,
-{
+#[derive(Debug)]
+pub struct PowerOfTwoChoices<R> {
     rng: R,
-    _p: PhantomData<(K, L)>,
 }
 
-impl<K, L, R: Rng> PowerOfTwoChoices<K, L, R>
-where
-    K: Hash + Eq,
-    L: Loaded,
-    R: Rng,
-{
+impl<R: Rng> PowerOfTwoChoices<R> {
     pub fn new(rng: R) -> Self {
-        Self { rng, _p: PhantomData }
+        Self { rng }
     }
 
-    fn choose(&mut self, ready: &OrderMap<K, L>) -> (usize, Load) {
+    fn choose<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> (usize, Load) {
         let i = self.rng.gen::<usize>() % ready.len();
         let (_, s) = ready.get_index(i).expect("out of bounds");
         (i, s.load())
     }
 }
 
-impl<K, L, R> Choose for PowerOfTwoChoices<K, L, R>
-where
-    K: Hash + Eq,
-    L: Loaded,
-    R: Rng,
-{
-    type Key = K;
-    type Loaded = L;
-
+impl<R: Rng> Choose for PowerOfTwoChoices<R> {
     /// Chooses two distinct nodes at random and compares their load.
     ///
     /// Returns the index of the lesser-loaded node.
-    fn call(&mut self, ready: &OrderMap<K, L>) -> usize {
+    fn call<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> usize {
         assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
 
         let (idx0, load0) = self.choose(ready);

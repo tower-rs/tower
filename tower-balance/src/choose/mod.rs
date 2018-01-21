@@ -1,5 +1,4 @@
 use ordermap::OrderMap;
-use std::hash::Hash;
 
 use Loaded;
 
@@ -11,13 +10,10 @@ pub use self::round_robin::RoundRobin;
 
 /// A strategy for selecting nodes.
 pub trait Choose {
-    type Key: Hash + Eq;
-    type Loaded: Loaded;
-
     /// Returns the index of a ready endpoint.
     ///
     /// ## Panics
     ///
     /// If `ready` is empty.
-    fn call(&mut self, ready: &OrderMap<Self::Key, Self::Loaded>) -> usize;
+    fn call<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> usize;
 }

@@ -17,12 +17,7 @@ pub use choose::{Choose, RoundRobin, PowerOfTwoChoices};
 pub use load::{Load, Loaded};
 
 /// Balances requests across a set of inner services.
-pub struct Balance<D, C>
-where
-    D: Discover,
-    D::Service: Loaded,
-    C: Choose<Key = D::Key, Loaded = D::Service>,
-{
+pub struct Balance<D: Discover, C> {
     /// Provides endpoints from service discovery.
     discover: D,
 
@@ -61,7 +56,7 @@ impl<D, C> Balance<D, C>
 where
     D: Discover,
     D::Service: Loaded,
-    C: Choose<Key = D::Key, Loaded = D::Service>,
+    C: Choose,
 {
     /// Creates a new balancer.
     pub fn new(discover: D, choose: C) -> Self {
@@ -161,7 +156,7 @@ impl<D, C> Service for Balance<D, C>
 where
     D: Discover,
     D::Service: Loaded,
-    C: Choose<Key = D::Key, Loaded = D::Service>,
+    C: Choose,
 {
     type Request = <D::Service as Service>::Request;
     type Response = <D::Service as Service>::Response;
@@ -178,7 +173,7 @@ where
         // nodes.
         if let Some(idx) = self.dispatched_ready_index.take() {
             // XXX Should we swallow per-endpoint errors?
-            self.poll_ready_index(idx).expect("invalid ready key")?;
+            self.poll_ready_index(idx).expect("invalid dispatched ready key")?;
         }
 
         // Updating from discovery adds new nodes to `not_ready` and may remove nodes from
@@ -209,7 +204,7 @@ where
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
         let idx = self.chosen_ready_index.take().expect("not ready");
-        let (_, svc) = self.ready.get_index_mut(idx).expect("invalid ready index");
+        let (_, svc) = self.ready.get_index_mut(idx).expect("invalid chosen ready index");
         self.dispatched_ready_index = Some(idx);
 
         let rsp = svc.call(request);
