@@ -24,7 +24,7 @@ pub struct ResponseFuture<S: Service> {
 
 impl<S: Service> PendingRequests<S> {
     pub fn new(inner: S, factor: f64) -> Self {
-        assert!(0.0 < factor && factor < 1.0, "factor must be on (0.0, 1.0)");
+        assert!(0.0 < factor, "factor must be greater than 0");
         Self {
             inner,
             factor,
