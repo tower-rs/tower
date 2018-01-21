@@ -25,10 +25,34 @@ impl<R: Rng> PowerOfTwoChoices<R> {
         Self { rng }
     }
 
-    fn choose<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> (usize, Load) {
-        let i = self.rng.gen::<usize>() % ready.len();
-        let (_, s) = ready.get_index(i).expect("out of bounds");
-        (i, s.load())
+    fn choose<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> usize {
+        self.rng.gen::<usize>() % ready.len()
+    }
+
+    fn choose_pair<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> (usize, usize) {
+        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
+
+        if ready.len() == 2 {
+            // Avoid looping if there are only two nodes.
+            if self.rng.gen::<bool>() {
+                return (0, 1);
+            } else {
+                return (1, 0);
+            }
+        }
+
+        let idx0 = self.choose(ready);
+        loop {
+            let idx1 = self.choose(ready);
+            if idx0 != idx1 {
+                return (idx0, idx1);
+            }
+        }
+    }
+
+    fn get_load<K, L: Loaded>(ready: &OrderMap<K, L>, idx: usize) -> Load {
+        let (_, s) = ready.get_index(idx).expect("out of bounds");
+        s.load()
     }
 }
 
@@ -37,21 +61,11 @@ impl<R: Rng> Choose for PowerOfTwoChoices<R> {
     ///
     /// Returns the index of the lesser-loaded node.
     fn call<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
-
-        let (idx0, load0) = self.choose(ready);
-        loop {
-            let (idx1, load1) = self.choose(ready);
-
-            if idx0 == idx1 {
-                continue;
-            }
-
-            if load0 <= load1 {
-                return idx0;
-            } else {
-                return idx1;
-            }
+        let (idx0, idx1) = self.choose_pair(ready);
+        if Self::get_load(ready, idx0) <= Self::get_load(ready, idx1) {
+            return idx0;
+        } else {
+            return idx1;
         }
     }
 }
