@@ -25,11 +25,7 @@ impl<R: Rng> PowerOfTwoChoices<R> {
         Self { rng }
     }
 
-    fn choose<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        self.rng.gen::<usize>() % ready.len()
-    }
-
-    fn choose_pair<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> (usize, usize) {
+    fn random_pair<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> (usize, usize) {
         assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
 
         if ready.len() == 2 {
@@ -41,9 +37,9 @@ impl<R: Rng> PowerOfTwoChoices<R> {
             }
         }
 
-        let idx0 = self.choose(ready);
+        let idx0 = self.rng.gen::<usize>() % ready.len();
         loop {
-            let idx1 = self.choose(ready);
+            let idx1 = self.rng.gen::<usize>() % ready.len();
             if idx0 != idx1 {
                 return (idx0, idx1);
             }
@@ -61,7 +57,7 @@ impl<R: Rng> Choose for PowerOfTwoChoices<R> {
     ///
     /// Returns the index of the lesser-loaded node.
     fn call<K, L: Loaded>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        let (idx0, idx1) = self.choose_pair(ready);
+        let (idx0, idx1) = self.random_pair(ready);
         if Self::get_load(ready, idx0) <= Self::get_load(ready, idx1) {
             return idx0;
         } else {
