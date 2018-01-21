@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate futures;
 extern crate ordermap;
 extern crate rand;
@@ -15,8 +14,8 @@ use tower_discover::Discover;
 pub mod choose;
 pub mod load;
 
-pub use load::{Load, Loaded};
 pub use choose::Choose;
+pub use load::{Load, Loaded};
 
 /// Creates a new Power of Two Choices load balancer.
 pub fn power_of_two_choices<D, R>(discover: D, rng: R)
@@ -47,7 +46,6 @@ where
 pub struct Balance<D, C>
 where
     D: Discover,
-    D::Key: Clone,
     D::Service: Loaded,
     C: Choose<Key = D::Key, Loaded = D::Service>,
 {
@@ -58,7 +56,13 @@ where
     choose: C,
 
     /// Holds the key of an endpoint that has been selected to be used next.
-    chosen: Option<D::Key>,
+    chosen_ready_index: Option<usize>,
+
+    /// Holds the key of an endpoint after a request has been dispatched to it.
+    ///
+    /// This is so that `poll_ready` can check to see if this node should be moved to
+    /// `not_ready`.
+    dispatched_ready_index: Option<usize>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
     ready: OrderMap<D::Key, D::Service>,
@@ -82,7 +86,6 @@ pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
 impl<D, C> Balance<D, C>
 where
     D: Discover,
-    D::Key: Clone,
     D::Service: Loaded,
     C: Choose<Key = D::Key, Loaded = D::Service>,
 {
@@ -91,13 +94,16 @@ where
         Self {
             discover,
             choose,
-            chosen: None,
+            chosen_ready_index: None,
+            dispatched_ready_index: None,
             ready: OrderMap::default(),
             not_ready: OrderMap::default(),
         }
     }
 
-    fn update_from_discover(&mut self) -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
+    fn update_from_discover(&mut self)
+        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    {
         use tower_discover::Change::*;
 
         while let Async::Ready(change) = self.discover.poll().map_err(Error::Balance)? {
@@ -108,11 +114,7 @@ where
                         continue;
                     }
 
-                    if svc.poll_ready().map_err(Error::Inner)?.is_ready() {
-                        self.ready.insert(key, svc);
-                    } else {
-                        self.not_ready.insert(key, svc);
-                    }
+                    self.not_ready.insert(key, svc);
                 }
 
                 Remove(key) => {
@@ -120,7 +122,8 @@ where
                         None => self.not_ready.remove(&key),
                         Some(s) => Some(s),
                     };
-                    // TODO we need some sort of graceful shutdown here.
+                    // XXX is it safe to just drop the Service? Or do we need some sort of
+                    // graceful teardown?
                 }
             }
         }
@@ -128,37 +131,61 @@ where
         Ok(())
     }
 
-    /// Polls unready nodes for readiness.
+    /// Calls `poll_ready` on all services in `not_ready`.
     ///
-    /// Returns ready iff there is at least one ready node.
-    fn poll_not_ready(&mut self) -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
-        // Poll all  not-ready endpoints to ensure they
+    /// When `poll_ready` returns ready, the node is removed from `not_ready` and inserted
+    /// into `ready`.
+    fn promote_not_ready(&mut self)
+        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    {
         // Iterate through the not-ready endpoints from right to left to prevent removals
         // from reordering nodes in a way that could prevent a node from being polled.
         for idx in self.not_ready.len()-1..0 {
-            let poll = {
-                let (_, mut svc) = self.not_ready.get_index_mut(idx).unwrap();
-                svc.poll_ready().map_err(Error::Inner)?
+            let is_ready = {
+                let (_, svc) = self.not_ready
+                    .get_index_mut(idx)
+                    .expect("invalid not_ready index");;
+                svc.poll_ready().map_err(Error::Inner)?.is_ready()
             };
 
-            if poll.is_ready() {
-                let (key, svc) = self.not_ready.swap_remove_index(idx).unwrap();
+            if is_ready {
+                let (key, svc) = self.not_ready
+                    .swap_remove_index(idx)
+                    .expect("invalid not_ready index");
                 self.ready.insert(key, svc);
             }
         }
 
-        if self.ready.is_empty() {
-            Ok(Async::NotReady)
-        } else {
-            Ok(Async::Ready(()))
+        Ok(())
+    }
+
+    /// If the key exists in `ready`, poll its readiness.
+    ///
+    /// If the node exists in `ready` and does not poll as ready, it is moved to
+    /// `not_ready`.
+    pub fn poll_ready_index(&mut self, idx: usize)
+        -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>>
+    {
+        match self.ready.get_index_mut(idx) {
+            None => return None,
+            Some((_, svc)) => {
+                match svc.poll_ready() {
+                    Ok(Async::Ready(())) => return Some(Ok(Async::Ready(()))),
+                    Err(e) => return Some(Err(Error::Inner(e))),
+                    Ok(Async::NotReady) => {}
+                }
+            }
         }
+
+        let (key, svc) = self.ready.swap_remove_index(idx).expect("invalid ready index");
+        self.not_ready.insert(key, svc);
+        Some(Ok(Async::NotReady))
     }
 }
 
 impl<D, C> Service for Balance<D, C>
 where
     D: Discover,
-    D::Key: Clone,
     D::Service: Loaded,
     C: Choose<Key = D::Key, Loaded = D::Service>,
 {
@@ -167,22 +194,52 @@ where
     type Error = Error<<D::Service as Service>::Error, D::DiscoverError>;
     type Future = ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>;
 
+    /// Prepares the balancer to process a request.
+    ///
+    /// When `Async::Ready` is returned, `chosen` has a value that refers to a
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        // Check the readiness of a previously-chosen node, moving it to not-ready if
+        // appropriate. This must be done before changing `ready`, since it can reorder
+        // nodes.
+        if let Some(idx) = self.dispatched_ready_index.take() {
+            // XXX Should we swallow per-endpoint errors?
+            self.poll_ready_index(idx).expect("invalid ready key")?;
+        }
+
+        // Updating from discovery adds new nodes to `not_ready` and may remove nodes from
+        // either `ready` or `not_ready`; so, even though `chosen_ready_index` is
+        // typically None, `poll_ready` may be called multuple times without `call` being
+        // invoked, so we need to take care to clear out this state.
+        self.chosen_ready_index = None;
         self.update_from_discover()?;
-        try_ready!(self.poll_not_ready());
-        debug_assert!(!self.ready.is_empty(), "Balance is ready when there are endpoints");
+        self.promote_not_ready()?;
 
-        let key = self.choose.call(&self.ready);
-        self.chosen = Some(key.clone());
+        // Choose a node from `ready` and ensure that it's still ready, since it's
+        // possible that it was added some time ago. Continue doing this until a chosen
+        // node is ready or there are no ready nodes.
+        while !self.ready.is_empty() {
+            let (idx, ..) = {
+                let key = self.choose.call(&self.ready);
+                self.ready.get_pair_index(key).expect("invalid ready key")
+            };
 
-        Ok(Async::Ready(()))
+            // XXX Should we swallow per-endpoint errors?
+            if self.poll_ready_index(idx).expect("invalid ready index")?.is_ready() {
+                self.chosen_ready_index = Some(idx);
+                return Ok(Async::Ready(()));
+            }
+        }
+
+        return Ok(Async::NotReady);
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
-        let key = self.chosen.take().expect("not ready");
-        let svc = self.ready.get_mut(&key).expect("not ready");
+        let idx = self.chosen_ready_index.take().expect("not ready");
+        let (_, svc) = self.ready.get_index_mut(idx).expect("invalid ready index");
+        self.dispatched_ready_index = Some(idx);
 
-        ResponseFuture(svc.call(request), PhantomData)
+        let rsp = svc.call(request);
+        ResponseFuture(rsp, PhantomData)
     }
 }
 
