@@ -12,7 +12,7 @@ pub struct Constant<T, M> {
 
 // ===== impl Constant =====
 
-impl<T, M: PartialOrd + Copy> Constant<T, M> {
+impl<T, M: Copy> Constant<T, M> {
     pub fn new(inner: T, load: M) -> Self {
         Self {
             inner,
@@ -21,7 +21,7 @@ impl<T, M: PartialOrd + Copy> Constant<T, M> {
     }
 }
 
-impl<T, M: PartialOrd + Copy> Load for Constant<T, M> {
+impl<T, M: Copy> Load for Constant<T, M> {
     type Metric = M;
 
     fn load(&self) -> M {
@@ -29,7 +29,7 @@ impl<T, M: PartialOrd + Copy> Load for Constant<T, M> {
     }
 }
 
-impl<S: Service, M: PartialOrd + Copy> Service for Constant<S, M> {
+impl<S: Service, M: Copy> Service for Constant<S, M> {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
@@ -45,7 +45,7 @@ impl<S: Service, M: PartialOrd + Copy> Service for Constant<S, M> {
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
-impl<D: Discover, M: PartialOrd + Copy> Discover for Constant<D, M> {
+impl<D: Discover, M: Copy> Discover for Constant<D, M> {
     type Key = D::Key;
     type Request = D::Request;
     type Response = D::Response;
