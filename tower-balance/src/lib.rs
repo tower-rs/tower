@@ -45,7 +45,7 @@ where
 
 /// Attempts to choose services sequentially.
 ///
-/// This configuration is prefered no load metric is known.
+/// This configuration is prefered when no load metric is known.
 pub fn round_robin<D: Discover>(discover: D) -> Balance<load::Constant<D, ()>, choose::RoundRobin> {
     let loaded = load::Constant::new(discover, ());
     Balance::new(loaded, choose::RoundRobin::default())
