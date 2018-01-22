@@ -4,22 +4,17 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tower::Service;
 use tower_discover::{Change, Discover};
 
-use {Load, Loaded};
+use Load;
 
-/// Expresses `Load` based on the number of currently-pending requests.
-///
-/// The `Load` value approaches `Load::MAX` as the number of pending requests increases,
-/// according to:
-///
-///              pending
-///     load = ------------
-///            pending + 10
-///
+/// Expresses `load` based on the number of currently-pending requests.
 #[derive(Debug, Clone)]
 pub struct PendingRequests<T> {
     inner: T,
     pending: Arc<AtomicUsize>,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Ord, Eq)]
+pub struct Count(usize);
 
 /// Wraps `inner`'s services with `PendingRequests`.
 pub struct WithPendingRequests<D: Discover> {
@@ -43,9 +38,6 @@ pub struct ResponseFuture<S: Service> {
 // ===== impl PendingRequests =====
 
 impl<T> PendingRequests<T> {
-    // When `pending` is 10, load will be 0.5.
-    const MIDPOINT: f64 = 10.0;
-
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -62,10 +54,11 @@ impl<T> PendingRequests<T> {
     }
 }
 
-impl<S: Service> Loaded for PendingRequests<S> {
-    fn load(&self) -> Load {
-        let n = self.pending.load(Ordering::SeqCst) as f64;
-        Load::new(n / (n + Self::MIDPOINT))
+impl<S: Service> Load for PendingRequests<S> {
+    type Metric = Count;
+
+    fn load(&self) -> Count {
+        Count(self.pending.load(Ordering::SeqCst))
     }
 }
 

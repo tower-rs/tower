@@ -16,14 +16,14 @@ pub mod choose;
 pub mod load;
 
 pub use choose::Choose;
-pub use load::{Load, Loaded};
+pub use load::Load;
 
-/// Chooses nodes using the [Power of Two Choices][p2c].
+/// Chooses services using the [Power of Two Choices][p2c].
 ///
 /// This configuration is prefered when a load metric is known.
 ///
 /// As described in the [Finagle Guide][finagle]:
-/// > The algorithm randomly picks two nodes from the set of ready endpoints and selects
+/// > The algorithm randomly picks two services from the set of ready endpoints and selects
 /// > the least loaded of the two. By repeatedly using this strategy, we can expect a
 /// > manageable upper bound on the maximum load of any server.
 /// >
@@ -32,25 +32,24 @@ pub use load::{Load, Loaded};
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-pub fn power_of_two_choices<D, R>(discover: D, rng: R) -> PowerOfTwoChoices<D, R>
+pub fn power_of_two_choices<D, R>(loaded: D, rng: R)
+    -> Balance<D, choose::PowerOfTwoChoices<<D::Service as Load>::Metric, R>>
 where
     D: Discover,
-    D::Service: Loaded,
+    D::Service: Load,
+    <D::Service as Load>::Metric: PartialOrd,
     R: Rng,
 {
-    Balance::new(discover, choose::PowerOfTwoChoices::new(rng))
+    Balance::new(loaded, choose::PowerOfTwoChoices::new(rng))
 }
 
-/// Attempts to choose nodes sequentially.
+/// Attempts to choose services sequentially.
 ///
 /// This configuration is prefered no load metric is known.
-pub fn round_robin<D: Discover>(discover: D) -> RoundRobin<D> {
-    Balance::new(load::Constant::new(discover, Load::MAX), choose::RoundRobin::default())
+pub fn round_robin<D: Discover>(discover: D) -> Balance<load::Constant<D, ()>, choose::RoundRobin> {
+    let loaded = load::Constant::new(discover, ());
+    Balance::new(loaded, choose::RoundRobin::default())
 }
-
-pub type PowerOfTwoChoices<D, R> = Balance<D, choose::PowerOfTwoChoices<R>>;
-
-pub type RoundRobin<D> = Balance<load::Constant<D>, choose::RoundRobin>;
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]
@@ -61,11 +60,12 @@ pub struct Balance<D: Discover, C> {
     /// Determines which endpoint is ready to be used next.
     choose: C,
 
-    /// Holds an index into `ready`, indicating the node that has been chosen to dispatch
-    /// the next request.
+    /// Holds an index into `ready`, indicating the service that has been chosen to
+    /// dispatch the next request.
     chosen_ready_index: Option<usize>,
 
-    /// Holds an index into `ready`, indicating the node that dispatched the last request.
+    /// Holds an index into `ready`, indicating the service that dispatched the last
+    /// request.
     dispatched_ready_index: Option<usize>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
@@ -90,8 +90,8 @@ pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
 impl<D, C> Balance<D, C>
 where
     D: Discover,
-    D::Service: Loaded,
     C: Choose,
+    D::Service: Load<Metric = C::Metric>,
 {
     /// Creates a new balancer.
     pub fn new(discover: D, choose: C) -> Self {
@@ -140,13 +140,13 @@ where
 
     /// Calls `poll_ready` on all services in `not_ready`.
     ///
-    /// When `poll_ready` returns ready, the node is removed from `not_ready` and inserted
+    /// When `poll_ready` returns ready, the service is removed from `not_ready` and inserted
     /// into `ready`, potentially altering the order of `ready` and/or `not_ready`.
     fn promote_to_ready(&mut self)
         -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
         // Iterate through the not-ready endpoints from right to left to prevent removals
-        // from reordering nodes in a way that could prevent a node from being polled.
+        // from reordering services in a way that could prevent a service from being polled.
         for idx in self.not_ready.len()-1..0 {
             let is_ready = {
                 let (_, svc) = self.not_ready
@@ -166,11 +166,11 @@ where
         Ok(())
     }
 
-    /// If the key exists in `ready`, poll its readiness.
+    /// Polls a `ready` service or moves it to `not_ready`.
     ///
-    /// If the node exists in `ready` and does not poll as ready, it is moved to
+    /// If the service exists in `ready` and does not poll as ready, it is moved to
     /// `not_ready`, potentially altering the order of `ready` and/or `not_ready`.
-    pub fn poll_ready_index(&mut self, idx: usize)
+    fn poll_ready_index(&mut self, idx: usize)
         -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>>
     {
         match self.ready.get_index_mut(idx) {
@@ -188,41 +188,13 @@ where
         self.not_ready.insert(key, svc);
         Some(Ok(Async::NotReady))
     }
-}
 
-impl<D, C> Service for Balance<D, C>
-where
-    D: Discover,
-    D::Service: Loaded,
-    C: Choose,
-{
-    type Request = <D::Service as Service>::Request;
-    type Response = <D::Service as Service>::Response;
-    type Error = Error<<D::Service as Service>::Error, D::DiscoverError>;
-    type Future = ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>;
-
-    /// Prepares the balancer to process a request.
+    /// Chooses the next service to which a request will be dispatched.
     ///
-    /// When `Async::Ready` is returned, `chosen_ready_index` is set with a valid index
-    /// into `ready` referring to a `Service` that is ready to disptach a request.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        // Before `ready` is altered, clear out any chosen index.
-        self.chosen_ready_index = None;
-
-        // Before `ready` is altered, check the readiness of the last-used node, moving it
-        // to `not_ready` if appropriate.
-        if let Some(idx) = self.dispatched_ready_index.take() {
-            // XXX Should we handle per-endpoint errors?
-            self.poll_ready_index(idx).expect("invalid dispatched ready key")?;
-        }
-
-        // Update `ready` and `not_ready`.
-        self.update_from_discover()?;
-        self.promote_to_ready()?;
-
-        // Choose a node from `ready` and ensure that it's still ready, since it's
-        // possible that it was added some time ago. Continue doing this until a chosen
-        // node is ready or there are no ready nodes.
+    /// Ensures that .
+    fn choose_and_poll_ready(&mut self)
+        -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    {
         loop {
             let idx = match self.ready.len() {
                 0 => return Ok(Async::NotReady),
@@ -236,6 +208,41 @@ where
                 return Ok(Async::Ready(()));
             }
         }
+    }
+}
+
+impl<D, C> Service for Balance<D, C>
+where
+    D: Discover,
+    C: Choose,
+    D::Service: Load<Metric = C::Metric>,
+{
+    type Request = <D::Service as Service>::Request;
+    type Response = <D::Service as Service>::Response;
+    type Error = Error<<D::Service as Service>::Error, D::DiscoverError>;
+    type Future = ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>;
+
+    /// Prepares the balancer to process a request.
+    ///
+    /// When `Async::Ready` is returned, `chosen_ready_index` is set with a valid index
+    /// into `ready` referring to a `Service` that is ready to disptach a request.
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        // Clear before `ready` is altered.
+        self.chosen_ready_index = None;
+
+        // Before `ready` is altered, check the readiness of the last-used service, moving it
+        // to `not_ready` if appropriate.
+        if let Some(idx) = self.dispatched_ready_index.take() {
+            // XXX Should we handle per-endpoint errors?
+            self.poll_ready_index(idx).expect("invalid dispatched ready key")?;
+        }
+
+        // Update `not_ready` and `ready`.
+        self.update_from_discover()?;
+        self.promote_to_ready()?;
+
+        // Choose the next service to be used by `call`.
+        self.choose_and_poll_ready()
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {

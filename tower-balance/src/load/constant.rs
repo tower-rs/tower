@@ -2,18 +2,18 @@ use futures::{Async, Poll};
 use tower::Service;
 use tower_discover::{Change, Discover};
 
-use {Load, Loaded};
+use Load;
 
-/// Wraps a type so that `Loaded::load` returns a constant value.
-pub struct Constant<T> {
+/// Wraps a type so that `Load::load` returns a constant value.
+pub struct Constant<T, M> {
     inner: T,
-    load: Load,
+    load: M,
 }
 
 // ===== impl Constant =====
 
-impl<T> Constant<T> {
-    pub fn new(inner: T, load: Load) -> Self {
+impl<T, M: PartialOrd + Copy> Constant<T, M> {
+    pub fn new(inner: T, load: M) -> Self {
         Self {
             inner,
             load,
@@ -21,13 +21,15 @@ impl<T> Constant<T> {
     }
 }
 
-impl<T> Loaded for Constant<T> {
-    fn load(&self) -> Load {
+impl<T, M: PartialOrd + Copy> Load for Constant<T, M> {
+    type Metric = M;
+
+    fn load(&self) -> M {
         self.load
     }
 }
 
-impl<S: Service> Service for Constant<S> {
+impl<S: Service, M: PartialOrd + Copy> Service for Constant<S, M> {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
@@ -43,12 +45,12 @@ impl<S: Service> Service for Constant<S> {
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
-impl<D: Discover> Discover for Constant<D> {
+impl<D: Discover, M: PartialOrd + Copy> Discover for Constant<D, M> {
     type Key = D::Key;
     type Request = D::Request;
     type Response = D::Response;
     type Error = D::Error;
-    type Service = Constant<D::Service>;
+    type Service = Constant<D::Service, M>;
     type DiscoverError = D::DiscoverError;
 
     /// Yields the next discovery change set.
