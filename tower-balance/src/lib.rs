@@ -18,7 +18,6 @@ pub mod load;
 pub use choose::Choose;
 pub use load::Load;
 
-
 /// Chooses services using the [Power of Two Choices][p2c].
 ///
 /// This configuration is prefered when a load metric is known.
@@ -197,7 +196,10 @@ where
             let idx = match self.ready.len() {
                 0 => return Ok(Async::NotReady),
                 1 => 0,
-                _ => self.choose.choose(choose::Nodes::new(&self.ready)),
+                _ => {
+                    let replicas = choose::replicas(&self.ready).expect("too few replicas");
+                    self.choose.choose(replicas)
+                }
             };
 
             // XXX Should we handle per-endpoint errors?

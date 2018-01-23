@@ -1,9 +1,12 @@
 use rand::Rng;
 
-use {Load, Choose};
-use choose::Nodes;
+use Load;
+use choose::{Choose, Replicas};
 
 /// Chooses nodes using the [Power of Two Choices][p2c].
+///
+/// This is a load-aware strategy, so this may only be used to choose over services that
+/// implement `Load`.
 ///
 /// As described in the [Finagle Guide][finagle]:
 /// > The algorithm randomly picks two nodes from the set of ready endpoints and selects
@@ -30,15 +33,15 @@ impl<R: Rng> PowerOfTwoChoices<R> {
         // Choose a random number on [0, len-1].
         let idx0 = self.rng.gen::<usize>() % len;
 
-        // Chooses a random number on [1, len-1], add it to `idx0` and then mod on `len`
-        // to produce a value on [0, idx0-1] or [idx0+1, len-1].
         let idx1 = {
-            let delta = (self.rng.gen::<usize>() % (len -1)) + 1;
+            // Choose a random number on [1, len-1].
+            let delta = (self.rng.gen::<usize>() % (len - 1)) + 1;
+            // Add it to `idx0` and then mod on `len` to produce a value on
+            // [idx0+1, len-1] or [0, idx0-1].
             (idx0 + delta) % len
         };
 
-        debug_assert!(idx0 != idx1);
-
+        debug_assert!(idx0 != idx1, "random pair must be distinct");
         return (idx0, idx1);
     }
 }
@@ -52,12 +55,12 @@ where
     /// Chooses two distinct nodes at random and compares their load.
     ///
     /// Returns the index of the lesser-loaded node.
-    fn choose(&mut self, nodes: Nodes<K, L>) -> usize {
-        let (idx0, idx1) = self.random_pair(nodes.len());
-        if nodes[idx0].load() <= nodes[idx1].load() {
-            return idx0;
+    fn choose(&mut self, replicas: Replicas<K, L>) -> usize {
+        let (a, b) = self.random_pair(replicas.len());
+        if replicas[a].load() <= replicas[b].load() {
+            a
         } else {
-            return idx1;
+            b
         }
     }
 }
