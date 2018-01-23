@@ -1,8 +1,7 @@
-use ordermap::OrderMap;
 use rand::Rng;
-use std::marker::PhantomData;
 
-use {Load,  Choose};
+use {Load, Choose};
+use choose::Nodes;
 
 /// Chooses nodes using the [Power of Two Choices][p2c].
 ///
@@ -17,14 +16,13 @@ use {Load,  Choose};
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 #[derive(Debug)]
-pub struct PowerOfTwoChoices<M, R> {
+pub struct PowerOfTwoChoices<R> {
     rng: R,
-    _p: PhantomData<M>,
 }
 
-impl<M: PartialOrd, R: Rng> PowerOfTwoChoices<M, R> {
+impl<R: Rng> PowerOfTwoChoices<R> {
     pub fn new(rng: R) -> Self {
-        Self { rng, _p: PhantomData }
+        Self { rng }
     }
 
     /// Returns two random, distinct indices into `ready`.
@@ -43,24 +41,20 @@ impl<M: PartialOrd, R: Rng> PowerOfTwoChoices<M, R> {
 
         return (idx0, idx1);
     }
-
-    fn load_of<K, L: Load<Metric = M>>(ready: &OrderMap<K, L>, idx: usize) -> M {
-        let (_, s) = ready.get_index(idx).expect("out of bounds");
-        s.load()
-    }
 }
 
-impl<M: PartialOrd, R: Rng> Choose for PowerOfTwoChoices<M, R> {
-    type Metric = M;
-
+impl<K, L, R> Choose<K, L> for PowerOfTwoChoices<R>
+where
+    L: Load,
+    L::Metric: PartialOrd,
+    R: Rng,
+{
     /// Chooses two distinct nodes at random and compares their load.
     ///
     /// Returns the index of the lesser-loaded node.
-    fn call<K, L: Load<Metric = M>>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
-
-        let (idx0, idx1) = self.random_pair(ready.len());
-        if Self::load_of(ready, idx0) <= Self::load_of(ready, idx1) {
+    fn choose(&mut self, nodes: Nodes<K, L>) -> usize {
+        let (idx0, idx1) = self.random_pair(nodes.len());
+        if nodes[idx0].load() <= nodes[idx1].load() {
             return idx0;
         } else {
             return idx1;

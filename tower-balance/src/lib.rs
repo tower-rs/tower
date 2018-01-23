@@ -18,6 +18,7 @@ pub mod load;
 pub use choose::Choose;
 pub use load::Load;
 
+
 /// Chooses services using the [Power of Two Choices][p2c].
 ///
 /// This configuration is prefered when a load metric is known.
@@ -32,8 +33,7 @@ pub use load::Load;
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-pub fn power_of_two_choices<D, R>(loaded: D, rng: R)
-    -> Balance<D, choose::PowerOfTwoChoices<<D::Service as Load>::Metric, R>>
+pub fn power_of_two_choices<D, R>(loaded: D, rng: R) -> Balance<D, choose::PowerOfTwoChoices<R>>
 where
     D: Discover,
     D::Service: Load,
@@ -46,9 +46,8 @@ where
 /// Attempts to choose services sequentially.
 ///
 /// This configuration is prefered when no load metric is known.
-pub fn round_robin<D: Discover>(discover: D) -> Balance<load::Constant<D, ()>, choose::RoundRobin> {
-    let loaded = load::Constant::new(discover, ());
-    Balance::new(loaded, choose::RoundRobin::default())
+pub fn round_robin<D: Discover>(discover: D) -> Balance<D, choose::RoundRobin> {
+    Balance::new(discover, choose::RoundRobin::default())
 }
 
 /// Balances requests across a set of inner services.
@@ -90,8 +89,7 @@ pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
 impl<D, C> Balance<D, C>
 where
     D: Discover,
-    C: Choose,
-    D::Service: Load<Metric = C::Metric>,
+    C: Choose<D::Key, D::Service>,
 {
     /// Creates a new balancer.
     pub fn new(discover: D, choose: C) -> Self {
@@ -199,7 +197,7 @@ where
             let idx = match self.ready.len() {
                 0 => return Ok(Async::NotReady),
                 1 => 0,
-                _ => self.choose.call(&self.ready),
+                _ => self.choose.choose(choose::Nodes::new(&self.ready)),
             };
 
             // XXX Should we handle per-endpoint errors?
@@ -214,8 +212,7 @@ where
 impl<D, C> Service for Balance<D, C>
 where
     D: Discover,
-    C: Choose,
-    D::Service: Load<Metric = C::Metric>,
+    C: Choose<D::Key, D::Service>,
 {
     type Request = <D::Service as Service>::Request;
     type Response = <D::Service as Service>::Response;

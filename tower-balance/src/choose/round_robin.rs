@@ -1,6 +1,4 @@
-use ordermap::OrderMap;
-
-use {Load,  Choose};
+use choose::{Choose, Nodes};
 
 /// Chooses nodes sequentially.
 ///
@@ -11,13 +9,9 @@ pub struct RoundRobin {
     pos: usize,
 }
 
-impl Choose for RoundRobin {
-    type Metric = ();
-
-    fn call<K, L: Load>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        let len = ready.len();
-        assert!(2 <= len, "must choose over 2 or more ready nodes");
-
+impl<K, N> Choose<K, N> for RoundRobin {
+    fn choose(&mut self, nodes: Nodes<K, N>) -> usize {
+        let len = nodes.len();
         let idx = self.pos % len;
         self.pos = (idx + 1) % len;
         idx
