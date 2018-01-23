@@ -6,20 +6,21 @@ use tower_discover::{Change, Discover};
 
 use Load;
 
-/// Expresses `load` based on the number of currently-pending requests.
+/// Expresses load based on the number of currently-pending requests.
 #[derive(Debug, Clone)]
 pub struct PendingRequests<T> {
     inner: T,
     pending: Arc<AtomicUsize>,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Ord, Eq)]
-pub struct Count(usize);
-
 /// Wraps `inner`'s services with `PendingRequests`.
 pub struct WithPendingRequests<D: Discover> {
     inner: D,
 }
+
+/// Represents the number of currently-pending requests to a given service.
+#[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Ord, Eq)]
+pub struct Count(usize);
 
 /// Ensures that `pending` is decremented.
 struct Handle {

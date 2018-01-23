@@ -15,9 +15,9 @@ impl Choose for RoundRobin {
     type Metric = ();
 
     fn call<K, L: Load>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
-
         let len = ready.len();
+        assert!(2 <= len, "must choose over 2 or more ready nodes");
+
         let idx = self.pos % len;
         self.pos = (idx + 1) % len;
         idx

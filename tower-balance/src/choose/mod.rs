@@ -16,7 +16,7 @@ pub trait Choose {
     ///
     /// ## Panics
     ///
-    /// If `nodes` is empty.
+    /// If `nodes` has fewer than 2 entries.
     fn call<K, L>(&mut self, nodes: &OrderMap<K, L>) -> usize
     where
         L: Load<Metric = Self::Metric>;

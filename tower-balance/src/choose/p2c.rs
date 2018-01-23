@@ -28,25 +28,20 @@ impl<M: PartialOrd, R: Rng> PowerOfTwoChoices<M, R> {
     }
 
     /// Returns two random, distinct indices into `ready`.
-    fn random_pair<K, L: Load<Metric = M>>(&mut self, ready: &OrderMap<K, L>) -> (usize, usize) {
-        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
+    fn random_pair(&mut self, len: usize) -> (usize, usize) {
+        // Choose a random number on [0, len-1].
+        let idx0 = self.rng.gen::<usize>() % len;
 
-        if ready.len() == 2 {
-            // Avoid looping if there are only two nodes.
-            if self.rng.gen::<bool>() {
-                return (0, 1);
-            } else {
-                return (1, 0);
-            }
-        }
+        // Chooses a random number on [1, len-1], add it to `idx0` and then mod on `len`
+        // to produce a value on [0, idx0-1] or [idx0+1, len-1].
+        let idx1 = {
+            let delta = (self.rng.gen::<usize>() % (len -1)) + 1;
+            (idx0 + delta) % len
+        };
 
-        let idx0 = self.rng.gen::<usize>() % ready.len();
-        loop {
-            let idx1 = self.rng.gen::<usize>() % ready.len();
-            if idx0 != idx1 {
-                return (idx0, idx1);
-            }
-        }
+        debug_assert!(idx0 != idx1);
+
+        return (idx0, idx1);
     }
 
     fn load_of<K, L: Load<Metric = M>>(ready: &OrderMap<K, L>, idx: usize) -> M {
@@ -62,7 +57,9 @@ impl<M: PartialOrd, R: Rng> Choose for PowerOfTwoChoices<M, R> {
     ///
     /// Returns the index of the lesser-loaded node.
     fn call<K, L: Load<Metric = M>>(&mut self, ready: &OrderMap<K, L>) -> usize {
-        let (idx0, idx1) = self.random_pair(ready);
+        assert!(2 <= ready.len(), "must choose over 2 or more ready nodes");
+
+        let (idx0, idx1) = self.random_pair(ready.len());
         if Self::load_of(ready, idx0) <= Self::load_of(ready, idx1) {
             return idx0;
         } else {
