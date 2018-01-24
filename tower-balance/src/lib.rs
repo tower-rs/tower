@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate futures;
 extern crate ordermap;
+#[cfg(test)]
+extern crate quickcheck;
 extern crate rand;
 extern crate tower;
 extern crate tower_discover;

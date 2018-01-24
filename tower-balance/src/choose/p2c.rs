@@ -30,6 +30,8 @@ impl<R: Rng> PowerOfTwoChoices<R> {
 
     /// Returns two random, distinct indices into `ready`.
     fn random_pair(&mut self, len: usize) -> (usize, usize) {
+        debug_assert!(len >= 2);
+
         // Choose a random number on [0, len-1].
         let idx0 = self.rng.gen::<usize>() % len;
 
@@ -61,6 +63,25 @@ where
             a
         } else {
             b
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use quickcheck::*;
+    use rand;
+
+    use super::*;
+
+    quickcheck! {
+        fn distinct_random_pairs(n: usize) -> TestResult {
+            if n < 2 {
+                return TestResult::discard();
+            }
+
+            let (a, b) = PowerOfTwoChoices::new(rand::thread_rng()).random_pair(n);
+            TestResult::from_bool(a != b)
         }
     }
 }
