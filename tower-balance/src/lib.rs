@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate futures;
+#[macro_use]
+extern crate log;
 extern crate ordermap;
 #[cfg(test)]
 extern crate quickcheck;
@@ -110,6 +112,7 @@ where
     fn update_from_discover(&mut self)
         -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
+        debug!("updating from discover");
         use tower_discover::Change::*;
 
         while let Async::Ready(change) = self.discover.poll().map_err(Error::Balance)? {
@@ -144,9 +147,13 @@ where
     fn promote_to_ready(&mut self)
         -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
+        let n = self.not_ready.len();
+        debug!("promoting to ready: {}", n);
         // Iterate through the not-ready endpoints from right to left to prevent removals
         // from reordering services in a way that could prevent a service from being polled.
-        for idx in self.not_ready.len()-1..0 {
+        for offset in 1..n {
+            let idx = n - offset;
+
             let is_ready = {
                 let (_, svc) = self.not_ready
                     .get_index_mut(idx)
@@ -155,10 +162,13 @@ where
             };
 
             if is_ready {
+                debug!("promoting to ready");
                 let (key, svc) = self.not_ready
                     .swap_remove_index(idx)
                     .expect("invalid not_ready index");
                 self.ready.insert(key, svc);
+            } else {
+                debug!("not promoting to ready");
             }
         }
 
@@ -195,7 +205,9 @@ where
         -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
         loop {
-            let idx = match self.ready.len() {
+            let n = self.ready.len();
+            debug!("choosing from {} replicas", n);
+            let idx = match n {
                 0 => return Ok(Async::NotReady),
                 1 => 0,
                 _ => {
