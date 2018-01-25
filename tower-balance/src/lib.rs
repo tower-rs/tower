@@ -151,9 +151,7 @@ where
         debug!("promoting to ready: {}", n);
         // Iterate through the not-ready endpoints from right to left to prevent removals
         // from reordering services in a way that could prevent a service from being polled.
-        for offset in 1..n {
-            let idx = n - offset;
-
+        for idx in (0..n-1).rev() {
             let is_ready = {
                 let (_, svc) = self.not_ready
                     .get_index_mut(idx)
