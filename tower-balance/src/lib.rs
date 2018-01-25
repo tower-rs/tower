@@ -148,6 +148,11 @@ where
         -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
     {
         let n = self.not_ready.len();
+        if n == 0 {
+            trace!("promoting to ready: not_ready is empty, skipping.");
+            return Ok(());
+        }
+
         debug!("promoting to ready: {}", n);
         // Iterate through the not-ready endpoints from right to left to prevent removals
         // from reordering services in a way that could prevent a service from being polled.
