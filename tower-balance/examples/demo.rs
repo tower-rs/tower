@@ -77,7 +77,7 @@ fn gen_disco(timer: &Timer) -> Disco {
 
     let mut changes = VecDeque::new();
 
-    let quick = Duration::from_millis(100);
+    let quick = Duration::from_millis(500);
     for i in 0..8 {
         changes.push_back(Insert(i, DelayService(timer.clone(), quick)));
     }
@@ -94,46 +94,55 @@ where
     C: Choose<D::Key, D::Service>,
 {
     lb: Balance<D, C>,
-    remaining: usize,
-    responses: Option<VecDeque<ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>>,
+    send_remaining: usize,
+    responses: stream::FuturesUnordered<ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>,
 }
 
-impl<D, C> Future for SendRequests<D, C>
+impl<D, C> Stream for SendRequests<D, C>
 where
     D: Discover<Request = (), Response = Duration, Error = TimerError>,
     C: Choose<D::Key, D::Service>,
 {
-    type Item = VecDeque<ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>;
+    type Item = Duration;
     type Error = Error<D::Error, D::DiscoverError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        {
-            let rsps = self.responses.as_mut().expect("poll after ready");
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        debug!("sending requests {} / {}", self.send_remaining, self.responses.len());
+        while self.send_remaining > 0 {
+            if !self.responses.is_empty() {
+                if let Async::Ready(Some(rsp)) = self.responses.poll()? {
+                    return Ok(Async::Ready(Some(rsp)));
+                }
+            }
 
-            while self.remaining > 0 {
+            if self.send_remaining > 0 {
                 debug!("polling lb ready");
                 try_ready!(self.lb.poll_ready());
+
                 debug!("sending request");
                 let rsp = self.lb.call(());
+                self.responses.push(rsp);
 
-                rsps.push_back(rsp);
-                self.remaining -= 1;
+                self.send_remaining -= 1;
             }
         }
 
-        let rsps = self.responses.take().expect("poll after ready");
-        Ok(Async::Ready(rsps))
+        if !self.responses.is_empty() {
+            return self.responses.poll();
+        }
+
+        Ok(Async::Ready(None))
     }
 }
 
-fn compute_histo<F>(times: VecDeque<F>)
-    -> Box<Future<Item = Histogram<u64>, Error = F::Error> + 'static>
+fn compute_histo<S>(times: S)
+    -> Box<Future<Item = Histogram<u64>, Error = S::Error> + 'static>
 where
-    F: Future<Item = Duration> + 'static
+    S: Stream<Item = Duration> + 'static
 {
     // The max delay is 2000ms. At 3 significant figures.
     let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
-    let fut = stream::futures_unordered::<VecDeque<F>>(times)
+    let fut = times
         .fold(histo, |mut histo, elapsed| {
             let ns: u32 = elapsed.subsec_nanos();
             let ms = u64::from(ns) / 1_000 / 1_000
@@ -146,45 +155,56 @@ where
     Box::new(fut)
 }
 
-fn main() {
-    env_logger::init().unwrap();
-    info!("sup");
-
-    let timer = Timer::default();
-
-    let lb = {
-        let loaded = load::WithPendingRequests::new(gen_disco(&timer));
-        power_of_two_choices(loaded, rand::thread_rng())
-    };
-
-    let mut core = Core::new().unwrap();
-    let send = SendRequests { lb, remaining: 100_000, responses: Some(VecDeque::with_capacity(100_000)) };
-    let histo = core.run(send.and_then(compute_histo)).unwrap();
-
-    println!("samples: {}", histo.len());
+fn report(pfx: &str, histo: &Histogram<u64>) {
+    println!("{} samples: {}", pfx, histo.len());
 
     if histo.len () < 2 {
         return;
     }
-    println!("p50:  {}", histo.value_at_quantile(0.5));
+    println!("{} p50:  {}", pfx, histo.value_at_quantile(0.5));
 
     if histo.len () < 10 {
         return;
     }
-    println!("p90:  {}", histo.value_at_quantile(0.9));
+    println!("{} p90:  {}", pfx, histo.value_at_quantile(0.9));
 
     if histo.len () < 50 {
         return;
     }
-    println!("p95:  {}", histo.value_at_quantile(0.95));
+    println!("{} p95:  {}", pfx, histo.value_at_quantile(0.95));
 
     if histo.len () < 100 {
         return;
     }
-    println!("p99:  {}", histo.value_at_quantile(0.99));
+    println!("{} p99:  {}", pfx, histo.value_at_quantile(0.99));
 
     if histo.len () < 1000 {
         return;
     }
-    println!("p999: {}", histo.value_at_quantile(0.999));
+    println!("{} p999: {}", pfx, histo.value_at_quantile(0.999));
+}
+
+fn main() {
+    env_logger::init().unwrap();
+
+    let timer = Timer::default();
+    let mut core = Core::new().unwrap();
+    let requests = 1_000_000;
+
+    {
+        let lb = {
+            let loaded = load::WithPendingRequests::new(gen_disco(&timer));
+            power_of_two_choices(loaded, rand::thread_rng())
+        };
+        let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
+        let histo = core.run(compute_histo(send)).unwrap();
+        report("p2c", &histo)
+    }
+
+    {
+        let lb = round_robin(gen_disco(&timer));
+        let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
+        let histo = core.run(compute_histo(send)).unwrap();
+        report("rr", &histo)
+    }
 }
