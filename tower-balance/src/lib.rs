@@ -382,20 +382,14 @@ mod tests {
             let services = service_tries.len();
             for pending in pending_at.iter().map(|p| *p) {
                 assert!(pending <= services);
-
-                let poll = match balancer.poll_ready() {
-                    Ok(p) => p,
-                    Err(_) => return TestResult::error("poll_ready failed"),
-                };
-
                 let ready = services - pending;
-                if ready == 0 {
-                    if poll.is_ready() {
-                        return TestResult::failed();
-                    }
-                } else {
-                    if poll.is_not_ready() {
-                        return TestResult::failed();
+
+                match balancer.poll_ready() {
+                    Err(_) => return TestResult::error("poll_ready failed"),
+                    Ok(p) => {
+                        if p.is_ready() != (ready > 0) {
+                            return TestResult::failed();
+                        }
                     }
                 }
 
