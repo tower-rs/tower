@@ -107,21 +107,29 @@ where
     }
 
     /// Returns true iff there are ready services.
-    pub fn is_ready(&self) -> bool {
+    ///
+    /// This is not authoritative and is only useful after `poll_ready` has been called.
+    fn is_ready(&self) -> bool {
         !self.ready.is_empty()
     }
 
     /// Returns true iff there are no ready services.
+    ///
+    /// This is not authoritative and is only useful after `poll_ready` has been called.
     pub fn is_not_ready(&self) -> bool {
         self.ready.is_empty()
     }
 
     /// Counts the number of services considered to be ready.
+    ///
+    /// This is not authoritative and is only useful after `poll_ready` has been called.
     pub fn num_ready(&self) -> usize {
         self.ready.len()
     }
 
     /// Counts the number of services not considered to be ready.
+    ///
+    /// This is not authoritative and is only useful after `poll_ready` has been called.
     pub fn num_not_ready(&self) -> usize {
         self.not_ready.len()
     }
