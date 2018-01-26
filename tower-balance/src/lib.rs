@@ -106,6 +106,22 @@ where
         }
     }
 
+    /// Returns true iff there are ready services.
+    pub fn is_empty(&self) -> bool {
+        self.ready.is_empty()
+    }
+
+    /// Counts the number of services considered to be ready.
+    pub fn len(&self) -> usize {
+        self.ready.len()
+    }
+
+
+    /// Counts the number of services not considered to be ready.
+    pub fn not_ready_len(&self) -> usize {
+        self.not_ready.len()
+    }
+
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
@@ -281,5 +297,118 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.poll().map_err(Error::Inner)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use futures::future;
+    use quickcheck::*;
+    use tower_discover::Change;
+    use std::collections::VecDeque;
+
+    use super::*;
+
+    struct ReluctantDisco(VecDeque<Change<usize, ReluctantService>>);
+
+    struct ReluctantService {
+        polls_until_ready: usize,
+    }
+
+    impl Discover for ReluctantDisco {
+        type Key = usize;
+        type Request = ();
+        type Response = ();
+        type Error = ();
+        type Service = ReluctantService;
+        type DiscoverError = ();
+
+        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
+            let r = self.0.pop_front().map(Async::Ready).unwrap_or(Async::NotReady);
+            debug!("polling disco: {:?}", r.is_ready());
+            Ok(r)
+        }
+    }
+
+    impl Service for ReluctantService {
+        type Request = ();
+        type Response = ();
+        type Error = ();
+        type Future = future::FutureResult<(), ()>;
+
+        fn poll_ready(&mut self) -> Poll<(), ()> {
+            if self.polls_until_ready == 0 {
+                return Ok(Async::Ready(()));
+            }
+
+            self.polls_until_ready -= 1;
+            return Ok(Async::NotReady);
+        }
+
+        fn call(&mut self, _: ()) -> Self::Future {
+            future::ok(())
+        }
+    }
+
+    quickcheck! {
+        /// Creates a random number of services, each of which must be polled a random
+        /// number of times before becoming ready. As the balancer is polled, ensure that
+        /// it does not become ready prematurely and that services are promoted from
+        /// not_ready to ready.
+        fn poll_ready(service_tries: Vec<usize>) -> TestResult {
+            // Stores the number of pending services after each poll_ready call.
+            let mut pending_at = Vec::new();
+
+            let disco = {
+                let mut changes = VecDeque::new();
+                for (i, n) in service_tries.iter().map(|n| *n).enumerate() {
+                    for j in 0..n {
+                        if j == pending_at.len() {
+                            pending_at.push(1);
+                        } else {
+                            pending_at[j] += 1;
+                        }
+                    }
+
+                    let s = ReluctantService { polls_until_ready: n };
+                    changes.push_back(Change::Insert(i, s));
+                }
+                ReluctantDisco(changes)
+            };
+            pending_at.push(0);
+
+            let mut balancer = Balance::new(disco, choose::RoundRobin::default());
+
+            let services = service_tries.len();
+            for pending in pending_at.iter().map(|p| *p) {
+                assert!(pending <= services);
+
+                let poll = match balancer.poll_ready() {
+                    Ok(p) => p,
+                    Err(_) => return TestResult::error("poll_ready failed"),
+                };
+
+                let ready = services - pending;
+                if ready == 0 {
+                    if poll.is_ready() {
+                        return TestResult::failed();
+                    }
+                } else {
+                    if poll.is_not_ready() {
+                        return TestResult::failed();
+                    }
+                }
+
+                if balancer.len() != ready {
+                    return TestResult::failed();
+                }
+
+                if balancer.not_ready_len() != pending {
+                    return TestResult::failed();
+                }
+            }
+
+            TestResult::passed()
+        }
     }
 }
