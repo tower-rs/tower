@@ -156,24 +156,26 @@ where
         debug!("promoting to ready: {}", n);
         // Iterate through the not-ready endpoints from right to left to prevent removals
         // from reordering services in a way that could prevent a service from being polled.
-        for idx in (0..n-1).rev() {
+        for idx in (0..n).rev() {
             let is_ready = {
                 let (_, svc) = self.not_ready
                     .get_index_mut(idx)
                     .expect("invalid not_ready index");;
                 svc.poll_ready().map_err(Error::Inner)?.is_ready()
             };
-
+            trace!("not_ready[{:?}]: is_ready={:?};", idx, is_ready);
             if is_ready {
-                debug!("promoting to ready");
+                debug!("not_ready[{:?}]: promoting to ready", idx);
                 let (key, svc) = self.not_ready
                     .swap_remove_index(idx)
                     .expect("invalid not_ready index");
                 self.ready.insert(key, svc);
             } else {
-                debug!("not promoting to ready");
+                debug!("not_ready[{:?}]: not promoting to ready", idx);
             }
         }
+
+        debug!("promoting to ready: done");
 
         Ok(())
     }
