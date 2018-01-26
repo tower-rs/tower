@@ -380,6 +380,7 @@ mod tests {
             let mut balancer = Balance::new(disco, choose::RoundRobin::default());
 
             let services = service_tries.len();
+            let mut next_pos = 0;
             for pending in pending_at.iter().map(|p| *p) {
                 assert!(pending <= services);
                 let ready = services - pending;
@@ -399,6 +400,32 @@ mod tests {
 
                 if balancer.not_ready_len() != pending {
                     return TestResult::failed();
+                }
+
+                if balancer.is_empty() != (ready == 0) {
+                    return TestResult::failed();
+                }
+
+                if balancer.dispatched_ready_index.is_some() {
+                    return TestResult::failed();
+                }
+
+                if ready == 0 {
+                    if balancer.chosen_ready_index.is_some() {
+                        return TestResult::failed();
+                    }
+                } else {
+                    // Check that the round-robin chooser is doing its thing:
+                    match balancer.chosen_ready_index {
+                        None => return TestResult::failed(),
+                        Some(idx) => {
+                            if idx != next_pos  {
+                                return TestResult::failed();
+                            }
+                        }
+                    }
+
+                    next_pos = (next_pos + 1) % ready;
                 }
             }
 
