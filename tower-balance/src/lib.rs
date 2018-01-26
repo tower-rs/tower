@@ -107,18 +107,22 @@ where
     }
 
     /// Returns true iff there are ready services.
-    pub fn is_empty(&self) -> bool {
+    pub fn is_ready(&self) -> bool {
+        !self.ready.is_empty()
+    }
+
+    /// Returns true iff there are no ready services.
+    pub fn is_not_ready(&self) -> bool {
         self.ready.is_empty()
     }
 
     /// Counts the number of services considered to be ready.
-    pub fn len(&self) -> usize {
+    pub fn num_ready(&self) -> usize {
         self.ready.len()
     }
 
-
     /// Counts the number of services not considered to be ready.
-    pub fn not_ready_len(&self) -> usize {
+    pub fn num_not_ready(&self) -> usize {
         self.not_ready.len()
     }
 
@@ -394,15 +398,18 @@ mod tests {
                     }
                 }
 
-                if balancer.len() != ready {
+                if balancer.num_ready() != ready {
                     return TestResult::failed();
                 }
 
-                if balancer.not_ready_len() != pending {
+                if balancer.num_not_ready() != pending {
                     return TestResult::failed();
                 }
 
-                if balancer.is_empty() != (ready == 0) {
+                if balancer.is_ready() != (ready > 0) {
+                    return TestResult::failed();
+                }
+                if balancer.is_not_ready() != (ready == 0) {
                     return TestResult::failed();
                 }
 
