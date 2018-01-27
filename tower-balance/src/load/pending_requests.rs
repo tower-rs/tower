@@ -1,10 +1,11 @@
 use futures::{Future, Poll, Async};
+use std::ops;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tower::Service;
 use tower_discover::{Change, Discover};
 
-use Load;
+use {Load, Weight};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug, Clone)]
@@ -34,6 +35,16 @@ struct Handle {
 pub struct ResponseFuture<S: Service> {
     inner: S::Future,
     pending: Option<Handle>,
+}
+
+// ===== impl Count =====
+
+impl ops::Div<Weight> for Count {
+    type Output = f64;
+
+    fn div(self, weight: Weight) -> f64 {
+        self.0 / weight
+    }
 }
 
 // ===== impl PendingRequests =====

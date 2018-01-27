@@ -23,11 +23,12 @@ use tower::Service;
 use tower_balance::*;
 use tower_discover::{Change, Discover};
 
+#[derive(Clone, Debug)]
 struct DelayService(Timer, Duration);
 
 struct Delay(Sleep, Instant);
 
-struct Disco(VecDeque<Change<usize, DelayService>>);
+struct Disco<S>(VecDeque<Change<usize, S>>);
 
 impl Service for DelayService {
     type Request = ();
@@ -54,12 +55,12 @@ impl Future for Delay {
     }
 }
 
-impl Discover for Disco {
+impl<S: Service> Discover for Disco<S> {
     type Key = usize;
-    type Request = ();
-    type Response = Duration;
-    type Error = TimerError;
-    type Service = DelayService;
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Service = S;
     type DiscoverError = ();
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
@@ -72,18 +73,27 @@ impl Discover for Disco {
     }
 }
 
-fn gen_disco(timer: &Timer) -> Disco {
+fn gen_disco(timer: &Timer) -> Disco<DelayService> {
+    gen_disco_map(timer, |_, s| s)
+}
+
+fn gen_disco_map<F, S>(timer: &Timer, map: F) -> Disco<S>
+where
+    F: Fn(usize, DelayService) -> S,
+    S: Service,
+{
     use self::Change::Insert;
 
     let mut changes = VecDeque::new();
 
-    let quick = Duration::from_millis(500);
+    let quick = DelayService(timer.clone(), Duration::from_millis(200));
     for i in 0..8 {
-        changes.push_back(Insert(i, DelayService(timer.clone(), quick)));
+        let s = map(i, quick.clone());
+        changes.push_back(Insert(i, s));
     }
 
-    let slow = Duration::from_secs(2);
-    changes.push_back((Insert(9, DelayService(timer.clone(), slow))));
+    let slow = map(9, DelayService(timer.clone(), Duration::from_secs(2)));
+    changes.push_back(Insert(9, slow));
 
     Disco(changes)
 }
@@ -155,33 +165,44 @@ where
     Box::new(fut)
 }
 
-fn report(pfx: &str, histo: &Histogram<u64>) {
-    println!("{} samples: {}", pfx, histo.len());
+fn report(name: &str, histo: &Histogram<u64>) {
+    println!("{}", name);
 
     if histo.len () < 2 {
         return;
     }
-    println!("{} p50:  {}", pfx, histo.value_at_quantile(0.5));
+    println!("  p50\t{}", histo.value_at_quantile(0.5));
 
     if histo.len () < 10 {
         return;
     }
-    println!("{} p90:  {}", pfx, histo.value_at_quantile(0.9));
+    println!("  p90\t{}", histo.value_at_quantile(0.9));
 
     if histo.len () < 50 {
         return;
     }
-    println!("{} p95:  {}", pfx, histo.value_at_quantile(0.95));
+    println!("  p95\t{}", histo.value_at_quantile(0.95));
 
     if histo.len () < 100 {
         return;
     }
-    println!("{} p99:  {}", pfx, histo.value_at_quantile(0.99));
+    println!("  p99\t{}", histo.value_at_quantile(0.99));
 
     if histo.len () < 1000 {
         return;
     }
-    println!("{} p999: {}", pfx, histo.value_at_quantile(0.999));
+    println!("  p999\t{}", histo.value_at_quantile(0.999));
+}
+
+fn demo<D, C>(name: &str, core: &mut Core, lb: Balance<D, C>)
+where
+    D: Discover<Request = (), Response = Duration, Error = TimerError> + 'static,
+    D::DiscoverError: ::std::fmt::Debug,
+    C: Choose<D::Key, D::Service> + 'static,
+{
+    let send = SendRequests { lb, send_remaining: 1_000_000, responses: stream::FuturesUnordered::new() };
+    let histo = core.run(compute_histo(send)).unwrap();
+    report(name, &histo);
 }
 
 fn main() {
@@ -189,22 +210,21 @@ fn main() {
 
     let timer = Timer::default();
     let mut core = Core::new().unwrap();
-    let requests = 1_000_000;
+    let rng =  rand::thread_rng();
 
-    {
-        let lb = {
-            let loaded = load::WithPendingRequests::new(gen_disco(&timer));
-            power_of_two_choices(loaded, rand::thread_rng())
-        };
-        let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
-        let histo = core.run(compute_histo(send)).unwrap();
-        report("p2c", &histo)
-    }
+    demo("p2c + pending requests", &mut core, {
+        let loaded = load::WithPendingRequests::new(gen_disco(&timer));
+        power_of_two_choices(loaded, rng.clone())
+    });
 
-    {
-        let lb = round_robin(gen_disco(&timer));
-        let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
-        let histo = core.run(compute_histo(send)).unwrap();
-        report("rr", &histo)
-    }
+    demo("p2c + pending requests + weighted", &mut core, {
+        // Weight nodes so that all quick nodes are preferred to the slow node.
+        let replicas = gen_disco_map(&timer, |i, svc| {
+            let w = (10.0 - i as f64).into();
+            Weighted::new(load::PendingRequests::new(svc)).weighted(w)
+        });
+        power_of_two_choices(replicas, rng)
+    });
+
+    demo("round robin", &mut core, round_robin(gen_disco(&timer)));
 }
