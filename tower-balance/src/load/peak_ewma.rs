@@ -1,4 +1,5 @@
 use futures::{Async, Poll};
+use std::ops;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio_timer::clock;
@@ -7,7 +8,7 @@ use tower_service::Service;
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 
-use Load;
+use {HasWeight, Load, Weight};
 
 /// Wraps an `S`-typed Service with Peak-EWMA load measurement.
 ///
@@ -189,6 +190,12 @@ impl<S, I> Load for PeakEwma<S, I> {
     }
 }
 
+impl<S: HasWeight, I> HasWeight for PeakEwma<S, I> {
+    fn weight(&self) -> Weight {
+        self.service.weight()
+    }
+}
+
 impl<S, I> PeakEwma<S, I> {
     fn update_estimate(&self) -> f64 {
         let mut rtt = self.rtt_estimate.lock().expect("peak ewma prior_estimate");
@@ -274,6 +281,16 @@ impl Drop for Handle {
         if let Ok(mut rtt) = self.rtt_estimate.lock() {
             rtt.update(self.sent_at, recv_at, self.decay_ns);
         }
+    }
+}
+
+// ===== impl Cost =====
+
+impl ops::Div<Weight> for Cost {
+    type Output = f64;
+
+    fn div(self, w: Weight) -> f64 {
+        self.0 / w
     }
 }
 

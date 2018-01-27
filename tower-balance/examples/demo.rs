@@ -26,7 +26,7 @@ use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 use tower_util::ServiceFn;
 
-const REQUESTS: usize = 50_000;
+const REQUESTS: usize = 100_000;
 const CONCURRENCY: usize = 50;
 const DEFAULT_RTT: Duration = Duration::from_millis(30);
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
@@ -42,6 +42,13 @@ static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(100),
     Duration::from_millis(1000),
 ];
+static WEIGHTS: [f64; 10] = [1.0, 0.5, 0.5, 1.5, 1.5, 0.5, 0.5, 1.5, 1.5, 1.0];
+
+struct Summary {
+    latencies: Histogram<u64>,
+    start: Instant,
+    count_by_instance: [usize; 10],
+}
 
 fn main() {
     env_logger::init();
@@ -53,6 +60,11 @@ fn main() {
     for max in &MAX_ENDPOINT_LATENCIES {
         let l = max.as_secs() * 1_000 + u64::from(max.subsec_nanos() / 1_000 / 1_000);
         print!("{}ms, ", l);
+    }
+    println!("]");
+    print!("WEIGHTS=[");
+    for w in &WEIGHTS {
+        print!("{:2}, ", w);
     }
     println!("]");
 
@@ -71,12 +83,33 @@ fn main() {
     });
 
     let fut = fut.and_then(move |_| {
+        let decay = Duration::from_secs(10);
+        let d = gen_disco();
+        let pe = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPeakEwma::new(
+            d,
+            DEFAULT_RTT,
+            decay,
+            lb::load::NoInstrument,
+        )));
+        run("P2C+PeakEWMA weighted", pe)
+    });
+
+    let fut = fut.and_then(move |_| {
         let d = gen_disco();
         let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(
             d,
             lb::load::NoInstrument,
         ));
         run("P2C+LeastLoaded", ll)
+    });
+
+    let fut = fut.and_then(move |_| {
+        let d = gen_disco();
+        let ll = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPendingRequests::new(
+            d,
+            lb::load::NoInstrument,
+        )));
+        run("P2C+LeastLoaded weighted", ll)
     });
 
     let fut = fut.and_then(move |_| {
@@ -93,24 +126,32 @@ type Error = Box<::std::error::Error + Send + Sync>;
 fn gen_disco() -> impl Discover<
     Key = usize,
     Error = impl Into<Error>,
-    Service = impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
+    Service = lb::Weighted<
+        impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
+    >,
 > + Send {
-    tower_discover::ServiceList::new(MAX_ENDPOINT_LATENCIES.iter().map(|latency| {
-        let svc = ServiceFn::new(move |_| {
-            let start = Instant::now();
-            let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
-                .saturating_add(latency.as_secs().saturating_mul(1_000));
-            let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
-            let delay = timer::Delay::new(start + latency);
+    let svcs = MAX_ENDPOINT_LATENCIES
+        .iter()
+        .zip(WEIGHTS.iter())
+        .enumerate()
+        .map(|(instance, (latency, weight))| {
+            let svc = ServiceFn::new(move |_| {
+                let start = Instant::now();
 
-            delay.map(move |_| {
-                let latency = Instant::now() - start;
-                Rsp { latency }
-            })
+                let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                    .saturating_add(latency.as_secs().saturating_mul(1_000));
+                let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
+
+                timer::Delay::new(start + latency).map(move |_| {
+                    let latency = start.elapsed();
+                    Rsp { latency, instance }
+                })
+            });
+
+            let svc = InFlightLimit::new(svc, ENDPOINT_CAPACITY);
+            lb::Weighted::new(svc, *weight)
         });
-
-        InFlightLimit::new(svc, ENDPOINT_CAPACITY)
-    }))
+    tower_discover::ServiceList::new(svcs)
 }
 
 fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
@@ -123,59 +164,78 @@ where
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     println!("{}", name);
-    let t0 = Instant::now();
 
     let requests = stream::repeat::<_, Error>(Req).take(REQUESTS as u64);
     let service = InFlightLimit::new(lb, CONCURRENCY);
     let responses = service.call_all(requests).unordered();
 
-    compute_histo(responses)
-        .map(move |h| report(&h, t0.elapsed()))
-        .map_err(|_| {})
+    compute_histo(responses).map(|s| s.report()).map_err(|_| {})
 }
 
-fn compute_histo<S>(times: S) -> impl Future<Item = Histogram<u64>, Error = Error> + 'static
+fn compute_histo<S>(times: S) -> impl Future<Item = Summary, Error = Error> + 'static
 where
     S: Stream<Item = Rsp, Error = Error> + 'static,
 {
-    // The max delay is 2000ms. At 3 significant figures.
-    let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
-
-    times.fold(histo, |mut histo, Rsp { latency }| {
-        let ms = latency.as_secs() * 1_000;
-        let ms = ms + u64::from(latency.subsec_nanos()) / 1_000 / 1_000;
-        histo += ms;
-        future::ok::<_, Error>(histo)
+    times.fold(Summary::new(), |mut summary, rsp| {
+        summary.count(rsp);
+        Ok(summary) as Result<_, Error>
     })
 }
 
-fn report(histo: &Histogram<u64>, elapsed: Duration) {
-    println!("  wall {:4}s", elapsed.as_secs());
-
-    if histo.len() < 2 {
-        return;
+impl Summary {
+    fn new() -> Self {
+        Self {
+            // The max delay is 2000ms. At 3 significant figures.
+            latencies: Histogram::<u64>::new_with_max(3_000, 3).unwrap(),
+            start: Instant::now(),
+            count_by_instance: [0; 10],
+        }
     }
-    println!("  p50  {:4}ms", histo.value_at_quantile(0.5));
 
-    if histo.len() < 10 {
-        return;
+    fn count(&mut self, rsp: Rsp) {
+        let ms = rsp.latency.as_secs() * 1_000;
+        let ms = ms + u64::from(rsp.latency.subsec_nanos()) / 1_000 / 1_000;
+        self.latencies += ms;
+        self.count_by_instance[rsp.instance] += 1;
     }
-    println!("  p90  {:4}ms", histo.value_at_quantile(0.9));
 
-    if histo.len() < 50 {
-        return;
-    }
-    println!("  p95  {:4}ms", histo.value_at_quantile(0.95));
+    fn report(&self) {
+        let mut total = 0;
+        for c in &self.count_by_instance {
+            total += c;
+        }
+        for (i, c) in self.count_by_instance.into_iter().enumerate() {
+            let p = *c as f64 / total as f64 * 100.0;
+            println!("  [{:02}] {:>5.01}%", i, p);
+        }
 
-    if histo.len() < 100 {
-        return;
-    }
-    println!("  p99  {:4}ms", histo.value_at_quantile(0.99));
+        println!("  wall {:4}s", self.start.elapsed().as_secs());
 
-    if histo.len() < 1000 {
-        return;
+        if self.latencies.len() < 2 {
+            return;
+        }
+        println!("  p50  {:4}ms", self.latencies.value_at_quantile(0.5));
+
+        if self.latencies.len() < 10 {
+            return;
+        }
+        println!("  p90  {:4}ms", self.latencies.value_at_quantile(0.9));
+
+        if self.latencies.len() < 50 {
+            return;
+        }
+        println!("  p95  {:4}ms", self.latencies.value_at_quantile(0.95));
+
+        if self.latencies.len() < 100 {
+            return;
+        }
+        println!("  p99  {:4}ms", self.latencies.value_at_quantile(0.99));
+
+        if self.latencies.len() < 1000 {
+            return;
+        }
+        println!("  p999 {:4}ms", self.latencies.value_at_quantile(0.999));
     }
-    println!("  p999 {:4}ms", histo.value_at_quantile(0.999));
 }
 
 #[derive(Debug, Clone)]
@@ -184,4 +244,5 @@ struct Req;
 #[derive(Debug)]
 struct Rsp {
     latency: Duration,
+    instance: usize,
 }

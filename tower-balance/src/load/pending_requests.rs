@@ -1,10 +1,11 @@
 use futures::{Async, Poll};
+use std::ops;
 use std::sync::Arc;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
-use Load;
+use {HasWeight, Load, Weight};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
@@ -33,6 +34,16 @@ pub struct Count(usize);
 #[derive(Debug)]
 pub struct Handle(RefCount);
 
+// ===== impl Count =====
+
+impl ops::Div<Weight> for Count {
+    type Output = f64;
+
+    fn div(self, weight: Weight) -> f64 {
+        self.0 / weight
+    }
+}
+
 // ===== impl PendingRequests =====
 
 impl<S, I> PendingRequests<S, I> {
@@ -55,6 +66,12 @@ impl<S, I> Load for PendingRequests<S, I> {
     fn load(&self) -> Count {
         // Count the number of references that aren't `self`.
         Count(self.ref_count.ref_count() - 1)
+    }
+}
+
+impl<S: HasWeight, I> HasWeight for PendingRequests<S, I> {
+    fn weight(&self) -> Weight {
+        self.service.weight()
     }
 }
 
