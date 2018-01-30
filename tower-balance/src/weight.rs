@@ -127,7 +127,11 @@ impl ops::Div<Weight> for f64 {
     type Output = f64;
 
     fn div(self, w: Weight) -> f64 {
-        self / w.0
+        if w.0 == 0.0 {
+            ::std::f64::INFINITY
+        } else {
+            self / w.0
+        }
     }
 }
 
@@ -137,4 +141,11 @@ impl ops::Div<Weight> for usize {
     fn div(self, w: Weight) -> f64 {
         (self as f64) / w
     }
+}
+
+#[test]
+fn div_min() {
+    assert_eq!(10.0 / Weight::MIN, ::std::f64::INFINITY);
+    assert_eq!(10 / Weight::MIN, ::std::f64::INFINITY);
+    assert_eq!(0 / Weight::MIN, ::std::f64::INFINITY);
 }
