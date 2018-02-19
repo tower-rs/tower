@@ -2,6 +2,7 @@
 
 extern crate futures;
 extern crate tower;
+extern crate tower_ready_service;
 
 pub mod either;
 pub mod option;
