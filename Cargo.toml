@@ -23,6 +23,7 @@ members = [
   "tower-buffer",
   "tower-discover",
   "tower-filter",
+  "tower-in-flight-limit",
   "tower-mock",
   "tower-rate-limit",
   "tower-ready-service",
