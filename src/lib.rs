@@ -1,9 +1,4 @@
 //! Definition of the core `Service` trait to Tower
-//!
-//! More information can be found on [the trait] itself and online at
-//! [https://tower.rs](https://tower.rs)
-//!
-//! [the trait]: trait.Service.html
 
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/tower/0.1")]
