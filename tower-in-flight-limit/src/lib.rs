@@ -1,7 +1,6 @@
 //! Tower middleware that limits the maximum number of in-flight requests for a
 //! service.
 
-#[macro_use]
 extern crate futures;
 extern crate tower;
 extern crate tower_ready_service;
@@ -79,6 +78,29 @@ impl<T> InFlightLimit<T> {
     pub fn into_inner(self) -> T {
         self.inner
     }
+
+    fn call2<F, R>(&mut self, f: F) -> ResponseFuture<R>
+    where F: FnOnce(&mut Self) -> R,
+    {
+        // In this implementation, `poll_ready` is not expected to be called
+        // first (though, it might have been).
+        if self.state.reserved {
+            self.state.reserved = false;
+        } else {
+            // Try to reserve
+            if !self.state.shared.reserve() {
+                return ResponseFuture {
+                    inner: None,
+                    shared: self.state.shared.clone(),
+                };
+            }
+        }
+
+        ResponseFuture {
+            inner: Some(f(self)),
+            shared: self.state.shared.clone(),
+        }
+    }
 }
 
 impl<S> Service for InFlightLimit<S>
@@ -108,24 +130,12 @@ where S: Service
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
-        if !self.state.reserved {
-            return ResponseFuture {
-                inner: None,
-                shared: self.state.shared.clone(),
-            };
-        }
-
-        self.state.reserved = false;
-
-        ResponseFuture {
-            inner: Some(self.inner.call(request)),
-            shared: self.state.shared.clone(),
-        }
+        self.call2(|me| me.inner.call(request))
     }
 }
 
 impl<S> ReadyService for InFlightLimit<S>
-where S: Service
+where S: ReadyService
 {
     type Request = S::Request;
     type Response = S::Response;
@@ -133,7 +143,7 @@ where S: Service
     type Future = ResponseFuture<S::Future>;
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
-        unimplemented!();
+        self.call2(|me| me.inner.call(request))
     }
 }
 

@@ -8,7 +8,7 @@ use tower::Service;
 use futures::future::{Future, poll_fn};
 
 #[test]
-fn basic_limit_functionality() {
+fn basic_service_limit_functionality_with_poll_ready() {
     let (mut service, mut handle) =
         new_service(2);
 
@@ -55,6 +55,49 @@ fn basic_limit_functionality() {
     request.respond("world 3");
 
     assert_eq!(r3.wait().unwrap(), "world 3");
+}
+
+#[test]
+fn basic_service_limit_functionality_without_poll_ready() {
+    let (mut service, mut handle) =
+        new_service(2);
+
+    let r1 = service.call("hello 1");
+    let r2 = service.call("hello 2");
+    let r3 = service.call("hello 3");
+    r3.wait().unwrap_err();
+
+    // The request gets passed through
+    let request = handle.next_request().unwrap();
+    assert_eq!(*request, "hello 1");
+    request.respond("world 1");
+
+    // The next request gets passed through
+    let request = handle.next_request().unwrap();
+    assert_eq!(*request, "hello 2");
+    request.respond("world 2");
+
+    // There are no more requests
+    with_task(|| {
+        assert!(handle.poll_request().unwrap().is_not_ready());
+    });
+
+    assert_eq!(r1.wait().unwrap(), "world 1");
+
+    // One more request can be sent
+    let r4 = service.call("hello 4");
+
+    let r5 = service.call("hello 5");
+    r5.wait().unwrap_err();
+
+    assert_eq!(r2.wait().unwrap(), "world 2");
+
+    // The request gets passed through
+    let request = handle.next_request().unwrap();
+    assert_eq!(*request, "hello 4");
+    request.respond("world 4");
+
+    assert_eq!(r4.wait().unwrap(), "world 4");
 }
 
 #[test]
