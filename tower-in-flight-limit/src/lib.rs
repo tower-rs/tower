@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InFlightLimit<T> {
     inner: T,
     state: State,
@@ -90,6 +90,7 @@ where S: Service
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        println!("poll_ready; reserved={:?}", self.state.reserved);
         if self.state.reserved {
             return self.inner.poll_ready()
                 .map_err(Error::Upstream);
@@ -98,6 +99,7 @@ where S: Service
         self.state.shared.task.register();
 
         if !self.state.shared.reserve() {
+            println!("failed to reserve");
             return Ok(Async::NotReady);
         }
 
@@ -108,12 +110,15 @@ where S: Service
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
+        println!("call; reserved={:?}", self.state.reserved);
         if !self.state.reserved {
             return ResponseFuture {
                 inner: None,
                 shared: self.state.shared.clone(),
             };
         }
+
+        self.state.reserved = false;
 
         ResponseFuture {
             inner: Some(self.inner.call(request)),
@@ -144,16 +149,52 @@ where T: Future,
     type Error = Error<T::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner {
+        use futures::Async::*;
+
+        let res = match self.inner {
             Some(ref mut f) => {
-                f.poll().map_err(Error::Upstream)
+                match f.poll() {
+                    Ok(Ready(v)) => {
+                        self.shared.release();
+                        Ok(Ready(v))
+                    }
+                    Ok(NotReady) => {
+                        return Ok(NotReady);
+                    }
+                    Err(e) => {
+                        self.shared.release();
+                        Err(Error::Upstream(e))
+                    }
+                }
             }
             None => Err(Error::NoCapacity),
+        };
+
+        // Drop the inner future
+        self.inner = None;
+
+        res
+    }
+}
+
+impl<T> Drop for ResponseFuture<T> {
+    fn drop(&mut self) {
+        if self.inner.is_some() {
+            self.shared.release();
         }
     }
 }
 
 // ===== impl State =====
+
+impl Clone for State {
+    fn clone(&self) -> Self {
+        State {
+            shared: self.shared.clone(),
+            reserved: false,
+        }
+    }
+}
 
 impl Drop for State {
     fn drop(&mut self) {
@@ -172,6 +213,7 @@ impl Shared {
         let mut curr = self.curr.load(SeqCst);
 
         loop {
+            println!("reserve; curr={}; max={}", curr, self.max);
             if curr == self.max {
                 return false;
             }
@@ -190,6 +232,6 @@ impl Shared {
     /// request has completed OR the service that made the reservation has
     /// dropped.
     pub fn release(&self) {
-        self.curr.fetch_add(1, SeqCst);
+        self.curr.fetch_sub(1, SeqCst);
     }
 }
