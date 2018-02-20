@@ -90,7 +90,6 @@ where S: Service
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        println!("poll_ready; reserved={:?}", self.state.reserved);
         if self.state.reserved {
             return self.inner.poll_ready()
                 .map_err(Error::Upstream);
@@ -99,7 +98,6 @@ where S: Service
         self.state.shared.task.register();
 
         if !self.state.shared.reserve() {
-            println!("failed to reserve");
             return Ok(Async::NotReady);
         }
 
@@ -110,7 +108,6 @@ where S: Service
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
-        println!("call; reserved={:?}", self.state.reserved);
         if !self.state.reserved {
             return ResponseFuture {
                 inner: None,
@@ -213,7 +210,6 @@ impl Shared {
         let mut curr = self.curr.load(SeqCst);
 
         loop {
-            println!("reserve; curr={}; max={}", curr, self.max);
             if curr == self.max {
                 return false;
             }
