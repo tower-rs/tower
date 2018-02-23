@@ -6,7 +6,7 @@ extern crate tower;
 use futures::{Future, Async, Poll};
 use tower::{Service, NewService};
 
-use std::fmt;
+use std::{error, fmt};
 
 pub struct Reconnect<T>
 where T: NewService,
@@ -158,6 +158,47 @@ impl<T: NewService> Future for ResponseFuture<T> {
                 f.poll().map_err(Error::Inner)
             }
             None => Err(Error::NotReady),
+        }
+    }
+}
+
+
+// ===== impl Error =====
+
+impl<T, U> fmt::Display for Error<T, U>
+where
+    T: fmt::Debug,
+    U: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Inner(ref why) =>
+                write!(f, "inner service error: {:?}", why),
+            Error::Connect(ref why) =>
+                write!(f, "connection failed: {:?}", why),
+            Error::NotReady => f.pad("not ready"),
+        }
+    }
+}
+
+impl<T, U> error::Error for Error<T, U>
+where
+    T: error::Error,
+    U: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::Inner(ref why) => Some(why),
+            Error::Connect(ref why) => Some(why),
+            _ => None,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Inner(_) => "inner service error",
+            Error::Connect(_) => "connection failed",
+            Error::NotReady => "not ready",
         }
     }
 }

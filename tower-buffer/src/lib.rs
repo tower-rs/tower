@@ -18,6 +18,7 @@ use futures::sync::oneshot;
 use futures::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tower::Service;
 
+use std::{error, fmt};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
@@ -221,4 +222,66 @@ where T: Service,
             }
         }
     }
+}
+
+// ===== impl Error =====
+
+impl<T> fmt::Display for Error<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Inner(ref why) =>
+                write!(f, "inner service error: {:?}", why),
+            Error::Closed =>
+                write!(f, "buffer closed"),
+        }
+    }
+}
+
+impl<T> error::Error for Error<T>
+where
+    T: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        if let Error::Inner(ref why) = *self {
+            Some(why)
+        } else {
+            None
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Inner(_) => "inner service error",
+            Error::Closed => "buffer closed",
+        }
+    }
+
+}
+
+// ===== impl SpawnError =====
+
+impl<T> fmt::Display for SpawnError<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "error spawning buffer task: {:?}", self.inner)
+    }
+}
+
+impl<T> error::Error for SpawnError<T>
+where
+    T: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        Some(&self.inner)
+    }
+
+    fn description(&self) -> &str {
+        "error spawning buffer task"
+    }
+
 }

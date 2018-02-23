@@ -10,6 +10,7 @@ use tower_ready_service::ReadyService;
 
 use futures::{Future, Poll, Async};
 use futures::task::AtomicTask;
+use std::{error, fmt};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -240,4 +241,42 @@ impl Shared {
     pub fn release(&self) {
         self.curr.fetch_sub(1, SeqCst);
     }
+}
+
+
+// ===== impl Error =====
+
+impl<T> fmt::Display for Error<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Upstream(ref why) =>
+                write!(f, "upstream service error: {:?}", why),
+            Error::NoCapacity =>
+                write!(f, "in-flight limit exceeded"),
+        }
+    }
+}
+
+impl<T> error::Error for Error<T>
+where
+    T: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        if let Error::Upstream(ref why) = *self {
+            Some(why)
+        } else {
+            None
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Upstream(_) => "upstream service error",
+            Error::NoCapacity => "in-flight limit exceeded",
+        }
+    }
+
 }
