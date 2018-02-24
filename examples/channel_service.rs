@@ -149,7 +149,7 @@ impl Future for ResponseFuture {
 }
 
 pub fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let new_service = NewChannelService::new(5, CpuPool::new(1));
 

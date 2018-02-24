@@ -6,16 +6,16 @@ publish = false
 
 [dependencies]
 futures = "0.1"
-log = "0.3"
+log = "0.4.1"
 rand = "0.4"
 tower = { version = "0.1", path = "../" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
 ordermap = "0.2"
 
 [dev-dependencies]
-log = "0.3"
-env_logger = "0.4"
+log = "0.4.1"
+env_logger = { version = "0.5.3", default-features = false }
 hdrsample = "6.0"
 tokio-core = "^0.1.12"
 tokio-timer = "0.1"
-quickcheck = "0.6"
+quickcheck = { version = "0.6", default-features = false }
