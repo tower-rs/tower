@@ -12,6 +12,7 @@ extern crate tower_discover;
 use futures::{Future, Poll, Async};
 use ordermap::OrderMap;
 use rand::Rng;
+use std::{fmt, error};
 use std::marker::PhantomData;
 use tower::Service;
 use tower_discover::Discover;
@@ -311,6 +312,48 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
         self.0.poll().map_err(Error::Inner)
     }
 }
+
+
+// ===== impl Error =====
+
+impl<T, U> fmt::Display for Error<T, U>
+where
+    T: fmt::Display,
+    U: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Inner(ref why) =>
+                write!(f, "inner service error: {}", why),
+            Error::Balance(ref why) =>
+                write!(f, "load balancing failed: {}", why),
+            Error::NotReady => f.pad("not ready"),
+        }
+    }
+}
+
+impl<T, U> error::Error for Error<T, U>
+where
+    T: error::Error,
+    U: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::Inner(ref why) => Some(why),
+            Error::Balance(ref why) => Some(why),
+            _ => None,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Inner(_) => "inner service error",
+            Error::Balance(_) => "load balancing failed",
+            Error::NotReady => "not ready",
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
