@@ -185,7 +185,7 @@ fn report(pfx: &str, histo: &Histogram<u64>) {
 }
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let timer = Timer::default();
     let mut core = Core::new().unwrap();
