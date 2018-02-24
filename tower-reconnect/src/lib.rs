@@ -167,15 +167,15 @@ impl<T: NewService> Future for ResponseFuture<T> {
 
 impl<T, U> fmt::Display for Error<T, U>
 where
-    T: fmt::Debug,
-    U: fmt::Debug,
+    T: fmt::Display,
+    U: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) =>
-                write!(f, "inner service error: {:?}", why),
+                write!(f, "inner service error: {}", why),
             Error::Connect(ref why) =>
-                write!(f, "connection failed: {:?}", why),
+                write!(f, "connection failed: {}", why),
             Error::NotReady => f.pad("not ready"),
         }
     }

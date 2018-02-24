@@ -228,12 +228,12 @@ where T: Service,
 
 impl<T> fmt::Display for Error<T>
 where
-    T: fmt::Debug,
+    T: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) =>
-                write!(f, "inner service error: {:?}", why),
+                write!(f, "inner service error: {}", why),
             Error::Closed =>
                 write!(f, "buffer closed"),
         }

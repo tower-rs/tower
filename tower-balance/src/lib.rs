@@ -318,15 +318,15 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
 
 impl<T, U> fmt::Display for Error<T, U>
 where
-    T: fmt::Debug,
-    U: fmt::Debug,
+    T: fmt::Display,
+    U: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) =>
-                write!(f, "inner service error: {:?}", why),
+                write!(f, "inner service error: {}", why),
             Error::Balance(ref why) =>
-                write!(f, "load balancing failed: {:?}", why),
+                write!(f, "load balancing failed: {}", why),
             Error::NotReady => f.pad("not ready"),
         }
     }

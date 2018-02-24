@@ -248,12 +248,12 @@ impl Shared {
 
 impl<T> fmt::Display for Error<T>
 where
-    T: fmt::Debug,
+    T: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Upstream(ref why) =>
-                write!(f, "upstream service error: {:?}", why),
+                write!(f, "upstream service error: {}", why),
             Error::NoCapacity =>
                 write!(f, "in-flight limit exceeded"),
         }
