@@ -10,6 +10,8 @@ extern crate tokio_timer;
 use futures::{Future, Poll, Async};
 use tower::Service;
 use tokio_timer::{Timer, Sleep};
+
+use std::{error, fmt};
 use std::time::Duration;
 
 /// Applies a timeout to requests.
@@ -93,4 +95,42 @@ where T: Future,
             Err(_) => Err(Error::Timeout),
         }
     }
+}
+
+
+// ===== impl Error =====
+
+impl<T> fmt::Display for Error<T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Inner(ref why) =>
+                write!(f, "inner service error: {}", why),
+            Error::Timeout =>
+                write!(f, "request timed out"),
+        }
+    }
+}
+
+impl<T> error::Error for Error<T>
+where
+    T: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        if let Error::Inner(ref why) = *self {
+            Some(why)
+        } else {
+            None
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Inner(_) => "inner service error",
+            Error::NoCapacity => "request timed out",
+        }
+    }
+
 }

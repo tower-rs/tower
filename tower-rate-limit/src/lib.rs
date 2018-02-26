@@ -12,6 +12,7 @@ use futures::{Future, Poll};
 use tower::Service;
 use tokio_timer::{Timer, Sleep};
 
+use std::{error, fmt};
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -171,4 +172,42 @@ where T: Future,
             None => Err(Error::RateLimit),
         }
     }
+}
+
+
+// ===== impl Error =====
+
+impl<T> fmt::Display for Error<T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::Upstream(ref why) =>
+                write!(f, "upstream service error: {}", why),
+            Error::NoCapacity =>
+                write!(f, "rate limit exceeded"),
+        }
+    }
+}
+
+impl<T> error::Error for Error<T>
+where
+    T: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        if let Error::Upstream(ref why) = *self {
+            Some(why)
+        } else {
+            None
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Upstream(_) => "upstream service error",
+            Error::RateLimit => "rate limit exceeded",
+        }
+    }
+
 }
