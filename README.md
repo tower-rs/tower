@@ -16,7 +16,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tower = { git = "https://github.com/carllerche/tower" }
+tower = { git = "https://github.com/tower-rs/tower" }
 ```
 
 Next, add this to your crate:
