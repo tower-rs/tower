@@ -232,10 +232,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Inner(ref why) =>
-                write!(f, "inner service error: {}", why),
-            Error::Closed =>
-                write!(f, "buffer closed"),
+            Error::Inner(ref why) => fmt::Display::fmt(why, f),
+            Error::Closed => f.pad("buffer closed"),
         }
     }
 }
