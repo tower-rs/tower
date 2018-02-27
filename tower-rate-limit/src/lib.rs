@@ -183,8 +183,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Upstream(ref why) =>
-                write!(f, "upstream service error: {}", why),
+            Error::Upstream(ref why) => fmt::Display::fmt(why, f)
             Error::NoCapacity =>
                 write!(f, "rate limit exceeded"),
         }

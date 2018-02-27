@@ -106,10 +106,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Inner(ref why) =>
-                write!(f, "inner service error: {}", why),
-            Error::Timeout =>
-                write!(f, "request timed out"),
+            Error::Inner(ref why) => fmt::Display::fmt(why, f),
+            Error::Timeout => f.pad("request timed out"),
         }
     }
 }
@@ -129,7 +127,7 @@ where
     fn description(&self) -> &str {
         match *self {
             Error::Inner(_) => "inner service error",
-            Error::NoCapacity => "request timed out",
+            Error::Timeout => "request timed out",
         }
     }
 

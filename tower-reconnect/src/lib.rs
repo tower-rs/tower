@@ -172,10 +172,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Inner(ref why) =>
-                write!(f, "inner service error: {}", why),
-            Error::Connect(ref why) =>
-                write!(f, "connection failed: {}", why),
+            Error::Inner(ref why) => fmt::Display::fmt(why, f),
+            Error::Connect(ref why) => write!(f, "connection failed: {}", why),
             Error::NotReady => f.pad("not ready"),
         }
     }
