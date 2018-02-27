@@ -1,4 +1,4 @@
-use ordermap::OrderMap;
+use indexmap::IndexMap;
 
 mod p2c;
 mod round_robin;
@@ -18,7 +18,7 @@ pub trait Choose<K, N> {
 
 /// Creates a `Replicas` if there are two or more services.
 ///
-pub(crate) fn replicas<K, S>(inner: &OrderMap<K, S>) -> Result<Replicas<K, S>, TooFew> {
+pub(crate) fn replicas<K, S>(inner: &IndexMap<K, S>) -> Result<Replicas<K, S>, TooFew> {
     if inner.len() < 2 {
         return Err(TooFew);
     }
@@ -32,7 +32,7 @@ pub struct TooFew;
 
 /// Holds two or more services.
 // TODO hide `K`
-pub struct Replicas<'a, K: 'a, S: 'a>(&'a OrderMap<K, S>);
+pub struct Replicas<'a, K: 'a, S: 'a>(&'a IndexMap<K, S>);
 
 impl<'a, K: 'a, S: 'a> Replicas<'a, K, S> {
     pub fn len(&self) -> usize {
