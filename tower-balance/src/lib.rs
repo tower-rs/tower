@@ -2,7 +2,7 @@
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate ordermap;
+extern crate indexmap;
 #[cfg(test)]
 extern crate quickcheck;
 extern crate rand;
@@ -10,7 +10,7 @@ extern crate tower;
 extern crate tower_discover;
 
 use futures::{Future, Poll, Async};
-use ordermap::OrderMap;
+use indexmap::IndexMap;
 use rand::Rng;
 use std::{fmt, error};
 use std::marker::PhantomData;
@@ -72,10 +72,10 @@ pub struct Balance<D: Discover, C> {
     dispatched_ready_index: Option<usize>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
-    ready: OrderMap<D::Key, D::Service>,
+    ready: IndexMap<D::Key, D::Service>,
 
     /// Newly-added endpoints that have not yet become ready.
-    not_ready: OrderMap<D::Key, D::Service>,
+    not_ready: IndexMap<D::Key, D::Service>,
 }
 
 /// Error produced by `Balance`
@@ -102,8 +102,8 @@ where
             choose,
             chosen_ready_index: None,
             dispatched_ready_index: None,
-            ready: OrderMap::default(),
-            not_ready: OrderMap::default(),
+            ready: IndexMap::default(),
+            not_ready: IndexMap::default(),
         }
     }
 

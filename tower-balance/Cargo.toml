@@ -10,7 +10,7 @@ log = "0.4.1"
 rand = "0.4"
 tower = { version = "0.1", path = "../" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
-ordermap = "0.2"
+indexmap = "0.4.1"
 
 [dev-dependencies]
 log = "0.4.1"
