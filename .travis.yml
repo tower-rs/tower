@@ -11,7 +11,7 @@ matrix:
     - rust: nightly
 
 script:
-- cargo test
+- cargo test --all
 
 deploy:
   provider:  pages
