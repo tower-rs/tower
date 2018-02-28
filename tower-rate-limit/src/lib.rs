@@ -184,7 +184,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-            Error::NoCapacity => f.pad("rate limit exceeded"),
+            Error::RateLimit => f.pad("rate limit exceeded"),
         }
     }
 }
