@@ -11,6 +11,7 @@
 
 extern crate futures;
 extern crate tower;
+#[macro_use] extern crate log;
 
 use futures::{Future, Stream, Poll, Async};
 use futures::future::Executor;
@@ -19,6 +20,7 @@ use futures::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tower::Service;
 
 use std::{error, fmt};
+use std::error::{Error as StdError};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
@@ -116,7 +118,9 @@ where T: Service,
 }
 
 impl<T> Service for Buffer<T>
-where T: Service,
+where
+    T: Service,
+    T::Error: error::Error,
 {
     type Request = T::Request;
     type Response = T::Response;
@@ -150,7 +154,9 @@ where T: Service,
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where T: Service
+where
+    T: Service,
+    T::Error: error::Error,
 {
     type Item = T::Response;
     type Error = Error<T::Error>;
@@ -166,7 +172,13 @@ where T: Service
                     match rx.poll() {
                         Ok(Async::Ready(f)) => fut = f,
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Err(_) => return Err(Error::Closed),
+                        Err(e) => {
+                            let cause = e.cause()
+                                .map(|cause| format!(", caused by: {}", cause)).unwrap_or_else(||String::from(""));
+                            error!("closing due to inner service error: {}{}",
+                                e, cause);
+                            return Err(Error::Closed)
+                        }
                     }
                 }
                 Poll(ref mut fut) => {
