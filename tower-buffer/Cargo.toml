@@ -7,7 +7,6 @@ publish = false
 [dependencies]
 futures = "0.1"
 tower = { version = "0.1", path = "../" }
-log = "0.4.1"
 
 [dev-dependencies]
 tower-mock = { version = "0.1", path = "../tower-mock" }

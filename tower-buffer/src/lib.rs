@@ -11,7 +11,6 @@
 
 extern crate futures;
 extern crate tower;
-#[macro_use] extern crate log;
 
 use futures::{Future, Stream, Poll, Async};
 use futures::future::Executor;
@@ -21,6 +20,8 @@ use tower::Service;
 
 use std::{error, fmt};
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
 use std::marker::PhantomData;
 
 
@@ -32,7 +33,7 @@ pub struct Buffer<T, E>
 where T: Service,
 {
     tx: UnboundedSender<Message<T, E>>,
-    state: Arc<RwLock<State<T::Error>>>,
+    state: Arc<State<T::Error>>,
 }
 
 /// Future eventually completed with the response to the original request.
@@ -46,9 +47,8 @@ where T: Service,
 /// Errors produced by `Buffer`.
 #[derive(Debug)]
 pub enum Error<E, C> {
-    Inner(Arc<E>),
+    Inner(E),
     Closed(C),
-    Poisoned,
 }
 
 /// Task that handles processing the buffer. This type should not be used
@@ -58,7 +58,7 @@ where T: Service,
 {
     service: T,
     rx: UnboundedReceiver<Message<T, E>>,
-    state: Arc<RwLock<State<T::Error>>>,
+    state: Arc<State<T::Error>>,
 }
 
 /// Error produced when spawning the worker fails
@@ -75,12 +75,10 @@ struct Message<T: Service, E> {
 }
 
 /// State shared between `Buffer` and `Worker`
-enum State<E> {
-    Open,
-    // TODO: arc could be removed by adding a Clone bound to the error type.
-    Closed(Arc<E>),
+struct State<E> {
+    open: AtomicBool,
+    error: RwLock<Option<E>>,
 }
-
 enum ResponseState<T,E> {
     Rx(oneshot::Receiver<Result<T,E>>),
     Poll(T),
@@ -101,7 +99,10 @@ where
     {
         let (tx, rx) = mpsc::unbounded();
 
-        let state = Arc::new(RwLock::new(State::Open));
+        let state = Arc::new(State {
+            open: AtomicBool::new(true),
+            error: RwLock::new(None),
+        });
 
         let worker = Worker {
             service,
@@ -123,7 +124,7 @@ where
 impl<T, E> Service for Buffer<T, E>
 where
     T: Service,
-    // T::Error: Clone,
+    T::Error: Clone,
 {
     type Request = T::Request;
     type Response = T::Response;
@@ -131,18 +132,17 @@ where
     type Future = ResponseFuture<T, E>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        if let Ok(guard) = self.state.read() {
-            match *guard {
-                // If the inner service has errored, then we error here.
-                State::Closed(ref why) => Err(Error::Inner(why.clone())),
-                // Ideally we could query if the `mpsc` is closed, but this is
-                //  notcurrently possible.
-                State::Open => Ok(().into()),
-            }
+        // If the inner service has errored, then we error here.
+        if !self.state.open.load(SeqCst) {
+            let error = self.state.error
+                .read().expect("worker thread panicked")
+                .as_ref().map(Clone::clone)
+                .expect("if the buffer is closed, the error should be set");
+            return Err(Error::Inner(error));
         } else {
-            // The lock was poisoned, indicating that the worker thread
-            // panicked!
-            Err(Error::Poisoned)
+            // Ideally we could query if the `mpsc` is closed, but this is not
+            // currently possible.
+            Ok(().into())
         }
     }
 
@@ -164,6 +164,7 @@ where
 impl<T, E> Future for ResponseFuture<T, E>
 where
     T: Service,
+    T::Error: Clone,
 {
     type Item = T::Response;
     type Error = Error<T::Error, E>;
@@ -190,7 +191,7 @@ where
                     }
                 }
                 Poll(ref mut fut) => {
-                    return fut.poll().map_err(|e| Error::Inner(Arc::new(e)));
+                    return fut.poll().map_err(|e| Error::Inner(e.clone()));
                 }
             }
 
@@ -217,11 +218,12 @@ where
                     return Ok(Async::NotReady);
                 }
                 Err(e) => {
-                    let mut state = self.state.write()
+                    self.state.open.store(false, SeqCst);
+                    let mut error = self.state.error.write()
                         // this shouldn't happen; other threads should only ever
                         // acquire read guards.
                         .expect("another thread acquired state write guard");
-                    *state = State::Closed(Arc::new(e));
+                    *error = Some(e);
                     return Ok(().into())
                 }
             }
@@ -258,8 +260,6 @@ where
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
             Error::Closed(ref why) => write!(f, "buffer closed: {}", why),
-            Error::Poisoned =>
-                "poisoned lock: another task failed inside".fmt(f),
         }
     }
 }
@@ -271,10 +271,8 @@ where
 {
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            Error::Inner(ref why) => Some(why.as_ref()),
+            Error::Inner(ref why) => Some(why),
             Error::Closed(ref why) => Some(why),
-            // TODO: would be nice to return the original PoisonError here
-            Error::Poisoned => None,
         }
     }
 
@@ -282,7 +280,6 @@ where
         match *self {
             Error::Inner(_) => "inner service error",
             Error::Closed(_) => "buffer closed",
-            Error::Poisoned => "poisoned lock: another task failed inside",
         }
     }
 
