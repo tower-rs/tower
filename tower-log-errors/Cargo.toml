@@ -1,0 +1,10 @@
+[package]
+name = "tower-log-errors"
+version = "0.1.0"
+authors = ["Eliza Weisman <eliza@buoyant.io>"]
+publish = false
+
+[dependencies]
+futures = "0.1"
+log = "0.4.1"
+tower = { version = "0.1", path = "../" }
