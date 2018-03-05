@@ -24,7 +24,7 @@ members = [
   "tower-discover",
   "tower-filter",
   "tower-in-flight-limit",
-  "tower-log-errors",
+  "tower-log",
   "tower-mock",
   "tower-rate-limit",
   "tower-ready-service",

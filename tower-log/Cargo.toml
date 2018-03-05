@@ -1,5 +1,5 @@
 [package]
-name = "tower-log-errors"
+name = "tower-log"
 version = "0.1.0"
 authors = ["Eliza Weisman <eliza@buoyant.io>"]
 publish = false
