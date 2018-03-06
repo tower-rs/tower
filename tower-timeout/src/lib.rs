@@ -17,7 +17,7 @@ use std::time::Duration;
 /// Applies a timeout to requests.
 #[derive(Debug)]
 pub struct Timeout<T> {
-    upstream: T,
+    inner: T,
     timer: Timer,
     timeout: Duration,
 }
@@ -42,9 +42,9 @@ pub struct ResponseFuture<T> {
 // ===== impl Timeout =====
 
 impl<T> Timeout<T> {
-    pub fn new(upstream: T, timer: Timer, timeout: Duration) -> Self {
+    pub fn new(inner: T, timer: Timer, timeout: Duration) -> Self {
         Timeout {
-            upstream,
+            inner,
             timer,
             timeout,
         }
@@ -60,13 +60,13 @@ where S: Service,
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.upstream.poll_ready()
+        self.inner.poll_ready()
             .map_err(Error::Inner)
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
         ResponseFuture {
-            response: self.upstream.call(request),
+            response: self.inner.call(request),
             sleep: self.timer.sleep(self.timeout),
         }
     }

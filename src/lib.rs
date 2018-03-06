@@ -96,7 +96,7 @@ use std::sync::Arc;
 /// use tokio_timer::Timer;
 ///
 /// pub struct Timeout<T> {
-///     upstream: T,
+///     inner: T,
 ///     delay: Duration,
 ///     timer: Timer,
 /// }
@@ -104,9 +104,9 @@ use std::sync::Arc;
 /// pub struct Expired;
 ///
 /// impl<T> Timeout<T> {
-///     pub fn new(upstream: T, delay: Duration) -> Timeout<T> {
+///     pub fn new(inner: T, delay: Duration) -> Timeout<T> {
 ///         Timeout {
-///             upstream: upstream,
+///             inner: inner,
 ///             delay: delay,
 ///             timer: Timer::default(),
 ///         }
@@ -130,7 +130,7 @@ use std::sync::Arc;
 ///         let timeout = self.timer.sleep(self.delay)
 ///             .and_then(|_| Err(Self::Error::from(Expired)));
 ///
-///         self.upstream.call(req)
+///         self.inner.call(req)
 ///             .select(timeout)
 ///             .map(|(v, _)| v)
 ///             .map_err(|(e, _)| e)
