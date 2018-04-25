@@ -8,7 +8,6 @@ members = [
   "tower-in-flight-limit",
   "tower-mock",
   "tower-rate-limit",
-  "tower-ready-service",
   "tower-reconnect",
   "tower-router",
   "tower-service",
