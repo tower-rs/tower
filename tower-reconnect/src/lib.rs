@@ -1,10 +1,10 @@
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate tower;
+extern crate tower_service;
 
 use futures::{Future, Async, Poll};
-use tower::{Service, NewService};
+use tower_service::{Service, NewService};
 
 use std::{error, fmt};
 

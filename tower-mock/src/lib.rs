@@ -1,9 +1,9 @@
 //! Mock `Service` that can be used in tests.
 
-extern crate tower;
+extern crate tower_service;
 extern crate futures;
 
-use tower::Service;
+use tower_service::Service;
 
 use futures::{Future, Stream, Poll, Async};
 use futures::sync::{oneshot, mpsc};

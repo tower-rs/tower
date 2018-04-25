@@ -1,8 +1,8 @@
 //! Various utility types and functions that are generally with Tower.
 
 extern crate futures;
-extern crate tower;
 extern crate tower_ready_service;
+extern crate tower_service;
 
 pub mod either;
 pub mod option;

@@ -1,11 +1,11 @@
 extern crate futures;
-extern crate tower;
 extern crate tower_mock;
 extern crate tower_filter;
+extern crate tower_service;
 
 use futures::*;
-use tower::*;
 use tower_filter::*;
+use tower_service::*;
 
 use std::thread;
 use std::sync::mpsc;

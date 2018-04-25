@@ -1,10 +1,10 @@
 extern crate futures;
 extern crate futures_test;
-extern crate tower;
 extern crate tower_router;
+extern crate tower_service;
 
-use tower::Service;
 use tower_router::*;
+use tower_service::Service;
 
 use futures::*;
 use futures::future::FutureResult;

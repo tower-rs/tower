@@ -2,11 +2,11 @@
 //! service.
 
 extern crate futures;
-extern crate tower;
 extern crate tower_ready_service;
+extern crate tower_service;
 
-use tower::Service;
 use tower_ready_service::ReadyService;
+use tower_service::Service;
 
 use futures::{Future, Poll, Async};
 use futures::task::AtomicTask;
