@@ -189,47 +189,9 @@ pub trait Service {
     /// implementations should take care to not call `poll_ready`. If the
     /// service is at capacity and the request is unable to be handled, the
     /// returned `Future` should resolve to an error.
-    fn call(&mut self, req: Self::Request) -> Self::Future;
-}
-
-/// An asynchronous function from `Request` to a `Response` that is always ready
-/// to process a request.
-///
-/// `ReadyService` is similar to `Service`, except that it is always able to
-/// accept a request. This request may either complete successfully or resolve
-/// to an error, i.e., `ReadyService` implementations may handle out of capacity
-/// situations by returning a response future that immediately resolves to an
-/// error.
-///
-/// The `Service` trait should be prefered over this one. `ReadyService` should
-/// only be used in situations where there is no way to handle back pressure.
-/// When usin a `ReadyService` implementation, back pressure needs to be handled
-/// via some other strategy, such as limiting the total number of in flight
-/// requests.
-///
-/// One situation in which there is no way to handle back pressure is routing.
-/// A router service receives inbound requests and dispatches them to one of N
-/// inner services. In this case, one of the inner services may become "not
-/// ready" while the others remain ready. It would not be ideal for the router
-/// service to flag itself as "not ready" when only one of the inner services is
-/// not ready, but there is no way for the router to communicate to the caller
-/// which requests will be accepted and which will be rejected. The router
-/// service will implement `ReadyService`, indicating to the user that they are
-/// responsible for handling back pressure via some other strategy.
-pub trait ReadyService {
-    /// Requests handled by the service.
-    type Request;
-
-    /// Responses returned by the service.
-    type Response;
-
-    /// Errors produced by the service.
-    type Error;
-
-    /// The future response value.
-    type Future: Future<Item = Self::Response, Error = Self::Error>;
-
-    /// Process the request and return the response asynchronously.
+    ///
+    /// Calling `call` without calling `poll_ready` is permitted. The
+    /// implementation must be resilient to this fact.
     fn call(&mut self, req: Self::Request) -> Self::Future;
 }
 

@@ -1,7 +1,6 @@
 //! Various utility types and functions that are generally with Tower.
 
 extern crate futures;
-extern crate tower_ready_service;
 extern crate tower_service;
 
 pub mod either;
@@ -11,5 +10,5 @@ mod service_fn;
 
 pub use boxed::BoxService;
 pub use either::EitherService;
-pub use service_fn::{ServiceFn, NewServiceFn};
+pub use service_fn::{NewServiceFn};
 pub use option::OptionService;
