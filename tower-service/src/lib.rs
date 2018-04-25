@@ -190,7 +190,7 @@ pub trait Service {
     /// service is at capacity and the request is unable to be handled, the
     /// returned `Future` should resolve to an error.
     ///
-    /// Calling `poll_ready` before calling `call` is permitted. The
+    /// Calling `call` without calling `poll_ready` is permitted. The
     /// implementation must be resilient to this fact.
     fn call(&mut self, req: Self::Request) -> Self::Future;
 }
