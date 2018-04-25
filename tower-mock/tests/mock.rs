@@ -1,9 +1,10 @@
 extern crate futures;
-extern crate tower;
 extern crate tower_mock;
+extern crate tower_service;
+
+use tower_service::Service;
 
 use futures::Future;
-use tower::Service;
 
 #[test]
 fn single_request_ready() {

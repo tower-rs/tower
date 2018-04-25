@@ -2,11 +2,11 @@
 //! a predicate.
 
 extern crate futures;
-extern crate tower;
+extern crate tower_service;
 
 use futures::{Future, IntoFuture, Poll, Async};
 use futures::task::AtomicTask;
-use tower::Service;
+use tower_service::Service;
 
 use std::{fmt, mem};
 use std::sync::Arc;

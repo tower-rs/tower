@@ -9,9 +9,9 @@ extern crate log;
 extern crate rand;
 extern crate tokio_core;
 extern crate tokio_timer;
-extern crate tower;
 extern crate tower_balance;
 extern crate tower_discover;
+extern crate tower_service;
 
 use futures::{Async, Future, Stream, Poll, future, stream};
 use hdrsample::Histogram;
@@ -19,9 +19,9 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tokio_core::reactor::Core;
 use tokio_timer::{Timer, TimerError, Sleep};
-use tower::Service;
 use tower_balance::*;
 use tower_discover::{Change, Discover};
+use tower_service::Service;
 
 struct DelayService(Timer, Duration);
 

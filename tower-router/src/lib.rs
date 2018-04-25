@@ -1,12 +1,12 @@
 //! Routes requests to one of many inner inner services based on the request.
 
-extern crate tower;
+extern crate tower_service;
 
 #[macro_use]
 extern crate futures;
 extern crate futures_borrow;
 
-use tower::Service;
+use tower_service::Service;
 
 use futures::{Future, Poll};
 use futures_borrow::{Borrow, BorrowGuard};

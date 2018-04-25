@@ -15,11 +15,11 @@
 //!
 //! ```
 //! # extern crate futures;
-//! # extern crate tower;
+//! # extern crate tower_service;
 //! # extern crate tower_util;
 //! # use futures::*;
 //! # use futures::future::FutureResult;
-//! # use tower::*;
+//! # use tower_service::*;
 //! # use tower_util::*;
 //! // Respond to requests using a closure. Since closures cannot be named,
 //! // `ServiceFn` cannot be named either
@@ -57,7 +57,7 @@
 //! ```
 
 use futures::{Future, Poll};
-use tower::Service;
+use tower_service::Service;
 
 use std::fmt;
 

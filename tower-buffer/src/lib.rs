@@ -10,13 +10,13 @@
 //! and capabilities around adding buffering to an arbitrary `Service`.
 
 extern crate futures;
-extern crate tower;
+extern crate tower_service;
 
 use futures::{Future, Stream, Poll, Async};
 use futures::future::Executor;
 use futures::sync::oneshot;
 use futures::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
-use tower::Service;
+use tower_service::Service;
 
 use std::{error, fmt};
 use std::sync::Arc;

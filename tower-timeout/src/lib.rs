@@ -4,11 +4,11 @@
 //! will be aborted.
 
 extern crate futures;
-extern crate tower;
+extern crate tower_service;
 extern crate tokio_timer;
 
 use futures::{Future, Poll, Async};
-use tower::Service;
+use tower_service::Service;
 use tokio_timer::{Timer, Sleep};
 
 use std::{error, fmt};

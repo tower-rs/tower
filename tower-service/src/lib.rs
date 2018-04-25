@@ -89,7 +89,7 @@ use std::sync::Arc;
 /// For example, take timeouts as an example:
 ///
 /// ```rust,ignore
-/// use tower::Service;
+/// use tower_service::Service;
 /// use futures::Future;
 /// use std::time::Duration;
 ///

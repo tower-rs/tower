@@ -6,16 +6,16 @@ extern crate indexmap;
 #[cfg(test)]
 extern crate quickcheck;
 extern crate rand;
-extern crate tower;
 extern crate tower_discover;
+extern crate tower_service;
 
 use futures::{Future, Poll, Async};
 use indexmap::IndexMap;
 use rand::Rng;
 use std::{fmt, error};
 use std::marker::PhantomData;
-use tower::Service;
 use tower_discover::Discover;
+use tower_service::Service;
 
 pub mod choose;
 pub mod load;

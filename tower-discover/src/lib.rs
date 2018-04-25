@@ -6,10 +6,10 @@
 //! other processes or even in process.
 
 extern crate futures;
-extern crate tower;
+extern crate tower_service;
 
 use futures::{Poll, Async};
-use tower::Service;
+use tower_service::Service;
 
 use std::hash::Hash;
 use std::iter::{Enumerate, IntoIterator};

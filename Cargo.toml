@@ -1,24 +1,6 @@
-[package]
-
-name = "tower"
-version = "0.1.0"
-license = "MIT"
-authors = ["Carl Lerche <me@carllerche.com>"]
-description = """
-An extensible request / response system, used to construct high-concurrency
-servers and clients.
-"""
-
-documentation = "https://docs.rs/tower"
-homepage = "https://github.com/tower-rs/tower"
-repository = "https://github.com/tower-rs/tower"
-readme = "README.md"
-publish = false
-
 [workspace]
 
 members = [
-  "./",
   "tower-balance",
   "tower-buffer",
   "tower-discover",
@@ -29,14 +11,13 @@ members = [
   "tower-ready-service",
   "tower-reconnect",
   "tower-router",
+  "tower-service",
   "tower-timeout",
   "tower-util",
 ]
 
-[dependencies]
-futures = "0.1"
-
 [dev-dependencies]
+futures = "0.1"
 log = "0.4.1"
 env_logger = { version = "0.5.3", default-features = false }
 tokio-timer = "0.1"

@@ -3,7 +3,7 @@
 //! See `OptionService` documentation for more details.
 //!
 use futures::{Future, Poll};
-use tower::Service;
+use tower_service::Service;
 
 /// Optionally forwards requests to an inner service.
 ///

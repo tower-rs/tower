@@ -1,6 +1,6 @@
 use futures::IntoFuture;
-use tower::{Service, NewService};
 use tower_ready_service::ReadyService;
+use tower_service::{Service, NewService};
 
 use std::marker::PhantomData;
 

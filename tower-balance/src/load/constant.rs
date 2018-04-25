@@ -1,6 +1,6 @@
 use futures::{Async, Poll};
-use tower::Service;
 use tower_discover::{Change, Discover};
+use tower_service::Service;
 
 use Load;
 

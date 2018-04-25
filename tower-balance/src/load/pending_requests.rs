@@ -1,8 +1,8 @@
 use futures::{Future, Poll, Async};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tower::Service;
 use tower_discover::{Change, Discover};
+use tower_service::Service;
 
 use Load;
 

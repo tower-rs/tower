@@ -4,7 +4,7 @@
 
 use futures::Poll;
 use futures::future::Either;
-use tower::Service;
+use tower_service::Service;
 
 /// Combine two different service types into a single type.
 ///

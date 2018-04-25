@@ -12,14 +12,14 @@
 extern crate futures;
 extern crate tokio_timer;
 extern crate futures_cpupool;
-extern crate tower;
+extern crate tower_service;
 
 #[macro_use]
 extern crate log;
 
 extern crate env_logger;
 
-use tower::{Service, NewService};
+use tower_service::{Service, NewService};
 
 use futures::{Future, Stream, IntoFuture, Poll, Async};
 use futures::future::{Executor, FutureResult};

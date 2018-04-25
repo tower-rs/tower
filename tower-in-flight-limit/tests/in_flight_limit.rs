@@ -1,10 +1,11 @@
 extern crate futures;
-extern crate tower;
 extern crate tower_mock;
 extern crate tower_in_flight_limit;
+extern crate tower_service;
 
 use tower_in_flight_limit::InFlightLimit;
-use tower::Service;
+use tower_service::Service;
+
 use futures::future::{Future, poll_fn};
 
 #[test]
