@@ -19,43 +19,46 @@ use futures::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tower_service::Service;
 
 use std::{error, fmt};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
+use std::marker::PhantomData;
+
 
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
 #[derive(Clone)]
-pub struct Buffer<T>
+pub struct Buffer<T, E>
 where T: Service,
 {
-    tx: UnboundedSender<Message<T>>,
-    state: Arc<State>,
+    tx: UnboundedSender<Message<T, E>>,
+    state: Arc<State<T::Error>>,
 }
 
 /// Future eventually completed with the response to the original request.
-pub struct ResponseFuture<T>
+pub struct ResponseFuture<T, E>
 where T: Service,
 {
-    state: ResponseState<T::Future>,
+    state: ResponseState<T::Future, E>,
+    _err: PhantomData<E>,
 }
 
 /// Errors produced by `Buffer`.
 #[derive(Debug)]
-pub enum Error<T> {
-    Inner(T),
-    Closed,
+pub enum Error<E, C> {
+    Inner(E),
+    Closed(C),
 }
 
 /// Task that handles processing the buffer. This type should not be used
 /// directly, instead `Buffer` requires an `Executor` that can accept this task.
-pub struct Worker<T>
+pub struct Worker<T, E>
 where T: Service,
 {
     service: T,
-    rx: UnboundedReceiver<Message<T>>,
-    state: Arc<State>,
+    rx: UnboundedReceiver<Message<T, E>>,
+    state: Arc<State<T::Error>>,
 }
 
 /// Error produced when spawning the worker fails
@@ -66,36 +69,39 @@ pub struct SpawnError<T> {
 
 /// Message sent over buffer
 #[derive(Debug)]
-struct Message<T: Service> {
+struct Message<T: Service, E> {
     request: T::Request,
-    tx: oneshot::Sender<T::Future>,
+    tx: oneshot::Sender<Result<T::Future, E>>,
 }
 
 /// State shared between `Buffer` and `Worker`
-struct State {
+struct State<E> {
     open: AtomicBool,
+    error: RwLock<Option<E>>,
 }
-
-enum ResponseState<T> {
-    Rx(oneshot::Receiver<T>),
+enum ResponseState<T,E> {
+    Rx(oneshot::Receiver<Result<T,E>>),
     Poll(T),
 }
 
-impl<T> Buffer<T>
-where T: Service,
+impl<T, E> Buffer<T, E>
+where
+    T: Service,
+    E: Clone,
 {
     /// Creates a new `Buffer` wrapping `service`.
     ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
-    pub fn new<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
-    where E: Executor<Worker<T>>,
+    pub fn new<X>(service: T, executor: &X) -> Result<Self, SpawnError<T>>
+    where X: Executor<Worker<T, E>>,
     {
         let (tx, rx) = mpsc::unbounded();
 
         let state = Arc::new(State {
             open: AtomicBool::new(true),
+            error: RwLock::new(None),
         });
 
         let worker = Worker {
@@ -115,18 +121,24 @@ where T: Service,
     }
 }
 
-impl<T> Service for Buffer<T>
-where T: Service,
+impl<T, E> Service for Buffer<T, E>
+where
+    T: Service,
+    T::Error: Clone,
 {
     type Request = T::Request;
     type Response = T::Response;
-    type Error = Error<T::Error>;
-    type Future = ResponseFuture<T>;
+    type Error = Error<T::Error, E>;
+    type Future = ResponseFuture<T, E>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
         if !self.state.open.load(SeqCst) {
-            return Err(Error::Closed);
+            let error = self.state.error
+                .read().expect("worker thread panicked")
+                .as_ref().map(Clone::clone)
+                .expect("if the buffer is closed, the error should be set");
+            return Err(Error::Inner(error));
         } else {
             // Ideally we could query if the `mpsc` is closed, but this is not
             // currently possible.
@@ -143,17 +155,19 @@ where T: Service,
             tx,
         });
 
-        ResponseFuture { state: ResponseState::Rx(rx) }
+        ResponseFuture { state: ResponseState::Rx(rx), _err: PhantomData }
     }
 }
 
 // ===== impl ResponseFuture =====
 
-impl<T> Future for ResponseFuture<T>
-where T: Service
+impl<T, E> Future for ResponseFuture<T, E>
+where
+    T: Service,
+    T::Error: Clone,
 {
     type Item = T::Response;
-    type Error = Error<T::Error>;
+    type Error = Error<T::Error, E>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use self::ResponseState::*;
@@ -164,13 +178,20 @@ where T: Service
             match self.state {
                 Rx(ref mut rx) => {
                     match rx.poll() {
-                        Ok(Async::Ready(f)) => fut = f,
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Err(_) => return Err(Error::Closed),
+                        Ok(Async::Ready(Ok(f))) => fut = f,
+                        Ok(Async::Ready(Err(e))) =>
+                            // The buffer was closed by an error --- propagate
+                            // it.
+                            return Err(Error::Closed(e)),
+                        Ok(Async::NotReady) =>
+                            return Ok(Async::NotReady),
+                        Err(_) => {
+                            panic!("tx should not have been dropped on error!")
+                        }
                     }
                 }
                 Poll(ref mut fut) => {
-                    return fut.poll().map_err(Error::Inner);
+                    return fut.poll().map_err(|e| Error::Inner(e.clone()));
                 }
             }
 
@@ -181,8 +202,9 @@ where T: Service
 
 // ===== impl Worker =====
 
-impl<T> Future for Worker<T>
-where T: Service,
+impl<T, E> Future for Worker<T, E>
+where
+    T: Service,
 {
     type Item = ();
     type Error = ();
@@ -195,8 +217,13 @@ where T: Service,
                 Ok(Async::NotReady) => {
                     return Ok(Async::NotReady);
                 }
-                Err(_) => {
+                Err(e) => {
                     self.state.open.store(false, SeqCst);
+                    let mut error = self.state.error.write()
+                        // this shouldn't happen; other threads should only ever
+                        // acquire read guards.
+                        .expect("another thread acquired state write guard");
+                    *error = Some(e);
                     return Ok(().into())
                 }
             }
@@ -204,14 +231,12 @@ where T: Service,
             // Get the next request
             match self.rx.poll() {
                 Ok(Async::Ready(Some(Message { request, tx }))) => {
-                    // Received a request. Dispatch the request to the inner service
-                    // and get the response future
+                    // Received a request. Dispatch the request to the inner
+                    // service and get the response future
                     let response = self.service.call(request);
 
                     // Send the response future back to the sender.
-                    //
-                    // TODO: how should send errors be handled?
-                    let _ = tx.send(response);
+                    let _ = tx.send(Ok(response));
                 }
                 Ok(Async::Ready(None)) => {
                     // All senders are dropped... the task is no longer needed
@@ -226,34 +251,35 @@ where T: Service,
 
 // ===== impl Error =====
 
-impl<T> fmt::Display for Error<T>
+impl<E, C> fmt::Display for Error<E, C>
 where
-    T: fmt::Display,
+    E: fmt::Display,
+    C: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Closed => f.pad("buffer closed"),
+            Error::Closed(ref why) => write!(f, "buffer closed: {}", why),
         }
     }
 }
 
-impl<T> error::Error for Error<T>
+impl<E, C> error::Error for Error<E, C>
 where
-    T: error::Error,
+    E: error::Error,
+    C: error::Error,
 {
     fn cause(&self) -> Option<&error::Error> {
-        if let Error::Inner(ref why) = *self {
-            Some(why)
-        } else {
-            None
+        match *self {
+            Error::Inner(ref why) => Some(why),
+            Error::Closed(ref why) => Some(why),
         }
     }
 
     fn description(&self) -> &str {
         match *self {
             Error::Inner(_) => "inner service error",
-            Error::Closed => "buffer closed",
+            Error::Closed(_) => "buffer closed",
         }
     }
 
