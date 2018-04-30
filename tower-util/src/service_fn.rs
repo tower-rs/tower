@@ -1,9 +1,52 @@
-use futures::IntoFuture;
+use futures::{Async, IntoFuture, Poll};
 use tower_service::{Service, NewService};
+
+use std::marker::PhantomData;
+
+/// A `Service` implemented by a closure.
+#[derive(Debug, Clone)]
+pub struct ServiceFn<T, R> {
+    f: T,
+    // don't impose Sync on R
+    _ty: PhantomData<fn() -> R>,
+}
 
 /// A `NewService` implemented by a closure.
 pub struct NewServiceFn<T> {
     f: T,
+}
+
+// ===== impl ServiceFn =====
+
+impl<T, R, S> ServiceFn<T, R>
+where T: FnMut(R) -> S,
+      S: IntoFuture,
+{
+    /// Create a new `ServiceFn` backed by the given closure
+    pub fn new(f: T) -> Self {
+        ServiceFn {
+            f,
+            _ty: PhantomData,
+        }
+    }
+}
+
+impl<T, R, S> Service for ServiceFn<T, R>
+where T: FnMut(R) -> S,
+      S: IntoFuture,
+{
+    type Request = R;
+    type Response = S::Item;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
+    }
+
+    fn call(&mut self, request: Self::Request) -> Self::Future {
+        (self.f)(request).into_future()
+    }
 }
 
 // ===== impl NewServiceFn =====

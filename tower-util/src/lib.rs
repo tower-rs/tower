@@ -10,5 +10,5 @@ mod service_fn;
 
 pub use boxed::BoxService;
 pub use either::EitherService;
-pub use service_fn::{NewServiceFn};
+pub use service_fn::{ServiceFn, NewServiceFn};
 pub use option::OptionService;
