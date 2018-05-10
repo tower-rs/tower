@@ -201,22 +201,18 @@ where T: Service
             }
         }
 
-        loop {
-            // Get the next request
-            match self.rx.poll()? {
-                Async::Ready(Some(mut msg)) => {
-                    if msg.tx.poll_cancel()?.is_not_ready() {
-                        return Ok(Async::Ready(Some(msg)));
-                    }
-                }
-                Async::Ready(None) => {
-                    return Ok(Async::Ready(None));
-                }
-                Async::NotReady => return Ok(Async::NotReady),
+        // Get the next request
+        while let Some(mut msg) = try_ready!(self.rx.poll()) {
+            if msg.tx.poll_cancel()?.is_not_ready() {
+                return Ok(Async::Ready(Some(msg)));
             }
+            // Otherwise, request is canceled, so pop the next one.
         }
+
+        Ok(Async::Ready(None))
     }
 }
+
 impl<T> Future for Worker<T>
 where T: Service,
 {
