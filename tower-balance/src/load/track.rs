@@ -18,7 +18,7 @@ pub trait Track<T, V> {
     fn track(tracker: T, item: &mut V);
 
     /// Wraps an `F`-typred Future so that a `T`-typed tracker is attached to its result.
-    fn track_future<F>(tracker: T, future: F) -> TrackFuture<F, T, Self>
+    fn track_future<F>(tracker: T, future: F) -> TrackFuture<F, Self, T>
     where
         F: Future<Item = V>,
         Self: Sized,
@@ -31,36 +31,36 @@ pub trait Track<T, V> {
     }
 }
 
-/// Drops each tracker immediately.
+/// A `Track` implementation that drops each tracker immediately.
 #[derive(Debug, Default)]
 pub struct NoTrack(());
 
 /// Attaches a `T`-typed tracker to the result of an `F`-typed `Future`.
 #[derive(Debug)]
-pub struct TrackFuture<F, T, A>
+pub struct TrackFuture<F, T, K>
 where
     F: Future,
-    A: Track<T, F::Item>,
+    T: Track<K, F::Item>,
 {
     future: F,
-    tracker: Option<T>,
-    _p: PhantomData<A>,
+    tracker: Option<K>,
+    _p: PhantomData<T>,
 }
 
 // ===== impl TrackFuture =====
 
-impl<F, T, A> Future for TrackFuture<F, T, A>
+impl<F, T, K> Future for TrackFuture<F, T, K>
 where
     F: Future,
-    A: Track<T, F::Item>,
+    T: Track<K, F::Item>,
 {
     type Item = F::Item;
     type Error = F::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let mut item = try_ready!(self.future.poll());
-        if let Some(h) = self.tracker.take() {
-            A::track(h, &mut item);
+        if let Some(k) = self.tracker.take() {
+            T::track(k, &mut item);
         }
         Ok(item.into())
     }

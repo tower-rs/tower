@@ -9,25 +9,25 @@ use super::track::{Track, TrackFuture, NoTrack};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
-pub struct PendingRequests<S, A = NoTrack>
+pub struct PendingRequests<S, T = NoTrack>
 where
     S: Service,
-    A: Track<Tracker, S::Response>,
+    T: Track<Tracker, S::Response>,
 {
     service: S,
     track: Arc<()>,
-    _p: PhantomData<A>,
+    _p: PhantomData<T>,
 }
 
 /// Wraps `inner`'s services with `PendingRequests`.
 #[derive(Debug)]
-pub struct WithPendingRequests<D, A = NoTrack>
+pub struct WithPendingRequests<D, T = NoTrack>
 where
     D: Discover,
-    A: Track<Tracker, D::Response>,
+    T: Track<Tracker, D::Response>,
 {
     discover: D,
-    _p: PhantomData<A>,
+    _p: PhantomData<T>,
 }
 
 /// Represents the number of currently-pending requests to a given service.
@@ -39,10 +39,10 @@ pub struct Tracker(Arc<()>);
 
 // ===== impl PendingRequests =====
 
-impl<S, A> PendingRequests<S, A>
+impl<S, T> PendingRequests<S, T>
 where
     S: Service,
-    A: Track<Tracker, S::Response>,
+    T: Track<Tracker, S::Response>,
 {
     pub fn new(service: S) -> Self {
         Self {
@@ -57,15 +57,15 @@ where
         Arc::strong_count(&self.track) - 1
     }
 
-    fn handle(&self) -> Tracker {
+    fn tracker(&self) -> Tracker {
         Tracker(self.track.clone())
     }
 }
 
-impl<S, A> Load for PendingRequests<S, A>
+impl<S, T> Load for PendingRequests<S, T>
 where
     S: Service,
-    A: Track<Tracker, S::Response>,
+    T: Track<Tracker, S::Response>,
 {
     type Metric = Count;
 
@@ -74,22 +74,22 @@ where
     }
 }
 
-impl<S, A> Service for PendingRequests<S, A>
+impl<S, T> Service for PendingRequests<S, T>
 where
     S: Service,
-    A: Track<Tracker, S::Response>,
+    T: Track<Tracker, S::Response>,
 {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
-    type Future = TrackFuture<S::Future, Tracker, A>;
+    type Future = TrackFuture<S::Future, T, Tracker>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        A::track_future(self.handle(), self.service.call(req))
+        T::track_future(self.tracker(), self.service.call(req))
     }
 }
 
@@ -107,14 +107,14 @@ where
     }
 }
 
-impl<D, A> WithPendingRequests<D, A>
+impl<D, T> WithPendingRequests<D, T>
 where
     D: Discover,
-    A: Track<Tracker, D::Response>,
+    T: Track<Tracker, D::Response>,
 {
-    pub fn trackes<B>(self) -> WithPendingRequests<D, B>
+    pub fn track_with<U>(self) -> WithPendingRequests<D, U>
     where
-        B: Track<Tracker, D::Response>,
+        U: Track<Tracker, D::Response>,
     {
         WithPendingRequests {
             discover: self.discover,
@@ -123,16 +123,16 @@ where
     }
 }
 
-impl<D, A> Discover for WithPendingRequests<D, A>
+impl<D, T> Discover for WithPendingRequests<D, T>
 where
     D: Discover,
-    A: Track<Tracker, D::Response>,
+    T: Track<Tracker, D::Response>,
 {
     type Key = D::Key;
     type Request = D::Request;
     type Response = D::Response;
     type Error = D::Error;
-    type Service = PendingRequests<D::Service, A>;
+    type Service = PendingRequests<D::Service, T>;
     type DiscoverError = D::DiscoverError;
 
     /// Yields the next discovery change set.
