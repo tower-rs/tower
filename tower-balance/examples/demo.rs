@@ -193,7 +193,7 @@ fn main() {
 
     {
         let lb = {
-            let loaded = load::WithPendingRequests::<_, ()>::new(gen_disco(&timer));
+            let loaded = load::WithPendingRequests::new(gen_disco(&timer));
             power_of_two_choices(loaded, rand::thread_rng())
         };
         let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
