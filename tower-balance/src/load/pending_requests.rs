@@ -1,21 +1,38 @@
 use futures::{Future, Poll, Async};
+use std::marker::PhantomData;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use Load;
 
+pub trait Attach {
+    type Message;
+
+    fn attach(rsp: &mut Self::Message, handle: Handle);
+}
+
 /// Expresses load based on the number of currently-pending requests.
-#[derive(Debug, Clone)]
-pub struct PendingRequests<T> {
-    inner: T,
-    pending: Arc<AtomicUsize>,
+#[derive(Debug)]
+pub struct PendingRequests<S, A>
+where
+    S: Service,
+    A: Attach<Message = S::Response>,
+{
+    service: S,
+    track: Arc<()>,
+    _p: PhantomData<A>,
 }
 
 /// Wraps `inner`'s services with `PendingRequests`.
-pub struct WithPendingRequests<D: Discover> {
-    inner: D,
+#[derive(Debug)]
+pub struct WithPendingRequests<D, A>
+where
+    D: Discover,
+    A: Attach<Message = D::Response>,
+{
+    discover: D,
+    _p: PhantomData<A>,
 }
 
 /// Represents the number of currently-pending requests to a given service.
@@ -23,85 +40,116 @@ pub struct WithPendingRequests<D: Discover> {
 pub struct Count(usize);
 
 /// Ensures that `pending` is decremented.
-struct Handle {
-    pending: Arc<AtomicUsize>,
-}
+#[derive(Debug)]
+pub struct Handle(Arc<()>);
 
 /// Wraps a response future so that it is tracked by `PendingRequests`.
 ///
 /// When the inner future completes, either with a value or an error, `pending` is
 /// decremented.
-pub struct ResponseFuture<S: Service> {
-    inner: S::Future,
-    pending: Option<Handle>,
+#[derive(Debug)]
+pub struct ResponseFuture<F, A>
+where
+    F: Future,
+    A: Attach<Message = F::Item>,
+{
+    future: F,
+    handle: Option<Handle>,
+    _p: PhantomData<A>,
 }
+
+#[derive(Debug)]
+pub struct AttachUntilResponse<M>(PhantomData<M>);
 
 // ===== impl PendingRequests =====
 
-impl<T> PendingRequests<T> {
-    pub fn new(inner: T) -> Self {
+impl<S, A> PendingRequests<S, A>
+where
+    S: Service,
+    A: Attach<Message = S::Response>,
+{
+    pub fn new(service: S) -> Self {
         Self {
-            inner,
-            pending: Arc::new(AtomicUsize::new(0)),
+            service,
+            track: Arc::new(()),
+            _p: PhantomData,
         }
     }
 
-    // Increments the pending count immediately and returns a `Handle` that will decrement
-    // the count when dropped.
-    fn incr_pending(&self) -> Handle {
-        let pending = self.pending.clone();
-        pending.fetch_add(1, Ordering::SeqCst);
-        Handle { pending }
+    pub fn count(&self) -> usize {
+        // Count the number of references that aren't `self.track`.
+        Arc::strong_count(&self.track) - 1
+    }
+
+    fn handle(&self) -> Handle {
+        Handle(self.track.clone())
     }
 }
 
-impl<S: Service> Load for PendingRequests<S> {
+impl<S, A> Load for PendingRequests<S, A>
+where
+    S: Service,
+    A: Attach<Message = S::Response>,
+{
     type Metric = Count;
 
     fn load(&self) -> Count {
-        Count(self.pending.load(Ordering::SeqCst))
+        Count(self.count())
     }
 }
 
-impl<S: Service> Service for PendingRequests<S> {
+impl<S, A> Service for PendingRequests<S, A>
+where
+    S: Service,
+    A: Attach<Message = S::Response>,
+{
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
-    type Future = ResponseFuture<S>;
+    type Future = ResponseFuture<S::Future, A>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+        self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
         ResponseFuture {
-            pending: Some(self.incr_pending()),
-            inner: self.inner.call(req),
+            handle: Some(self.handle()),
+            future: self.service.call(req),
+            _p: PhantomData,
         }
     }
 }
 
 // ===== impl WithPendingRequests =====
 
-impl<D: Discover> WithPendingRequests<D> {
-    pub fn new(inner: D) -> Self {
-        Self { inner }
+impl<D, A> WithPendingRequests<D, A>
+where
+    D: Discover,
+    A: Attach<Message = D::Response>,
+{
+    pub fn new(discover: D) -> Self {
+        Self { discover, _p: PhantomData }
     }
 }
 
-impl<D: Discover> Discover for WithPendingRequests<D> {
+impl<D, A> Discover for WithPendingRequests<D, A>
+where
+    D: Discover,
+    A: Attach<Message = D::Response>,
+{
     type Key = D::Key;
     type Request = D::Request;
     type Response = D::Response;
     type Error = D::Error;
-    type Service = PendingRequests<D::Service>;
+    type Service = PendingRequests<D::Service, A>;
     type DiscoverError = D::DiscoverError;
 
     /// Yields the next discovery change set.
     fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
         use self::Change::*;
 
-        let change = match try_ready!(self.inner.poll()) {
+        let change = match try_ready!(self.discover.poll()) {
             Insert(k, svc) => Insert(k, PendingRequests::new(svc)),
             Remove(k) => Remove(k),
         };
@@ -110,28 +158,39 @@ impl<D: Discover> Discover for WithPendingRequests<D> {
     }
 }
 
-// ===== impl Pending =====
-
-impl Drop for Handle {
-    fn drop(&mut self) {
-        self.pending.fetch_sub(1, Ordering::SeqCst);
-    }
-}
-
 // ===== impl ResponseFuture =====
 
-impl<S: Service> Future for ResponseFuture<S> {
-    type Item = S::Response;
-    type Error = S::Error;
+impl<F, A> Future for ResponseFuture<F, A>
+where
+    F: Future,
+    A: Attach<Message = F::Item>,
+{
+    type Item = F::Item;
+    type Error = F::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner.poll() {
+        match self.future.poll() {
             Ok(Async::NotReady) => Ok(Async::NotReady),
-            poll => {
-                // Decrements the pending count as needed.
-                drop(self.pending.take());
-                poll
+            Err(e) => Err(e),
+            Ok(Async::Ready(mut rsp)) => {
+                if let Some(h) = self.handle.take() {
+                    A::attach(&mut rsp, h);
+                }
+                Ok(rsp.into())
             }
         }
     }
+}
+
+// ===== impl AttachUntilResponse =====
+
+impl<M> Default for AttachUntilResponse<M> {
+    fn default() -> Self {
+        AttachUntilResponse(PhantomData)
+    }
+}
+
+impl<M> Attach for AttachUntilResponse<M> {
+    type Message = M;
+    fn attach(_: &mut M, _: Handle) {}
 }
