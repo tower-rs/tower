@@ -13,14 +13,14 @@ use tower_h2::Body;
 
 pub struct TrackFirstData;
 
-pub struct TrackTrailers;
+pub struct TrackEos;
 
 pub struct TrackFirstDataBody<T, B> {
     tracker: Option<T>,
     body: B,
 }
 
-pub struct TrackTrailersBody<T, B> {
+pub struct TrackEosBody<T, B> {
     tracker: Option<T>,
     body: B,
 }
@@ -41,16 +41,16 @@ where
     }
 }
 
-impl<T, B> Track<T, http::Response<B>> for TrackTrailers
+impl<T, B> Track<T, http::Response<B>> for TrackEos
 where
     T: Sync + Send + 'static,
     B: Body + 'static,
 {
-    type Tracked = http::Response<TrackTrailersBody<T, B>>;
+    type Tracked = http::Response<TrackEosBody<T, B>>;
 
     fn track(tracker: T, rsp: http::Response<B>) -> Self::Tracked {
         let (parts, body) = rsp.into_parts();
-        http::Response::from_parts(parts, TrackTrailersBody {
+        http::Response::from_parts(parts, TrackEosBody {
             tracker: Some(tracker),
             body,
         })
@@ -77,7 +77,7 @@ impl<T, B: Body> Body for TrackFirstDataBody<T, B> {
     }
 }
 
-impl<T, B: Body> Body for TrackTrailersBody<T, B> {
+impl<T, B: Body> Body for TrackEosBody<T, B> {
     type Data = B::Data;
 
     fn is_end_stream(&self) -> bool {
