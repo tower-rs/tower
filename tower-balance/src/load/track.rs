@@ -13,9 +13,10 @@ use std::marker::PhantomData;
 /// A base `impl<T, V> Track<T, V> for ()` is provided that drops the tracker
 /// immediately.
 pub trait Track<T, V> {
+    type Tracked;
 
     /// Attaches a `T`-typed trakcer to a `V`-typed value.
-    fn track(tracker: T, item: &mut V);
+    fn track(tracker: T, value: V) -> Self::Tracked;
 
     /// Wraps an `F`-typred Future so that a `T`-typed tracker is attached to its result.
     fn track_future<F>(tracker: T, future: F) -> TrackFuture<F, Self, T>
@@ -54,20 +55,23 @@ where
     F: Future,
     T: Track<K, F::Item>,
 {
-    type Item = F::Item;
+    type Item = T::Tracked;
     type Error = F::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let mut item = try_ready!(self.future.poll());
-        if let Some(k) = self.tracker.take() {
-            T::track(k, &mut item);
-        }
-        Ok(item.into())
+        let rsp = try_ready!(self.future.poll());
+        let track = self.tracker.take().expect("tracker");
+        Ok(T::track(track, rsp).into())
     }
 }
 
 // ===== NoTrack =====
 
 impl<T, V> Track<T, V> for NoTrack {
-    fn track(_: T, _: &mut V) {}
+    type Tracked = V;
+
+    fn track(tracker: T, v: V) -> V {
+        drop(tracker);
+        v
+    }
 }

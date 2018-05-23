@@ -80,7 +80,7 @@ where
     T: Track<Tracker, S::Response>,
 {
     type Request = S::Request;
-    type Response = S::Response;
+    type Response = T::Tracked;
     type Error = S::Error;
     type Future = TrackFuture<S::Future, T, Tracker>;
 
@@ -130,7 +130,7 @@ where
 {
     type Key = D::Key;
     type Request = D::Request;
-    type Response = D::Response;
+    type Response = T::Tracked;
     type Error = D::Error;
     type Service = PendingRequests<D::Service, T>;
     type DiscoverError = D::DiscoverError;
