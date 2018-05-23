@@ -5,6 +5,7 @@ members = [
   "tower-buffer",
   "tower-discover",
   "tower-filter",
+  "tower-h2-balance",
   "tower-in-flight-limit",
   "tower-mock",
   "tower-rate-limit",

@@ -1,0 +1,14 @@
+[package]
+name = "tower-h2-balance"
+version = "0.1.0"
+authors = ["Oliver Gould <ver@buoyant.io>"]
+
+[dependencies]
+futures = "0.1"
+http = "0.1"
+h2 = "0.1"
+
+tower-h2 = { git = "https://github.com/tower-rs/tower-h2" }
+
+tower-balance  = { version = "0.1", path = "../tower-balance" }
+tower-service  = { version = "0.1", path = "../tower-service" }
