@@ -147,10 +147,10 @@ where
         while let Async::Ready(change) = self.discover.poll().map_err(Error::Balance)? {
             match change {
                 Insert(key, mut svc) => {
-                    if self.ready.contains_key(&key) || self.not_ready.contains_key(&key) {
-                        // Ignore duplicate endpoints.
-                        continue;
-                    }
+                    // If the `Insert`ed service is a duplicate of a service already
+                    // in the ready list, remove the ready service first. The new
+                    // service will then be inserted into the not-ready list.
+                    self.ready.remove(&key);
 
                     self.not_ready.insert(key, svc);
                 }
