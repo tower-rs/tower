@@ -1,8 +1,8 @@
-pub mod track;
+mod measure;
 mod constant;
 mod pending_requests;
 
-pub use self::track::Track;
+pub use self::measure::{Measure, MeasureFuture, NoMeasure};
 pub use self::constant::Constant;
 pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 

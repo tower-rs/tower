@@ -4,60 +4,58 @@ extern crate http;
 extern crate h2;
 extern crate tower_balance;
 extern crate tower_h2;
-//extern crate tower_service;
 
 use futures::Poll;
-use tower_balance::load::Track;
+use tower_balance::load::Measure;
 use tower_h2::Body;
-//use tower_service::Service;
 
-pub struct TrackFirstData;
+pub struct MeasureFirstData;
 
-pub struct TrackEos;
+pub struct MeasureEos;
 
-pub struct TrackFirstDataBody<T, B> {
-    tracker: Option<T>,
+pub struct MeasureFirstDataBody<T, B> {
+    instrument: Option<T>,
     body: B,
 }
 
-pub struct TrackEosBody<T, B> {
-    tracker: Option<T>,
+pub struct MeasureEosBody<T, B> {
+    instrument: Option<T>,
     body: B,
 }
 
-impl<T, B> Track<T, http::Response<B>> for TrackFirstData
+impl<T, B> Measure<T, http::Response<B>> for MeasureFirstData
 where
     T: Sync + Send + 'static,
     B: Body + 'static,
 {
-    type Tracked = http::Response<TrackFirstDataBody<T, B>>;
+    type Measured = http::Response<MeasureFirstDataBody<T, B>>;
 
-    fn track(tracker: T, rsp: http::Response<B>) -> Self::Tracked {
+    fn measure(instrument: T, rsp: http::Response<B>) -> Self::Measured {
         let (parts, body) = rsp.into_parts();
-        http::Response::from_parts(parts, TrackFirstDataBody {
-            tracker: Some(tracker),
+        http::Response::from_parts(parts, MeasureFirstDataBody {
+            instrument: Some(instrument),
             body,
         })
     }
 }
 
-impl<T, B> Track<T, http::Response<B>> for TrackEos
+impl<T, B> Measure<T, http::Response<B>> for MeasureEos
 where
     T: Sync + Send + 'static,
     B: Body + 'static,
 {
-    type Tracked = http::Response<TrackEosBody<T, B>>;
+    type Measured = http::Response<MeasureEosBody<T, B>>;
 
-    fn track(tracker: T, rsp: http::Response<B>) -> Self::Tracked {
+    fn measure(instrument: T, rsp: http::Response<B>) -> Self::Measured {
         let (parts, body) = rsp.into_parts();
-        http::Response::from_parts(parts, TrackEosBody {
-            tracker: Some(tracker),
+        http::Response::from_parts(parts, MeasureEosBody {
+            instrument: Some(instrument),
             body,
         })
     }
 }
 
-impl<T, B: Body> Body for TrackFirstDataBody<T, B> {
+impl<T, B: Body> Body for MeasureFirstDataBody<T, B> {
     type Data = B::Data;
 
     fn is_end_stream(&self) -> bool {
@@ -67,7 +65,7 @@ impl<T, B: Body> Body for TrackFirstDataBody<T, B> {
     /// Polls a stream of data.
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, h2::Error> {
         let data = try_ready!(self.body.poll_data());
-        drop(self.tracker.take());
+        drop(self.instrument.take());
         Ok(data.into())
     }
 
@@ -77,7 +75,7 @@ impl<T, B: Body> Body for TrackFirstDataBody<T, B> {
     }
 }
 
-impl<T, B: Body> Body for TrackEosBody<T, B> {
+impl<T, B: Body> Body for MeasureEosBody<T, B> {
     type Data = B::Data;
 
     fn is_end_stream(&self) -> bool {
@@ -88,7 +86,7 @@ impl<T, B: Body> Body for TrackEosBody<T, B> {
     fn poll_data(&mut self) -> Poll<Option<Self::Data>, h2::Error> {
         let data = try_ready!(self.body.poll_data());
         if data.is_none() {
-            drop(self.tracker.take());
+            drop(self.instrument.take());
         }
         Ok(data.into())
     }
@@ -96,7 +94,7 @@ impl<T, B: Body> Body for TrackEosBody<T, B> {
     /// Returns possibly **one** `HeaderMap` for trailers.
     fn poll_trailers(&mut self) -> Poll<Option<http::HeaderMap>, h2::Error> {
         let trls = try_ready!(self.body.poll_trailers());
-        drop(self.tracker.take());
+        drop(self.instrument.take());
         Ok(trls.into())
     }
 }
