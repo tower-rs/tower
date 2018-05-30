@@ -1,9 +1,9 @@
-pub mod track;
+mod measure;
 mod constant;
 mod peak_ewma;
 mod pending_requests;
 
-pub use self::track::Track;
+pub use self::measure::{Measure, MeasureFuture, NoMeasure};
 pub use self::constant::Constant;
 pub use self::peak_ewma::PeakEWMA;
 pub use self::pending_requests::{PendingRequests, WithPendingRequests};

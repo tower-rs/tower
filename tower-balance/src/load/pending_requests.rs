@@ -5,29 +5,29 @@ use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use Load;
-use super::track::{Track, TrackFuture, NoTrack};
+use super::{Measure, MeasureFuture, NoMeasure};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
-pub struct PendingRequests<S, T = NoTrack>
+pub struct PendingRequests<S, M = NoMeasure>
 where
     S: Service,
-    T: Track<Tracker, S::Response>,
+    M: Measure<Instrument, S::Response>,
 {
     service: S,
     track: Arc<()>,
-    _p: PhantomData<T>,
+    _p: PhantomData<M>,
 }
 
 /// Wraps `inner`'s services with `PendingRequests`.
 #[derive(Debug)]
-pub struct WithPendingRequests<D, T = NoTrack>
+pub struct WithPendingRequests<D, M = NoMeasure>
 where
     D: Discover,
-    T: Track<Tracker, D::Response>,
+    M: Measure<Instrument, D::Response>,
 {
     discover: D,
-    _p: PhantomData<T>,
+    _p: PhantomData<M>,
 }
 
 /// Represents the number of currently-pending requests to a given service.
@@ -35,14 +35,14 @@ where
 pub struct Count(usize);
 
 #[derive(Debug)]
-pub struct Tracker(Arc<()>);
+pub struct Instrument(Arc<()>);
 
 // ===== impl PendingRequests =====
 
-impl<S, T> PendingRequests<S, T>
+impl<S, M> PendingRequests<S, M>
 where
     S: Service,
-    T: Track<Tracker, S::Response>,
+    M: Measure<Instrument, S::Response>,
 {
     pub fn new(service: S) -> Self {
         Self {
@@ -57,15 +57,15 @@ where
         Arc::strong_count(&self.track) - 1
     }
 
-    fn tracker(&self) -> Tracker {
-        Tracker(self.track.clone())
+    fn instrument(&self) -> Instrument {
+        Instrument(self.track.clone())
     }
 }
 
-impl<S, T> Load for PendingRequests<S, T>
+impl<S, M> Load for PendingRequests<S, M>
 where
     S: Service,
-    T: Track<Tracker, S::Response>,
+    M: Measure<Instrument, S::Response>,
 {
     type Metric = Count;
 
@@ -74,28 +74,28 @@ where
     }
 }
 
-impl<S, T> Service for PendingRequests<S, T>
+impl<S, M> Service for PendingRequests<S, M>
 where
     S: Service,
-    T: Track<Tracker, S::Response>,
+    M: Measure<Instrument, S::Response>,
 {
     type Request = S::Request;
-    type Response = T::Tracked;
+    type Response = M::Measured;
     type Error = S::Error;
-    type Future = TrackFuture<S::Future, T, Tracker>;
+    type Future = MeasureFuture<S::Future, M, Instrument>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        T::track_future(self.tracker(), self.service.call(req))
+        MeasureFuture::new(self.instrument(), self.service.call(req))
     }
 }
 
 // ===== impl WithPendingRequests =====
 
-impl<D> WithPendingRequests<D, NoTrack>
+impl<D> WithPendingRequests<D, NoMeasure>
 where
     D: Discover,
 {
@@ -107,14 +107,14 @@ where
     }
 }
 
-impl<D, T> WithPendingRequests<D, T>
+impl<D, M> WithPendingRequests<D, M>
 where
     D: Discover,
-    T: Track<Tracker, D::Response>,
+    M: Measure<Instrument, D::Response>,
 {
-    pub fn track_with<U>(self) -> WithPendingRequests<D, U>
+    pub fn measure_with<U>(self) -> WithPendingRequests<D, U>
     where
-        U: Track<Tracker, D::Response>,
+        U: Measure<Instrument, D::Response>,
     {
         WithPendingRequests {
             discover: self.discover,
@@ -123,16 +123,16 @@ where
     }
 }
 
-impl<D, T> Discover for WithPendingRequests<D, T>
+impl<D, M> Discover for WithPendingRequests<D, M>
 where
     D: Discover,
-    T: Track<Tracker, D::Response>,
+    M: Measure<Instrument, D::Response>,
 {
     type Key = D::Key;
     type Request = D::Request;
-    type Response = T::Tracked;
+    type Response = M::Measured;
     type Error = D::Error;
-    type Service = PendingRequests<D::Service, T>;
+    type Service = PendingRequests<D::Service, M>;
     type DiscoverError = D::DiscoverError;
 
     /// Yields the next discovery change set.
