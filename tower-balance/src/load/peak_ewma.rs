@@ -4,7 +4,7 @@ use std::{
 };
 use tower_service::Service;
 
-use super::track::{Track, TrackFuture};
+use super::{Measure, MeasureFuture};
 
 use Load;
 
@@ -14,7 +14,7 @@ pub struct PeakEWMA<S, T> {
     _p: PhantomData<T>,
 }
 
-pub struct Tracker(Arc<Mutex<State>>);
+pub struct Instrument(Arc<Mutex<State>>);
 
 struct State {
     pending: usize,
@@ -30,7 +30,7 @@ pub struct Cost(f64);
 impl<S, T> PeakEWMA<S, T>
 where
     S: Service,
-    T: Track<Tracker, S::Response>,
+    T: Measure<Instrument, S::Response>,
 {
     pub fn new(service: S, decay: Duration) -> Self {
         let state = State {
@@ -47,8 +47,8 @@ where
         }
     }
 
-    fn tracker(&self) -> Tracker {
-        Tracker(self.state.clone())
+    fn instrument(&self) -> Instrument {
+        Instrument(self.state.clone())
     }
 }
 
@@ -63,25 +63,25 @@ impl<S, T> Load for PeakEWMA<S, T> {
 impl<S, T> Service for PeakEWMA<S, T>
 where
     S: Service,
-    T: Track<Tracker, S::Response>,
+    T: Measure<Instrument, S::Response>,
 {
     type Request = S::Request;
-    type Response = T::Tracked;
+    type Response = T::Measured;
     type Error = S::Error;
-    type Future = TrackFuture<S::Future, T, Tracker>;
+    type Future = MeasureFuture<S::Future, T, Instrument>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        T::track_future(self.tracker(), self.service.call(req))
+        MeasureFuture::new(self.instrument(), self.service.call(req))
     }
 }
 
-// ===== impl Tracker =====
+// ===== impl Instrument =====
 
-impl Drop for Tracker {
+impl Drop for Instrument {
     fn drop(&mut self) {
         unimplemented!()
     }
