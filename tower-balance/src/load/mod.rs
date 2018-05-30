@@ -1,9 +1,11 @@
 pub mod track;
 mod constant;
+mod peak_ewma;
 mod pending_requests;
 
 pub use self::track::Track;
 pub use self::constant::Constant;
+pub use self::peak_ewma::PeakEWMA;
 pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 
 /// Exposes a load metric.
