@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{thread_rng, Rng};
 
 use Load;
 use choose::{Choose, Replicas};
@@ -19,8 +19,16 @@ use choose::{Choose, Replicas};
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 #[derive(Debug)]
-pub struct PowerOfTwoChoices<R> {
+pub struct PowerOfTwoChoices<R = LazyRng> {
     rng: R,
+}
+
+pub struct LazyRng;
+
+impl Default for PowerOfTwoChoices<LazyRng> {
+    fn default() -> Self {
+        Self { rng: LazyRng }
+    }
 }
 
 impl<R: Rng> PowerOfTwoChoices<R> {
@@ -64,6 +72,12 @@ where
         } else {
             b
         }
+    }
+}
+
+impl Rng for LazyRng {
+    fn next_u32(&mut self) -> u32 {
+        thread_rng().next_u32()
     }
 }
 

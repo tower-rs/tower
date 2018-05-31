@@ -7,8 +7,7 @@ extern crate hdrsample;
 #[macro_use]
 extern crate log;
 extern crate rand;
-extern crate tokio_core;
-extern crate tokio_timer;
+extern crate tokio;
 extern crate tower_balance;
 extern crate tower_discover;
 extern crate tower_service;
@@ -17,22 +16,21 @@ use futures::{Async, Future, Stream, Poll, future, stream};
 use hdrsample::Histogram;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use tokio_core::reactor::Core;
-use tokio_timer::{Timer, TimerError, Sleep};
+use tokio::{runtime, timer};
 use tower_balance::*;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-struct DelayService(Timer, Duration);
+struct DelayService(Duration);
 
-struct Delay(Sleep, Instant);
+struct Delay(timer::Delay, Duration);
 
 struct Disco(VecDeque<Change<usize, DelayService>>);
 
 impl Service for DelayService {
     type Request = ();
     type Response = Duration;
-    type Error = TimerError;
+    type Error = timer::Error;
     type Future = Delay;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -41,16 +39,17 @@ impl Service for DelayService {
     }
 
     fn call(&mut self, _: ()) -> Delay {
-        Delay(self.0.sleep(self.1), Instant::now())
+        let now = Instant::now();
+        Delay(timer::Delay::new(now + self.0), self.0)
     }
 }
 
 impl Future for Delay {
     type Item = Duration;
-    type Error = TimerError;
+    type Error = timer::Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         try_ready!(self.0.poll());
-        Ok(Async::Ready(self.1.elapsed()))
+        Ok(Async::Ready(self.1))
     }
 }
 
@@ -58,7 +57,7 @@ impl Discover for Disco {
     type Key = usize;
     type Request = ();
     type Response = Duration;
-    type Error = TimerError;
+    type Error = timer::Error;
     type Service = DelayService;
     type DiscoverError = ();
 
@@ -72,25 +71,25 @@ impl Discover for Disco {
     }
 }
 
-fn gen_disco(timer: &Timer) -> Disco {
+fn gen_disco() -> Disco {
     use self::Change::Insert;
 
     let mut changes = VecDeque::new();
 
     let quick = Duration::from_millis(500);
     for i in 0..8 {
-        changes.push_back(Insert(i, DelayService(timer.clone(), quick)));
+        changes.push_back(Insert(i, DelayService(quick)));
     }
 
     let slow = Duration::from_secs(2);
-    changes.push_back(Insert(9, DelayService(timer.clone(), slow)));
+    changes.push_back(Insert(9, DelayService(slow)));
 
     Disco(changes)
 }
 
 struct SendRequests<D, C>
 where
-    D: Discover<Request = (), Response = Duration, Error = TimerError>,
+    D: Discover<Request = (), Response = Duration, Error = timer::Error>,
     C: Choose<D::Key, D::Service>,
 {
     lb: Balance<D, C>,
@@ -100,7 +99,7 @@ where
 
 impl<D, C> Stream for SendRequests<D, C>
 where
-    D: Discover<Request = (), Response = Duration, Error = TimerError>,
+    D: Discover<Request = (), Response = Duration, Error = timer::Error>,
     C: Choose<D::Key, D::Service>,
 {
     type Item = Duration;
@@ -136,23 +135,19 @@ where
 }
 
 fn compute_histo<S>(times: S)
-    -> Box<Future<Item = Histogram<u64>, Error = S::Error> + 'static>
+    -> impl Future<Item = Histogram<u64>, Error = S::Error> + 'static
 where
     S: Stream<Item = Duration> + 'static
 {
     // The max delay is 2000ms. At 3 significant figures.
     let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
-    let fut = times
-        .fold(histo, |mut histo, elapsed| {
-            let ns: u32 = elapsed.subsec_nanos();
-            let ms = u64::from(ns) / 1_000 / 1_000
-                + elapsed.as_secs() * 1_000;
-            histo += ms;
+    times.fold(histo, |mut histo, d| {
+        let ms = u64::from(d.subsec_nanos()) / 1_000 / 1_000
+            + d.as_secs() * 1_000;
 
-            future::ok(histo)
-        });
-
-    Box::new(fut)
+        histo += ms;
+        future::ok(histo)
+    })
 }
 
 fn report(pfx: &str, histo: &Histogram<u64>) {
@@ -187,24 +182,26 @@ fn report(pfx: &str, histo: &Histogram<u64>) {
 fn main() {
     env_logger::init();
 
-    let timer = Timer::default();
-    let mut core = Core::new().unwrap();
     let requests = 1_000_000;
 
     {
         let lb = {
-            let loaded = load::WithPendingRequests::new(gen_disco(&timer));
-            power_of_two_choices(loaded, rand::thread_rng())
+            let loaded = load::WithPendingRequests::new(gen_disco());
+            power_of_two_choices(loaded)
         };
         let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
-        let histo = core.run(compute_histo(send)).unwrap();
-        report("p2c", &histo)
+        let fut = compute_histo(send)
+            .map(|histo| report("p2c", &histo))
+            .map_err(|_| {});
+        runtime::run(fut);
     }
 
     {
-        let lb = round_robin(gen_disco(&timer));
+        let lb = round_robin(gen_disco());
         let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
-        let histo = core.run(compute_histo(send)).unwrap();
-        report("rr", &histo)
+        let fut = compute_histo(send)
+            .map(|histo| report("rr", &histo))
+            .map_err(|_| {});
+        runtime::run(fut);
     }
 }
