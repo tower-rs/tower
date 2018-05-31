@@ -51,6 +51,11 @@ where
     }
 
     fn instrument(&self) -> Instrument {
+        {
+            // TODO replace this with Arc counting
+            let mut state = self.state.lock().expect("lock peak ewma state");
+            state.pending += 1;
+        }
         Instrument {
             start: Instant::now(),
             state: self.state.clone()
@@ -81,6 +86,7 @@ impl<S, T> Load for PeakEWMA<S, T> {
     type Metric = Cost;
 
     fn load(&self) -> Self::Metric {
+        // TODO apply a penalty when there is no load information
         let mut state = self.state.lock().expect("peak ewma state");
         state.update(0.0);
         let pending: f64 = state.pending.into();
@@ -109,6 +115,7 @@ impl State {
 impl Drop for Instrument {
     fn drop(&mut self) {
         if let Ok(mut s) = self.state.lock() {
+            s.pending -= 1;
             s.update(nanos(self.start.elapsed()))
         }
     }
