@@ -18,18 +18,13 @@ use choose::{Choose, Replicas};
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PowerOfTwoChoices<R = LazyRng> {
     rng: R,
 }
 
+#[derive(Default)]
 pub struct LazyRng;
-
-impl Default for PowerOfTwoChoices<LazyRng> {
-    fn default() -> Self {
-        Self { rng: LazyRng }
-    }
-}
 
 impl<R: Rng> PowerOfTwoChoices<R> {
     pub fn new(rng: R) -> Self {
