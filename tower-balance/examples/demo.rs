@@ -24,23 +24,24 @@ use tower_service::Service;
 
 use tower_balance as lb;
 
-const TOTAL_REQUESTS: usize = 1_000_000;
+const REQUESTS: usize = 1_000_000;
 const CONCURRENCY: usize = 10_000;
 
 fn main() {
     env_logger::init();
+
+    println!("REQUESTS={} CONCURRENCY={}", REQUESTS, CONCURRENCY);
 
     let peak_ewma = {
         let decay = Duration::from_secs(10);
         lb::load::WithPeakEWMA::new(gen_disco(), decay).measured::<RspMeasure>()
     };
     run("p2c+pe", lb::power_of_two_choices(peak_ewma));
-
-    let ll = lb::load::WithPendingRequests::new(gen_disco()).measured::<RspMeasure>();
+    let ll = lb::load::WithPendingRequests::new(gen_disco());
     run("p2c+ll", lb::power_of_two_choices(ll));
 
-    let rr = lb::round_robin(gen_disco());
-    run("rr", rr);
+    // let rr = lb::round_robin(gen_disco());
+    // run("rr", rr);
 }
 
 struct DelayService(Duration);
@@ -87,7 +88,7 @@ impl Service for DelayService {
     fn call(&mut self, _: Req) -> Delay {
         let start = Instant::now();
         let maxms = u64::from(self.0.subsec_nanos()) / 1_000 / 1_000 + self.0.as_secs() * 1_000;
-        let delay = Duration::from_millis(rand::thread_rng().gen_range(100, maxms));
+        let delay = Duration::from_millis(rand::thread_rng().gen_range(10, maxms));
         Delay {
             delay: timer::Delay::new(start + delay),
             start,
@@ -132,9 +133,9 @@ fn gen_disco() -> Disco {
 
     let mut changes = VecDeque::new();
 
-    let quick = Duration::from_millis(500);
     for i in 0..8 {
-        changes.push_back(Insert(i, DelayService(quick)));
+        let l = Duration::from_millis(100 + (i * 100));
+        changes.push_back(Insert(i as usize, DelayService(l)));
     }
 
     let slow = Duration::from_secs(2);
@@ -228,32 +229,30 @@ where
 }
 
 fn report(pfx: &str, histo: &Histogram<u64>) {
-    println!("{} samples: {}", pfx, histo.len());
-
     if histo.len() < 2 {
         return;
     }
-    println!("{} p50:  {}", pfx, histo.value_at_quantile(0.5));
+    println!("{} p50:  {}ms", pfx, histo.value_at_quantile(0.5));
 
     if histo.len() < 10 {
         return;
     }
-    println!("{} p90:  {}", pfx, histo.value_at_quantile(0.9));
+    println!("{} p90:  {}ms", pfx, histo.value_at_quantile(0.9));
 
     if histo.len() < 50 {
         return;
     }
-    println!("{} p95:  {}", pfx, histo.value_at_quantile(0.95));
+    println!("{} p95:  {}ms", pfx, histo.value_at_quantile(0.95));
 
     if histo.len() < 100 {
         return;
     }
-    println!("{} p99:  {}", pfx, histo.value_at_quantile(0.99));
+    println!("{} p99:  {}ms", pfx, histo.value_at_quantile(0.99));
 
     if histo.len() < 1000 {
         return;
     }
-    println!("{} p999: {}", pfx, histo.value_at_quantile(0.999));
+    println!("{} p999: {}ms", pfx, histo.value_at_quantile(0.999));
 }
 
 fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>)
@@ -265,7 +264,7 @@ where
     <D::Service as Service>::Future: Send,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
-    let f = compute_histo(SendRequests::new(lb, TOTAL_REQUESTS, CONCURRENCY))
+    let f = compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY))
         .map(move |h| report(name, &h))
         .map_err(|_| {});
     runtime::run(f);
