@@ -9,9 +9,9 @@ extern crate log;
 extern crate rand;
 extern crate tokio;
 extern crate tower_balance;
+extern crate tower_buffer;
 extern crate tower_discover;
 extern crate tower_service;
-extern crate typemap;
 
 use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrsample::Histogram;
@@ -19,59 +19,62 @@ use rand::Rng;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
+use tower_balance as lb;
+use tower_buffer::Buffer;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-use tower_balance as lb;
-
 const REQUESTS: usize = 1_000_000;
-const CONCURRENCY: usize = 10_000;
+const CONCURRENCY: usize = 1_000;
 
 fn main() {
     env_logger::init();
 
-    println!("REQUESTS={} CONCURRENCY={}", REQUESTS, CONCURRENCY);
+    println!("REQUESTS={:?} CONCURRENCY={}", REQUESTS, CONCURRENCY);
 
+    let mut rt = runtime::Runtime::new().unwrap();
+    let executor = rt.executor();
+    // We don't need to use a measuer, since we track pending requests by default.
     let peak_ewma = {
         let decay = Duration::from_secs(10);
-        lb::load::WithPeakEWMA::new(gen_disco(), decay).measured::<RspMeasure>()
+        lb::load::WithPeakEWMA::new(gen_disco(executor.clone()), decay)
     };
-    run("p2c+pe", lb::power_of_two_choices(peak_ewma));
-    let ll = lb::load::WithPendingRequests::new(gen_disco());
-    run("p2c+ll", lb::power_of_two_choices(ll));
+    rt.spawn(run("p2c+pe", lb::power_of_two_choices(peak_ewma), &executor));
+    rt.shutdown_on_idle().wait().unwrap();
 
-    // let rr = lb::round_robin(gen_disco());
-    // run("rr", rr);
+    let mut rt = runtime::Runtime::new().unwrap();
+    let executor = rt.executor();
+    let ll = lb::load::WithPendingRequests::new(gen_disco(executor.clone()));
+    rt.spawn(run("p2c+ll", lb::power_of_two_choices(ll), &executor));
+    rt.shutdown_on_idle().wait().unwrap();
+
+    let mut rt = runtime::Runtime::new().unwrap();
+    let executor = rt.executor();
+    let rr = lb::round_robin(gen_disco(executor.clone()));
+    rt.spawn(run("rr", rr, &executor));
+    rt.shutdown_on_idle().wait().unwrap();
 }
 
+#[derive(Debug)]
 struct DelayService(Duration);
 
+#[derive(Debug)]
 struct Delay {
     delay: timer::Delay,
     start: Instant,
 }
 
-struct Disco(VecDeque<Change<usize, DelayService>>);
+struct Disco {
+    changes: VecDeque<Change<usize, DelayService>>,
+    executor: runtime::TaskExecutor,
+}
 
+#[derive(Debug)]
 struct Req;
 
-struct RspMeasure;
-impl<I: Send + Sync + 'static> lb::load::Measure<I, Rsp> for RspMeasure {
-    type Measured = Rsp;
-    fn measure(instrument: I, mut rsp: Rsp) -> Rsp {
-        rsp.meta.insert::<Instrument<I>>(instrument);
-        rsp
-    }
-}
-
-struct Instrument<I>(I);
-impl<I: Send + Sync + 'static> typemap::Key for Instrument<I> {
-    type Value = I;
-}
-
+#[derive(Debug)]
 struct Rsp {
     latency: Duration,
-    meta: typemap::ShareMap,
 }
 
 impl Service for DelayService {
@@ -102,7 +105,6 @@ impl Future for Delay {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         try_ready!(self.delay.poll());
         let rsp = Rsp {
-            meta: typemap::ShareMap::custom(),
             latency: Instant::now() - self.start,
         };
         Ok(Async::Ready(rsp))
@@ -113,57 +115,64 @@ impl Discover for Disco {
     type Key = usize;
     type Request = Req;
     type Response = Rsp;
-    type Error = timer::Error;
-    type Service = DelayService;
+    type Error = tower_buffer::Error<timer::Error>;
+    type Service = Buffer<DelayService>;
     type DiscoverError = ();
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
-        let r = self
-            .0
-            .pop_front()
-            .map(Async::Ready)
-            .unwrap_or(Async::NotReady);
-        debug!("polling disco: {:?}", r.is_ready());
-        Ok(r)
+        match self.changes.pop_front() {
+            Some(Change::Insert(k, svc)) => {
+                let svc = Buffer::new(svc, &self.executor).unwrap();
+                Ok(Async::Ready(Change::Insert(k, svc)))
+            }
+            Some(Change::Remove(k)) => Ok(Async::Ready(Change::Remove(k))),
+            None => Ok(Async::NotReady),
+        }
     }
 }
 
-fn gen_disco() -> Disco {
+fn gen_disco(executor: runtime::TaskExecutor) -> Disco {
     use self::Change::Insert;
 
     let mut changes = VecDeque::new();
 
-    for i in 0..8 {
-        let l = Duration::from_millis(100 + (i * 100));
+    for i in 0..9 {
+        let l = Duration::from_millis(50);
         changes.push_back(Insert(i as usize, DelayService(l)));
     }
 
     let slow = Duration::from_secs(2);
     changes.push_back(Insert(9, DelayService(slow)));
 
-    Disco(changes)
+    Disco { changes, executor }
 }
 
 struct SendRequests<D, C>
 where
-    D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
+    D: Discover<Request = Req, Response = Rsp>,
     C: lb::Choose<D::Key, D::Service>,
 {
-    lb: lb::Balance<D, C>,
+    lb: Buffer<lb::Balance<D, C>>,
     send_remaining: usize,
     concurrency: usize,
-    responses:
-        stream::FuturesUnordered<lb::ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>,
+    responses: stream::FuturesUnordered<
+        tower_buffer::ResponseFuture<lb::Balance<D, C>>,
+    >,
 }
 
 impl<D, C> SendRequests<D, C>
 where
-    D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
-    C: lb::Choose<D::Key, D::Service>,
+    D: Discover<Request = Req, Response = Rsp> + Send + 'static,
+    D::Key: Send,
+    D::Service: Send,
+    D::Error: Send,
+    D::DiscoverError: Send,
+    <D::Service as Service>::Future: Send,
+    C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
-    pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize) -> Self {
+    pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize, executor: &runtime::TaskExecutor) -> Self {
         Self {
-            lb,
+            lb: Buffer::new(lb, executor).ok().expect("buffer"),
             send_remaining: total,
             concurrency,
             responses: stream::FuturesUnordered::new(),
@@ -173,11 +182,11 @@ where
 
 impl<D, C> Stream for SendRequests<D, C>
 where
-    D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
+    D: Discover<Request = Req, Response = Rsp>,
     C: lb::Choose<D::Key, D::Service>,
 {
     type Item = Rsp;
-    type Error = lb::Error<D::Error, D::DiscoverError>;
+    type Error = tower_buffer::Error<<lb::Balance<D, C> as Service>::Error>;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         debug!(
@@ -219,10 +228,9 @@ where
 {
     // The max delay is 2000ms. At 3 significant figures.
     let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
-    times.fold(histo, |mut histo, Rsp { meta, latency }| {
-        drop(meta);
-        let ms = u64::from(latency.subsec_nanos()) / 1_000 / 1_000 + latency.as_secs() * 1_000;
-
+    times.fold(histo, |mut histo, Rsp { latency }| {
+        let ms = latency.as_secs() * 1_000;
+        let ms = ms + u64::from(latency.subsec_nanos()) / 1_000 / 1_000;
         histo += ms;
         future::ok(histo)
     })
@@ -255,17 +263,21 @@ fn report(pfx: &str, histo: &Histogram<u64>) {
     println!("{} p999: {}ms", pfx, histo.value_at_quantile(0.999));
 }
 
-fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>)
+fn run<D, C>(
+    name: &'static str,
+    lb: lb::Balance<D, C>,
+    executor: &runtime::TaskExecutor,
+) -> impl Future<Item = (), Error = ()>
 where
-    D: Discover<Request = Req, Response = Rsp, Error = timer::Error> + Send + 'static,
+    D: Discover<Request = Req, Response = Rsp> + Send + 'static,
     D::Key: Send,
     D::Service: Send,
+    D::Error: Send,
     D::DiscoverError: Send,
     <D::Service as Service>::Future: Send,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
-    let f = compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY))
+    compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY, executor))
         .map(move |h| report(name, &h))
-        .map_err(|_| {});
-    runtime::run(f);
+        .map_err(|_| {})
 }

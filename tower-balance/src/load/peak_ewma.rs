@@ -28,7 +28,7 @@ pub struct Instrument {
 
 struct Node {
     last_update: Instant,
-    cost: f64,
+    rtt_estimate: f64,
     tau: f64,
 }
 
@@ -101,7 +101,7 @@ where
     fn instrument(&self) -> Instrument {
         Instrument {
             start: Instant::now(),
-            node: self.node.clone()
+            node: self.node.clone(),
         }
     }
 }
@@ -133,11 +133,21 @@ impl<S, M> Load for PeakEWMA<S, M> {
     fn load(&self) -> Self::Metric {
         let pending = Arc::strong_count(&self.node) as u32 - 1;
         let mut node = self.node.lock().expect("peak ewma state");
-        node.update(0.0);
-        if node.cost == 0.0 && pending > 0 {
+        if node.rtt_estimate == 0.0 && pending > 0 {
+            debug!("penalty={} pending={}", PENALTY, pending);
             Cost(PENALTY + f64::from(pending))
         } else {
-            Cost(node.cost * (f64::from(pending) + 1.0))
+            // Update the cost to account for decay since the last update.
+            let rtt_estimate = node.update_rtt_estimate(0.0);
+
+            let cost = rtt_estimate * (f64::from(pending) + 1.0);
+            debug!(
+                "load estimate={:.0}ms pending={} cost={:.0}",
+                node.rtt_estimate / 1_000_000.0,
+                pending,
+                cost
+            );
+            Cost(cost)
         }
     }
 }
@@ -149,23 +159,33 @@ impl Node {
         Self {
             tau: nanos(decay),
             last_update: Instant::now(),
-            cost: 0.0,
+            rtt_estimate: 0.0,
         }
     }
 
-    fn update(&mut self, rtt: f64) -> f64 {
+    fn update_rtt_estimate(&mut self, rtt: f64) -> f64 {
         let now = Instant::now();
-        if self.cost < rtt {
-            trace!("update rtt={}", rtt);
-            self.cost = rtt;
+        if self.rtt_estimate < rtt {
+            trace!("update peak rtt={}", rtt);
+            self.rtt_estimate = rtt;
         } else {
+            // Determine how heavily to weight our rtt estimate.
             let td = nanos(now - self.last_update);
-            let w = (-td / self.tau).exp();
-            self.cost = (self.cost * w) + (rtt * (1.0 - w));
-            trace!("update rtt={} w={} cost={}", rtt, w, self.cost);
+            let recency = (-td / self.tau).exp();
+
+            let e = (self.rtt_estimate * recency) + (rtt * (1.0 - recency));
+            trace!(
+                "update prior={:.0}ms * {:.5} + rtt={:.0}ms * {:.5}; estimate={:.0}ms",
+                self.rtt_estimate / 1_000_000.0,
+                recency,
+                rtt / 1_000_000.0,
+                1.0 - recency,
+                e / 1_000_000.0
+            );
+            self.rtt_estimate = e;
         }
         self.last_update = now;
-        self.cost
+        self.rtt_estimate
     }
 }
 
@@ -174,7 +194,9 @@ impl Node {
 impl Drop for Instrument {
     fn drop(&mut self) {
         if let Ok(mut node) = self.node.lock() {
-            node.update(nanos(self.start.elapsed()));
+            let rtt = self.start.elapsed();
+            trace!("drop:; rtt={:?}", rtt);
+            node.update_rtt_estimate(nanos(rtt));
         }
     }
 }
