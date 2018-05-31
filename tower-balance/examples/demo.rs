@@ -13,31 +13,34 @@ extern crate tower_discover;
 extern crate tower_service;
 extern crate typemap;
 
-use futures::{Async, Future, Stream, Poll, future, stream};
+use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrsample::Histogram;
 use rand::Rng;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
-use tower_balance::*;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
+use tower_balance as lb;
+
 const TOTAL_REQUESTS: usize = 1_000_000;
-const CONCURRENCY: usize = 1_000;
+const CONCURRENCY: usize = 10_000;
 
 fn main() {
     env_logger::init();
 
-    let p2cpe = {
+    let peak_ewma = {
         let decay = Duration::from_secs(10);
-        power_of_two_choices(load::WithPeakEWMA::<_, RspMeasure>::new(gen_disco(), decay))
+        lb::load::WithPeakEWMA::new(gen_disco(), decay).measured::<RspMeasure>()
     };
-    run("p2c+pe", p2cpe);
+    run("p2c+pe", lb::power_of_two_choices(peak_ewma));
 
-    run("p2c+ll", power_of_two_choices(load::WithPendingRequests::new(gen_disco())));
+    let ll = lb::load::WithPendingRequests::new(gen_disco()).measured::<RspMeasure>();
+    run("p2c+ll", lb::power_of_two_choices(ll));
 
-    run("rr", round_robin(gen_disco()));
+    let rr = lb::round_robin(gen_disco());
+    run("rr", rr);
 }
 
 struct DelayService(Duration);
@@ -52,7 +55,7 @@ struct Disco(VecDeque<Change<usize, DelayService>>);
 struct Req;
 
 struct RspMeasure;
-impl<I: Send + Sync + 'static> load::Measure<I, Rsp> for RspMeasure {
+impl<I: Send + Sync + 'static> lb::load::Measure<I, Rsp> for RspMeasure {
     type Measured = Rsp;
     fn measure(instrument: I, mut rsp: Rsp) -> Rsp {
         rsp.meta.insert::<Instrument<I>>(instrument);
@@ -67,7 +70,7 @@ impl<I: Send + Sync + 'static> typemap::Key for Instrument<I> {
 
 struct Rsp {
     latency: Duration,
-    meta: typemap::ShareMap
+    meta: typemap::ShareMap,
 }
 
 impl Service for DelayService {
@@ -83,8 +86,7 @@ impl Service for DelayService {
 
     fn call(&mut self, _: Req) -> Delay {
         let start = Instant::now();
-        let maxms = u64::from(self.0.subsec_nanos()) / 1_000 / 1_000
-            + self.0.as_secs() * 1_000;
+        let maxms = u64::from(self.0.subsec_nanos()) / 1_000 / 1_000 + self.0.as_secs() * 1_000;
         let delay = Duration::from_millis(rand::thread_rng().gen_range(100, maxms));
         Delay {
             delay: timer::Delay::new(start + delay),
@@ -115,7 +117,8 @@ impl Discover for Disco {
     type DiscoverError = ();
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
-        let r = self.0
+        let r = self
+            .0
             .pop_front()
             .map(Async::Ready)
             .unwrap_or(Async::NotReady);
@@ -143,20 +146,21 @@ fn gen_disco() -> Disco {
 struct SendRequests<D, C>
 where
     D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
-    C: Choose<D::Key, D::Service>,
+    C: lb::Choose<D::Key, D::Service>,
 {
-    lb: Balance<D, C>,
+    lb: lb::Balance<D, C>,
     send_remaining: usize,
     concurrency: usize,
-    responses: stream::FuturesUnordered<ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>,
+    responses:
+        stream::FuturesUnordered<lb::ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>,
 }
 
 impl<D, C> SendRequests<D, C>
 where
     D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
-    C: Choose<D::Key, D::Service>,
+    C: lb::Choose<D::Key, D::Service>,
 {
-    pub fn new(lb: Balance<D, C>, total: usize, concurrency: usize) -> Self {
+    pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize) -> Self {
         Self {
             lb,
             send_remaining: total,
@@ -169,20 +173,24 @@ where
 impl<D, C> Stream for SendRequests<D, C>
 where
     D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
-    C: Choose<D::Key, D::Service>,
+    C: lb::Choose<D::Key, D::Service>,
 {
     type Item = Rsp;
-    type Error = Error<D::Error, D::DiscoverError>;
+    type Error = lb::Error<D::Error, D::DiscoverError>;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        debug!("sending requests {} / {}", self.send_remaining, self.responses.len());
+        debug!(
+            "sending requests {} / {}",
+            self.send_remaining,
+            self.responses.len()
+        );
         while self.send_remaining > 0 {
             if !self.responses.is_empty() {
                 if let Async::Ready(Some(rsp)) = self.responses.poll()? {
                     return Ok(Async::Ready(Some(rsp)));
                 }
                 if self.responses.len() == self.concurrency {
-                    return Ok(Async::NotReady)
+                    return Ok(Async::NotReady);
                 }
             }
 
@@ -204,17 +212,15 @@ where
     }
 }
 
-fn compute_histo<S>(times: S)
-    -> impl Future<Item = Histogram<u64>, Error = S::Error> + 'static
+fn compute_histo<S>(times: S) -> impl Future<Item = Histogram<u64>, Error = S::Error> + 'static
 where
-    S: Stream<Item = Rsp> + 'static
+    S: Stream<Item = Rsp> + 'static,
 {
     // The max delay is 2000ms. At 3 significant figures.
     let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
     times.fold(histo, |mut histo, Rsp { meta, latency }| {
         drop(meta);
-        let ms = u64::from(latency.subsec_nanos()) / 1_000 / 1_000
-            + latency.as_secs() * 1_000;
+        let ms = u64::from(latency.subsec_nanos()) / 1_000 / 1_000 + latency.as_secs() * 1_000;
 
         histo += ms;
         future::ok(histo)
@@ -224,40 +230,40 @@ where
 fn report(pfx: &str, histo: &Histogram<u64>) {
     println!("{} samples: {}", pfx, histo.len());
 
-    if histo.len () < 2 {
+    if histo.len() < 2 {
         return;
     }
     println!("{} p50:  {}", pfx, histo.value_at_quantile(0.5));
 
-    if histo.len () < 10 {
+    if histo.len() < 10 {
         return;
     }
     println!("{} p90:  {}", pfx, histo.value_at_quantile(0.9));
 
-    if histo.len () < 50 {
+    if histo.len() < 50 {
         return;
     }
     println!("{} p95:  {}", pfx, histo.value_at_quantile(0.95));
 
-    if histo.len () < 100 {
+    if histo.len() < 100 {
         return;
     }
     println!("{} p99:  {}", pfx, histo.value_at_quantile(0.99));
 
-    if histo.len () < 1000 {
+    if histo.len() < 1000 {
         return;
     }
     println!("{} p999: {}", pfx, histo.value_at_quantile(0.999));
 }
 
-fn run<D, C>(name: &'static str, lb: Balance<D, C>)
+fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>)
 where
     D: Discover<Request = Req, Response = Rsp, Error = timer::Error> + Send + 'static,
     D::Key: Send,
     D::Service: Send,
     D::DiscoverError: Send,
     <D::Service as Service>::Future: Send,
-    C: Choose<D::Key, D::Service> + Send + 'static,
+    C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     let f = compute_histo(SendRequests::new(lb, TOTAL_REQUESTS, CONCURRENCY))
         .map(move |h| report(name, &h))

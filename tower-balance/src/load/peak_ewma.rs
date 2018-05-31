@@ -5,20 +5,20 @@ use std::time::{Duration, Instant};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-use super::{Measure, MeasureFuture};
+use super::{Measure, MeasureFuture, NoMeasure};
 
 use Load;
 
-pub struct WithPeakEWMA<D, T> {
+pub struct WithPeakEWMA<D, M> {
     discover: D,
     decay: Duration,
-    _p: PhantomData<T>,
+    _p: PhantomData<M>,
 }
 
-pub struct PeakEWMA<S, T> {
+pub struct PeakEWMA<S, M> {
     service: S,
     node: Arc<Mutex<Node>>,
-    _p: PhantomData<T>,
+    _p: PhantomData<M>,
 }
 
 pub struct Instrument {
@@ -37,15 +37,22 @@ pub struct Cost(f64);
 
 // ===== impl PeakEWMA =====
 
-impl<D, M> WithPeakEWMA<D, M>
-where
-    D: Discover,
-    M: Measure<Instrument, D::Response>,
-{
+impl<D: Discover> WithPeakEWMA<D, NoMeasure> {
     pub fn new(discover: D, decay: Duration) -> Self {
         Self {
             discover,
             decay,
+            _p: PhantomData,
+        }
+    }
+
+    pub fn measured<M>(self) -> WithPeakEWMA<D, M>
+    where
+        M: Measure<Instrument, D::Response>,
+    {
+        WithPeakEWMA {
+            discover: self.discover,
+            decay: self.decay,
             _p: PhantomData,
         }
     }
@@ -78,10 +85,10 @@ where
 
 // ===== impl PeakEWMA =====
 
-impl<S, T> PeakEWMA<S, T>
+impl<S, M> PeakEWMA<S, M>
 where
     S: Service,
-    T: Measure<Instrument, S::Response>,
+    M: Measure<Instrument, S::Response>,
 {
     pub fn new(service: S, decay: Duration) -> Self {
         Self {
@@ -99,15 +106,15 @@ where
     }
 }
 
-impl<S, T> Service for PeakEWMA<S, T>
+impl<S, M> Service for PeakEWMA<S, M>
 where
     S: Service,
-    T: Measure<Instrument, S::Response>,
+    M: Measure<Instrument, S::Response>,
 {
     type Request = S::Request;
-    type Response = T::Measured;
+    type Response = M::Measured;
     type Error = S::Error;
-    type Future = MeasureFuture<S::Future, T, Instrument>;
+    type Future = MeasureFuture<S::Future, M, Instrument>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
@@ -120,7 +127,7 @@ where
 
 const PENALTY: f64 = 65535.0;
 
-impl<S, T> Load for PeakEWMA<S, T> {
+impl<S, M> Load for PeakEWMA<S, M> {
     type Metric = Cost;
 
     fn load(&self) -> Self::Metric {

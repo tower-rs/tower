@@ -105,16 +105,10 @@ where
             _p: PhantomData,
         }
     }
-}
 
-impl<D, M> WithPendingRequests<D, M>
-where
-    D: Discover,
-    M: Measure<Instrument, D::Response>,
-{
-    pub fn measure_with<U>(self) -> WithPendingRequests<D, U>
+    pub fn measured<M>(self) -> WithPendingRequests<D, M>
     where
-        U: Measure<Instrument, D::Response>,
+        M: Measure<Instrument, D::Response>,
     {
         WithPendingRequests {
             discover: self.discover,
