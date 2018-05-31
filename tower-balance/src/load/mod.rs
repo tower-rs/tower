@@ -1,6 +1,6 @@
 mod measure;
 mod constant;
-mod peak_ewma;
+pub mod peak_ewma;
 mod pending_requests;
 
 pub use self::measure::{Measure, MeasureFuture, NoMeasure};

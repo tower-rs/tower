@@ -17,23 +17,22 @@ pub struct WithPeakEWMA<D, T> {
 
 pub struct PeakEWMA<S, T> {
     service: S,
-    state: Arc<Mutex<State>>,
+    node: Arc<Mutex<Node>>,
     _p: PhantomData<T>,
 }
 
 pub struct Instrument {
     start: Instant,
-    state: Arc<Mutex<State>>,
+    node: Arc<Mutex<Node>>,
 }
 
-struct State {
-    pending: u32,
-    stamp: Instant,
-    tau: f64,
+struct Node {
+    last_update: Instant,
     cost: f64,
+    tau: f64,
 }
 
-#[derive(Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Cost(f64);
 
 // ===== impl PeakEWMA =====
@@ -85,29 +84,17 @@ where
     T: Measure<Instrument, S::Response>,
 {
     pub fn new(service: S, decay: Duration) -> Self {
-        let state = State {
-            pending: 0,
-            cost: 0.0,
-            tau: nanos(decay),
-            stamp: Instant::now(),
-        };
-
         Self {
             service,
-            state: Arc::new(Mutex::new(state)),
+            node: Arc::new(Mutex::new(Node::new(decay))),
             _p: PhantomData,
         }
     }
 
     fn instrument(&self) -> Instrument {
-        {
-            // TODO replace this with Arc counting
-            let mut state = self.state.lock().expect("lock peak ewma state");
-            state.pending += 1;
-        }
         Instrument {
             start: Instant::now(),
-            state: self.state.clone()
+            node: self.node.clone()
         }
     }
 }
@@ -131,31 +118,47 @@ where
     }
 }
 
+const PENALTY: f64 = 65535.0;
+
 impl<S, T> Load for PeakEWMA<S, T> {
     type Metric = Cost;
 
     fn load(&self) -> Self::Metric {
-        // TODO apply a penalty when there is no load information
-        let mut state = self.state.lock().expect("peak ewma state");
-        state.update(0.0);
-        let pending: f64 = state.pending.into();
-        Cost(state.cost * (pending + 1.0))
+        let pending = Arc::strong_count(&self.node) as u32 - 1;
+        let mut node = self.node.lock().expect("peak ewma state");
+        node.update(0.0);
+        if node.cost == 0.0 && pending > 0 {
+            Cost(PENALTY + f64::from(pending))
+        } else {
+            Cost(node.cost * (f64::from(pending) + 1.0))
+        }
     }
 }
 
-// ===== impl State =====
+// ===== impl Node =====
 
-impl State {
-    fn update(&mut self, rtt: f64) {
+impl Node {
+    fn new(decay: Duration) -> Self {
+        Self {
+            tau: nanos(decay),
+            last_update: Instant::now(),
+            cost: 0.0,
+        }
+    }
+
+    fn update(&mut self, rtt: f64) -> f64 {
         let now = Instant::now();
         if self.cost < rtt {
+            trace!("update rtt={}", rtt);
             self.cost = rtt;
         } else {
-            let td = nanos(now - self.stamp);
+            let td = nanos(now - self.last_update);
             let w = (-td / self.tau).exp();
             self.cost = (self.cost * w) + (rtt * (1.0 - w));
+            trace!("update rtt={} w={} cost={}", rtt, w, self.cost);
         }
-        self.stamp = now;
+        self.last_update = now;
+        self.cost
     }
 }
 
@@ -163,9 +166,8 @@ impl State {
 
 impl Drop for Instrument {
     fn drop(&mut self) {
-        if let Ok(mut s) = self.state.lock() {
-            s.pending -= 1;
-            s.update(nanos(self.start.elapsed()))
+        if let Ok(mut node) = self.node.lock() {
+            node.update(nanos(self.start.elapsed()));
         }
     }
 }

@@ -11,9 +11,11 @@ extern crate tokio;
 extern crate tower_balance;
 extern crate tower_discover;
 extern crate tower_service;
+extern crate typemap;
 
 use futures::{Async, Future, Stream, Poll, future, stream};
 use hdrsample::Histogram;
+use rand::Rng;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
@@ -21,15 +23,56 @@ use tower_balance::*;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
+const TOTAL_REQUESTS: usize = 1_000_000;
+const CONCURRENCY: usize = 1_000;
+
+fn main() {
+    env_logger::init();
+
+    let p2cpe = {
+        let decay = Duration::from_secs(10);
+        power_of_two_choices(load::WithPeakEWMA::<_, RspMeasure>::new(gen_disco(), decay))
+    };
+    run("p2c+pe", p2cpe);
+
+    run("p2c+ll", power_of_two_choices(load::WithPendingRequests::new(gen_disco())));
+
+    run("rr", round_robin(gen_disco()));
+}
+
 struct DelayService(Duration);
 
-struct Delay(timer::Delay, Instant);
+struct Delay {
+    delay: timer::Delay,
+    start: Instant,
+}
 
 struct Disco(VecDeque<Change<usize, DelayService>>);
 
+struct Req;
+
+struct RspMeasure;
+impl<I: Send + Sync + 'static> load::Measure<I, Rsp> for RspMeasure {
+    type Measured = Rsp;
+    fn measure(instrument: I, mut rsp: Rsp) -> Rsp {
+        rsp.meta.insert::<Instrument<I>>(instrument);
+        rsp
+    }
+}
+
+struct Instrument<I>(I);
+impl<I: Send + Sync + 'static> typemap::Key for Instrument<I> {
+    type Value = I;
+}
+
+struct Rsp {
+    latency: Duration,
+    meta: typemap::ShareMap
+}
+
 impl Service for DelayService {
-    type Request = ();
-    type Response = Duration;
+    type Request = Req;
+    type Response = Rsp;
     type Error = timer::Error;
     type Future = Delay;
 
@@ -38,25 +81,35 @@ impl Service for DelayService {
         Ok(Async::Ready(()))
     }
 
-    fn call(&mut self, _: ()) -> Delay {
-        let now = Instant::now();
-        Delay(timer::Delay::new(now + self.0), now)
+    fn call(&mut self, _: Req) -> Delay {
+        let start = Instant::now();
+        let maxms = u64::from(self.0.subsec_nanos()) / 1_000 / 1_000
+            + self.0.as_secs() * 1_000;
+        let delay = Duration::from_millis(rand::thread_rng().gen_range(100, maxms));
+        Delay {
+            delay: timer::Delay::new(start + delay),
+            start,
+        }
     }
 }
 
 impl Future for Delay {
-    type Item = Duration;
+    type Item = Rsp;
     type Error = timer::Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        try_ready!(self.0.poll());
-        Ok(Async::Ready(Instant::now() - self.1))
+        try_ready!(self.delay.poll());
+        let rsp = Rsp {
+            meta: typemap::ShareMap::custom(),
+            latency: Instant::now() - self.start,
+        };
+        Ok(Async::Ready(rsp))
     }
 }
 
 impl Discover for Disco {
     type Key = usize;
-    type Request = ();
-    type Response = Duration;
+    type Request = Req;
+    type Response = Rsp;
     type Error = timer::Error;
     type Service = DelayService;
     type DiscoverError = ();
@@ -78,7 +131,7 @@ fn gen_disco() -> Disco {
 
     let quick = Duration::from_millis(500);
     for i in 0..8 {
-        changes.push_back(Insert(i, DelayService(quick)));
+        changes.push_back(Insert(i as usize, DelayService(quick)));
     }
 
     let slow = Duration::from_secs(2);
@@ -89,7 +142,7 @@ fn gen_disco() -> Disco {
 
 struct SendRequests<D, C>
 where
-    D: Discover<Request = (), Response = Duration, Error = timer::Error>,
+    D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
     C: Choose<D::Key, D::Service>,
 {
     lb: Balance<D, C>,
@@ -100,7 +153,7 @@ where
 
 impl<D, C> SendRequests<D, C>
 where
-    D: Discover<Request = (), Response = Duration, Error = timer::Error>,
+    D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
     C: Choose<D::Key, D::Service>,
 {
     pub fn new(lb: Balance<D, C>, total: usize, concurrency: usize) -> Self {
@@ -115,10 +168,10 @@ where
 
 impl<D, C> Stream for SendRequests<D, C>
 where
-    D: Discover<Request = (), Response = Duration, Error = timer::Error>,
+    D: Discover<Request = Req, Response = Rsp, Error = timer::Error>,
     C: Choose<D::Key, D::Service>,
 {
-    type Item = Duration;
+    type Item = Rsp;
     type Error = Error<D::Error, D::DiscoverError>;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -137,7 +190,7 @@ where
             try_ready!(self.lb.poll_ready());
 
             debug!("sending request");
-            let rsp = self.lb.call(());
+            let rsp = self.lb.call(Req);
             self.responses.push(rsp);
 
             self.send_remaining -= 1;
@@ -154,13 +207,14 @@ where
 fn compute_histo<S>(times: S)
     -> impl Future<Item = Histogram<u64>, Error = S::Error> + 'static
 where
-    S: Stream<Item = Duration> + 'static
+    S: Stream<Item = Rsp> + 'static
 {
     // The max delay is 2000ms. At 3 significant figures.
     let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
-    times.fold(histo, |mut histo, d| {
-        let ms = u64::from(d.subsec_nanos()) / 1_000 / 1_000
-            + d.as_secs() * 1_000;
+    times.fold(histo, |mut histo, Rsp { meta, latency }| {
+        drop(meta);
+        let ms = u64::from(latency.subsec_nanos()) / 1_000 / 1_000
+            + latency.as_secs() * 1_000;
 
         histo += ms;
         future::ok(histo)
@@ -196,38 +250,17 @@ fn report(pfx: &str, histo: &Histogram<u64>) {
     println!("{} p999: {}", pfx, histo.value_at_quantile(0.999));
 }
 
-fn main() {
-    env_logger::init();
-
-    let requests = 1_000_000;
-
-    {
-        let lb = {
-            let loaded = load::WithPendingRequests::new(gen_disco());
-            power_of_two_choices(loaded)
-        };
-        let fut = compute_histo(SendRequests::new(lb, requests, 10_000))
-            .map(|histo| report("p2c+ll", &histo))
-            .map_err(|_| {});
-        runtime::run(fut);
-    }
-
-    {
-        let lb = {
-            let decay = Duration::from_secs(5);
-            power_of_two_choices(load::WithPeakEWMA::<_, load::NoMeasure>::new(gen_disco(), decay))
-        };
-        let fut = compute_histo(SendRequests::new(lb, requests, 10_000))
-            .map(|histo| report("p2c+pe", &histo))
-            .map_err(|_| {});
-        runtime::run(fut);
-    }
-
-    {
-        let lb = round_robin(gen_disco());
-        let fut = compute_histo(SendRequests::new(lb, requests, 10_000))
-            .map(|histo| report("rr", &histo))
-            .map_err(|_| {});
-        runtime::run(fut);
-    }
+fn run<D, C>(name: &'static str, lb: Balance<D, C>)
+where
+    D: Discover<Request = Req, Response = Rsp, Error = timer::Error> + Send + 'static,
+    D::Key: Send,
+    D::Service: Send,
+    D::DiscoverError: Send,
+    <D::Service as Service>::Future: Send,
+    C: Choose<D::Key, D::Service> + Send + 'static,
+{
+    let f = compute_histo(SendRequests::new(lb, TOTAL_REQUESTS, CONCURRENCY))
+        .map(move |h| report(name, &h))
+        .map_err(|_| {});
+    runtime::run(f);
 }

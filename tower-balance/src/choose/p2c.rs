@@ -59,7 +59,7 @@ impl<R: Rng> PowerOfTwoChoices<R> {
 impl<K, L, R> Choose<K, L> for PowerOfTwoChoices<R>
 where
     L: Load,
-    L::Metric: PartialOrd,
+    L::Metric: PartialOrd + ::std::fmt::Debug,
     R: Rng,
 {
     /// Chooses two distinct nodes at random and compares their load.
@@ -67,7 +67,11 @@ where
     /// Returns the index of the lesser-loaded node.
     fn choose(&mut self, replicas: Replicas<K, L>) -> usize {
         let (a, b) = self.random_pair(replicas.len());
-        if replicas[a].load() <= replicas[b].load() {
+
+        let (aload, bload) = (replicas[a].load(), replicas[b].load());
+        trace!("choose a={:?} b={:?}", aload, bload);
+
+        if aload <= bload {
             a
         } else {
             b
