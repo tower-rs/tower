@@ -23,7 +23,7 @@ use tower_service::Service;
 
 struct DelayService(Duration);
 
-struct Delay(timer::Delay, Duration);
+struct Delay(timer::Delay, Instant);
 
 struct Disco(VecDeque<Change<usize, DelayService>>);
 
@@ -40,7 +40,7 @@ impl Service for DelayService {
 
     fn call(&mut self, _: ()) -> Delay {
         let now = Instant::now();
-        Delay(timer::Delay::new(now + self.0), self.0)
+        Delay(timer::Delay::new(now + self.0), now)
     }
 }
 
@@ -49,7 +49,7 @@ impl Future for Delay {
     type Error = timer::Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         try_ready!(self.0.poll());
-        Ok(Async::Ready(self.1))
+        Ok(Async::Ready(Instant::now() - self.1))
     }
 }
 
@@ -94,7 +94,23 @@ where
 {
     lb: Balance<D, C>,
     send_remaining: usize,
+    concurrency: usize,
     responses: stream::FuturesUnordered<ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>>,
+}
+
+impl<D, C> SendRequests<D, C>
+where
+    D: Discover<Request = (), Response = Duration, Error = timer::Error>,
+    C: Choose<D::Key, D::Service>,
+{
+    pub fn new(lb: Balance<D, C>, total: usize, concurrency: usize) -> Self {
+        Self {
+            lb,
+            send_remaining: total,
+            concurrency,
+            responses: stream::FuturesUnordered::new(),
+        }
+    }
 }
 
 impl<D, C> Stream for SendRequests<D, C>
@@ -112,18 +128,19 @@ where
                 if let Async::Ready(Some(rsp)) = self.responses.poll()? {
                     return Ok(Async::Ready(Some(rsp)));
                 }
+                if self.responses.len() == self.concurrency {
+                    return Ok(Async::NotReady)
+                }
             }
 
-            if self.send_remaining > 0 {
-                debug!("polling lb ready");
-                try_ready!(self.lb.poll_ready());
+            debug!("polling lb ready");
+            try_ready!(self.lb.poll_ready());
 
-                debug!("sending request");
-                let rsp = self.lb.call(());
-                self.responses.push(rsp);
+            debug!("sending request");
+            let rsp = self.lb.call(());
+            self.responses.push(rsp);
 
-                self.send_remaining -= 1;
-            }
+            self.send_remaining -= 1;
         }
 
         if !self.responses.is_empty() {
@@ -189,17 +206,26 @@ fn main() {
             let loaded = load::WithPendingRequests::new(gen_disco());
             power_of_two_choices(loaded)
         };
-        let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
-        let fut = compute_histo(send)
-            .map(|histo| report("p2c", &histo))
+        let fut = compute_histo(SendRequests::new(lb, requests, 10_000))
+            .map(|histo| report("p2c+ll", &histo))
+            .map_err(|_| {});
+        runtime::run(fut);
+    }
+
+    {
+        let lb = {
+            let decay = Duration::from_secs(5);
+            power_of_two_choices(load::WithPeakEWMA::<_, load::NoMeasure>::new(gen_disco(), decay))
+        };
+        let fut = compute_histo(SendRequests::new(lb, requests, 10_000))
+            .map(|histo| report("p2c+pe", &histo))
             .map_err(|_| {});
         runtime::run(fut);
     }
 
     {
         let lb = round_robin(gen_disco());
-        let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
-        let fut = compute_histo(send)
+        let fut = compute_histo(SendRequests::new(lb, requests, 10_000))
             .map(|histo| report("rr", &histo))
             .map_err(|_| {});
         runtime::run(fut);

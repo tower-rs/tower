@@ -1,12 +1,19 @@
-use futures::Poll;
+use futures::{Async, Poll};
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use super::{Measure, MeasureFuture};
 
 use Load;
+
+pub struct WithPeakEWMA<D, T> {
+    discover: D,
+    decay: Duration,
+    _p: PhantomData<T>,
+}
 
 pub struct PeakEWMA<S, T> {
     service: S,
@@ -26,7 +33,49 @@ struct State {
     cost: f64,
 }
 
+#[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub struct Cost(f64);
+
+// ===== impl PeakEWMA =====
+
+impl<D, M> WithPeakEWMA<D, M>
+where
+    D: Discover,
+    M: Measure<Instrument, D::Response>,
+{
+    pub fn new(discover: D, decay: Duration) -> Self {
+        Self {
+            discover,
+            decay,
+            _p: PhantomData,
+        }
+    }
+}
+
+impl<D, M> Discover for WithPeakEWMA<D, M>
+where
+    D: Discover,
+    M: Measure<Instrument, D::Response>,
+{
+    type Key = D::Key;
+    type Request = D::Request;
+    type Response = M::Measured;
+    type Error = D::Error;
+    type Service = PeakEWMA<D::Service, M>;
+    type DiscoverError = D::DiscoverError;
+
+    /// Yields the next discovery change set.
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+        use self::Change::*;
+
+        let change = match try_ready!(self.discover.poll()) {
+            Insert(k, svc) => Insert(k, PeakEWMA::new(svc, self.decay)),
+            Remove(k) => Remove(k),
+        };
+
+        Ok(Async::Ready(change))
+    }
+}
 
 // ===== impl PeakEWMA =====
 
