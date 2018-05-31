@@ -134,7 +134,7 @@ fn gen_disco() -> Disco {
 
     let quick = Duration::from_millis(500);
     for i in 0..8 {
-        changes.push_back(Insert(i as usize, DelayService(quick)));
+        changes.push_back(Insert(i, DelayService(quick)));
     }
 
     let slow = Duration::from_secs(2);
