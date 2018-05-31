@@ -1,7 +1,7 @@
 use futures::Poll;
-use std::{
-    marker::PhantomData, sync::{Arc, Mutex}, time::{Duration, Instant},
-};
+use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tower_service::Service;
 
 use super::{Measure, MeasureFuture};
@@ -14,12 +14,15 @@ pub struct PeakEWMA<S, T> {
     _p: PhantomData<T>,
 }
 
-pub struct Instrument(Arc<Mutex<State>>);
+pub struct Instrument {
+    start: Instant,
+    state: Arc<Mutex<State>>,
+}
 
 struct State {
-    pending: usize,
+    pending: u32,
     stamp: Instant,
-    decay: Duration,
+    tau: f64,
     cost: f64,
 }
 
@@ -36,7 +39,7 @@ where
         let state = State {
             pending: 0,
             cost: 0.0,
-            decay,
+            tau: nanos(decay),
             stamp: Instant::now(),
         };
 
@@ -48,15 +51,10 @@ where
     }
 
     fn instrument(&self) -> Instrument {
-        Instrument(self.state.clone())
-    }
-}
-
-impl<S, T> Load for PeakEWMA<S, T> {
-    type Metric = Cost;
-
-    fn load(&self) -> Self::Metric {
-        unimplemented!()
+        Instrument {
+            start: Instant::now(),
+            state: self.state.clone()
+        }
     }
 }
 
@@ -79,10 +77,49 @@ where
     }
 }
 
+impl<S, T> Load for PeakEWMA<S, T> {
+    type Metric = Cost;
+
+    fn load(&self) -> Self::Metric {
+        let mut state = self.state.lock().expect("peak ewma state");
+        state.update(0.0);
+        let pending: f64 = state.pending.into();
+        Cost(state.cost * (pending + 1.0))
+    }
+}
+
+// ===== impl State =====
+
+impl State {
+    fn update(&mut self, rtt: f64) {
+        let now = Instant::now();
+        if self.cost < rtt {
+            self.cost = rtt;
+        } else {
+            let td = nanos(now - self.stamp);
+            let w = (-td / self.tau).exp();
+            self.cost = (self.cost * w) + (rtt * (1.0 - w));
+        }
+        self.stamp = now;
+    }
+}
+
 // ===== impl Instrument =====
 
 impl Drop for Instrument {
     fn drop(&mut self) {
-        unimplemented!()
+        if let Ok(mut s) = self.state.lock() {
+            s.update(nanos(self.start.elapsed()))
+        }
     }
+}
+
+// Utility that converts durations to nanos in f64.
+//
+// We generally don't care about very large duration values, so it's fine for this to be a
+// lossy transformation.
+fn nanos(d: Duration) -> f64 {
+    let n: f64 = d.subsec_nanos().into();
+    let s = (d.as_secs() * 1_000_000_000) as f64;
+    n + s
 }
