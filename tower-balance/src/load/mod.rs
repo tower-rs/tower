@@ -5,7 +5,7 @@ mod pending_requests;
 
 pub use self::measure::{Measure, MeasureFuture, NoMeasure};
 pub use self::constant::Constant;
-pub use self::peak_ewma::{PeakEWMA, WithPeakEWMA};
+pub use self::peak_ewma::{PeakEwma, WithPeakEwma};
 pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 
 /// Exposes a load metric.

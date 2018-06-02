@@ -9,56 +9,90 @@ use super::{Measure, MeasureFuture, NoMeasure};
 
 use Load;
 
-pub struct WithPeakEWMA<D, M> {
-    discover: D,
-    decay: Duration,
-    _p: PhantomData<M>,
-}
-
-pub struct PeakEWMA<S, M> {
+/// Wraps an `S`-typed Service with Peak-EWMA load measurement.
+///
+/// `PeakEwma` implements `Load` with the `Cost` metric that estimates the amount of
+/// pending work to an endpoint. Work is calculated by multiplying the
+/// exponentially-weighted moving average (EWMA) of response latencies by the number of
+/// pending requests. The Peak-EWMA algorithm is designed ot be especially sensitive to
+/// worst-case latencies. Over time, the peak latency value decays towards the moving
+/// average of latencies to the endpoint.
+///
+/// As requests are sent to the underlying service, an `M`-typed measurement strategy is
+/// used to instrument responses to measure latency in an application-specific way. The
+/// default strategy measures latency as the elapsed time from the request being issued to
+/// the underlying service to the response future being satisfied (or dropped).
+///
+/// When no latency information has been measured for an endpoint, the [standard RTT
+/// within a datacenter][numbers] (500ns) is used.
+///
+/// [numbers]: https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
+pub struct PeakEwma<S, M = NoMeasure> {
     service: S,
-    node: Arc<Mutex<Node>>,
+    decay_ns: f64,
+    rtt_estimate: Arc<Mutex<Option<RttEstimate>>>,
     _p: PhantomData<M>,
 }
 
-pub struct Instrument {
-    start: Instant,
-    node: Arc<Mutex<Node>>,
+/// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
+pub struct WithPeakEwma<D, M = NoMeasure> {
+    discover: D,
+    decay_ns: f64,
+    _p: PhantomData<M>,
 }
 
-struct Node {
-    last_update: Instant,
-    rtt_estimate: f64,
-    tau: f64,
-}
-
+/// Represents the relative cost of communicating with a service.
+///
+/// The underlying value estimates the amount of pending work to a service: the Peak-EWMA
+/// latency estimate multiplied by the number of pending requests.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Cost(f64);
 
-// ===== impl PeakEWMA =====
+/// Updates `RttEstimate` when dropped.
+pub struct Instrument {
+    sent_at: Instant,
+    decay_ns: f64,
+    rtt_estimate: Arc<Mutex<Option<RttEstimate>>>,
+}
 
-impl<D: Discover> WithPeakEWMA<D, NoMeasure> {
+/// Holds the current RTT estimateand the last time this value was updated.
+struct RttEstimate {
+    update_at: Instant,
+    rtt_ns: f64,
+}
+
+/// The "standard" RTT within a datacenter is ~500ns.
+///
+/// https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
+const DEFAULT_RTT_ESTIMATE: f64 = 500_000.0;
+
+const NANOS_PER_MILLI: f64 = 1_000_000.0;
+
+// ===== impl PeakEwma =====
+
+impl<D: Discover> WithPeakEwma<D, NoMeasure> {
     pub fn new(discover: D, decay: Duration) -> Self {
         Self {
             discover,
-            decay,
+            decay_ns: nanos(decay),
             _p: PhantomData,
         }
     }
 
-    pub fn measured<M>(self) -> WithPeakEWMA<D, M>
+    /// Configures `WithPeakEwma` to use an `M`-typed measurement strategy.
+    pub fn measured<M>(self) -> WithPeakEwma<D, M>
     where
         M: Measure<Instrument, D::Response>,
     {
-        WithPeakEWMA {
+        WithPeakEwma {
             discover: self.discover,
-            decay: self.decay,
+            decay_ns: self.decay_ns,
             _p: PhantomData,
         }
     }
 }
 
-impl<D, M> Discover for WithPeakEWMA<D, M>
+impl<D, M> Discover for WithPeakEwma<D, M>
 where
     D: Discover,
     M: Measure<Instrument, D::Response>,
@@ -67,15 +101,14 @@ where
     type Request = D::Request;
     type Response = M::Measured;
     type Error = D::Error;
-    type Service = PeakEWMA<D::Service, M>;
+    type Service = PeakEwma<D::Service, M>;
     type DiscoverError = D::DiscoverError;
 
-    /// Yields the next discovery change set.
     fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => Insert(k, PeakEWMA::new(svc, self.decay)),
+            Insert(k, svc) => Insert(k, PeakEwma::new(svc, self.decay_ns)),
             Remove(k) => Remove(k),
         };
 
@@ -83,30 +116,32 @@ where
     }
 }
 
-// ===== impl PeakEWMA =====
+// ===== impl PeakEwma =====
 
-impl<S, M> PeakEWMA<S, M>
+impl<S, M> PeakEwma<S, M>
 where
     S: Service,
     M: Measure<Instrument, S::Response>,
 {
-    pub fn new(service: S, decay: Duration) -> Self {
+    fn new(service: S, decay_ns: f64) -> Self {
         Self {
             service,
-            node: Arc::new(Mutex::new(Node::new(decay))),
+            decay_ns,
+            rtt_estimate: Arc::new(Mutex::new(None)),
             _p: PhantomData,
         }
     }
 
     fn instrument(&self) -> Instrument {
         Instrument {
-            start: Instant::now(),
-            node: self.node.clone(),
+            decay_ns: self.decay_ns,
+            sent_at: Instant::now(),
+            rtt_estimate: self.rtt_estimate.clone(),
         }
     }
 }
 
-impl<S, M> Service for PeakEWMA<S, M>
+impl<S, M> Service for PeakEwma<S, M>
 where
     S: Service,
     M: Measure<Instrument, S::Response>,
@@ -125,67 +160,105 @@ where
     }
 }
 
-const PENALTY: f64 = 65535.0;
-
-impl<S, M> Load for PeakEWMA<S, M> {
+impl<S, M> Load for PeakEwma<S, M> {
     type Metric = Cost;
 
     fn load(&self) -> Self::Metric {
-        let pending = Arc::strong_count(&self.node) as u32 - 1;
-        let mut node = self.node.lock().expect("peak ewma state");
-        if node.rtt_estimate == 0.0 && pending > 0 {
-            debug!("penalty={} pending={}", PENALTY, pending);
-            Cost(PENALTY + f64::from(pending))
-        } else {
-            // Update the cost to account for decay since the last update.
-            let rtt_estimate = node.update_rtt_estimate(0.0);
+        let pending = Arc::strong_count(&self.rtt_estimate) as u32 - 1;
 
-            let cost = rtt_estimate * (f64::from(pending) + 1.0);
-            debug!(
-                "load estimate={:.0}ms pending={} cost={:.0}",
-                node.rtt_estimate / 1_000_000.0,
-                pending,
-                cost
-            );
-            Cost(cost)
-        }
+        // Update the RTT estimate to account for decay since the last update.
+        // If an estimate has not been established, a default is provided
+        let estimate = {
+            let mut rtt = self.rtt_estimate.lock().expect("peak ewma prior_estimate");
+            match *rtt {
+                Some(ref mut rtt) => rtt.decay(self.decay_ns),
+                None => DEFAULT_RTT_ESTIMATE,
+            }
+        };
+
+        let cost = Cost(estimate * f64::from(pending + 1));
+        trace!(
+            "load estimate={:.0}ms pending={} cost={:?}",
+            estimate / NANOS_PER_MILLI,
+            pending,
+            cost,
+        );
+        cost
     }
 }
 
-// ===== impl Node =====
+// ===== impl RttEstimate =====
 
-impl Node {
-    fn new(decay: Duration) -> Self {
+impl RttEstimate {
+    fn new(sent_at: Instant, recv_at: Instant) -> Self {
+        debug_assert!(
+            sent_at <= recv_at,
+            "recv_at={:?} after sent_at={:?}",
+            recv_at,
+            sent_at
+        );
+
         Self {
-            tau: nanos(decay),
-            last_update: Instant::now(),
-            rtt_estimate: 0.0,
+            rtt_ns: nanos(recv_at - sent_at),
+            update_at: Instant::now(),
         }
     }
 
-    fn update_rtt_estimate(&mut self, rtt: f64) -> f64 {
+    /// Decays the RTT estimate with a decay period of `decay_ns`.
+    fn decay(&mut self, decay_ns: f64) -> f64 {
+        // Updates with a 0 duration so that the estimate decays towards 0.
         let now = Instant::now();
-        if self.rtt_estimate < rtt {
-            trace!("update peak rtt={}", rtt);
-            self.rtt_estimate = rtt;
-        } else {
-            // Determine how heavily to weight our rtt estimate.
-            let td = nanos(now - self.last_update);
-            let recency = (-td / self.tau).exp();
+        self.update(now, now, decay_ns)
+    }
 
-            let e = (self.rtt_estimate * recency) + (rtt * (1.0 - recency));
+    /// Updates the Peak-EWMA RTT estimate.
+    ///
+    /// The elapsed time from `sent_at` to `recv_at` is added
+    fn update(&mut self, sent_at: Instant, recv_at: Instant, decay_ns: f64) -> f64 {
+        debug_assert!(
+            sent_at <= recv_at,
+            "recv_at={:?} after sent_at={:?}",
+            recv_at,
+            sent_at
+        );
+        let rtt = nanos(recv_at - sent_at);
+
+        let now = Instant::now();
+        debug_assert!(
+            self.update_at < now,
+            "update_at={:?} in the future",
+            self.update_at
+        );
+
+        self.rtt_ns = if self.rtt_ns < rtt {
+            // For Peak-EWMA, always use the worst-case (peak) value as the estimate for
+            // subsequent requests.
             trace!(
-                "update prior={:.0}ms * {:.5} + rtt={:.0}ms * {:.5}; estimate={:.0}ms",
-                self.rtt_estimate / 1_000_000.0,
-                recency,
-                rtt / 1_000_000.0,
-                1.0 - recency,
-                e / 1_000_000.0
+                "update peak rtt={}ms prior={}ms",
+                rtt / NANOS_PER_MILLI,
+                self.rtt_ns / NANOS_PER_MILLI,
             );
-            self.rtt_estimate = e;
-        }
-        self.last_update = now;
-        self.rtt_estimate
+            rtt
+        } else {
+            // When an RTT is observed that is less than the estimated RTT, we decay the
+            // prior estimate according to how much time has elapsed since the last
+            // update. The inverse of the decay is used to scale the estimate towards the
+            // observed RTT value.
+            let elapsed = nanos(now - self.update_at);
+            let decay = (-elapsed / decay_ns).exp();
+            let recency = 1.0 - decay;
+            let next_estimate = (self.rtt_ns * decay) + (rtt * recency);
+            trace!(
+                "update rtt={:03.0}ms decay={:06.0}ns; next={:03.0}ms",
+                rtt / NANOS_PER_MILLI,
+                self.rtt_ns - next_estimate,
+                next_estimate / NANOS_PER_MILLI,
+            );
+            next_estimate
+        };
+        self.update_at = now;
+
+        self.rtt_ns
     }
 }
 
@@ -193,20 +266,42 @@ impl Node {
 
 impl Drop for Instrument {
     fn drop(&mut self) {
-        if let Ok(mut node) = self.node.lock() {
-            let rtt = self.start.elapsed();
-            trace!("drop:; rtt={:?}", rtt);
-            node.update_rtt_estimate(nanos(rtt));
+        let recv_at = Instant::now();
+
+        if let Ok(mut rtt) = self.rtt_estimate.lock() {
+            if let Some(ref mut rtt) = *rtt {
+                rtt.update(self.sent_at, recv_at, self.decay_ns);
+                return;
+            }
+
+            *rtt = Some(RttEstimate::new(self.sent_at, recv_at));
         }
     }
 }
 
 // Utility that converts durations to nanos in f64.
 //
-// We generally don't care about very large duration values, so it's fine for this to be a
-// lossy transformation.
+// Due to a lossy transformation, the maximum value that can be represented is ~585 years,
+// which, I hope, is more than enough to represent request latencies.
 fn nanos(d: Duration) -> f64 {
-    let n: f64 = d.subsec_nanos().into();
-    let s = (d.as_secs() * 1_000_000_000) as f64;
+    const NANOS_PER_SEC: u64 = 1_000_000_000;
+    let n = f64::from(d.subsec_nanos());
+    let s = d.as_secs().saturating_mul(NANOS_PER_SEC) as f64;
     n + s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nanos() {
+        assert_eq!(nanos(Duration::new(0, 0)), 0.0);
+        assert_eq!(nanos(Duration::new(0, 123)), 123.0);
+        assert_eq!(nanos(Duration::new(1, 23)), 1_000_000_023.0);
+        assert_eq!(
+            nanos(Duration::new(::std::u64::MAX, 999_999_999)),
+            18446744074709553000.0
+        );
+    }
 }
