@@ -1,7 +1,7 @@
-use rand::Rng;
+use rand::{self, Rng};
 
-use Load;
 use choose::{Choose, Replicas};
+use Load;
 
 /// Chooses nodes using the [Power of Two Choices][p2c].
 ///
@@ -18,13 +18,19 @@ use choose::{Choose, Replicas};
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-#[derive(Debug)]
-pub struct PowerOfTwoChoices<R> {
+#[derive(Debug, Default)]
+pub struct PowerOfTwoChoices<R: Rng = ThreadRng> {
     rng: R,
 }
 
+/// A helper implementation of `Rng` that lazily uses the thread-local RNG.
+#[derive(Debug, Default)]
+pub struct ThreadRng(());
+
+// ==== impl PowerOfTwoChoices ====
+
 impl<R: Rng> PowerOfTwoChoices<R> {
-    pub fn new(rng: R) -> Self {
+    pub fn new_with_rng(rng: R) -> Self {
         Self { rng }
     }
 
@@ -67,10 +73,17 @@ where
     }
 }
 
+// ==== impl ThreadRng ====
+
+impl Rng for ThreadRng {
+    fn next_u32(&mut self) -> u32 {
+        rand::thread_rng().next_u32()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use quickcheck::*;
-    use rand;
 
     use super::*;
 
@@ -80,7 +93,7 @@ mod tests {
                 return TestResult::discard();
             }
 
-            let (a, b) = PowerOfTwoChoices::new(rand::thread_rng()).random_pair(n);
+            let (a, b) = PowerOfTwoChoices::<ThreadRng>::default().random_pair(n);
             TestResult::from_bool(a != b)
         }
     }

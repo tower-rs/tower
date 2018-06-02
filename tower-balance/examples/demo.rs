@@ -194,7 +194,7 @@ fn main() {
     {
         let lb = {
             let loaded = load::WithPendingRequests::new(gen_disco(&timer));
-            power_of_two_choices(loaded, rand::thread_rng())
+            power_of_two_choices(loaded)
         };
         let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
         let histo = core.run(compute_histo(send)).unwrap();

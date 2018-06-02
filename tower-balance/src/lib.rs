@@ -11,7 +11,6 @@ extern crate tower_service;
 
 use futures::{Future, Poll, Async};
 use indexmap::IndexMap;
-use rand::Rng;
 use std::{fmt, error};
 use std::marker::PhantomData;
 use tower_discover::Discover;
@@ -37,14 +36,13 @@ pub use load::Load;
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-pub fn power_of_two_choices<D, R>(loaded: D, rng: R) -> Balance<D, choose::PowerOfTwoChoices<R>>
+pub fn power_of_two_choices<D>(loaded: D) -> Balance<D, choose::PowerOfTwoChoices>
 where
     D: Discover,
     D::Service: Load,
     <D::Service as Load>::Metric: PartialOrd,
-    R: Rng,
 {
-    Balance::new(loaded, choose::PowerOfTwoChoices::new(rng))
+    Balance::new(loaded, choose::PowerOfTwoChoices::default())
 }
 
 /// Attempts to choose services sequentially.
