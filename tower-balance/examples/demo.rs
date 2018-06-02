@@ -83,7 +83,7 @@ fn gen_disco(timer: &Timer) -> Disco {
     }
 
     let slow = Duration::from_secs(2);
-    changes.push_back(Insert(9, DelayService(timer.clone(), slow)));
+    changes.push_back((Insert(9, DelayService(timer.clone(), slow))));
 
     Disco(changes)
 }
