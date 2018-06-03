@@ -9,10 +9,10 @@ extern crate rand;
 extern crate tower_discover;
 extern crate tower_service;
 
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
-use std::{fmt, error};
 use std::marker::PhantomData;
+use std::{error, fmt};
 use tower_discover::Discover;
 use tower_service::Service;
 
@@ -42,7 +42,7 @@ where
     D::Service: Load,
     <D::Service as Load>::Metric: PartialOrd,
 {
-    Balance::new(loaded, choose::PowerOfTwoChoices::from_entropy())
+    Balance::new(loaded, choose::PowerOfTwoChoices::default())
 }
 
 /// Attempts to choose services sequentially.
@@ -136,9 +136,9 @@ where
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn update_from_discover(&mut self)
-        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
-    {
+    fn update_from_discover(
+        &mut self,
+    ) -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
         debug!("updating from discover");
         use tower_discover::Change::*;
 
@@ -171,9 +171,9 @@ where
     ///
     /// When `poll_ready` returns ready, the service is removed from `not_ready` and inserted
     /// into `ready`, potentially altering the order of `ready` and/or `not_ready`.
-    fn promote_to_ready(&mut self)
-        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
-    {
+    fn promote_to_ready(
+        &mut self,
+    ) -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
         let n = self.not_ready.len();
         if n == 0 {
             trace!("promoting to ready: not_ready is empty, skipping.");
@@ -185,15 +185,17 @@ where
         // from reordering services in a way that could prevent a service from being polled.
         for idx in (0..n).rev() {
             let is_ready = {
-                let (_, svc) = self.not_ready
+                let (_, svc) = self
+                    .not_ready
                     .get_index_mut(idx)
-                    .expect("invalid not_ready index");;
+                    .expect("invalid not_ready index");
                 svc.poll_ready().map_err(Error::Inner)?.is_ready()
             };
             trace!("not_ready[{:?}]: is_ready={:?};", idx, is_ready);
             if is_ready {
                 debug!("not_ready[{:?}]: promoting to ready", idx);
-                let (key, svc) = self.not_ready
+                let (key, svc) = self
+                    .not_ready
                     .swap_remove_index(idx)
                     .expect("invalid not_ready index");
                 self.ready.insert(key, svc);
@@ -211,21 +213,23 @@ where
     ///
     /// If the service exists in `ready` and does not poll as ready, it is moved to
     /// `not_ready`, potentially altering the order of `ready` and/or `not_ready`.
-    fn poll_ready_index(&mut self, idx: usize)
-        -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>>
-    {
+    fn poll_ready_index(
+        &mut self,
+        idx: usize,
+    ) -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>> {
         match self.ready.get_index_mut(idx) {
             None => return None,
-            Some((_, svc)) => {
-                match svc.poll_ready() {
-                    Ok(Async::Ready(())) => return Some(Ok(Async::Ready(()))),
-                    Err(e) => return Some(Err(Error::Inner(e))),
-                    Ok(Async::NotReady) => {}
-                }
-            }
+            Some((_, svc)) => match svc.poll_ready() {
+                Ok(Async::Ready(())) => return Some(Ok(Async::Ready(()))),
+                Err(e) => return Some(Err(Error::Inner(e))),
+                Ok(Async::NotReady) => {}
+            },
         }
 
-        let (key, svc) = self.ready.swap_remove_index(idx).expect("invalid ready index");
+        let (key, svc) = self
+            .ready
+            .swap_remove_index(idx)
+            .expect("invalid ready index");
         self.not_ready.insert(key, svc);
         Some(Ok(Async::NotReady))
     }
@@ -233,9 +237,9 @@ where
     /// Chooses the next service to which a request will be dispatched.
     ///
     /// Ensures that .
-    fn choose_and_poll_ready(&mut self)
-        -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
-    {
+    fn choose_and_poll_ready(
+        &mut self,
+    ) -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>> {
         loop {
             let n = self.ready.len();
             debug!("choosing from {} replicas", n);
@@ -249,7 +253,11 @@ where
             };
 
             // XXX Should we handle per-endpoint errors?
-            if self.poll_ready_index(idx).expect("invalid ready index")?.is_ready() {
+            if self
+                .poll_ready_index(idx)
+                .expect("invalid ready index")?
+                .is_ready()
+            {
                 self.chosen_ready_index = Some(idx);
                 return Ok(Async::Ready(()));
             }
@@ -279,7 +287,8 @@ where
         // to `not_ready` if appropriate.
         if let Some(idx) = self.dispatched_ready_index.take() {
             // XXX Should we handle per-endpoint errors?
-            self.poll_ready_index(idx).expect("invalid dispatched ready key")?;
+            self.poll_ready_index(idx)
+                .expect("invalid dispatched ready key")?;
         }
 
         // Update `not_ready` and `ready`.
@@ -292,7 +301,10 @@ where
 
     fn call(&mut self, request: Self::Request) -> Self::Future {
         let idx = self.chosen_ready_index.take().expect("not ready");
-        let (_, svc) = self.ready.get_index_mut(idx).expect("invalid chosen ready index");
+        let (_, svc) = self
+            .ready
+            .get_index_mut(idx)
+            .expect("invalid chosen ready index");
         self.dispatched_ready_index = Some(idx);
 
         let rsp = svc.call(request);
@@ -311,7 +323,6 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
     }
 }
 
-
 // ===== impl Error =====
 
 impl<T, U> fmt::Display for Error<T, U>
@@ -322,8 +333,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Balance(ref why) =>
-                write!(f, "load balancing failed: {}", why),
+            Error::Balance(ref why) => write!(f, "load balancing failed: {}", why),
             Error::NotReady => f.pad("not ready"),
         }
     }
@@ -351,13 +361,12 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use futures::future;
     use quickcheck::*;
-    use tower_discover::Change;
     use std::collections::VecDeque;
+    use tower_discover::Change;
 
     use super::*;
 
@@ -376,7 +385,11 @@ mod tests {
         type DiscoverError = ();
 
         fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
-            let r = self.0.pop_front().map(Async::Ready).unwrap_or(Async::NotReady);
+            let r = self
+                .0
+                .pop_front()
+                .map(Async::Ready)
+                .unwrap_or(Async::NotReady);
             debug!("polling disco: {:?}", r.is_ready());
             Ok(r)
         }

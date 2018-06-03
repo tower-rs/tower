@@ -1,4 +1,4 @@
-use rand::{self, rngs::SmallRng, FromEntropy, Rng, SeedableRng};
+use rand::{rngs::SmallRng, FromEntropy, Rng};
 
 use choose::{Choose, Replicas};
 use Load;
@@ -25,20 +25,15 @@ pub struct PowerOfTwoChoices {
 
 // ==== impl PowerOfTwoChoices ====
 
+impl Default for PowerOfTwoChoices {
+    fn default() -> Self {
+        Self::new(SmallRng::from_entropy())
+    }
+}
+
 impl PowerOfTwoChoices {
-    pub fn from_entropy() -> Self {
-        let rng = SmallRng::from_entropy();
+    pub fn new(rng: SmallRng) -> Self {
         Self { rng }
-    }
-
-    pub fn from_seed(seed: <SmallRng as SeedableRng>::Seed) -> Self {
-        let rng = SmallRng::from_seed(seed);
-        Self { rng }
-    }
-
-    pub fn from_rng<R: Rng>(rng: &mut R) -> Result<Self, rand::Error> {
-        let rng = SmallRng::from_rng(rng)?;
-        Ok(Self { rng })
     }
 
     /// Returns two random, distinct indices into `ready`.
@@ -91,8 +86,9 @@ mod tests {
                 return TestResult::discard();
             }
 
-            let (a, b) = PowerOfTwoChoices::from_entropy()
-                .random_pair(n);
+            let mut p2c = PowerOfTwoChoices::default();
+
+            let (a, b) = p2c.random_pair(n);
             TestResult::from_bool(a != b)
         }
     }
