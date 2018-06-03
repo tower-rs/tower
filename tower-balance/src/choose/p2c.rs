@@ -1,4 +1,4 @@
-use rand::{self, Rng};
+use rand::{self, rngs::SmallRng, FromEntropy, Rng, SeedableRng};
 
 use choose::{Choose, Replicas};
 use Load;
@@ -18,20 +18,27 @@ use Load;
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-#[derive(Debug, Default)]
-pub struct PowerOfTwoChoices<R: Rng = ThreadRng> {
-    rng: R,
+#[derive(Debug)]
+pub struct PowerOfTwoChoices {
+    rng: SmallRng,
 }
-
-/// A helper implementation of `Rng` that lazily uses the thread-local RNG.
-#[derive(Debug, Default)]
-pub struct ThreadRng(());
 
 // ==== impl PowerOfTwoChoices ====
 
-impl<R: Rng> PowerOfTwoChoices<R> {
-    pub fn new_with_rng(rng: R) -> Self {
+impl PowerOfTwoChoices {
+    pub fn from_entropy() -> Self {
+        let rng = SmallRng::from_entropy();
         Self { rng }
+    }
+
+    pub fn from_seed(seed: <SmallRng as SeedableRng>::Seed) -> Self {
+        let rng = SmallRng::from_seed(seed);
+        Self { rng }
+    }
+
+    pub fn from_rng<R: Rng>(rng: &mut R) -> Result<Self, rand::Error> {
+        let rng = SmallRng::from_rng(rng)?;
+        Ok(Self { rng })
     }
 
     /// Returns two random, distinct indices into `ready`.
@@ -54,11 +61,10 @@ impl<R: Rng> PowerOfTwoChoices<R> {
     }
 }
 
-impl<K, L, R> Choose<K, L> for PowerOfTwoChoices<R>
+impl<K, L> Choose<K, L> for PowerOfTwoChoices
 where
     L: Load,
     L::Metric: PartialOrd,
-    R: Rng,
 {
     /// Chooses two distinct nodes at random and compares their load.
     ///
@@ -70,14 +76,6 @@ where
         } else {
             b
         }
-    }
-}
-
-// ==== impl ThreadRng ====
-
-impl Rng for ThreadRng {
-    fn next_u32(&mut self) -> u32 {
-        rand::thread_rng().next_u32()
     }
 }
 
@@ -93,7 +91,8 @@ mod tests {
                 return TestResult::discard();
             }
 
-            let (a, b) = PowerOfTwoChoices::<ThreadRng>::default().random_pair(n);
+            let (a, b) = PowerOfTwoChoices::from_entropy()
+                .random_pair(n);
             TestResult::from_bool(a != b)
         }
     }

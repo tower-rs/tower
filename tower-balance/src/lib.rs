@@ -42,7 +42,7 @@ where
     D::Service: Load,
     <D::Service as Load>::Metric: PartialOrd,
 {
-    Balance::new(loaded, choose::PowerOfTwoChoices::default())
+    Balance::new(loaded, choose::PowerOfTwoChoices::from_entropy())
 }
 
 /// Attempts to choose services sequentially.
