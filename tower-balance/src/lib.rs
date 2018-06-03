@@ -11,6 +11,7 @@ extern crate tower_service;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
+use rand::{rngs::SmallRng, SeedableRng};
 use std::marker::PhantomData;
 use std::{error, fmt};
 use tower_discover::Discover;
@@ -21,36 +22,6 @@ pub mod load;
 
 pub use choose::Choose;
 pub use load::Load;
-
-/// Chooses services using the [Power of Two Choices][p2c].
-///
-/// This configuration is prefered when a load metric is known.
-///
-/// As described in the [Finagle Guide][finagle]:
-/// > The algorithm randomly picks two services from the set of ready endpoints and selects
-/// > the least loaded of the two. By repeatedly using this strategy, we can expect a
-/// > manageable upper bound on the maximum load of any server.
-/// >
-/// > The maximum load variance between any two servers is bound by `ln(ln(n))` where `n`
-/// > is the number of servers in the cluster.
-///
-/// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
-/// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-pub fn power_of_two_choices<D>(loaded: D) -> Balance<D, choose::PowerOfTwoChoices>
-where
-    D: Discover,
-    D::Service: Load,
-    <D::Service as Load>::Metric: PartialOrd,
-{
-    Balance::new(loaded, choose::PowerOfTwoChoices::default())
-}
-
-/// Attempts to choose services sequentially.
-///
-/// This configuration is prefered when no load metric is known.
-pub fn round_robin<D: Discover>(discover: D) -> Balance<D, choose::RoundRobin> {
-    Balance::new(discover, choose::RoundRobin::default())
-}
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]
@@ -87,6 +58,52 @@ pub enum Error<T, U> {
 pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
 
 // ===== impl Balance =====
+
+impl<D> Balance<D, choose::PowerOfTwoChoices>
+where
+    D: Discover,
+    D::Service: Load,
+    <D::Service as Load>::Metric: PartialOrd,
+{
+    /// Chooses services using the [Power of Two Choices][p2c].
+    ///
+    /// This configuration is prefered when a load metric is known.
+    ///
+    /// As described in the [Finagle Guide][finagle]:
+    ///
+    /// > The algorithm randomly picks two services from the set of ready endpoints and
+    /// > selects the least loaded of the two. By repeatedly using this strategy, we can
+    /// > expect a manageable upper bound on the maximum load of any server.
+    /// >
+    /// > The maximum load variance between any two servers is bound by `ln(ln(n))` where
+    /// > `n` is the number of servers in the cluster.
+    ///
+    /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
+    /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+    pub fn p2c(discover: D) -> Self {
+        Self::new(discover, choose::PowerOfTwoChoices::default())
+    }
+
+    /// Initializes a P2C load balancer from the provided randomization source.
+    ///
+    /// This may be preferable when an application instantiates many balancers.
+    pub fn p2c_from_rng<R: rand::Rng>(
+        discover: D,
+        rng: &mut R,
+    ) -> Result<Self, rand::Error> {
+        let rng = SmallRng::from_rng(rng)?;
+        Ok(Self::new(discover, choose::PowerOfTwoChoices::new(rng)))
+    }
+}
+
+impl<D: Discover> Balance<D, choose::RoundRobin> {
+    /// Attempts to choose services sequentially.
+    ///
+    /// This configuration is prefered when no load metric is known.
+    pub fn round_robin(discover: D) -> Self {
+        Balance::new(discover, choose::RoundRobin::default())
+    }
+}
 
 impl<D, C> Balance<D, C>
 where

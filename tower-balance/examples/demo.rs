@@ -19,7 +19,7 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tokio_core::reactor::Core;
 use tokio_timer::{Timer, TimerError, Sleep};
-use tower_balance::*;
+use tower_balance::{Balance, Choose, Error, ResponseFuture, load};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
@@ -194,7 +194,7 @@ fn main() {
     {
         let lb = {
             let loaded = load::WithPendingRequests::new(gen_disco(&timer));
-            power_of_two_choices(loaded)
+            Balance::p2c(loaded)
         };
         let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
         let histo = core.run(compute_histo(send)).unwrap();
@@ -202,7 +202,7 @@ fn main() {
     }
 
     {
-        let lb = round_robin(gen_disco(&timer));
+        let lb = Balance::round_robin(gen_disco(&timer));
         let send = SendRequests { lb, send_remaining: requests, responses: stream::FuturesUnordered::new() };
         let histo = core.run(compute_histo(send)).unwrap();
         report("rr", &histo)
