@@ -101,7 +101,7 @@ impl<D: Discover> Balance<D, choose::RoundRobin> {
     ///
     /// This configuration is prefered when no load metric is known.
     pub fn round_robin(discover: D) -> Self {
-        Balance::new(discover, choose::RoundRobin::default())
+        Self::new(discover, choose::RoundRobin::default())
     }
 }
 
