@@ -67,16 +67,16 @@ where
     fn choose(&mut self, replicas: Replicas<K, L>) -> usize {
         let (a, b) = self.random_pair(replicas.len());
 
-        let aload = replicas[a].load();
-        let bload = replicas[b].load();
+        let a_load = replicas[a].load();
+        let b_load = replicas[b].load();
         debug!(
-            "choose node[{a}]={aload:?} node[{b}]={bload:?}",
+            "choose node[{a}]={a_load:?} node[{b}]={b_load:?}",
             a = a,
             b = b,
-            aload = aload,
-            bload = bload
+            a_load = a_load,
+            b_load = b_load
         );
-        if aload <= bload {
+        if a_load <= b_load {
             a
         } else {
             b
