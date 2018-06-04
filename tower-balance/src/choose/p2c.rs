@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{rngs::SmallRng, FromEntropy, Rng};
 
 use choose::{Choose, Replicas};
 use Load;
@@ -19,12 +19,20 @@ use Load;
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 #[derive(Debug)]
-pub struct PowerOfTwoChoices<R> {
-    rng: R,
+pub struct PowerOfTwoChoices {
+    rng: SmallRng,
 }
 
-impl<R: Rng> PowerOfTwoChoices<R> {
-    pub fn new(rng: R) -> Self {
+// ==== impl PowerOfTwoChoices ====
+
+impl Default for PowerOfTwoChoices {
+    fn default() -> Self {
+        Self::new(SmallRng::from_entropy())
+    }
+}
+
+impl PowerOfTwoChoices {
+    pub fn new(rng: SmallRng) -> Self {
         Self { rng }
     }
 
@@ -48,11 +56,10 @@ impl<R: Rng> PowerOfTwoChoices<R> {
     }
 }
 
-impl<K, L, R> Choose<K, L> for PowerOfTwoChoices<R>
+impl<K, L> Choose<K, L> for PowerOfTwoChoices
 where
     L: Load,
     L::Metric: PartialOrd + ::std::fmt::Debug,
-    R: Rng,
 {
     /// Chooses two distinct nodes at random and compares their load.
     ///
@@ -80,7 +87,6 @@ where
 #[cfg(test)]
 mod tests {
     use quickcheck::*;
-    use rand;
 
     use super::*;
 
@@ -90,7 +96,9 @@ mod tests {
                 return TestResult::discard();
             }
 
-            let (a, b) = PowerOfTwoChoices::new(rand::thread_rng()).random_pair(n);
+            let mut p2c = PowerOfTwoChoices::default();
+
+            let (a, b) = p2c.random_pair(n);
             TestResult::from_bool(a != b)
         }
     }

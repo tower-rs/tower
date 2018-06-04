@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 futures = "0.1"
 log = "0.4.1"
-rand = "0.4"
+rand = "0.5"
 tower-service = { version = "0.1", path = "../tower-service" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
 indexmap = "1"

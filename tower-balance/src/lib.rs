@@ -1,3 +1,5 @@
+#![deny(dead_code)]
+
 #[macro_use]
 extern crate futures;
 #[macro_use]
@@ -9,11 +11,10 @@ extern crate rand;
 extern crate tower_discover;
 extern crate tower_service;
 
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
-use rand::Rng;
-use std::{fmt, error};
 use std::marker::PhantomData;
+use std::{error, fmt};
 use tower_discover::Discover;
 use tower_service::Service;
 
@@ -37,14 +38,13 @@ pub use load::Load;
 ///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-pub fn power_of_two_choices<D, R>(loaded: D, rng: R) -> Balance<D, choose::PowerOfTwoChoices<R>>
+pub fn power_of_two_choices<D>(loaded: D) -> Balance<D, choose::PowerOfTwoChoices>
 where
     D: Discover,
     D::Service: Load,
     <D::Service as Load>::Metric: PartialOrd + fmt::Debug,
-    R: Rng,
 {
-    Balance::new(loaded, choose::PowerOfTwoChoices::new(rng))
+    Balance::new(loaded, choose::PowerOfTwoChoices::default())
 }
 
 /// Attempts to choose services sequentially.
@@ -110,7 +110,7 @@ where
     /// Returns true iff there are ready services.
     ///
     /// This is not authoritative and is only useful after `poll_ready` has been called.
-    fn is_ready(&self) -> bool {
+    pub fn is_ready(&self) -> bool {
         !self.ready.is_empty()
     }
 
@@ -353,13 +353,12 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use futures::future;
     use quickcheck::*;
-    use tower_discover::Change;
     use std::collections::VecDeque;
+    use tower_discover::Change;
 
     use super::*;
 
