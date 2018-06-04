@@ -9,7 +9,7 @@ extern crate rand;
 extern crate tower_discover;
 extern crate tower_service;
 
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
 use std::{fmt, error};
 use std::marker::PhantomData;
@@ -351,13 +351,12 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use futures::future;
     use quickcheck::*;
-    use tower_discover::Change;
     use std::collections::VecDeque;
+    use tower_discover::Change;
 
     use super::*;
 
