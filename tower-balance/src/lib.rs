@@ -1,3 +1,5 @@
+#![deny(dead_code)]
+
 #[macro_use]
 extern crate futures;
 #[macro_use]
@@ -108,7 +110,7 @@ where
     /// Returns true iff there are ready services.
     ///
     /// This is not authoritative and is only useful after `poll_ready` has been called.
-    fn is_ready(&self) -> bool {
+    pub fn is_ready(&self) -> bool {
         !self.ready.is_empty()
     }
 
