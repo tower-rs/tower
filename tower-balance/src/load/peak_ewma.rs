@@ -109,7 +109,7 @@ where
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => Insert(k, PeakEwma::new(svc, self.decay_ns)),
+            Insert(k, svc) => Insert(k, PeakEwma::new(svc, self.decay_ns).measured()),
             Remove(k) => Remove(k),
         };
 
@@ -119,10 +119,9 @@ where
 
 // ===== impl PeakEwma =====
 
-impl<S, M> PeakEwma<S, M>
+impl<S> PeakEwma<S, NoMeasure>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
 {
     fn new(service: S, decay_ns: f64) -> Self {
         Self {
@@ -133,6 +132,25 @@ where
         }
     }
 
+    /// Configures `WithPeakEwma` to use an `M`-typed measurement strategy.
+    pub fn measured<M>(self) -> PeakEwma<S, M>
+    where
+        M: Measure<Instrument, S::Response>,
+    {
+        PeakEwma {
+            service: self.service,
+            decay_ns: self.decay_ns,
+            rtt_estimate: self.rtt_estimate,
+            _p: PhantomData,
+        }
+    }
+}
+
+impl<S, M> PeakEwma<S, M>
+where
+    S: Service,
+    M: Measure<Instrument, S::Response>,
+{
     fn instrument(&self) -> Instrument {
         Instrument {
             decay_ns: self.decay_ns,
@@ -226,7 +244,7 @@ impl RttEstimate {
 
         let now = clock::now();
         debug_assert!(
-            self.update_at < now,
+            self.update_at <= now,
             "update_at={:?} in the future",
             self.update_at
         );
@@ -293,15 +311,83 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    extern crate tokio_executor;
+    extern crate tokio_timer;
+
+    use futures::{Future, Poll, future};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+    use self::tokio_executor::enter;
+    use self::tokio_timer::clock;
+
     use super::*;
 
+    struct Svc;
+    impl Service for Svc {
+        type Request = ();
+        type Response = ();
+        type Error = ();
+        type Future = future::FutureResult<(), ()>;
+
+        fn poll_ready(&mut self) -> Poll<(), ()> {
+            Ok(().into())
+        }
+
+        fn call(&mut self, (): ()) -> Self::Future {
+            future::ok(())
+        }
+    }
+
+    struct Now(Arc<Mutex<Instant>>);
+    impl clock::Now for Now {
+        fn now(&self) -> Instant {
+            *self.0.lock().expect("now")
+        }
+    }
+
     #[test]
-    fn test_nanos() {
-        assert_eq!(nanos(Duration::new(0, 0)), 0.0);
-        assert_eq!(nanos(Duration::new(0, 123)), 123.0);
-        assert_eq!(nanos(Duration::new(1, 23)), 1_000_000_023.0);
+    fn default_decay() {
+        let time = Arc::new(Mutex::new(Instant::now()));
+        let clock = clock::Clock::new_with_now(Now(time.clone()));
+
+        let mut enter = enter().expect("enter");
+        clock::with_default(&clock, &mut enter, |_| {
+
+            let mut svc = PeakEwma::new(Svc, NANOS_PER_MILLI * 1_000.0);
+            assert_eq!(svc.load(), Cost(DEFAULT_RTT_ESTIMATE));
+
+            *time.lock().unwrap() += Duration::from_millis(100);
+            let rsp0 = svc.call(());
+            assert_eq!(svc.load(), Cost(2.0 * DEFAULT_RTT_ESTIMATE));
+
+            *time.lock().unwrap() += Duration::from_millis(100);
+            let rsp1 = svc.call(());
+            assert_eq!(svc.load(), Cost(3.0 * DEFAULT_RTT_ESTIMATE));
+
+            *time.lock().unwrap() += Duration::from_millis(100);
+            let () = rsp0.wait().unwrap();
+            assert_eq!(svc.load(), Cost(400_000_000.0));
+
+            *time.lock().unwrap() += Duration::from_millis(100);
+            let () = rsp1.wait().unwrap();
+            assert_eq!(svc.load(), Cost(200_000_000.0));
+
+            // Check that values decay as time elapses
+            *time.lock().unwrap() += Duration::from_secs(1);
+            assert!(svc.load() < Cost(100_000_000.0));
+
+            *time.lock().unwrap() += Duration::from_secs(10);
+            assert!(svc.load() < Cost(100_000.0));
+        });
+    }
+
+    #[test]
+    fn nanos() {
+        assert_eq!(super::nanos(Duration::new(0, 0)), 0.0);
+        assert_eq!(super::nanos(Duration::new(0, 123)), 123.0);
+        assert_eq!(super::nanos(Duration::new(1, 23)), 1_000_000_023.0);
         assert_eq!(
-            nanos(Duration::new(::std::u64::MAX, 999_999_999)),
+            super::nanos(Duration::new(::std::u64::MAX, 999_999_999)),
             18446744074709553000.0
         );
     }
