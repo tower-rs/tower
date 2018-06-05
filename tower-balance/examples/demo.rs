@@ -61,13 +61,13 @@ fn main() {
     let exec = executor.clone();
     let fut = future::lazy(move || {
         let d = gen_disco(exec.clone());
-        let ll = lb::power_of_two_choices(lb::load::WithPendingRequests::new(d));
+        let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(d));
         run("P2C+LeastLoaded", ll, &exec)
     });
 
     let exec = executor;
     let fut = fut.and_then(move |_| {
-        let rr = lb::round_robin(gen_disco(exec.clone()));
+        let rr = lb::Balance::round_robin(gen_disco(exec.clone()));
         run("RoundRobin", rr, &exec)
     });
 
