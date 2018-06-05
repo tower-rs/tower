@@ -42,7 +42,7 @@ pub fn power_of_two_choices<D>(loaded: D) -> Balance<D, choose::PowerOfTwoChoice
 where
     D: Discover,
     D::Service: Load,
-    <D::Service as Load>::Metric: PartialOrd,
+    <D::Service as Load>::Metric: PartialOrd + fmt::Debug,
 {
     Balance::new(loaded, choose::PowerOfTwoChoices::default())
 }
