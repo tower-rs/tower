@@ -13,8 +13,8 @@ extern crate tower_service;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
+use std::{fmt, error};
 use std::marker::PhantomData;
-use std::{error, fmt};
 use tower_discover::Discover;
 use tower_service::Service;
 
