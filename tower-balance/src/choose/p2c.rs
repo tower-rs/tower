@@ -69,7 +69,7 @@ where
 
         let a_load = replicas[a].load();
         let b_load = replicas[b].load();
-        debug!(
+        trace!(
             "choose node[{a}]={a_load:?} node[{b}]={b_load:?}",
             a = a,
             b = b,
