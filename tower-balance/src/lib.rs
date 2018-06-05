@@ -1,3 +1,5 @@
+#![deny(dead_code)]
+
 #[macro_use]
 extern crate futures;
 #[macro_use]
@@ -9,7 +11,7 @@ extern crate rand;
 extern crate tower_discover;
 extern crate tower_service;
 
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
 use std::{fmt, error};
 use std::marker::PhantomData;
@@ -145,10 +147,10 @@ where
         while let Async::Ready(change) = self.discover.poll().map_err(Error::Balance)? {
             match change {
                 Insert(key, mut svc) => {
-                    if self.ready.contains_key(&key) || self.not_ready.contains_key(&key) {
-                        // Ignore duplicate endpoints.
-                        continue;
-                    }
+                    // If the `Insert`ed service is a duplicate of a service already
+                    // in the ready list, remove the ready service first. The new
+                    // service will then be inserted into the not-ready list.
+                    self.ready.remove(&key);
 
                     self.not_ready.insert(key, svc);
                 }
@@ -351,13 +353,12 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use futures::future;
     use quickcheck::*;
-    use tower_discover::Change;
     use std::collections::VecDeque;
+    use tower_discover::Change;
 
     use super::*;
 

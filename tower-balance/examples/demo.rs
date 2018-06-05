@@ -26,7 +26,7 @@ use tower_discover::{Change, Discover};
 use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 
-const REQUESTS: usize = 100_000;
+const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 50;
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
 static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
@@ -66,18 +66,18 @@ fn main() {
         run("P2C+PeakEWMA", pe, &exec)
     });
 
-    // let exec = executor.clone();
-    // let fut = fut.and_then(move |_| {
-    //     let d = gen_disco(exec.clone());
-    //     let ll = lb::power_of_two_choices(lb::load::WithPendingRequests::new(d));
-    //     run("P2C+LeastLoaded", ll, &exec)
-    // });
+    let exec = executor.clone();
+    let fut = fut.and_then(move |_| {
+        let d = gen_disco(exec.clone());
+        let ll = lb::power_of_two_choices(lb::load::WithPendingRequests::new(d));
+        run("P2C+LeastLoaded", ll, &exec)
+    });
 
-    // let exec = executor;
-    // let fut = fut.and_then(move |_| {
-    //     let rr = lb::round_robin(gen_disco(exec.clone()));
-    //     run("RoundRobin", rr, &exec)
-    // });
+    let exec = executor;
+    let fut = fut.and_then(move |_| {
+        let rr = lb::round_robin(gen_disco(exec.clone()));
+        run("RoundRobin", rr, &exec)
+    });
 
     rt.spawn(fut);
     rt.shutdown_on_idle().wait().unwrap();
