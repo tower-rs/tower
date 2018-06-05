@@ -8,6 +8,7 @@ publish = false
 futures = "0.1"
 log = "0.4.1"
 rand = "0.5"
+tokio = "0.1.6"
 tower-service = { version = "0.1", path = "../tower-service" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
 indexmap = "1"
@@ -16,7 +17,6 @@ indexmap = "1"
 log = "0.4.1"
 env_logger = { version = "0.5.3", default-features = false }
 hdrsample = "6.0"
-tokio = "0.1.6"
 quickcheck = { version = "0.6", default-features = false }
 tower-buffer = { version = "0.1", path = "../tower-buffer" }
 tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit" }

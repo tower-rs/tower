@@ -2,6 +2,7 @@ use futures::{Async, Poll};
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tokio::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
@@ -135,7 +136,7 @@ where
     fn instrument(&self) -> Instrument {
         Instrument {
             decay_ns: self.decay_ns,
-            sent_at: Instant::now(),
+            sent_at: clock::now(),
             rtt_estimate: self.rtt_estimate.clone(),
         }
     }
@@ -200,14 +201,14 @@ impl RttEstimate {
 
         Self {
             rtt_ns: nanos(recv_at - sent_at),
-            update_at: Instant::now(),
+            update_at: clock::now(),
         }
     }
 
     /// Decays the RTT estimate with a decay period of `decay_ns`.
     fn decay(&mut self, decay_ns: f64) -> f64 {
         // Updates with a 0 duration so that the estimate decays towards 0.
-        let now = Instant::now();
+        let now = clock::now();
         self.update(now, now, decay_ns)
     }
 
@@ -223,7 +224,7 @@ impl RttEstimate {
         );
         let rtt = nanos(recv_at - sent_at);
 
-        let now = Instant::now();
+        let now = clock::now();
         debug_assert!(
             self.update_at < now,
             "update_at={:?} in the future",
@@ -266,7 +267,7 @@ impl RttEstimate {
 
 impl Drop for Instrument {
     fn drop(&mut self) {
-        let recv_at = Instant::now();
+        let recv_at = clock::now();
 
         if let Ok(mut rtt) = self.rtt_estimate.lock() {
             if let Some(ref mut rtt) = *rtt {
