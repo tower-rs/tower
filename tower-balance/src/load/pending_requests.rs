@@ -5,34 +5,34 @@ use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use Load;
-use super::{Measure, MeasureFuture, NoMeasure};
+use super::{Instrument, InstrumentFuture, NoInstrument};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
-pub struct PendingRequests<S, M = NoMeasure>
+pub struct PendingRequests<S, I = NoInstrument>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
+    I: Instrument<Handle, S::Response>,
 {
     service: S,
     ref_count: RefCount,
-    _p: PhantomData<M>,
+    _p: PhantomData<I>,
 }
 
-/// Shared between instances of `PendingRequests` and `Instrument` to track active
+/// Shared between instances of `PendingRequests` and `Handle` to track active
 /// references.
 #[derive(Clone, Debug, Default)]
 struct RefCount(Arc<()>);
 
 /// Wraps `inner`'s services with `PendingRequests`.
 #[derive(Debug)]
-pub struct WithPendingRequests<D, M = NoMeasure>
+pub struct WithPendingRequests<D, I = NoInstrument>
 where
     D: Discover,
-    M: Measure<Instrument, D::Response>,
+    I: Instrument<Handle, D::Response>,
 {
     discover: D,
-    _p: PhantomData<M>,
+    _p: PhantomData<I>,
 }
 
 /// Represents the number of currently-pending requests to a given service.
@@ -40,11 +40,11 @@ where
 pub struct Count(usize);
 
 #[derive(Debug)]
-pub struct Instrument(RefCount);
+pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
 
-impl<S: Service> PendingRequests<S, NoMeasure> {
+impl<S: Service> PendingRequests<S, NoInstrument> {
     pub fn new(service: S) -> Self {
         Self {
             service,
@@ -53,10 +53,10 @@ impl<S: Service> PendingRequests<S, NoMeasure> {
         }
     }
 
-    /// Configures the load metric to be determined with the provided measurement strategy.
-    pub fn measured<M>(self) -> PendingRequests<S, M>
+    /// Configures the load metric to be determined with the provided instrumentment strategy.
+    pub fn with_instrument<I>(self) -> PendingRequests<S, I>
     where
-        M: Measure<Instrument, S::Response>,
+        I: Instrument<Handle, S::Response>,
     {
         PendingRequests {
             service: self.service,
@@ -66,20 +66,20 @@ impl<S: Service> PendingRequests<S, NoMeasure> {
     }
 }
 
-impl<S, M> PendingRequests<S, M>
+impl<S, I> PendingRequests<S, I>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
+    I: Instrument<Handle, S::Response>,
 {
-    fn instrument(&self) -> Instrument {
-        Instrument(self.ref_count.clone())
+    fn handle(&self) -> Handle {
+        Handle(self.ref_count.clone())
     }
 }
 
-impl<S, M> Load for PendingRequests<S, M>
+impl<S, I> Load for PendingRequests<S, I>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
+    I: Instrument<Handle, S::Response>,
 {
     type Metric = Count;
 
@@ -89,28 +89,28 @@ where
     }
 }
 
-impl<S, M> Service for PendingRequests<S, M>
+impl<S, I> Service for PendingRequests<S, I>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
+    I: Instrument<Handle, S::Response>,
 {
     type Request = S::Request;
-    type Response = M::Measured;
+    type Response = I::Output;
     type Error = S::Error;
-    type Future = MeasureFuture<S::Future, M, Instrument>;
+    type Future = InstrumentFuture<S::Future, I, Handle>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        MeasureFuture::new(self.instrument(), self.service.call(req))
+        InstrumentFuture::new(self.handle(), self.service.call(req))
     }
 }
 
 // ===== impl WithPendingRequests =====
 
-impl<D> WithPendingRequests<D, NoMeasure>
+impl<D> WithPendingRequests<D, NoInstrument>
 where
     D: Discover,
 {
@@ -121,9 +121,9 @@ where
         }
     }
 
-    pub fn measured<M>(self) -> WithPendingRequests<D, M>
+    pub fn with_instrument<I>(self) -> WithPendingRequests<D, I>
     where
-        M: Measure<Instrument, D::Response>,
+        I: Instrument<Handle, D::Response>,
     {
         WithPendingRequests {
             discover: self.discover,
@@ -132,16 +132,16 @@ where
     }
 }
 
-impl<D, M> Discover for WithPendingRequests<D, M>
+impl<D, I> Discover for WithPendingRequests<D, I>
 where
     D: Discover,
-    M: Measure<Instrument, D::Response>,
+    I: Instrument<Handle, D::Response>,
 {
     type Key = D::Key;
     type Request = D::Request;
-    type Response = M::Measured;
+    type Response = I::Output;
     type Error = D::Error;
-    type Service = PendingRequests<D::Service, M>;
+    type Service = PendingRequests<D::Service, I>;
     type DiscoverError = D::DiscoverError;
 
     /// Yields the next discovery change set.
@@ -149,7 +149,7 @@ where
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => Insert(k, PendingRequests::new(svc).measured()),
+            Insert(k, svc) => Insert(k, PendingRequests::new(svc).with_instrument()),
             Remove(k) => Remove(k),
         };
 
@@ -206,16 +206,16 @@ mod tests {
     }
 
     #[test]
-    fn measured() {
-        struct IntoInstrument;
-        impl Measure<Instrument, ()> for IntoInstrument {
-            type Measured = Instrument;
-            fn measure(i: Instrument, (): ()) -> Instrument {
+    fn instrumented() {
+        struct IntoHandle;
+        impl Instrument<Handle, ()> for IntoHandle {
+            type Output = Handle;
+            fn instrument(i: Handle, (): ()) -> Handle {
                 i
             }
         }
 
-        let mut svc = PendingRequests::new(Svc).measured::<IntoInstrument>();
+        let mut svc = PendingRequests::new(Svc).with_instrument::<IntoHandle>();
         assert_eq!(svc.load(), Count(0));
 
         let rsp = svc.call(());

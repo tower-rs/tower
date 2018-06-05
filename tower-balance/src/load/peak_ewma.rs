@@ -6,7 +6,7 @@ use tokio::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-use super::{Measure, MeasureFuture, NoMeasure};
+use super::{Instrument, InstrumentFuture, NoInstrument};
 
 use Load;
 
@@ -19,8 +19,8 @@ use Load;
 /// worst-case latencies. Over time, the peak latency value decays towards the moving
 /// average of latencies to the endpoint.
 ///
-/// As requests are sent to the underlying service, an `M`-typed measurement strategy is
-/// used to instrument responses to measure latency in an application-specific way. The
+/// As requests are sent to the underlying service, an `I`-typed instrumentation strategy
+/// is used to track responses to measure latency in an application-specific way. The
 /// default strategy measures latency as the elapsed time from the request being issued to
 /// the underlying service to the response future being satisfied (or dropped).
 ///
@@ -28,18 +28,18 @@ use Load;
 /// within a datacenter][numbers] (500ns) is used.
 ///
 /// [numbers]: https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
-pub struct PeakEwma<S, M = NoMeasure> {
+pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
     rtt_estimate: Arc<Mutex<Option<RttEstimate>>>,
-    _p: PhantomData<M>,
+    _p: PhantomData<I>,
 }
 
 /// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
-pub struct WithPeakEwma<D, M = NoMeasure> {
+pub struct WithPeakEwma<D, I = NoInstrument> {
     discover: D,
     decay_ns: f64,
-    _p: PhantomData<M>,
+    _p: PhantomData<I>,
 }
 
 /// Represents the relative cost of communicating with a service.
@@ -50,7 +50,7 @@ pub struct WithPeakEwma<D, M = NoMeasure> {
 pub struct Cost(f64);
 
 /// Updates `RttEstimate` when dropped.
-pub struct Instrument {
+pub struct Handle {
     sent_at: Instant,
     decay_ns: f64,
     rtt_estimate: Arc<Mutex<Option<RttEstimate>>>,
@@ -71,7 +71,7 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 // ===== impl PeakEwma =====
 
-impl<D: Discover> WithPeakEwma<D, NoMeasure> {
+impl<D: Discover> WithPeakEwma<D, NoInstrument> {
     pub fn new(discover: D, decay: Duration) -> Self {
         Self {
             discover,
@@ -81,9 +81,9 @@ impl<D: Discover> WithPeakEwma<D, NoMeasure> {
     }
 
     /// Configures `WithPeakEwma` to use an `M`-typed measurement strategy.
-    pub fn measured<M>(self) -> WithPeakEwma<D, M>
+    pub fn with_instrument<I>(self) -> WithPeakEwma<D, I>
     where
-        M: Measure<Instrument, D::Response>,
+        I: Instrument<Handle, D::Response>,
     {
         WithPeakEwma {
             discover: self.discover,
@@ -93,16 +93,16 @@ impl<D: Discover> WithPeakEwma<D, NoMeasure> {
     }
 }
 
-impl<D, M> Discover for WithPeakEwma<D, M>
+impl<D, I> Discover for WithPeakEwma<D, I>
 where
     D: Discover,
-    M: Measure<Instrument, D::Response>,
+    I: Instrument<Handle, D::Response>,
 {
     type Key = D::Key;
     type Request = D::Request;
-    type Response = M::Measured;
+    type Response = I::Output;
     type Error = D::Error;
-    type Service = PeakEwma<D::Service, M>;
+    type Service = PeakEwma<D::Service, I>;
     type DiscoverError = D::DiscoverError;
 
     fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
@@ -119,7 +119,7 @@ where
 
 // ===== impl PeakEwma =====
 
-impl<S> PeakEwma<S, NoMeasure>
+impl<S> PeakEwma<S, NoInstrument>
 where
     S: Service,
 {
@@ -133,9 +133,9 @@ where
     }
 
     /// Configures `WithPeakEwma` to use an `M`-typed measurement strategy.
-    pub fn measured<M>(self) -> PeakEwma<S, M>
+    pub fn measured<I>(self) -> PeakEwma<S, I>
     where
-        M: Measure<Instrument, S::Response>,
+        I: Instrument<Handle, S::Response>,
     {
         PeakEwma {
             service: self.service,
@@ -146,13 +146,13 @@ where
     }
 }
 
-impl<S, M> PeakEwma<S, M>
+impl<S, I> PeakEwma<S, I>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
+    I: Instrument<Handle, S::Response>,
 {
-    fn instrument(&self) -> Instrument {
-        Instrument {
+    fn instrument(&self) -> Handle {
+        Handle {
             decay_ns: self.decay_ns,
             sent_at: clock::now(),
             rtt_estimate: self.rtt_estimate.clone(),
@@ -160,26 +160,26 @@ where
     }
 }
 
-impl<S, M> Service for PeakEwma<S, M>
+impl<S, I> Service for PeakEwma<S, I>
 where
     S: Service,
-    M: Measure<Instrument, S::Response>,
+    I: Instrument<Handle, S::Response>,
 {
     type Request = S::Request;
-    type Response = M::Measured;
+    type Response = I::Output;
     type Error = S::Error;
-    type Future = MeasureFuture<S::Future, M, Instrument>;
+    type Future = InstrumentFuture<S::Future, I, Handle>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        MeasureFuture::new(self.instrument(), self.service.call(req))
+        InstrumentFuture::new(self.instrument(), self.service.call(req))
     }
 }
 
-impl<S, M> Load for PeakEwma<S, M> {
+impl<S, I> Load for PeakEwma<S, I> {
     type Metric = Cost;
 
     fn load(&self) -> Self::Metric {
@@ -281,9 +281,9 @@ impl RttEstimate {
     }
 }
 
-// ===== impl Instrument =====
+// ===== impl Handle =====
 
-impl Drop for Instrument {
+impl Drop for Handle {
     fn drop(&mut self) {
         let recv_at = clock::now();
 
