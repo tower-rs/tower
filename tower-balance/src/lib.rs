@@ -1,3 +1,5 @@
+#![deny(dead_code)]
+
 #[macro_use]
 extern crate futures;
 #[macro_use]
@@ -11,9 +13,9 @@ extern crate tower_service;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::{SeedableRng, rngs::SmallRng};
+use std::{fmt, error};
 use std::marker::PhantomData;
-use std::{error, fmt};
 use tower_discover::Discover;
 use tower_service::Service;
 
@@ -63,7 +65,7 @@ impl<D> Balance<D, choose::PowerOfTwoChoices>
 where
     D: Discover,
     D::Service: Load,
-    <D::Service as Load>::Metric: PartialOrd,
+    <D::Service as Load>::Metric: PartialOrd + fmt::Debug,
 {
     /// Chooses services using the [Power of Two Choices][p2c].
     ///
@@ -87,7 +89,7 @@ where
     /// Initializes a P2C load balancer from the provided randomization source.
     ///
     /// This may be preferable when an application instantiates many balancers.
-    pub fn p2c_from_rng<R: rand::Rng>(
+    pub fn p2c_with_rng<R: rand::Rng>(
         discover: D,
         rng: &mut R,
     ) -> Result<Self, rand::Error> {
@@ -125,7 +127,7 @@ where
     /// Returns true iff there are ready services.
     ///
     /// This is not authoritative and is only useful after `poll_ready` has been called.
-    fn is_ready(&self) -> bool {
+    pub fn is_ready(&self) -> bool {
         !self.ready.is_empty()
     }
 
