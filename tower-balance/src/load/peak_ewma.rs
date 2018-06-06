@@ -14,7 +14,7 @@ use Load;
 /// `PeakEwma` implements `Load` with the `Cost` metric that estimates the amount of
 /// pending work to an endpoint. Work is calculated by multiplying the
 /// exponentially-weighted moving average (EWMA) of response latencies by the number of
-/// pending requests. The Peak-EWMA algorithm is designed ot be especially sensitive to
+/// pending requests. The Peak-EWMA algorithm is designed to be especially sensitive to
 /// worst-case latencies. Over time, the peak latency value decays towards the moving
 /// average of latencies to the endpoint.
 ///
@@ -26,7 +26,14 @@ use Load;
 /// When no latency information has been measured for an endpoint, the [standard RTT
 /// within a datacenter][numbers] (500ns) is used.
 ///
+/// ## Note
+///
+/// This is derived from [Finagle][finagle], which is distributed under the Apache V2
+/// license. Copyright 2017, Twitter Inc.
+///
 /// [numbers]: https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
+/// [finagle]: https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
+
 pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
