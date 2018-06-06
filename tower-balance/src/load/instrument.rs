@@ -1,5 +1,4 @@
 use futures::{Future, Poll};
-use std::marker::PhantomData;
 
 /// Attaches `I`-typed instruments to `V` typed values.
 ///
@@ -14,57 +13,62 @@ use std::marker::PhantomData;
 /// A base `impl<H, V> Instrument<H, V> for NoInstrument` is provided to drop the handle
 /// immediately. This is appropriate when a response is discrete and cannot comprise
 /// multiple messages.
-pub trait Instrument<H, V> {
+///
+/// In many cases, the `Output` type is simply `V`. However, `Instrument` may alter the
+/// typein order to instrument it appropriately. For example, an HTTP Instrument may
+/// modify the body type: so an `Instrument` that takes values of type `http::Response<A>`
+/// may output values of type `http::Response<B>`.
+pub trait Instrument<H, V>: Clone {
     type Output;
 
     /// Attaches an `H`-typed handle to a `V`-typed value.
-    fn instrument(handle: H, value: V) -> Self::Output;
+    fn instrument(&self, handle: H, value: V) -> Self::Output;
 }
 
 /// A `Instrument` implementation that drops each instrument immediately.
-#[derive(Debug, Default)]
-pub struct NoInstrument(());
+#[derive(Clone, Copy, Debug)]
+pub struct NoInstrument;
 
 /// Attaches a `I`-typed instruments to the result of an `F`-typed `Future`.
 #[derive(Debug)]
-pub struct InstrumentFuture<F, M, H>
+pub struct InstrumentFuture<F, I, H>
 where
     F: Future,
-    M: Instrument<H, F::Item>,
+    I: Instrument<H, F::Item>,
 {
     future: F,
     handle: Option<H>,
-    _p: PhantomData<M>,
+    instrument: I,
 }
 
 // ===== impl InstrumentFuture =====
 
-impl<F, M, H> InstrumentFuture<F, M, H>
+impl<F, I, H> InstrumentFuture<F, I, H>
 where
     F: Future,
-    M: Instrument<H, F::Item>,
+    I: Instrument<H, F::Item>,
 {
-    pub fn new(handle: H, future: F) -> Self {
+    pub fn new(instrument: I, handle: H, future: F) -> Self {
         InstrumentFuture {
             future,
+            instrument,
             handle: Some(handle),
-            _p: PhantomData
         }
     }
 }
 
-impl<F, M, H> Future for InstrumentFuture<F, M, H>
+impl<F, I, H> Future for InstrumentFuture<F, I, H>
 where
     F: Future,
-    M: Instrument<H, F::Item>,
+    I: Instrument<H, F::Item>,
 {
-    type Item = M::Output;
+    type Item = I::Output;
     type Error = F::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let rsp = try_ready!(self.future.poll());
         let h = self.handle.take().expect("handle");
-        Ok(M::instrument(h, rsp).into())
+        Ok(self.instrument.instrument(h, rsp).into())
     }
 }
 
@@ -73,7 +77,7 @@ where
 impl<H, V> Instrument<H, V> for NoInstrument {
     type Output = V;
 
-    fn instrument(handle: H, value: V) -> V {
+    fn instrument(&self, handle: H, value: V) -> V {
         drop(handle);
         value
     }

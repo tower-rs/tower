@@ -1,5 +1,4 @@
 use futures::{Async, Poll};
-use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::clock;
@@ -32,14 +31,14 @@ pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
     rtt_estimate: Arc<Mutex<Option<RttEstimate>>>,
-    _p: PhantomData<I>,
+    instrument: I,
 }
 
 /// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
 pub struct WithPeakEwma<D, I = NoInstrument> {
     discover: D,
     decay_ns: f64,
-    _p: PhantomData<I>,
+    instrument: I,
 }
 
 /// Represents the relative cost of communicating with a service.
@@ -73,22 +72,20 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 impl<D: Discover> WithPeakEwma<D, NoInstrument> {
     pub fn new(discover: D, decay: Duration) -> Self {
-        Self {
+        Self::new_with_instrument(discover, decay, NoInstrument)
+    }
+}
+
+impl<D, I> WithPeakEwma<D, I>
+where
+    D: Discover,
+    I: Instrument<Handle, D::Response>,
+{
+    pub fn new_with_instrument(discover: D, decay: Duration, instrument: I) -> Self {
+        WithPeakEwma {
             discover,
             decay_ns: nanos(decay),
-            _p: PhantomData,
-        }
-    }
-
-    /// Configures `WithPeakEwma` to use an `M`-typed measurement strategy.
-    pub fn with_instrument<I>(self) -> WithPeakEwma<D, I>
-    where
-        I: Instrument<Handle, D::Response>,
-    {
-        WithPeakEwma {
-            discover: self.discover,
-            decay_ns: self.decay_ns,
-            _p: PhantomData,
+            instrument,
         }
     }
 }
@@ -109,7 +106,7 @@ where
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => Insert(k, PeakEwma::new(svc, self.decay_ns).measured()),
+            Insert(k, svc) => Insert(k, PeakEwma::new(svc, self.decay_ns, self.instrument.clone())),
             Remove(k) => Remove(k),
         };
 
@@ -119,39 +116,21 @@ where
 
 // ===== impl PeakEwma =====
 
-impl<S> PeakEwma<S, NoInstrument>
-where
-    S: Service,
-{
-    fn new(service: S, decay_ns: f64) -> Self {
-        Self {
-            service,
-            decay_ns,
-            rtt_estimate: Arc::new(Mutex::new(None)),
-            _p: PhantomData,
-        }
-    }
-
-    /// Configures `WithPeakEwma` to use an `M`-typed measurement strategy.
-    pub fn measured<I>(self) -> PeakEwma<S, I>
-    where
-        I: Instrument<Handle, S::Response>,
-    {
-        PeakEwma {
-            service: self.service,
-            decay_ns: self.decay_ns,
-            rtt_estimate: self.rtt_estimate,
-            _p: PhantomData,
-        }
-    }
-}
-
 impl<S, I> PeakEwma<S, I>
 where
     S: Service,
     I: Instrument<Handle, S::Response>,
 {
-    fn instrument(&self) -> Handle {
+    fn new(service: S, decay_ns: f64, instrument: I) -> Self {
+        Self {
+            service,
+            decay_ns,
+            rtt_estimate: Arc::new(Mutex::new(None)),
+            instrument,
+        }
+    }
+
+    fn handle(&self) -> Handle {
         Handle {
             decay_ns: self.decay_ns,
             sent_at: clock::now(),
@@ -175,7 +154,7 @@ where
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        InstrumentFuture::new(self.instrument(), self.service.call(req))
+        InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
     }
 }
 
@@ -353,7 +332,7 @@ mod tests {
         let mut enter = enter().expect("enter");
         clock::with_default(&clock, &mut enter, |_| {
 
-            let mut svc = PeakEwma::new(Svc, NANOS_PER_MILLI * 1_000.0);
+            let mut svc = PeakEwma::new(Svc, NANOS_PER_MILLI * 1_000.0, NoInstrument);
             assert_eq!(svc.load(), Cost(DEFAULT_RTT_ESTIMATE));
 
             *time.lock().unwrap() += Duration::from_millis(100);

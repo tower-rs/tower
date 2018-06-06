@@ -1,5 +1,4 @@
 use futures::{Async, Poll};
-use std::marker::PhantomData;
 use std::sync::Arc;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
@@ -16,7 +15,7 @@ where
 {
     service: S,
     ref_count: RefCount,
-    _p: PhantomData<I>,
+    instrument: I,
 }
 
 /// Shared between instances of `PendingRequests` and `Handle` to track active
@@ -32,7 +31,7 @@ where
     I: Instrument<Handle, D::Response>,
 {
     discover: D,
-    _p: PhantomData<I>,
+    instrument: I,
 }
 
 /// Represents the number of currently-pending requests to a given service.
@@ -44,33 +43,19 @@ pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
 
-impl<S: Service> PendingRequests<S, NoInstrument> {
-    pub fn new(service: S) -> Self {
-        Self {
-            service,
-            ref_count: RefCount::default(),
-            _p: PhantomData,
-        }
-    }
-
-    /// Configures the load metric to be determined with the provided instrumentment strategy.
-    pub fn with_instrument<I>(self) -> PendingRequests<S, I>
-    where
-        I: Instrument<Handle, S::Response>,
-    {
-        PendingRequests {
-            service: self.service,
-            ref_count: self.ref_count,
-            _p: PhantomData,
-        }
-    }
-}
-
 impl<S, I> PendingRequests<S, I>
 where
     S: Service,
     I: Instrument<Handle, S::Response>,
 {
+    pub fn new(service: S, instrument: I) -> Self {
+        Self {
+            service,
+            instrument,
+            ref_count: RefCount::default(),
+        }
+    }
+
     fn handle(&self) -> Handle {
         Handle(self.ref_count.clone())
     }
@@ -104,31 +89,25 @@ where
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        InstrumentFuture::new(self.handle(), self.service.call(req))
+        InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
     }
 }
 
 // ===== impl WithPendingRequests =====
 
-impl<D> WithPendingRequests<D, NoInstrument>
+impl<D: Discover> WithPendingRequests<D, NoInstrument> {
+    pub fn new(discover: D) -> Self {
+        Self::new_with_instrument(discover, NoInstrument)
+    }
+}
+
+impl<D, I> WithPendingRequests<D, I>
 where
     D: Discover,
+    I: Instrument<Handle, D::Response>,
 {
-    pub fn new(discover: D) -> Self {
-        Self {
-            discover,
-            _p: PhantomData,
-        }
-    }
-
-    pub fn with_instrument<I>(self) -> WithPendingRequests<D, I>
-    where
-        I: Instrument<Handle, D::Response>,
-    {
-        WithPendingRequests {
-            discover: self.discover,
-            _p: PhantomData,
-        }
+    pub fn new_with_instrument(discover: D, instrument: I) -> Self {
+        Self { discover, instrument }
     }
 }
 
@@ -149,7 +128,7 @@ where
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => Insert(k, PendingRequests::new(svc).with_instrument()),
+            Insert(k, svc) => Insert(k, PendingRequests::new(svc, self.instrument.clone())),
             Remove(k) => Remove(k),
         };
 
@@ -189,7 +168,7 @@ mod tests {
 
     #[test]
     fn default() {
-        let mut svc = PendingRequests::new(Svc);
+        let mut svc = PendingRequests::new(Svc, NoInstrument);
         assert_eq!(svc.load(), Count(0));
 
         let rsp0 = svc.call(());
@@ -207,15 +186,16 @@ mod tests {
 
     #[test]
     fn instrumented() {
+        #[derive(Clone)]
         struct IntoHandle;
         impl Instrument<Handle, ()> for IntoHandle {
             type Output = Handle;
-            fn instrument(i: Handle, (): ()) -> Handle {
+            fn instrument(&self,i: Handle, (): ()) -> Handle {
                 i
             }
         }
 
-        let mut svc = PendingRequests::new(Svc).with_instrument::<IntoHandle>();
+        let mut svc = PendingRequests::new(Svc, IntoHandle);
         assert_eq!(svc.load(), Count(0));
 
         let rsp = svc.call(());
