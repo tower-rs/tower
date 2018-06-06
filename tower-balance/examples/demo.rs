@@ -62,14 +62,14 @@ fn main() {
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco(exec.clone());
-        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, decay));
+        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, decay, lb::load::NoInstrument));
         run("P2C+PeakEWMA", pe, &exec)
     });
 
     let exec = executor.clone();
     let fut = fut.and_then(move |_| {
         let d = gen_disco(exec.clone());
-        let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(d));
+        let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(d, lb::load::NoInstrument));
         run("P2C+LeastLoaded", ll, &exec)
     });
 

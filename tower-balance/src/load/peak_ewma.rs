@@ -70,18 +70,12 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 // ===== impl PeakEwma =====
 
-impl<D: Discover> WithPeakEwma<D, NoInstrument> {
-    pub fn new(discover: D, decay: Duration) -> Self {
-        Self::new_with_instrument(discover, decay, NoInstrument)
-    }
-}
-
 impl<D, I> WithPeakEwma<D, I>
 where
     D: Discover,
     I: Instrument<Handle, D::Response>,
 {
-    pub fn new_with_instrument(discover: D, decay: Duration, instrument: I) -> Self {
+    pub fn new(discover: D, decay: Duration, instrument: I) -> Self {
         WithPeakEwma {
             discover,
             decay_ns: nanos(decay),
