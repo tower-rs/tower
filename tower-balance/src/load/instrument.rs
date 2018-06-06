@@ -13,6 +13,11 @@ use futures::{Future, Poll};
 /// A base `impl<H, V> Instrument<H, V> for NoInstrument` is provided to drop the handle
 /// immediately. This is appropriate when a response is discrete and cannot comprise
 /// multiple messages.
+///
+/// In many cases, the `Output` type is simply `V`. However, `Instrument` may alter the
+/// typein order to instrument it appropriately. For example, an HTTP Instrument may
+/// modify the body type: so an `Instrument` that takes values of type `http::Response<A>`
+/// may output values of type `http::Response<B>`.
 pub trait Instrument<H, V>: Clone {
     type Output;
 
