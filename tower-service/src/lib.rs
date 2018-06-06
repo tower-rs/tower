@@ -86,7 +86,7 @@ use std::sync::Arc;
 /// it is possible to write middleware that provide these pieces in a
 /// reusable way.
 ///
-/// For example, take timeouts as an example:
+/// Take timeouts as an example:
 ///
 /// ```rust,ignore
 /// use tower_service::Service;
