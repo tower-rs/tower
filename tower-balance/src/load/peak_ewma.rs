@@ -33,7 +33,6 @@ use Load;
 ///
 /// [numbers]: https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
 /// [finagle]: https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
-
 pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
