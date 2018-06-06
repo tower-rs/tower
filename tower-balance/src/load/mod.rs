@@ -1,6 +1,8 @@
+mod instrument;
 mod constant;
 mod pending_requests;
 
+pub use self::instrument::{Instrument, InstrumentFuture, NoInstrument};
 pub use self::constant::Constant;
 pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 

@@ -1,108 +1,134 @@
-use futures::{Future, Poll, Async};
+use futures::{Async, Poll};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use Load;
+use super::{Instrument, InstrumentFuture, NoInstrument};
 
 /// Expresses load based on the number of currently-pending requests.
-#[derive(Debug, Clone)]
-pub struct PendingRequests<T> {
-    inner: T,
-    pending: Arc<AtomicUsize>,
+#[derive(Debug)]
+pub struct PendingRequests<S, I = NoInstrument>
+where
+    S: Service,
+    I: Instrument<Handle, S::Response>,
+{
+    service: S,
+    ref_count: RefCount,
+    instrument: I,
 }
 
+/// Shared between instances of `PendingRequests` and `Handle` to track active
+/// references.
+#[derive(Clone, Debug, Default)]
+struct RefCount(Arc<()>);
+
 /// Wraps `inner`'s services with `PendingRequests`.
-pub struct WithPendingRequests<D: Discover> {
-    inner: D,
+#[derive(Debug)]
+pub struct WithPendingRequests<D, I = NoInstrument>
+where
+    D: Discover,
+    I: Instrument<Handle, D::Response>,
+{
+    discover: D,
+    instrument: I,
 }
 
 /// Represents the number of currently-pending requests to a given service.
 #[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Ord, Eq)]
 pub struct Count(usize);
 
-/// Ensures that `pending` is decremented.
-struct Handle {
-    pending: Arc<AtomicUsize>,
-}
-
-/// Wraps a response future so that it is tracked by `PendingRequests`.
-///
-/// When the inner future completes, either with a value or an error, `pending` is
-/// decremented.
-pub struct ResponseFuture<S: Service> {
-    inner: S::Future,
-    pending: Option<Handle>,
-}
+#[derive(Debug)]
+pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
 
-impl<T> PendingRequests<T> {
-    pub fn new(inner: T) -> Self {
+impl<S, I> PendingRequests<S, I>
+where
+    S: Service,
+    I: Instrument<Handle, S::Response>,
+{
+    fn new(service: S, instrument: I) -> Self {
         Self {
-            inner,
-            pending: Arc::new(AtomicUsize::new(0)),
+            service,
+            instrument,
+            ref_count: RefCount::default(),
         }
     }
 
-    // Increments the pending count immediately and returns a `Handle` that will decrement
-    // the count when dropped.
-    fn incr_pending(&self) -> Handle {
-        let pending = self.pending.clone();
-        pending.fetch_add(1, Ordering::SeqCst);
-        Handle { pending }
+    fn handle(&self) -> Handle {
+        Handle(self.ref_count.clone())
     }
 }
 
-impl<S: Service> Load for PendingRequests<S> {
+impl<S, I> Load for PendingRequests<S, I>
+where
+    S: Service,
+    I: Instrument<Handle, S::Response>,
+{
     type Metric = Count;
 
     fn load(&self) -> Count {
-        Count(self.pending.load(Ordering::SeqCst))
+        // Count the number of references that aren't `self`.
+        Count(self.ref_count.ref_count() - 1)
     }
 }
 
-impl<S: Service> Service for PendingRequests<S> {
+impl<S, I> Service for PendingRequests<S, I>
+where
+    S: Service,
+    I: Instrument<Handle, S::Response>,
+{
     type Request = S::Request;
-    type Response = S::Response;
+    type Response = I::Output;
     type Error = S::Error;
-    type Future = ResponseFuture<S>;
+    type Future = InstrumentFuture<S::Future, I, Handle>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+        self.service.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
-        ResponseFuture {
-            pending: Some(self.incr_pending()),
-            inner: self.inner.call(req),
-        }
+        InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
     }
 }
 
 // ===== impl WithPendingRequests =====
 
-impl<D: Discover> WithPendingRequests<D> {
-    pub fn new(inner: D) -> Self {
-        Self { inner }
+impl<D: Discover> WithPendingRequests<D, NoInstrument> {
+    pub fn new(discover: D) -> Self {
+        Self::new_with_instrument(discover, NoInstrument)
     }
 }
 
-impl<D: Discover> Discover for WithPendingRequests<D> {
+impl<D, I> WithPendingRequests<D, I>
+where
+    D: Discover,
+    I: Instrument<Handle, D::Response>,
+{
+    pub fn new_with_instrument(discover: D, instrument: I) -> Self {
+        Self { discover, instrument }
+    }
+}
+
+impl<D, I> Discover for WithPendingRequests<D, I>
+where
+    D: Discover,
+    I: Instrument<Handle, D::Response>,
+{
     type Key = D::Key;
     type Request = D::Request;
-    type Response = D::Response;
+    type Response = I::Output;
     type Error = D::Error;
-    type Service = PendingRequests<D::Service>;
+    type Service = PendingRequests<D::Service, I>;
     type DiscoverError = D::DiscoverError;
 
     /// Yields the next discovery change set.
     fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
         use self::Change::*;
 
-        let change = match try_ready!(self.inner.poll()) {
-            Insert(k, svc) => Insert(k, PendingRequests::new(svc)),
+        let change = match try_ready!(self.discover.poll()) {
+            Insert(k, svc) => Insert(k, PendingRequests::new(svc, self.instrument.clone())),
             Remove(k) => Remove(k),
         };
 
@@ -110,28 +136,82 @@ impl<D: Discover> Discover for WithPendingRequests<D> {
     }
 }
 
-// ===== impl Pending =====
+// ==== RefCount ====
 
-impl Drop for Handle {
-    fn drop(&mut self) {
-        self.pending.fetch_sub(1, Ordering::SeqCst);
+impl RefCount {
+    pub fn ref_count(&self) -> usize {
+        Arc::strong_count(&self.0)
     }
 }
 
-// ===== impl ResponseFuture =====
 
-impl<S: Service> Future for ResponseFuture<S> {
-    type Item = S::Response;
-    type Error = S::Error;
+#[cfg(test)]
+mod tests {
+    use futures::{Future, Poll, future};
+    use super::*;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            poll => {
-                // Decrements the pending count as needed.
-                drop(self.pending.take());
-                poll
+    struct Svc;
+    impl Service for Svc {
+        type Request = ();
+        type Response = ();
+        type Error = ();
+        type Future = future::FutureResult<(), ()>;
+
+        fn poll_ready(&mut self) -> Poll<(), ()> {
+            Ok(().into())
+        }
+
+        fn call(&mut self, (): ()) -> Self::Future {
+            future::ok(())
+        }
+    }
+
+    #[test]
+    fn default() {
+        let mut svc = PendingRequests::new(Svc, NoInstrument);
+        assert_eq!(svc.load(), Count(0));
+
+        let rsp0 = svc.call(());
+        assert_eq!(svc.load(), Count(1));
+
+        let rsp1 = svc.call(());
+        assert_eq!(svc.load(), Count(2));
+
+        let () = rsp0.wait().unwrap();
+        assert_eq!(svc.load(), Count(1));
+
+        let () = rsp1.wait().unwrap();
+        assert_eq!(svc.load(), Count(0));
+    }
+
+    #[test]
+    fn instrumented() {
+        #[derive(Clone)]
+        struct IntoHandle;
+        impl Instrument<Handle, ()> for IntoHandle {
+            type Output = Handle;
+            fn instrument(&self,i: Handle, (): ()) -> Handle {
+                i
             }
         }
+
+        let mut svc = PendingRequests::new(Svc, IntoHandle);
+        assert_eq!(svc.load(), Count(0));
+
+        let rsp = svc.call(());
+        assert_eq!(svc.load(), Count(1));
+        let i0 = rsp.wait().unwrap();
+        assert_eq!(svc.load(), Count(1));
+
+        let rsp = svc.call(());
+        assert_eq!(svc.load(), Count(2));
+        let i1 = rsp.wait().unwrap();
+        assert_eq!(svc.load(), Count(2));
+
+        drop(i1);
+        assert_eq!(svc.load(), Count(1));
+
+        drop(i0);
+        assert_eq!(svc.load(), Count(0));
     }
 }
