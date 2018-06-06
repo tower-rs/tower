@@ -8,7 +8,7 @@ extern crate indexmap;
 #[cfg(test)]
 extern crate quickcheck;
 extern crate rand;
-extern crate tokio;
+extern crate tokio_timer;
 extern crate tower_discover;
 extern crate tower_service;
 

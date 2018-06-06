@@ -1,7 +1,7 @@
 use futures::{Async, Poll};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tokio::clock;
+use tokio_timer::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
