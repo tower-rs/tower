@@ -48,7 +48,7 @@ where
     S: Service,
     I: Instrument<Handle, S::Response>,
 {
-    pub fn new(service: S, instrument: I) -> Self {
+    fn new(service: S, instrument: I) -> Self {
         Self {
             service,
             instrument,
