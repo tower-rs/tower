@@ -1,7 +1,7 @@
 mod instrument;
 mod constant;
 pub mod peak_ewma;
-mod pending_requests;
+pub mod pending_requests;
 
 pub use self::instrument::{Instrument, InstrumentFuture, NoInstrument};
 pub use self::constant::Constant;
