@@ -95,18 +95,12 @@ where
 
 // ===== impl WithPendingRequests =====
 
-impl<D: Discover> WithPendingRequests<D, NoInstrument> {
-    pub fn new(discover: D) -> Self {
-        Self::new_with_instrument(discover, NoInstrument)
-    }
-}
-
 impl<D, I> WithPendingRequests<D, I>
 where
     D: Discover,
     I: Instrument<Handle, D::Response>,
 {
-    pub fn new_with_instrument(discover: D, instrument: I) -> Self {
+    pub fn new(discover: D, instrument: I) -> Self {
         Self { discover, instrument }
     }
 }
@@ -143,7 +137,6 @@ impl RefCount {
         Arc::strong_count(&self.0)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
