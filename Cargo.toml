@@ -21,8 +21,3 @@ log = "0.4.1"
 env_logger = { version = "0.5.3", default-features = false }
 tokio-timer = "0.1"
 futures-cpupool = "0.1"
-
-[patch.crates-io]
-tokio = { git = "https://github.com/tokio-rs/tokio", branch = "timer-abstract-now" }
-tokio-executor = { git = "https://github.com/tokio-rs/tokio", branch = "timer-abstract-now" }
-tokio-timer = { git = "https://github.com/tokio-rs/tokio", branch = "timer-abstract-now" }
