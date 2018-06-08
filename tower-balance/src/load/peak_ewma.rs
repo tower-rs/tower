@@ -23,16 +23,17 @@ use Load;
 /// default strategy measures latency as the elapsed time from the request being issued to
 /// the underlying service to the response future being satisfied (or dropped).
 ///
-/// When no latency information has been measured for an endpoint, the [standard RTT
-/// within a datacenter][numbers] (500ns) is used.
+/// When no latency information has been measured for an endpoint, an arbitrary default
+/// RTT of 1 second is used to prevent the endpoint from being overloaded before a
+/// meaningful baseline can be established..
 ///
 /// ## Note
 ///
 /// This is derived from [Finagle][finagle], which is distributed under the Apache V2
 /// license. Copyright 2017, Twitter Inc.
 ///
-/// [numbers]: https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
-/// [finagle]: https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
+/// [finagle]:
+/// https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
 pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
@@ -67,10 +68,13 @@ struct RttEstimate {
     rtt_ns: f64,
 }
 
-/// The "standard" RTT within a datacenter is ~500ns.
+/// The default RTT estimate is used for nodes that have no load information.
 ///
-/// https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
-const DEFAULT_RTT_ESTIMATE: f64 = 500_000.0;
+/// We want this value to be high enough such that it is higher than most healthy
+/// endpoints, but not so high that it should be higher than all endpoints in all
+/// circumstances. To this end, a default estimate of 1 second seems to be a good
+/// goldilocks value.
+const DEFAULT_RTT_ESTIMATE: f64 = NANOS_PER_MILLI * 1000.0;
 
 const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
