@@ -67,10 +67,13 @@ struct RttEstimate {
     rtt_ns: f64,
 }
 
-/// The "standard" RTT within a datacenter is ~500ns.
+/// The default RTT estimate is used for nodes that have no load information.
 ///
-/// https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
-const DEFAULT_RTT_ESTIMATE: f64 = 500_000.0;
+/// We want this value to be high enough such that it is higher than most healthy
+/// endpoints, but not so high that it should be higher than all endpoints in all
+/// circumstances. To this end, a default estimate of 1 second seems to be a good
+/// goldilocks value.
+const DEFAULT_RTT_ESTIMATE: f64 = NANOS_PER_MILLI * 1000.0;
 
 const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
