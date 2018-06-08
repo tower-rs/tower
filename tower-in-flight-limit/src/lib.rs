@@ -220,7 +220,7 @@ impl Shared {
     pub fn release(&self) {
         let prev = self.curr.fetch_sub(1, SeqCst);
 
-        // Cannot go abovee the max number of in-flight
+        // Cannot go above the max number of in-flight
         debug_assert!(prev <= self.max);
 
         if prev == self.max {
