@@ -23,16 +23,17 @@ use Load;
 /// default strategy measures latency as the elapsed time from the request being issued to
 /// the underlying service to the response future being satisfied (or dropped).
 ///
-/// When no latency information has been measured for an endpoint, the [standard RTT
-/// within a datacenter][numbers] (500ns) is used.
+/// When no latency information has been measured for an endpoint, an arbitrary default
+/// RTT of 1 second is used to prevent new endpoints from being inundated before a
+/// meaningful baseline can be esatablished..
 ///
 /// ## Note
 ///
 /// This is derived from [Finagle][finagle], which is distributed under the Apache V2
 /// license. Copyright 2017, Twitter Inc.
 ///
-/// [numbers]: https://people.eecs.berkeley.edu/~rcs/research/interactive_latency.html
-/// [finagle]: https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
+/// [finagle]:
+/// https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
 pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
