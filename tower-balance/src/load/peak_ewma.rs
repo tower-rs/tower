@@ -24,8 +24,8 @@ use Load;
 /// the underlying service to the response future being satisfied (or dropped).
 ///
 /// When no latency information has been measured for an endpoint, an arbitrary default
-/// RTT of 1 second is used to prevent new endpoints from being inundated before a
-/// meaningful baseline can be esatablished..
+/// RTT of 1 second is used to prevent the endpoint from being overloaded before a
+/// meaningful baseline can be established..
 ///
 /// ## Note
 ///
