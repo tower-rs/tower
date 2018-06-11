@@ -9,4 +9,5 @@ futures = "0.1"
 tower-service = { version = "0.1", path = "../tower-service" }
 
 [dev-dependencies]
+tokio-test = { git = "https://github.com/carllerche/tokio-test" }
 tower-mock = { version = "0.1", path = "../tower-mock" }

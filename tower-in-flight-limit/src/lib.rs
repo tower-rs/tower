@@ -218,7 +218,14 @@ impl Shared {
     /// request has completed OR the service that made the reservation has
     /// dropped.
     pub fn release(&self) {
-        self.curr.fetch_sub(1, SeqCst);
+        let prev = self.curr.fetch_sub(1, SeqCst);
+
+        // Cannot go above the max number of in-flight
+        debug_assert!(prev <= self.max);
+
+        if prev == self.max {
+            self.task.notify();
+        }
     }
 }
 
