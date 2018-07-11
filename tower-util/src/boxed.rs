@@ -1,8 +1,8 @@
 //! Trait object `Service` instances
 //!
 //! Dynamically dispatched `Service` objects allow for erasing the underlying
-//! `Service` type and using the `Service` intances as opaque handles. This can
-//! be useful when the service instance cannot be explictly named for whatever
+//! `Service` type and using the `Service` instances as opaque handles. This can
+//! be useful when the service instance cannot be explicitly named for whatever
 //! reason.
 //!
 //! There are two variants of service objects. `BoxService` requires both the

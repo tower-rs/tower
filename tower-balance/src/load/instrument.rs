@@ -4,7 +4,7 @@ use futures::{Future, Poll};
 ///
 /// This utility allows load metrics to have a protocol-agnostic means to track streams
 /// past their initial response future. For example, if `V` represents an HTTP response
-/// type, an implementaton could add `H`-typed handles to each response's extensions to
+/// type, an implementation could add `H`-typed handles to each response's extensions to
 /// detect when the response is dropped.
 ///
 /// Handles are intended to be RAII guards that primarily implement `Drop` and update load
