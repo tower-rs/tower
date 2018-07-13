@@ -4,7 +4,6 @@ extern crate futures_watch;
 extern crate tower_service;
 
 use std::{fmt, error};
-
 use futures::{Async, Future, Poll, Stream};
 use futures_watch::{Watch, WatchError};
 use tower_service::Service;
@@ -95,7 +94,7 @@ where
     fn cause(&self) -> Option<&error::Error> {
         match self {
             Error::WatchError(_) => None,
-            Error::Inner(e) => Some(e),
+            Error::Inner(e) => e.cause(),
         }
     }
 }
