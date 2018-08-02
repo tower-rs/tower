@@ -8,4 +8,4 @@ This is not ready for usage yet (unless you are brave).
 
 More information about this crate can be found in the [crate documentation][dox]
 
-[dox]: https://tower-rs.github.io/tower/tower
+[dox]: https://tower-rs.github.io/tower/tower_service
