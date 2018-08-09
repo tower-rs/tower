@@ -1,17 +1,22 @@
 [package]
 
 name = "tower-service"
+# When releasing to crates.io:
+# - Update html_root_url.
+# - Update CHANGELOG.md.
+# - Update documentation URL
+# - Create "v0.1.x" git tag.
 version = "0.1.0"
-license = "MIT"
 authors = ["Carl Lerche <me@carllerche.com>"]
-description = """
-The core `Service` trait for Tower.
-"""
-documentation = "https://docs.rs/tower-service"
-homepage = "https://github.com/tower-rs/tower"
-repository = "https://github.com/tower-rs/tower"
+license = "MIT"
 readme = "README.md"
-publish = false
+repository = "https://github.com/tower-rs/tower"
+homepage = "https://github.com/tower-rs/tower"
+documentation = "https://docs.rs/tokio-service/0.1.0"
+description = """
+Trait representing an asynchronous, request / response based, client or server.
+"""
+categories = ["asynchronous", "network-programming"]
 
 [dependencies]
-futures = "0.1"
+futures = "0.1.23"
