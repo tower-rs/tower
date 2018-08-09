@@ -1,7 +1,16 @@
-//! Definition of the core `Service` trait to Tower
-
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tower/0.1")]
+#![doc(html_root_url = "https://docs.rs/tower/0.1.0")]
+
+//! Definition of the core `Service` trait to Tower
+//!
+//! These traits provide the necessary abstractions for defining a request /
+//! response clients and servers. They are simple but powerul and are the
+//! used as the foundation for the rest of Tower.
+//!
+//! * [`Service`](trait.Service.html) is the primary trait and defines the request
+//! / response exchange. See that trait for more details.
+//! * [`NewService`](trait.NewService.html) is essentially a service factory. It
+//! is responsible for generating `Service` values on demand.
 
 #[macro_use]
 extern crate futures;
@@ -196,11 +205,19 @@ pub trait Service {
 }
 
 /// Future yielding a `Service` once the service is ready to process a request
+///
+/// `Ready` values are produced by `Service::ready`.
 pub struct Ready<T> {
     inner: Option<T>,
 }
 
 /// Creates new `Service` values.
+///
+/// Acts as a service factory. This is useful for cases where new `Service`
+/// values must be produced. One case is a TCP servier listener. The listner
+/// accepts new TCP streams, obtains a new `Service` value using the
+/// `NewService` trait, and uses that new `Service` value to process inbound
+/// requests on that new TCP stream.
 pub trait NewService {
     /// Requests handled by the service
     type Request;
