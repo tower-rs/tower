@@ -52,6 +52,21 @@ crates.
 * [`tower-watch`]: A middleware that rebinds the inner service each time a watch
   is notified ([docs][tw-docs]).
 
+## Status
+
+Currently, only [`tower-service`], the foundational trait, has been released to
+crates.io. The rest of the library will be following shortly.
+
+## License
+
+This project is licensed under the [MIT license](LICENSE).
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in Tower by you, shall be licensed as MIT, without any additional
+terms or conditions.
+
 [`tower_service`]: tower-service
 [ts-docs]: https://docs.rs/tower-service/
 [`tower-balance`]: tower-balance
@@ -76,18 +91,3 @@ crates.
 [tu-docs]: https://tower-rs.github.io/tower/tower_util/index.html
 [`tower-watch`]: tower-watch
 [tw-docs]: https://tower-rs.github.io/tower/tower_watch/index.html
-
-## Status
-
-Currently, only [`tower-service`], the foundational trait, has been released to
-crates.io. The rest of the library will be following shortly.
-
-## License
-
-This project is licensed under the [MIT license](LICENSE).
-
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in Tower by you, shall be licensed as MIT, without any additional
-terms or conditions.
