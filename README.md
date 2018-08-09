@@ -16,7 +16,7 @@ pattern. If your protocol is entirely stream based, Tower may not be a good fit.
 Tower consists of a number of components, each of which live in their own sub
 crates.
 
-* [`tower_service`]: The foundational traits upon which Tower is built
+* [`tower-service`]: The foundational traits upon which Tower is built
   ([docs][ts-docs])
 
 * [`tower-balance`]: A load balancer. Load is balanced across a number of
@@ -67,7 +67,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in Tower by you, shall be licensed as MIT, without any additional
 terms or conditions.
 
-[`tower_service`]: tower-service
+[`tower-service`]: tower-service
 [ts-docs]: https://docs.rs/tower-service/
 [`tower-balance`]: tower-balance
 [tb-docs]: https://tower-rs.github.io/tower/tower_balance/index.html
