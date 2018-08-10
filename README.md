@@ -41,7 +41,10 @@ crates.
   service over a period of time ([docs][trl-docs]).
 
 * [`tower-reconnect`]: Middleware that automatically reconnects the inner
-  service when it becomes degraded ([docs][tr-docs]).
+  service when it becomes degraded ([docs][tre-docs]).
+
+* [`tower-router`]: Routes requests to one of many inner inner services based on 
+  the request ([docs][tro-docs]).
 
 * [`tower-timeout`]: Middleware that applies a timeout to requests
   ([docs][tt-docs]).
@@ -84,7 +87,9 @@ terms or conditions.
 [`tower-rate-limit`]: tower-rate-limit
 [trl-docs]: https://tower-rs.github.io/tower/tower_rate_limit/index.html
 [`tower-reconnect`]: tower-reconnect
-[tr-docs]: https://tower-rs.github.io/tower/tower_reconnect/index.html
+[tre-docs]: https://tower-rs.github.io/tower/tower_reconnect/index.html
+[`tower-router`]: tower-router
+[tro-docs]: https://tower-rs.github.io/tower/tower_router/index.html
 [`tower-timeout`]: tower-timeeout
 [tt-docs]: https://tower-rs.github.io/tower/tower_timeout/index.html
 [`tower-util`]: tower-util
