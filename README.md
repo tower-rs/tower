@@ -4,6 +4,7 @@ Tower is a library of modular and reusable components for building robust
 networking clients and servers.
 
 [![Build Status](https://travis-ci.org/tower-rs/tower.svg?branch=master)](https://travis-ci.org/tower-rs/tower)
+[![Gitter](https://badges.gitter.im/tower-rs/tower.svg)](https://gitter.im/tower-rs/tower)
 
 ## Overview
 
