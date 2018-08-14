@@ -9,6 +9,7 @@ members = [
   "tower-mock",
   "tower-rate-limit",
   "tower-reconnect",
+  "tower-retry",
   "tower-router",
   "tower-service",
   "tower-timeout",
