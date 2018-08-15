@@ -52,7 +52,12 @@ pub struct Balance<D: Discover, C> {
 
 /// Error produced by `Balance`
 #[derive(Debug)]
-pub enum Error<T, U> {
+pub struct Error<T, U> {
+    kind: ErrorKind<T, U>,
+}
+
+#[derive(Debug)]
+enum ErrorKind<T, U> {
     Inner(T),
     Balance(U),
     NotReady,
@@ -162,7 +167,7 @@ where
         debug!("updating from discover");
         use tower_discover::Change::*;
 
-        while let Async::Ready(change) = self.discover.poll().map_err(Error::Balance)? {
+        while let Async::Ready(change) = self.discover.poll().map_err(Error::balance)? {
             match change {
                 Insert(key, mut svc) => {
                     // If the `Insert`ed service is a duplicate of a service already
@@ -208,7 +213,7 @@ where
                 let (_, svc) = self.not_ready
                     .get_index_mut(idx)
                     .expect("invalid not_ready index");;
-                svc.poll_ready().map_err(Error::Inner)?.is_ready()
+                svc.poll_ready().map_err(Error::inner)?.is_ready()
             };
             trace!("not_ready[{:?}]: is_ready={:?};", idx, is_ready);
             if is_ready {
@@ -239,7 +244,7 @@ where
             Some((_, svc)) => {
                 match svc.poll_ready() {
                     Ok(Async::Ready(())) => return Some(Ok(Async::Ready(()))),
-                    Err(e) => return Some(Err(Error::Inner(e))),
+                    Err(e) => return Some(Err(Error::inner(e))),
                     Ok(Async::NotReady) => {}
                 }
             }
@@ -327,7 +332,7 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
     type Error = Error<F::Error, E>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(Error::Inner)
+        self.0.poll().map_err(Error::inner)
     }
 }
 
@@ -340,11 +345,11 @@ where
     U: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Balance(ref why) =>
+        match self.kind {
+            ErrorKind::Inner(ref why) => fmt::Display::fmt(why, f),
+            ErrorKind::Balance(ref why) =>
                 write!(f, "load balancing failed: {}", why),
-            Error::NotReady => f.pad("not ready"),
+            ErrorKind::NotReady => f.pad("not ready"),
         }
     }
 }
@@ -355,21 +360,93 @@ where
     U: error::Error,
 {
     fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Inner(ref why) => Some(why),
-            Error::Balance(ref why) => Some(why),
+        match self.kind {
+            ErrorKind::Inner(ref why) => Some(why),
+            ErrorKind::Balance(ref why) => Some(why),
             _ => None,
         }
     }
 
     fn description(&self) -> &str {
-        match *self {
-            Error::Inner(_) => "inner service error",
-            Error::Balance(_) => "load balancing failed",
-            Error::NotReady => "not ready",
+        match self.kind{
+            ErrorKind::Inner(_) => "inner service error",
+            ErrorKind::Balance(_) => "load balancing failed",
+            ErrorKind::NotReady => "not ready",
         }
     }
 }
+
+
+impl<T, U> Error<T, U> {
+
+    pub fn is_balance(&self) -> bool {
+        match self.kind {
+            ErrorKind::Balance(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_service(&self) -> bool {
+        match self.kind {
+            ErrorKind::Inner(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_not_ready(&self) -> bool {
+        match self.kind {
+            ErrorKind::NotReady => true,
+            _ => false,
+        }
+    }
+
+    pub fn into_balance(self) -> Option<U> {
+        match self.kind {
+            ErrorKind::Balance(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn into_service(self) -> Option<T> {
+        match self.kind {
+            ErrorKind::Inner(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn borrow_balance(&self) -> Option<&U> {
+        match self.kind {
+            ErrorKind::Balance(ref e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn borrow_service(&self) -> Option<&T> {
+        match self.kind {
+            ErrorKind::Inner(ref e) => Some(e),
+            _ => None,
+        }
+    }
+
+    fn inner(t: T) -> Self {
+        Self {
+            kind: ErrorKind::Inner(t),
+        }
+    }
+
+    fn balance(b: U) -> Self {
+        Self {
+            kind: ErrorKind::Balance(c),
+        }
+    }
+
+    fn not_ready() -> Self {
+        Self {
+            kind: ErrorKind::NotReady,
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
