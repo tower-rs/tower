@@ -1,7 +1,11 @@
 #[macro_use]
 macro_rules! kind_error {
     ($(#[$m:meta])* pub struct $name:ident from enum $kind_ty:ident {
-            $( $variant:ident$(($t:ident))* => $(fmt: $fmt:expr,)* is: $is:ident, into: $into:ident, borrow: $borrow:ident ),+
+            $(
+                $(#[$vmeta:meta])*
+                $variant:ident$(($t:ident))* =>
+                    $(fmt: $fmt:expr,)* is: $is:ident, into: $into:ident, borrow: $borrow:ident
+            ),+
     }) => {
         $(#[$m])*
         pub struct $name<$($($t,)*)+> {
@@ -10,7 +14,10 @@ macro_rules! kind_error {
 
         $(#[$m])*
         enum $kind_ty<$($($t,)*)+> {
-             $( $variant$(($t))* ),+
+            $(
+                $(#[$vmeta])*
+                $variant$(($t))*
+            ),+
         }
 
         impl<$($($t,)*)+> $crate::std::fmt::Display for $name<$($($t,)*)+>
@@ -32,7 +39,7 @@ macro_rules! kind_error {
             fn cause(&self) -> Option<&$crate::std::error::Error> {
                 match self.kind {
                    $(
-                        $kind_ty::$variant$((ref e@$t))* => arm!( opt: $kind_ty::$variant$((e@$t))* ),
+                        $kind_ty::$variant$((ref e@$t))* => arm!( cause: $kind_ty::$variant$((e@$t))* ),
                    )+
                 }
             }
@@ -74,10 +81,10 @@ macro_rules! kind_error {
 }
 
 macro_rules! arm {
-    (opt: $name:ident::$variant:ident($e:ident@$ty:ident)) => {
-        { Some($e) }
+    (cause: $name:ident::$variant:ident($e:ident@$ty:ident)) => {
+        $e.cause().or_else(Some($e))
     };
-    (opt: $name:ident::$variant:ident) => {
+    (cause: $name:ident::$variant:ident) => {
         { None }
     };
 
