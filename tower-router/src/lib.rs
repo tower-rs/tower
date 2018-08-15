@@ -166,8 +166,8 @@ where T: Recognize,
         loop {
             match self.state {
                 Dispatched(ref mut inner) => {
-                    inner.poll()
-                        .map_err(ErrorKind::Inner)?;
+                    return inner.poll()
+                        .map_err(|e| ErrorKind::Inner(e).into());
                 }
                 Queued { ref mut service, .. } => {
                     let res = service.poll_ready()
