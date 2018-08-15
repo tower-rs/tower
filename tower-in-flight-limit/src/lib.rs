@@ -99,7 +99,7 @@ where S: Service
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if self.state.reserved {
             return self.inner.poll_ready()
-                .map_err(Error::Upstream);
+                .map_err(|e| ErrorKind::Upstream(e).into());
         }
 
         self.state.shared.task.register();
@@ -111,7 +111,7 @@ where S: Service
         self.state.reserved = true;
 
         self.inner.poll_ready()
-            .map_err(Error::Upstream)
+            .map_err(|e| ErrorKind::Upstream(e).into())
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {

@@ -184,7 +184,7 @@ where T: Future,
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
             Some(ref mut inner) => inner.poll(),
-            None => Err(Error::NoCapacity),
+            None => Err(ErrorKind::NoCapacity.into()),
         }
     }
 }
@@ -230,7 +230,7 @@ where T: Future,
                             return Ok(Async::NotReady);
                         }
                         Err(e) => {
-                            return Err(Error::Rejected(e));
+                            Err(ErrorKind::Rejected(e))?;
                         }
                     }
                 }
@@ -250,20 +250,20 @@ where T: Future,
                         Err(e) => {
                             self.inc_rem();
 
-                            return Err(Error::Inner(e));
+                            Err(ErrorKind::Inner(e))?;
                         }
                     }
                 }
                 WaitResponse(mut response) => {
                     let ret = response.poll()
-                        .map_err(Error::Inner);
+                        .map_err(|e| ErrorKind::Inner(e).into());
 
                     self.state = WaitResponse(response);
 
                     return ret;
                 }
                 NoCapacity => {
-                    return Err(Error::NoCapacity);
+                    Err(ErrorKind::NoCapacity)?;
                 }
             }
         }

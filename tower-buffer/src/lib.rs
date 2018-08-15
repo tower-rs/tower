@@ -136,7 +136,7 @@ where T: Service,
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
         if !self.state.open.load(Ordering::Acquire) {
-            return Err(Error::Closed);
+            Err(ErrorKind::Closed)?
         } else {
             // Ideally we could query if the `mpsc` is closed, but this is not
             // currently possible.
@@ -179,11 +179,11 @@ where T: Service
                     match rx.poll() {
                         Ok(Async::Ready(f)) => fut = f,
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Err(_) => return Err(Error::Closed),
+                        Err(_) => Err(ErrorKind::Closed)?,
                     }
                 }
                 Poll(ref mut fut) => {
-                    return fut.poll().map_err(Error::Inner);
+                    return fut.poll().map_err(|e| ErrorKind::Inner(e).into());
                 }
             }
 
