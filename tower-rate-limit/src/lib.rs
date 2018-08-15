@@ -12,7 +12,6 @@ use futures::{Future, Poll};
 use tower_service::Service;
 use tokio_timer::{Timer, Sleep};
 
-use std::{error, fmt};
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]

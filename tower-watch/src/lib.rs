@@ -128,7 +128,7 @@ where
     fn cause(&self) -> Option<&error::Error> {
         match self.kind {
             ErrorKind::Inner(ref e) => e.cause().or(Some(e)),
-            ErrorKind::Watch(ref e) => None,
+            ErrorKind::Watch(_) => None,
         }
     }
 }

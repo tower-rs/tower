@@ -15,7 +15,7 @@ extern crate tower_service;
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
 use rand::{SeedableRng, rngs::SmallRng};
-use std::{fmt, error};
+use std::fmt;
 use std::marker::PhantomData;
 use tower_discover::Discover;
 use tower_service::Service;

@@ -8,7 +8,6 @@ use tower_service::Service;
 
 use futures::{Future, Poll, Async};
 use futures::task::AtomicTask;
-use std::{error, fmt};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
