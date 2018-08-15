@@ -82,7 +82,7 @@ macro_rules! kind_error {
 
 macro_rules! arm {
     (cause: $name:ident::$variant:ident($e:ident@$ty:ident)) => {
-        $e.cause().or_else(Some($e))
+        $e.cause().or(Some($e))
     };
     (cause: $name:ident::$variant:ident) => {
         { None }
