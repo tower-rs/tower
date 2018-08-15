@@ -15,18 +15,6 @@ where T: NewService,
     state: State<T>,
 }
 
-#[derive(Debug)]
-pub struct Error<T, U> {
-    kind: ErrorKind<T, U>,
-}
-
-#[derive(Debug)]
-enum ErrorKind<T, U> {
-    Inner(T),
-    Connect(U),
-    NotReady,
-}
-
 pub struct ResponseFuture<T>
 where T: NewService
 {
@@ -42,6 +30,20 @@ where T: NewService
     Connected(T::Service),
 }
 
+
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
+
+kind_error!{
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
+        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        Connect(U) => fmt: "error connecting", is: is_connect, into: into_connect, borrow: borrow_connect,
+        NotReady => fmt: "not ready", is: is_not_ready, into: UNUSED, borrow: UNUSED
+    }
+}
 // ===== impl Reconnect =====
 
 impl<T> Reconnect<T>
@@ -90,7 +92,7 @@ where T: NewService
                         Err(e) => {
                             trace!("poll_ready; error");
                             state = Idle;
-                            ret = Err(Error::connect(e));
+                            ret = Err(ErrorKind::Connect(e).into());
                             break;
                         }
                     }
@@ -160,118 +162,9 @@ impl<T: NewService> Future for ResponseFuture<T> {
 
         match self.inner {
             Some(ref mut f) => {
-                f.poll().map_err(Error::inner)
+                f.poll().map_err(|e| ErrorKind::Inner(e).into())
             }
-            None => Err(Error::not_ready()),
-        }
-    }
-}
-
-
-// ===== impl Error =====
-
-impl<T, U> fmt::Display for Error<T, U>
-where
-    T: fmt::Display,
-    U: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.kind {
-            ErrorKind::Inner(ref why) => fmt::Display::fmt(why, f),
-            ErrorKind::Connect(ref why) => write!(f, "connection failed: {}", why),
-            ErrorKind::NotReady => f.pad("not ready"),
-        }
-    }
-}
-
-impl<T, U> error::Error for Error<T, U>
-where
-    T: error::Error,
-    U: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match self.kind {
-            ErrorKind::Inner(ref why) => Some(why),
-            ErrorKind::Connect(ref why) => Some(why),
-            _ => None,
-        }
-    }
-
-    fn description(&self) -> &str {
-        match self.kind {
-            ErrorKind::Inner(_) => "inner service error",
-            ErrorKind::Connect(_) => "connection failed",
-            ErrorKind::NotReady => "not ready",
-        }
-    }
-}
-
-impl<T, U> Error<T, U> {
-
-    pub fn is_connect(&self) -> bool {
-        match self.kind {
-            ErrorKind::Connect(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_service(&self) -> bool {
-        match self.kind {
-            ErrorKind::Inner(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_not_ready(&self) -> bool {
-        match self.kind {
-            ErrorKind::NotReady => true,
-            _ => false,
-        }
-    }
-
-    pub fn into_connect(self) -> Option<U> {
-        match self.kind {
-            ErrorKind::Connect(e) => Some(e),
-            _ => None,
-        }
-    }
-
-    pub fn into_service(self) -> Option<T> {
-        match self.kind {
-            ErrorKind::Inner(e) => Some(e),
-            _ => None,
-        }
-    }
-
-    pub fn borrow_connect(&self) -> Option<&U> {
-        match self.kind {
-            ErrorKind::Connect(ref e) => Some(e),
-            _ => None,
-        }
-    }
-
-    pub fn borrow_service(&self) -> Option<&T> {
-        match self.kind {
-            ErrorKind::Inner(ref e) => Some(e),
-            _ => None,
-        }
-    }
-
-    fn inner(t: T) -> Self {
-        Self {
-            kind: ErrorKind::Inner(t),
-        }
-    }
-
-    fn connect(c: U) -> Self {
-        Self {
-            kind: ErrorKind::Connect(c),
-        }
-    }
-
-    fn not_ready() -> Self {
-        Self {
-            kind: ErrorKind::NotReady,
+            None => Err(ErrorKind::NotReady)?,
         }
     }
 }
