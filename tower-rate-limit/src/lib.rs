@@ -29,14 +29,6 @@ pub struct Rate {
     per: Duration,
 }
 
-/// The request has been rate limited
-///
-/// TODO: Consider returning the original request
-#[derive(Debug)]
-pub enum Error<T> {
-    RateLimit,
-    Upstream(T),
-}
 
 pub struct ResponseFuture<T> {
     inner: Option<T>,
@@ -50,6 +42,22 @@ enum State {
         until: Instant,
         rem: u64,
     },
+}
+
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
+
+kind_error!{
+    /// The request has been rate limited
+    ///
+    /// TODO: Consider returning the original request
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
+        RateLimit => fmt: "rate limit exceeded", is: is_rate_limit, into: UNUSED, borrow: UNUSED,
+        Upstream(T) => is: is_upstream, into: into_upstream, borrow: borrow_upstream
+    }
 }
 
 impl<T> RateLimit<T> {
@@ -111,7 +119,7 @@ where S: Service
             State::Ready { .. } => return Ok(().into()),
             State::Limited(ref mut sleep) => {
                 let res = sleep.poll()
-                    .map_err(|_| Error::RateLimit);
+                    .map_err(|_| ErrorKind::RateLimit);
 
                 try_ready!(res);
             }
@@ -167,45 +175,9 @@ where T: Future,
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
             Some(ref mut f) => {
-                f.poll().map_err(Error::Upstream)
+                f.poll().map_err(|e| ErrorKind::Upstream(e).into())
             }
-            None => Err(Error::RateLimit),
+            None => Err(ErrorKind::RateLimit)?,
         }
     }
-}
-
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-            Error::RateLimit => f.pad("rate limit exceeded"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        if let Error::Upstream(ref why) = *self {
-            Some(why)
-        } else {
-            None
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Upstream(_) => "upstream service error",
-            Error::RateLimit => "rate limit exceeded",
-        }
-    }
-
 }

@@ -22,14 +22,20 @@ pub struct Timeout<T> {
     timeout: Duration,
 }
 
-/// Errors produced by `Timeout`.
-#[derive(Debug)]
-pub enum Error<T> {
-    /// The inner service produced an error
-    Inner(T),
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
 
-    /// The request did not complete within the specified timeout.
-    Timeout,
+kind_error!{
+    /// Errors produced by `Timeout`.
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
+        /// The inner service produced an error
+        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        /// The request did not complete within the specified timeout.
+        Timeout => fmt: "request timed out", is: is_timeout, into: UNUSED, borrow: UNUSED
+    }
 }
 
 /// `Timeout` response future
@@ -85,50 +91,14 @@ where T: Future,
         match self.response.poll() {
             Ok(Async::Ready(v)) => return Ok(Async::Ready(v)),
             Ok(Async::NotReady) => {}
-            Err(e) => return Err(Error::Inner(e)),
+            Err(e) => Err(ErrorKind::Inner(e))?,
         }
 
         // Now check the sleep
         match self.sleep.poll() {
             Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(_)) => Err(Error::Timeout),
-            Err(_) => Err(Error::Timeout),
+            Ok(Async::Ready(_)) => Err(ErrorKind::Timeout.into()),
+            Err(_) => Err(ErrorKind::Timeout.into()),
         }
     }
-}
-
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Timeout => f.pad("request timed out"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        if let Error::Inner(ref why) = *self {
-            Some(why)
-        } else {
-            None
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Inner(_) => "inner service error",
-            Error::Timeout => "request timed out",
-        }
-    }
-
 }

@@ -3,6 +3,8 @@ extern crate futures;
 extern crate futures_watch;
 extern crate tower_service;
 
+use std::{error, fmt};
+
 use futures::{Async, Future, Poll, Stream};
 use futures_watch::{Watch, WatchError};
 use tower_service::Service;
@@ -26,9 +28,16 @@ pub struct WatchService<T, B: Bind<T>> {
 }
 
 #[derive(Debug)]
-pub enum Error<E> {
+pub struct Error<E> {
+    kind: ErrorKind<E>,
+}
+
+// We can't generate this using `kind_error!`, since one of the variants
+// is a concrete type rather than a type parameter.
+#[derive(Debug)]
+enum ErrorKind<E> {
     Inner(E),
-    WatchError(WatchError),
+    Watch(WatchError),
 }
 
 #[derive(Debug)]
@@ -63,8 +72,8 @@ impl<T, B: Bind<T>> Service for WatchService<T, B> {
     type Future = ResponseFuture<<B::Service as Service>::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        let _ = self.poll_rebind().map_err(Error::WatchError)?;
-        self.inner.poll_ready().map_err(Error::Inner)
+        let _ = self.poll_rebind().map_err(ErrorKind::Watch)?;
+        self.inner.poll_ready().map_err(|e| ErrorKind::Inner(e).into())
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
@@ -93,7 +102,40 @@ impl<F: Future> Future for ResponseFuture<F> {
     type Error = Error<F::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(Error::Inner)
+        self.0.poll().map_err(|e| ErrorKind::Inner(e).into())
+    }
+}
+
+// ==== impl Error ====
+
+impl<E> fmt::Display for Error<E>
+where
+    E: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            ErrorKind::Inner(ref e) => fmt::Display::fmt(e, f),
+            ErrorKind::Watch(ref e) => write!(f, "watch error: {:?}", e),
+        }
+    }
+}
+
+impl<E> error::Error for Error<E>
+where
+    E: fmt::Display,
+    E: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        match self.kind {
+            ErrorKind::Inner(ref e) => e.cause().or_else(Some(e)),
+            ErrorKind::Watch(ref e) => None,
+        }
+    }
+}
+
+impl<E> From<ErrorKind<E>> for Error<E> {
+    fn from(kind: ErrorKind<E>) -> Self {
+        Self { kind }
     }
 }
 

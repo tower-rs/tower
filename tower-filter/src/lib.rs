@@ -37,17 +37,25 @@ where S: Service,
     counts: Arc<Counts>,
 }
 
-/// Errors produced by `Filter`
-#[derive(Debug)]
-pub enum Error<T, U> {
-    /// The predicate rejected the request.
-    Rejected(T),
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
 
-    /// The inner service produced an error.
-    Inner(U),
+kind_error!{
+    /// Errors produced by `Filter`
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
+        /// The predicate rejected the request.
+        Rejected(T) => fmt: "rejected by predicate",
+            is: is_rejected, into: into_rejected, borrow: borrow_rejected,
 
-    /// The service is out of capacity.
-    NoCapacity,
+        /// The inner service produced an error.
+        Inner(U) => is: is_inner, into: into_inner, borrow: borrow_inner,
+
+        /// The service is out of capacity.
+        NoCapacity => fmt: "filter at capacity", is: is_at_capacity, into: UNUSED, borrow: UNUSED
+    }
 }
 
 /// Checks a request

@@ -15,6 +15,11 @@ use std::mem;
 
 use self::ResponseState::*;
 
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
+
 /// Routes requests to an inner service based on the request.
 pub struct Router<T> {
     recognize: Borrow<T>,
@@ -60,19 +65,19 @@ where T: Recognize,
     state: ResponseState<T>,
 }
 
-/// Error produced by the `Router` service
-///
-/// TODO: Make variants priv
-#[derive(Debug)]
-pub enum Error<T, U> {
-    /// Error produced by inner service.
-    Inner(T),
+kind_error!{
+    /// Error produced by the `Router` service
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
 
-    /// Error produced during route recognition.
-    Route(U),
+        /// Error produced by inner service.
+        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        /// Error produced during route recognition.
+        Route(U) => is: is_route, into: into_route, borrow: borrow_route,
 
-    /// Request sent when not ready.
-    NotReady,
+        /// Request sent when not ready.
+        NotReady => fmt: "router not ready", is: is_not_ready, into: UNUSED, borrow: UNUSED
+    }
 }
 
 enum ResponseState<T>
@@ -161,12 +166,12 @@ where T: Recognize,
         loop {
             match self.state {
                 Dispatched(ref mut inner) => {
-                    return inner.poll()
-                        .map_err(Error::Inner);
+                    inner.poll()
+                        .map_err(ErrorKind::Inner)?;
                 }
                 Queued { ref mut service, .. } => {
                     let res = service.poll_ready()
-                        .map_err(Error::Inner);
+                        .map_err(ErrorKind::Inner);
 
                     try_ready!(res);
 
@@ -182,10 +187,10 @@ where T: Recognize,
                     self.state = Dispatched(response);
                 }
                 RouteError(err) => {
-                    return Err(Error::Route(err));
+                    Err(ErrorKind::Route(err))?;
                 }
                 NotReady => {
-                    return Err(Error::NotReady);
+                    Err(ErrorKind::NotReady)?;
                 }
                 Invalid => panic!(),
             }

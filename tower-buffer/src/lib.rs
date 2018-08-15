@@ -42,11 +42,18 @@ where T: Service,
     state: ResponseState<T::Future>,
 }
 
-/// Errors produced by `Buffer`.
-#[derive(Debug)]
-pub enum Error<T> {
-    Inner(T),
-    Closed,
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
+
+kind_error!{
+    /// Errors produced by `Buffer`.
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
+        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        Closed => fmt: "buffer closed", is: is_closed, into: UNUSED, borrow: UNUSED
+    }
 }
 
 /// Task that handles processing the buffer. This type should not be used
@@ -248,41 +255,6 @@ where T: Service,
         // All senders are dropped... the task is no longer needed
         Ok(().into())
     }
-}
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Closed => f.pad("buffer closed"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        if let Error::Inner(ref why) = *self {
-            Some(why)
-        } else {
-            None
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Inner(ref e) => e.description(),
-            Error::Closed => "buffer closed",
-        }
-    }
-
 }
 
 // ===== impl SpawnError =====

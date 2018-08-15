@@ -19,13 +19,6 @@ pub struct InFlightLimit<T> {
     state: State,
 }
 
-/// Error returned when the service has reached its limit.
-#[derive(Debug)]
-pub enum Error<T> {
-    NoCapacity,
-    Upstream(T),
-}
-
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
     inner: Option<T>,
@@ -43,6 +36,22 @@ struct Shared {
     max: usize,
     curr: AtomicUsize,
     task: AtomicTask,
+}
+
+#[macro_use]
+mod macros {
+    include! { concat!(env!("CARGO_MANIFEST_DIR"), "/../gen_errors.rs") }
+}
+
+kind_error!{
+    /// The request has been rate limited
+    ///
+    /// TODO: Consider returning the original request
+    #[derive(Debug)]
+    pub struct Error from enum ErrorKind {
+        NoCapacity => fmt: "in-flight limit exceeded", is: is_at_capacity, into: UNUSED, borrow: UNUSED,
+        Upstream(T) => is: is_upstream, into: into_upstream, borrow: borrow_upstream
+    }
 }
 
 // ===== impl InFlightLimit =====
@@ -150,11 +159,11 @@ where T: Future,
                     }
                     Err(e) => {
                         self.shared.release();
-                        Err(Error::Upstream(e))
+                        Err(ErrorKind::Upstream(e).into())
                     }
                 }
             }
-            None => Err(Error::NoCapacity),
+            None => Err(ErrorKind::NoCapacity.into()),
         };
 
         // Drop the inner future
@@ -227,40 +236,4 @@ impl Shared {
             self.task.notify();
         }
     }
-}
-
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-            Error::NoCapacity => write!(f, "in-flight limit exceeded"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        if let Error::Upstream(ref why) = *self {
-            Some(why)
-        } else {
-            None
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Upstream(_) => "upstream service error",
-            Error::NoCapacity => "in-flight limit exceeded",
-        }
-    }
-
 }
