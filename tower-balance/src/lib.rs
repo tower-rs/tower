@@ -334,7 +334,7 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
     type Error = Error<F::Error, E>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(Error::inner)
+        self.0.poll().map_err(|e| ErrorKind::Inner(e).into())
     }
 }
 

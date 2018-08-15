@@ -67,7 +67,7 @@ where S: Service,
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.inner.poll_ready()
-            .map_err(Error::Inner)
+            .map_err(|e| ErrorKind::Inner(e).into())
     }
 
     fn call(&mut self, request: Self::Request) -> Self::Future {

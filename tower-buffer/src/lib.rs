@@ -179,7 +179,7 @@ where T: Service
                     match rx.poll() {
                         Ok(Async::Ready(f)) => fut = f,
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Err(_) => Err(ErrorKind::Closed)?,
+                        Err(_) => return Err(ErrorKind::Closed.into()),
                     }
                 }
                 Poll(ref mut fut) => {
