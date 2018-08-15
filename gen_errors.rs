@@ -26,7 +26,8 @@ macro_rules! kind_error {
             fn fmt(&self, f: &mut $crate::std::fmt::Formatter) -> $crate::std::fmt::Result {
                 match self.kind {
                     $(
-                        $kind_ty::$variant$((ref e@$t))* => arm!( fmt: $kind_ty::$variant$((e@$t))*, $( $fmt, )* f ),
+                        $kind_ty::$variant$((ignore_t!(ref e $t)))* =>
+                            arm!( fmt: $kind_ty::$variant$((e@$t))*, $( $fmt, )* f ),
                     )+
                 }
 
@@ -39,7 +40,8 @@ macro_rules! kind_error {
             fn cause(&self) -> Option<&$crate::std::error::Error> {
                 match self.kind {
                    $(
-                        $kind_ty::$variant$((ref e@$t))* => arm!( cause: $kind_ty::$variant$((e@$t))* ),
+                        $kind_ty::$variant$((ignore_t!(ref e $t)))* =>
+                            arm!( cause: $kind_ty::$variant$((e@$t))* ),
                    )+
                 }
             }
@@ -55,7 +57,7 @@ macro_rules! kind_error {
             $(
                 pub fn $is(&self) -> bool {
                     match self.kind {
-                        $kind_ty::$variant$((ref _e @$t))* => true,
+                        $kind_ty::$variant$((ignore_t!(_ $t)))* => true,
                         _ => false,
                     }
                 }
@@ -78,6 +80,11 @@ macro_rules! kind_error {
             )+
         }
     };
+}
+
+macro_rules! ignore_t {
+    (ref $e:tt $t:ident) => { ref $e };
+    ($e:tt $t:ident) => { $e };
 }
 
 macro_rules! arm {
