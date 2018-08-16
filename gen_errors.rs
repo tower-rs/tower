@@ -26,8 +26,10 @@ macro_rules! kind_error {
             $(
                 $(#[$vmeta:meta])*
                 $variant:ident$(($t:ident))* =>
-                    $(fmt: $fmt:expr,)* is: $is:ident, into: $into:ident, borrow: $borrow:ident
-            ),+
+                     $(fmt: $fmt:expr,)*
+                     doc: $doc:expr,
+                     is: $is:ident, into: $into:ident, borrow: $borrow:ident,
+            )+
     }) => {
         $(#[$m])*
         pub struct $name<$($($t,)*)+> {
@@ -77,6 +79,7 @@ macro_rules! kind_error {
 
         impl<$($($t,)*)+> $name<$($($t,)*)+> {
             $(
+                #[doc="Returns `true` if the error was "] #[doc=$doc]
                 pub fn $is(&self) -> bool {
                     match self.kind {
                         $kind_ty::$variant$((ignore_t!(_ $t)))* => true,
@@ -85,6 +88,7 @@ macro_rules! kind_error {
                 }
 
                 $(
+                    #[doc="Consumes `self` and optionally returns the inner error, if it was "] #[doc=$doc]
                     pub fn $into(self) -> Option<$t> {
                         match self.kind {
                             $kind_ty::$variant(e) => Some(e),
@@ -92,6 +96,7 @@ macro_rules! kind_error {
                         }
                     }
 
+                    #[doc="Optionally borrows the inner error, if it was "] #[doc=$doc]
                     pub fn $borrow(&self) -> Option<&$t> {
                         match self.kind {
                             $kind_ty::$variant(ref e) => Some(e),
@@ -99,6 +104,7 @@ macro_rules! kind_error {
                         }
                     }
                 )*
+
             )+
         }
     };

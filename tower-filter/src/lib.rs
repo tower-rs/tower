@@ -47,14 +47,21 @@ kind_error!{
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
         /// The predicate rejected the request.
-        Rejected(T) => fmt: "rejected by predicate",
+        Rejected(T) =>
+            fmt: "rejected by predicate",
+            doc: "due to the predicate rejecting the request.",
             is: is_rejected, into: into_rejected, borrow: borrow_rejected,
 
         /// The inner service produced an error.
-        Inner(U) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        Inner(U) =>
+            doc: "returned by the inner service.",
+            is: is_inner, into: into_inner, borrow: borrow_inner,
 
         /// The service is out of capacity.
-        NoCapacity => fmt: "filter at capacity", is: is_at_capacity, into: UNUSED, borrow: UNUSED
+        NoCapacity =>
+            fmt: "filter at capacity",
+            doc: "due to the filter service being out of capacity.",
+            is: is_at_capacity, into: UNUSED, borrow: UNUSED,
     }
 }
 

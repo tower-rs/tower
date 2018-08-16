@@ -51,8 +51,13 @@ kind_error!{
     /// Errors produced by `Buffer`.
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
-        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
-        Closed => fmt: "buffer closed", is: is_closed, into: UNUSED, borrow: UNUSED
+        Inner(T) =>
+            doc: "returned by the inner service.",
+            is: is_inner, into: into_inner, borrow: borrow_inner,
+        Closed =>
+            fmt: "buffer closed",
+            doc: "caused by the buffer being closed.",
+            is: is_closed, into: UNUSED, borrow: UNUSED,
     }
 }
 

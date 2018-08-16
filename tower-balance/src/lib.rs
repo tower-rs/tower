@@ -61,9 +61,16 @@ kind_error! {
     /// Errors produced by `Balance`.
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
-        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
-        Balance(U) => is: is_balance, into: into_balance, borrow: borrow_balance,
-        NotReady => fmt: "not ready", is: is_not_ready, into: UNUSED, borrow: UNUSED
+        Inner(T) =>
+            doc: "returned by the inner service.",
+            is: is_inner, into: into_inner, borrow: borrow_inner,
+        Balance(U) =>
+            doc: "internal to the load balancer.",
+            is: is_balance, into: into_balance, borrow: borrow_balance,
+        NotReady =>
+            fmt: "not ready",
+            doc: "caused by a lack of ready endpoints.",
+            is: is_not_ready, into: UNUSED, borrow: UNUSED,
     }
 }
 

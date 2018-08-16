@@ -48,8 +48,13 @@ kind_error!{
     /// TODO: Consider returning the original request
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
-        NoCapacity => fmt: "in-flight limit exceeded", is: is_at_capacity, into: UNUSED, borrow: UNUSED,
-        Upstream(T) => is: is_upstream, into: into_upstream, borrow: borrow_upstream
+        NoCapacity =>
+            fmt: "in-flight limit exceeded",
+            doc: "because the in-flight limit was exceeded.",
+            is: is_at_capacity, into: UNUSED, borrow: UNUSED,
+        Upstream(T) =>
+            doc: "returned by the upstream service.",
+            is: is_upstream, into: into_upstream, borrow: borrow_upstream,
     }
 }
 

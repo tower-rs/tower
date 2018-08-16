@@ -39,9 +39,17 @@ mod macros {
 kind_error!{
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
-        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
-        Connect(U) => fmt: "error connecting", is: is_connect, into: into_connect, borrow: borrow_connect,
-        NotReady => fmt: "not ready", is: is_not_ready, into: UNUSED, borrow: UNUSED
+        Inner(T) =>
+            doc: "returned by the inner service.",
+            is: is_inner, into: into_inner, borrow: borrow_inner,
+        Connect(U) =>
+            fmt: "error connecting",
+            doc: "caused by an error connecting.",
+            is: is_connect, into: into_connect, borrow: borrow_connect,
+        NotReady =>
+            fmt: "not ready",
+            doc: "because the connection has yet to be established.",
+            is: is_not_ready, into: UNUSED, borrow: UNUSED,
     }
 }
 // ===== impl Reconnect =====

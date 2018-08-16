@@ -54,8 +54,13 @@ kind_error!{
     /// TODO: Consider returning the original request
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
-        RateLimit => fmt: "rate limit exceeded", is: is_rate_limit, into: UNUSED, borrow: UNUSED,
-        Upstream(T) => is: is_upstream, into: into_upstream, borrow: borrow_upstream
+        RateLimit =>
+            fmt: "rate limit exceeded",
+            doc: "because the request was rate-limited.",
+            is: is_rate_limit, into: UNUSED, borrow: UNUSED,
+        Upstream(T) =>
+            doc: "returned by the upstream service.",
+            is: is_upstream, into: into_upstream, borrow: borrow_upstream,
     }
 }
 

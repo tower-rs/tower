@@ -71,12 +71,19 @@ kind_error!{
     pub struct Error from enum ErrorKind {
 
         /// Error produced by inner service.
-        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        Inner(T) =>
+            doc: "returned by the inner service.",
+            is: is_inner, into: into_inner, borrow: borrow_inner,
         /// Error produced during route recognition.
-        Route(U) => is: is_route, into: into_route, borrow: borrow_route,
+        Route(U) =>
+            doc: "caused by an error during route recognition.",
+            is: is_route_error, into: into_route_error, borrow: borrow_route_error,
 
         /// Request sent when not ready.
-        NotReady => fmt: "router not ready", is: is_not_ready, into: UNUSED, borrow: UNUSED
+        NotReady =>
+            fmt: "router not ready",
+            doc: "because the router was not ready.",
+            is: is_not_ready, into: UNUSED, borrow: UNUSED,
     }
 }
 

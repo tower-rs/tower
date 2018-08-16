@@ -32,9 +32,14 @@ kind_error!{
     #[derive(Debug)]
     pub struct Error from enum ErrorKind {
         /// The inner service produced an error
-        Inner(T) => is: is_inner, into: into_inner, borrow: borrow_inner,
+        Inner(T) =>
+            doc: "returned by the inner service",
+            is: is_inner, into: into_inner, borrow: borrow_inner,
         /// The request did not complete within the specified timeout.
-        Timeout => fmt: "request timed out", is: is_timeout, into: UNUSED, borrow: UNUSED
+        Timeout =>
+            fmt: "request timed out",
+            doc: "because the request did not complete within the specified timeout.",
+            is: is_timeout, into: UNUSED, borrow: UNUSED,
     }
 }
 
