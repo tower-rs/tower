@@ -1,3 +1,25 @@
+/// Generates public error structs internally represented by a private
+/// ErrorKind enum, with `is_$variant`, `into_$variant`, and `borrow_$variant`
+/// methods for each variant as appropriate.
+///
+/// # Usage
+///
+/// New error types are defined as follows:
+///
+/// ```rust,ignore
+/// kind_error! {
+///     pub struct $STRUCT_NAME from enum $ENUM_NAME {
+///         // ...
+///     }
+/// }
+/// ```
+/// where `$STRUCT_NAME` is the name of the public error struct, and
+/// `$ENUM_NAME` is the name of the private error kind enum.
+///
+/// Any number of attributes (including doc comments) can be placed before
+/// the `pub struct`, and they will be added to both the generated struct
+/// and the generated enum.
+///
 #[macro_use]
 macro_rules! kind_error {
     ($(#[$m:meta])* pub struct $name:ident from enum $kind_ty:ident {
