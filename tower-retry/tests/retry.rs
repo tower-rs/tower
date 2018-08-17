@@ -3,13 +3,13 @@ extern crate tower_mock;
 extern crate tower_retry;
 extern crate tower_service;
 
-use futures::Future;
+use futures::{future, Future};
 use tower_retry::Policy;
 use tower_service::Service;
 
 #[test]
-fn retry_1() {
-    let (mut service, mut handle) = new_service(AlwaysRetry);
+fn retry_errors() {
+    let (mut service, mut handle) = new_service(RetryErrors);
 
     let mut fut = service.call("hello");
 
@@ -28,7 +28,7 @@ fn retry_1() {
 
 #[test]
 fn retry_limit() {
-    let (mut service, mut handle) = new_service(Limit(3));
+    let (mut service, mut handle) = new_service(Limit(2));
 
     let mut fut = service.call("hello");
 
@@ -53,7 +53,7 @@ fn retry_limit() {
 
 #[test]
 fn retry_error_inspection() {
-    let (mut service, mut handle) = new_service(Reject("reject"));
+    let (mut service, mut handle) = new_service(UnlessErr("reject"));
 
     let mut fut = service.call("hello");
 
@@ -105,11 +105,16 @@ type Mock = tower_mock::Mock<Req, Res, InnerError>;
 type Handle = tower_mock::Handle<Req, Res, InnerError>;
 
 #[derive(Clone)]
-struct AlwaysRetry;
+struct RetryErrors;
 
-impl Policy<Req, Error> for AlwaysRetry {
-    fn retry(&self, _err: Error, _attempt: usize) -> Result<(), Error> {
-        Ok(())
+impl Policy<Req, Res, Error> for RetryErrors {
+    type Future = future::FutureResult<Self, ()>;
+    fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
+        if result.is_err() {
+            Some(future::ok(RetryErrors))
+        } else {
+            None
+        }
     }
 
     fn clone_request(&self, req: &Req) -> Option<Req> {
@@ -120,12 +125,13 @@ impl Policy<Req, Error> for AlwaysRetry {
 #[derive(Clone)]
 struct Limit(usize);
 
-impl Policy<Req, Error> for Limit {
-    fn retry(&self, err: Error, attempt: usize) -> Result<(), Error> {
-        if attempt < self.0 {
-            Ok(())
+impl Policy<Req, Res, Error> for Limit {
+    type Future = future::FutureResult<Self, ()>;
+    fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
+        if result.is_err() && self.0 > 0 {
+            Some(future::ok(Limit(self.0 - 1)))
         } else {
-            Err(err)
+            None
         }
     }
 
@@ -135,15 +141,21 @@ impl Policy<Req, Error> for Limit {
 }
 
 #[derive(Clone)]
-struct Reject(InnerError);
+struct UnlessErr(InnerError);
 
-impl Policy<Req, Error> for Reject {
-    fn retry(&self, err: Error, _attempt: usize) -> Result<(), Error> {
-        if err != tower_mock::Error::Other(self.0) {
-            Ok(())
-        } else {
-            Err(err)
-        }
+impl Policy<Req, Res, Error> for UnlessErr {
+    type Future = future::FutureResult<Self, ()>;
+    fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
+        result
+            .err()
+            .and_then(|err| {
+                if err != &tower_mock::Error::Other(self.0) {
+                    Some(future::ok(self.clone()))
+                } else {
+                    None
+                }
+            })
+
     }
 
     fn clone_request(&self, req: &Req) -> Option<Req> {
@@ -154,9 +166,10 @@ impl Policy<Req, Error> for Reject {
 #[derive(Clone)]
 struct CannotClone;
 
-impl Policy<Req, Error> for CannotClone {
-    fn retry(&self, _err: Error, _attempt: usize) -> Result<(), Error> {
-        Ok(())
+impl Policy<Req, Res, Error> for CannotClone {
+    type Future = future::FutureResult<Self, ()>;
+    fn retry(&self, _: &Req, _: Result<&Res, &Error>) -> Option<Self::Future> {
+        unreachable!("retry cannot be called since request isn't cloned");
     }
 
     fn clone_request(&self, _req: &Req) -> Option<Req> {
@@ -164,7 +177,7 @@ impl Policy<Req, Error> for CannotClone {
     }
 }
 
-fn new_service<P: Policy<Req, Error> + Clone>(policy: P) -> (tower_retry::Retry<P, Mock>, Handle) {
+fn new_service<P: Policy<Req, Res, Error> + Clone>(policy: P) -> (tower_retry::Retry<P, Mock>, Handle) {
     let (service, handle) = Mock::new();
     let service = tower_retry::Retry::new(policy, service);
     (service, handle)
