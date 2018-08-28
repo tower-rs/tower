@@ -49,7 +49,7 @@ pub struct ResponseFuture<T, E> {
 }
 
 /// Enumeration of errors that can be returned by `Mock`.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error<T> {
     Closed,
     NoCapacity,
@@ -165,7 +165,7 @@ impl<T, U, E> Service for Mock<T, U, E> {
             respond: Respond { tx },
         };
 
-        match self.tx.lock().unwrap().unbounded_send((request)) {
+        match self.tx.lock().unwrap().unbounded_send(request) {
             Ok(_) => {}
             Err(_) => {
                 // TODO: Can this be reached

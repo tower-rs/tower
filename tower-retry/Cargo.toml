@@ -1,0 +1,12 @@
+[package]
+name = "tower-retry"
+version = "0.1.0"
+authors = ["Sean McArthur <sean@seanmonstar.com>"]
+publish = false
+
+[dependencies]
+futures = "0.1"
+tower-service = { version = "0.1", path = "../tower-service" }
+
+[dev-dependencies]
+tower-mock = { version = "0.1", path = "../tower-mock" }

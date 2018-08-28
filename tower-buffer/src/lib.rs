@@ -27,7 +27,6 @@ use std::sync::atomic::Ordering;
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
-#[derive(Clone)]
 pub struct Buffer<T>
 where T: Service,
 {
@@ -150,6 +149,17 @@ where T: Service,
         }
 
         ResponseFuture { state: ResponseState::Rx(rx) }
+    }
+}
+
+impl<T> Clone for Buffer<T>
+where T: Service
+{
+    fn clone(&self) -> Self {
+        Self {
+            tx: self.tx.clone(),
+            state: self.state.clone(),
+        }
     }
 }
 
