@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 futures = "0.1"
 tower-service = { version = "0.1", path = "../tower-service" }
-tokio-timer = "0.2"
+tokio-timer = "0.2.6"
 
 [dev-dependencies]
 tower-mock = { version = "0.1", path = "../tower-mock" }

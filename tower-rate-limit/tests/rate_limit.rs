@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 #[test]
 fn reaching_capacity() {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
     rt.block_on(future::lazy(|| {
         let (mut service, mut handle) =
             new_service(Rate::new(1, from_millis(100)));

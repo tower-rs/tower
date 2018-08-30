@@ -10,7 +10,7 @@ extern crate tokio_timer;
 
 use futures::{Future, Poll};
 use tower_service::Service;
-use tokio_timer::{timer, Delay};
+use tokio_timer::Delay;
 
 use std::{error, fmt};
 use std::time::{Duration, Instant};
@@ -141,7 +141,7 @@ where S: Service
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
-                    let sleep = timer::Handle::current().delay(until);
+                    let sleep = Delay::new(until);
                     self.state = State::Limited(sleep);
                 }
 
