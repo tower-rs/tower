@@ -10,7 +10,7 @@ extern crate tokio_timer;
 
 use futures::{Future, Poll};
 use tower_service::Service;
-use tokio_timer::{Timer, Sleep};
+use tokio_timer::{timer, Delay};
 
 use std::{error, fmt};
 use std::time::{Duration, Instant};
@@ -18,7 +18,6 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct RateLimit<T> {
     inner: T,
-    timer: Timer,
     rate: Rate,
     state: State,
 }
@@ -45,7 +44,7 @@ pub struct ResponseFuture<T> {
 #[derive(Debug)]
 enum State {
     // The service has hit its limit
-    Limited(Sleep),
+    Limited(Delay),
     Ready {
         until: Instant,
         rem: u64,
@@ -54,7 +53,7 @@ enum State {
 
 impl<T> RateLimit<T> {
     /// Create a new rate limiter
-    pub fn new(inner: T, rate: Rate, timer: Timer) -> Self {
+    pub fn new(inner: T, rate: Rate) -> Self {
         let state = State::Ready {
             until: Instant::now(),
             rem: rate.num,
@@ -63,7 +62,6 @@ impl<T> RateLimit<T> {
         RateLimit {
             inner,
             rate,
-            timer,
             state: state,
         }
     }
@@ -143,7 +141,7 @@ where S: Service
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
-                    let sleep = self.timer.sleep(until - now);
+                    let sleep = timer::Handle::current().delay(until);
                     self.state = State::Limited(sleep);
                 }
 
