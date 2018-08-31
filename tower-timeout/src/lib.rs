@@ -9,7 +9,7 @@ extern crate tokio_timer;
 
 use futures::{Future, Poll, Async};
 use tower_service::Service;
-use tokio_timer::{Timer, Sleep};
+use tokio_timer::{clock, Delay};
 
 use std::{error, fmt};
 use std::time::Duration;
@@ -18,7 +18,6 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Timeout<T> {
     inner: T,
-    timer: Timer,
     timeout: Duration,
 }
 
@@ -36,16 +35,15 @@ pub enum Error<T> {
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
     response: T,
-    sleep: Sleep,
+    sleep: Delay,
 }
 
 // ===== impl Timeout =====
 
 impl<T> Timeout<T> {
-    pub fn new(inner: T, timer: Timer, timeout: Duration) -> Self {
+    pub fn new(inner: T, timeout: Duration) -> Self {
         Timeout {
             inner,
-            timer,
             timeout,
         }
     }
@@ -67,7 +65,7 @@ where S: Service,
     fn call(&mut self, request: Self::Request) -> Self::Future {
         ResponseFuture {
             response: self.inner.call(request),
-            sleep: self.timer.sleep(self.timeout),
+            sleep: Delay::new(clock::now() + self.timeout),
         }
     }
 }
