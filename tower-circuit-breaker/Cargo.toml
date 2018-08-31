@@ -1,0 +1,15 @@
+[package]
+name = "tower-circuit-breaker"
+version = "0.1.0"
+authors = ["Dmitry Galinsky <dima.exe@gmail.com>"]
+publish = false
+
+[dependencies]
+futures = "0.1"
+tower-service = { version = "0.1", path = "../tower-service" }
+tokio-timer = "0.2.6"
+rand = "0.5.5"
+
+[dev-dependencies]
+tokio-executor = "0.1"
+

@@ -15,6 +15,7 @@ members = [
   "tower-timeout",
   "tower-util",
   "tower-watch",
+  "tower-circuit-breaker"
 ]
 
 [dev-dependencies]
