@@ -3,12 +3,14 @@
 extern crate futures;
 extern crate tower_service;
 
-pub mod either;
-pub mod option;
 pub mod boxed;
+pub mod either;
+pub mod ext;
+pub mod option;
 mod service_fn;
 
 pub use boxed::BoxService;
 pub use either::EitherService;
-pub use service_fn::{NewServiceFn};
+pub use ext::ServiceExt;
 pub use option::OptionService;
+pub use service_fn::NewServiceFn;
