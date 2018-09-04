@@ -13,8 +13,7 @@ pub struct Then<A, B> {
 impl<A, B> Then<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = Result<A::Response, A::Error>> + Clone,
+    B: Service<Request = Result<A::Response, A::Error>, Error = A::Error> + Clone,
 {
     /// Create new `Then` combinator
     pub fn new(a: A, b: B) -> Then<A, B> {
@@ -25,8 +24,7 @@ where
 impl<A, B> Service for Then<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = Result<A::Response, A::Error>> + Clone,
+    B: Service<Request = Result<A::Response, A::Error>, Error = A::Error> + Clone,
 {
     type Request = A::Request;
     type Response = B::Response;
@@ -34,11 +32,8 @@ where
     type Future = ThenFuture<A, B>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        match self.a.poll_ready() {
-            Ok(Async::Ready(_)) => self.b.poll_ready(),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(err) => Err(err.into()),
-        }
+        let _ = try_ready!(self.a.poll_ready());
+        self.b.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {

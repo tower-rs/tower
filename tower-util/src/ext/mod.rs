@@ -56,9 +56,8 @@ pub trait ServiceExt: Service {
     fn then<B, U>(self, service: U) -> Then<Self, B>
     where
         Self: Sized,
-        Self::Error: Into<B::Error>,
         U: Into<B>,
-        B: Service<Request = Result<Self::Response, Self::Error>> + Clone,
+        B: Service<Request = Result<Self::Response, Self::Error>, Error = Self::Error> + Clone,
     {
         Then::new(self, service.into())
     }

@@ -74,9 +74,7 @@ where
     type Error = T::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.fut.poll()? {
-            Async::Ready(resp) => Ok(Async::Ready((self.f)(resp))),
-            Async::NotReady => Ok(Async::NotReady),
-        }
+        let resp = try_ready!(self.fut.poll());
+        Ok(Async::Ready((self.f)(resp)))
     }
 }

@@ -1,4 +1,4 @@
-use futures::{Async, Future, Poll};
+use futures::{Future, Poll};
 use tower_service::Service;
 
 /// Service for the `and_then` combinator, chaining a computation onto the end of
@@ -13,8 +13,7 @@ pub struct AndThen<A, B> {
 impl<A, B> AndThen<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = A::Response> + Clone,
+    B: Service<Request = A::Response, Error = A::Error> + Clone,
 {
     /// Create new `AndThen` combinator
     pub fn new(a: A, b: B) -> AndThen<A, B> {
@@ -25,8 +24,7 @@ where
 impl<A, B> Service for AndThen<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = A::Response> + Clone,
+    B: Service<Request = A::Response, Error = A::Error> + Clone,
 {
     type Request = A::Request;
     type Response = B::Response;
@@ -34,11 +32,8 @@ where
     type Future = AndThenFuture<A, B>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        match self.a.poll_ready() {
-            Ok(Async::Ready(_)) => self.b.poll_ready(),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(err) => Err(err.into()),
-        }
+        let _ = try_ready!(self.a.poll_ready());
+        self.b.poll_ready()
     }
 
     fn call(&mut self, req: Self::Request) -> Self::Future {
@@ -49,8 +44,7 @@ where
 pub struct AndThenFuture<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = A::Response>,
+    B: Service<Request = A::Response, Error = A::Error>,
 {
     b: B,
     fut_b: Option<B::Future>,
@@ -60,8 +54,7 @@ where
 impl<A, B> AndThenFuture<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = A::Response>,
+    B: Service<Request = A::Response, Error = A::Error>,
 {
     fn new(fut_a: A::Future, b: B) -> Self {
         AndThenFuture {
@@ -75,8 +68,7 @@ where
 impl<A, B> Future for AndThenFuture<A, B>
 where
     A: Service,
-    A::Error: Into<B::Error>,
-    B: Service<Request = A::Response>,
+    B: Service<Request = A::Response, Error = A::Error>,
 {
     type Item = B::Response;
     type Error = B::Error;
@@ -86,13 +78,8 @@ where
             return fut.poll();
         }
 
-        match self.fut_a.poll() {
-            Ok(Async::Ready(resp)) => {
-                self.fut_b = Some(self.b.call(resp));
-                self.poll()
-            }
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(err) => Err(err.into()),
-        }
+        let resp = try_ready!(self.fut_a.poll());
+        self.fut_b = Some(self.b.call(resp));
+        self.poll()
     }
 }

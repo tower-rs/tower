@@ -1,5 +1,6 @@
 //! Various utility types and functions that are generally with Tower.
 
+#[macro_use]
 extern crate futures;
 extern crate tower_service;
 
