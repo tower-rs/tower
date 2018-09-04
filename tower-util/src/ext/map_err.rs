@@ -1,15 +1,16 @@
-use std::marker::PhantomData;
-
 use futures::{Future, Poll};
 use tower_service::Service;
 
 /// Service for the `map_err` combinator, changing the type of a service's error.
 ///
 /// This is created by the `ServiceExt::map_err` method.
-pub struct MapErr<T, F, E> {
+pub struct MapErr<T, F, E>
+where
+    T: Service,
+    F: Fn(T::Error) -> E + Clone,
+{
     service: T,
     f: F,
-    e: PhantomData<E>,
 }
 
 impl<T, F, E> MapErr<T, F, E>
@@ -19,11 +20,7 @@ where
 {
     /// Create new `MapErr` combinator
     pub fn new(service: T, f: F) -> Self {
-        MapErr {
-            service,
-            f,
-            e: PhantomData,
-        }
+        MapErr { service, f }
     }
 }
 
