@@ -5,12 +5,14 @@ use tower_service::Service;
 
 mod and_then;
 mod apply;
+mod from_err;
 mod map;
 mod map_err;
 mod then;
 
 pub use self::and_then::AndThen;
 pub use self::apply::Apply;
+pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;
 pub use self::then::Then;
@@ -46,6 +48,19 @@ pub trait ServiceExt: Service {
         B: Service<Request = Self::Response, Error = Self::Error> + Clone,
     {
         AndThen::new(self, service.into())
+    }
+
+    /// Map this service's error to any error implementing `From` for
+    /// this service`s `Error`.
+    ///
+    /// Note that this function consumes the receiving service and returns a
+    /// wrapped version of it.
+    fn from_err<E>(self) -> FromErr<Self, E>
+    where
+        Self: Sized,
+        E: From<Self::Error>,
+    {
+        FromErr::new(self)
     }
 
     /// Chain on a computation for when a call to the service finished,
