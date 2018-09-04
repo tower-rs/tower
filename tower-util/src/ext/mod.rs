@@ -1,6 +1,6 @@
 //! Combinators for working with `Service`s
 
-use futures::{Future, IntoFuture};
+use futures::IntoFuture;
 use tower_service::Service;
 
 mod and_then;
@@ -25,9 +25,8 @@ pub trait ServiceExt: Service {
     fn apply<F, R, Req>(self, f: F) -> Apply<Self, F, R, Req>
     where
         Self: Clone + Sized,
-        Self::Error: Into<<R::Future as Future>::Error>,
         F: Fn(Req, Self) -> R,
-        R: IntoFuture,
+        R: IntoFuture<Error=Self::Error>,
     {
         Apply::new(f, self)
     }
