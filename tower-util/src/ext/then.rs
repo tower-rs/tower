@@ -21,6 +21,19 @@ where
     }
 }
 
+impl<A, B> Clone for Then<A, B>
+where
+    A: Service + Clone,
+    B: Service + Clone,
+{
+    fn clone(&self) -> Self {
+        Then {
+            a: self.a.clone(),
+            b: self.b.clone(),
+        }
+    }
+}
+
 impl<A, B> Service for Then<A, B>
 where
     A: Service,

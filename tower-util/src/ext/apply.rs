@@ -27,6 +27,21 @@ where
     }
 }
 
+impl<T, F, R, Req> Clone for Apply<T, F, R, Req>
+where
+    T: Service<Error=R::Error> + Clone,
+    F: Fn(Req, T) -> R + Clone,
+    R: IntoFuture,
+{
+    fn clone(&self) -> Self {
+        Apply {
+            service: self.service.clone(),
+            f: self.f.clone(),
+            _r: PhantomData,
+        }
+    }
+}
+
 impl<T, F, R, Req> Service for Apply<T, F, R, Req>
 where
     T: Service<Error=R::Error> + Clone,

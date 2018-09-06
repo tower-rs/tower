@@ -21,6 +21,19 @@ where
     }
 }
 
+impl<A, B> Clone for AndThen<A, B>
+where
+    A: Service + Clone,
+    B: Service<Request = A::Response, Error = A::Error> + Clone,
+{
+    fn clone(&self) -> Self {
+        AndThen {
+            a: self.a.clone(),
+            b: self.b.clone(),
+        }
+    }
+}
+
 impl<A, B> Service for AndThen<A, B>
 where
     A: Service,

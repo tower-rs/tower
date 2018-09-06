@@ -1,15 +1,16 @@
-use std::marker::PhantomData;
-
 use futures::{Async, Future, Poll};
 use tower_service::Service;
 
 /// Service for the `map` combinator, changing the type of a service's response.
 ///
 /// This is created by the `ServiceExt::map` method.
-pub struct Map<T, F, R> {
+pub struct Map<T, F, R>
+where
+    T: Service,
+    F: Fn(T::Response) -> R + Clone,
+{
     service: T,
     f: F,
-    r: PhantomData<R>,
 }
 
 impl<T, F, R> Map<T, F, R>
@@ -22,7 +23,19 @@ where
         Map {
             service,
             f,
-            r: PhantomData,
+        }
+    }
+}
+
+impl<T, F, R> Clone for Map<T, F, R>
+where
+    T: Service + Clone,
+    F: Fn(T::Response) -> R + Clone,
+{
+    fn clone(&self) -> Self {
+        Map {
+            service: self.service.clone(),
+            f: self.f.clone(),
         }
     }
 }

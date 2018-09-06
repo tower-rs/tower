@@ -11,14 +11,26 @@ where
     A: Service,
 {
     service: A,
-    f: PhantomData<E>,
+    _e: PhantomData<E>,
 }
 
 impl<A: Service, E: From<A::Error>> FromErr<A, E> {
     pub(crate) fn new(service: A) -> Self {
         FromErr {
             service,
-            f: PhantomData,
+            _e: PhantomData,
+        }
+    }
+}
+
+impl<A, E> Clone for FromErr<A, E>
+where
+    A: Service + Clone,
+{
+    fn clone(&self) -> Self {
+        FromErr {
+            service: self.service.clone(),
+            _e: PhantomData,
         }
     }
 }
