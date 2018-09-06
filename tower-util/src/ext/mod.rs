@@ -40,13 +40,12 @@ pub trait ServiceExt: Service {
     ///
     /// Note that this function consumes the receiving service and returns a
     /// wrapped version of it.
-    fn and_then<B, U>(self, service: U) -> AndThen<Self, B>
+    fn and_then<B>(self, service: B) -> AndThen<Self, B>
     where
         Self: Sized,
-        U: Into<B>,
         B: Service<Request = Self::Response, Error = Self::Error> + Clone,
     {
-        AndThen::new(self, service.into())
+        AndThen::new(self, service)
     }
 
     /// Map this service's error to any error implementing `From` for
@@ -67,13 +66,12 @@ pub trait ServiceExt: Service {
     ///
     /// Note that this function consumes the receiving future and returns a
     /// wrapped version of it.
-    fn then<B, U>(self, service: U) -> Then<Self, B>
+    fn then<B>(self, service: B) -> Then<Self, B>
     where
         Self: Sized,
-        U: Into<B>,
         B: Service<Request = Result<Self::Response, Self::Error>, Error = Self::Error> + Clone,
     {
-        Then::new(self, service.into())
+        Then::new(self, service)
     }
 
     /// Map this service's output to a different type, returning a new service of
