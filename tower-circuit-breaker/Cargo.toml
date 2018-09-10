@@ -9,6 +9,7 @@ futures = "0.1"
 tower-service = { version = "0.1", path = "../tower-service" }
 tokio-timer = "0.2.6"
 rand = "0.5.5"
+spin = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 tokio-executor = "0.1"

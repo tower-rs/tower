@@ -1,8 +1,8 @@
-use std::time::{Instant, Duration};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
-use tokio_timer::clock::{self, Now};
 use tokio_executor::enter;
+use tokio_timer::clock::{self, Now};
 
 #[derive(Clone, Debug)]
 pub struct MockClock(pub(crate) Arc<Mutex<Instant>>);
@@ -27,7 +27,7 @@ impl MockClock {
 
 pub fn freeze<F, R>(f: F) -> R
 where
-    F: FnOnce(MockClock) -> R
+    F: FnOnce(MockClock) -> R,
 {
     let mock = MockClock::now();
     let clock = clock::Clock::new_with_now(mock.clone());
