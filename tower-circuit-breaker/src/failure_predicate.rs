@@ -1,15 +1,15 @@
 /// Evaluates if an error should be recorded as a failure and thus increase the failure rate.
-pub trait FailurePredicate<ERROR> {
+pub trait FailurePredicate<E> {
     /// Must return `true` if the error should count as a failure, otherwise it must return `false`.
-    fn is_err(&self, err: &ERROR) -> bool;
+    fn is_err(&self, err: &E) -> bool;
 }
 
-impl<F, ERROR> FailurePredicate<ERROR> for F
+impl<F, E> FailurePredicate<E> for F
 where
-    F: Fn(&ERROR) -> bool,
+    F: Fn(&E) -> bool,
 {
     #[inline]
-    fn is_err(&self, err: &ERROR) -> bool {
+    fn is_err(&self, err: &E) -> bool {
         self(err)
     }
 }
@@ -17,9 +17,9 @@ where
 #[derive(Debug, Copy, Clone)]
 pub struct Any;
 
-impl<ERROR> FailurePredicate<ERROR> for Any {
+impl<E> FailurePredicate<E> for Any {
     #[inline]
-    fn is_err(&self, _err: &ERROR) -> bool {
+    fn is_err(&self, _err: &E) -> bool {
         true
     }
 }

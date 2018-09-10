@@ -63,14 +63,14 @@ pub trait FailurePolicy {
 /// # Panics
 ///
 /// When `required_success_rate` isn't in `[0.0, 0.1]` interval.
-pub fn success_rate_over_time_window<BACKOFF>(
+pub fn success_rate_over_time_window<B>(
     required_success_rate: f64,
     min_request_threshold: u32,
     window: Duration,
-    backoff: BACKOFF,
-) -> SuccessRateOverTimeWindow<BACKOFF>
+    backoff: B,
+) -> SuccessRateOverTimeWindow<B>
 where
-    BACKOFF: Iterator<Item = Duration> + Clone,
+    B: Iterator<Item = Duration> + Clone,
 {
     assert!(
         required_success_rate >= 0.0 && required_success_rate <= 1.0,
@@ -100,12 +100,9 @@ where
 /// * `num_failures` - number of consecutive failures.
 /// * `backoff` - stream of durations to use for the next duration
 ///   returned from `mark_dead_on_failure`
-pub fn consecutive_failures<BACKOFF>(
-    num_failures: u32,
-    backoff: BACKOFF,
-) -> ConsecutiveFailures<BACKOFF>
+pub fn consecutive_failures<B>(num_failures: u32, backoff: B) -> ConsecutiveFailures<B>
 where
-    BACKOFF: Iterator<Item = Duration> + Clone,
+    B: Iterator<Item = Duration> + Clone,
 {
     ConsecutiveFailures {
         num_failures,
@@ -139,20 +136,20 @@ impl Default for ConsecutiveFailures<backoff::EqualJittered> {
 /// rate over a time window. A moving average is used so the success rate
 /// calculation is biased towards more recent requests.
 #[derive(Debug)]
-pub struct SuccessRateOverTimeWindow<BACKOFF> {
+pub struct SuccessRateOverTimeWindow<B> {
     required_success_rate: f64,
     min_request_threshold: u32,
     ema: Ema,
     now: Instant,
     window_millis: u64,
-    backoff: BACKOFF,
-    fresh_backoff: BACKOFF,
+    backoff: B,
+    fresh_backoff: B,
     request_counter: WindowedAdder,
 }
 
-impl<BACKOFF> SuccessRateOverTimeWindow<BACKOFF>
+impl<B> SuccessRateOverTimeWindow<B>
 where
-    BACKOFF: Clone,
+    B: Clone,
 {
     /// Returns seconds since instance was created.
     fn elapsed_millis(&self) -> u64 {
@@ -169,9 +166,9 @@ where
     }
 }
 
-impl<BACKOFF> FailurePolicy for SuccessRateOverTimeWindow<BACKOFF>
+impl<B> FailurePolicy for SuccessRateOverTimeWindow<B>
 where
-    BACKOFF: Iterator<Item = Duration> + Clone,
+    B: Iterator<Item = Duration> + Clone,
 {
     #[inline]
     fn record_success(&mut self) {
@@ -206,16 +203,16 @@ where
 
 /// A policy based on a maximum number of consecutive failure
 #[derive(Debug)]
-pub struct ConsecutiveFailures<BACKOFF> {
+pub struct ConsecutiveFailures<B> {
     num_failures: u32,
     consecutive_failures: u32,
-    backoff: BACKOFF,
-    fresh_backoff: BACKOFF,
+    backoff: B,
+    fresh_backoff: B,
 }
 
-impl<BACKOFF> FailurePolicy for ConsecutiveFailures<BACKOFF>
+impl<B> FailurePolicy for ConsecutiveFailures<B>
 where
-    BACKOFF: Iterator<Item = Duration> + Clone,
+    B: Iterator<Item = Duration> + Clone,
 {
     #[inline]
     fn record_success(&mut self) {
@@ -243,15 +240,15 @@ where
 
 /// A combinator used for join two policies into new one.
 #[derive(Debug)]
-pub struct OrElse<LEFT, RIGHT> {
-    left: LEFT,
-    right: RIGHT,
+pub struct OrElse<L, R> {
+    left: L,
+    right: R,
 }
 
-impl<LEFT, RIGHT> FailurePolicy for OrElse<LEFT, RIGHT>
+impl<L, R> FailurePolicy for OrElse<L, R>
 where
-    LEFT: FailurePolicy,
-    RIGHT: FailurePolicy,
+    L: FailurePolicy,
+    R: FailurePolicy,
 {
     #[inline]
     fn record_success(&mut self) {

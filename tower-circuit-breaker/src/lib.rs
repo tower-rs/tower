@@ -1,16 +1,17 @@
-#![deny(missing_debug_implementations)]
 //#![cfg_attr(test, deny(warnings))]
 
 extern crate futures;
 extern crate rand;
 extern crate spin;
 extern crate tokio_timer;
+extern crate tower_service;
 
 #[cfg(test)]
 extern crate tokio_executor;
 
 mod ema;
 mod instrument;
+mod service;
 mod state_machine;
 mod windowed_adder;
 
@@ -28,3 +29,4 @@ pub use failure_policy::{
 };
 pub use instrument::Instrument;
 pub use state_machine::StateMachine;
+pub use service::{CircuitBreakerService, Error, ResponseFuture};

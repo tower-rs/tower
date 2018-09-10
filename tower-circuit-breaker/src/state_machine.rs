@@ -1,5 +1,4 @@
 use std::fmt::{self, Debug};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use spin::Mutex;
@@ -25,14 +24,9 @@ enum State {
     HalfOpen(Duration),
 }
 
-struct Shared<POLICY> {
+struct Shared<P> {
     state: State,
-    failure_policy: POLICY,
-}
-
-struct Inner<POLICY, INSTRUMENT> {
-    shared: Mutex<Shared<POLICY>>,
-    instrument: INSTRUMENT,
+    failure_policy: P,
 }
 
 /// A circuit breaker implementation backed by state machine.
@@ -50,8 +44,9 @@ struct Inner<POLICY, INSTRUMENT> {
 /// calls to see if the backend is still unavailable or has become available again. If the circuit
 /// breaker receives a failure on the next call, the state will change back to `Open`. Otherwise
 /// it changes to `Closed`.
-pub struct StateMachine<POLICY, INSTRUMENT> {
-    inner: Arc<Inner<POLICY, INSTRUMENT>>,
+pub struct StateMachine<P, I> {
+    shared: Mutex<Shared<P>>,
+    instrument: I,
 }
 
 impl State {
@@ -66,26 +61,18 @@ impl State {
     }
 }
 
-impl<POLICY, INSTRUMENT> Debug for StateMachine<POLICY, INSTRUMENT> {
+impl<P, I> Debug for StateMachine<P, I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let shared = self.inner.shared.lock();
+        let shared = self.shared.lock();
         f.debug_struct("StateMachine")
             .field("state", &(shared.state.as_str()))
             .finish()
     }
 }
 
-impl<POLICY, INSTRUMENT> Clone for StateMachine<POLICY, INSTRUMENT> {
-    fn clone(&self) -> Self {
-        StateMachine {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl<POLICY> Shared<POLICY>
+impl<P> Shared<P>
 where
-    POLICY: FailurePolicy,
+    P: FailurePolicy,
 {
     #[inline]
     fn transit_to_closed(&mut self) {
@@ -105,23 +92,21 @@ where
     }
 }
 
-impl<POLICY, INSTRUMENT> StateMachine<POLICY, INSTRUMENT>
+impl<P, I> StateMachine<P, I>
 where
-    POLICY: FailurePolicy,
-    INSTRUMENT: Instrument,
+    P: FailurePolicy,
+    I: Instrument,
 {
     /// Creates a new state machine with given failure policy and instrument.
-    pub fn new(failure_policy: POLICY, instrument: INSTRUMENT) -> Self {
+    pub fn new(failure_policy: P, instrument: I) -> Self {
         instrument.on_closed();
 
         StateMachine {
-            inner: Arc::new(Inner {
-                shared: Mutex::new(Shared {
-                    state: State::Closed,
-                    failure_policy,
-                }),
-                instrument,
+            shared: Mutex::new(Shared {
+                state: State::Closed,
+                failure_policy,
             }),
+            instrument,
         }
     }
 
@@ -132,7 +117,7 @@ where
         let mut instrument: u8 = 0;
 
         let res = {
-            let mut shared = self.inner.shared.lock();
+            let mut shared = self.shared.lock();
 
             match shared.state {
                 State::Closed => true,
@@ -151,11 +136,11 @@ where
         };
 
         if instrument & ON_HALF_OPEN != 0 {
-            self.inner.instrument.on_half_open();
+            self.instrument.on_half_open();
         }
 
         if instrument & ON_REJECTED != 0 {
-            self.inner.instrument.on_call_rejected();
+            self.instrument.on_call_rejected();
         }
 
         res
@@ -167,7 +152,7 @@ where
     pub fn on_success(&self) {
         let mut instrument: u8 = 0;
         {
-            let mut shared = self.inner.shared.lock();
+            let mut shared = self.shared.lock();
             if let State::HalfOpen(_) = shared.state {
                 shared.transit_to_closed();
                 instrument |= ON_CLOSED;
@@ -176,7 +161,7 @@ where
         }
 
         if instrument & ON_CLOSED != 0 {
-            self.inner.instrument.on_closed();
+            self.instrument.on_closed();
         }
     }
 
@@ -186,7 +171,7 @@ where
     pub fn on_error(&self) {
         let mut instrument: u8 = 0;
         {
-            let mut shared = self.inner.shared.lock();
+            let mut shared = self.shared.lock();
             match shared.state {
                 State::Closed => {
                     if let Some(delay) = shared.failure_policy.mark_dead_on_failure() {
@@ -209,7 +194,7 @@ where
         }
 
         if instrument & ON_OPEN != 0 {
-            self.inner.instrument.on_open();
+            self.instrument.on_open();
         }
     }
 }
