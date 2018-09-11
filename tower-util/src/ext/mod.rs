@@ -26,7 +26,7 @@ pub trait ServiceExt: Service {
     where
         Self: Clone + Sized,
         F: Fn(Req, Self) -> R,
-        R: IntoFuture<Error=Self::Error>,
+        R: IntoFuture<Error = Self::Error>,
     {
         Apply::new(f, self)
     }

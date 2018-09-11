@@ -87,3 +87,44 @@ where
         self.fut.poll().map_err(&self.f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::future::{err, FutureResult};
+
+    use super::*;
+    use ServiceExt;
+
+    struct Srv;
+
+    impl Service for Srv {
+        type Request = ();
+        type Response = ();
+        type Error = ();
+        type Future = FutureResult<(), ()>;
+
+        fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+            Err(())
+        }
+
+        fn call(&mut self, _: ()) -> Self::Future {
+            err(())
+        }
+    }
+
+    #[test]
+    fn test_poll_ready() {
+        let mut srv = Srv.map_err(|_| "error");
+        let res = srv.poll_ready();
+        assert!(res.is_err());
+        assert_eq!(res.err().unwrap(), "error");
+    }
+
+    #[test]
+    fn test_call() {
+        let mut srv = Srv.map_err(|_| "error");
+        let res = srv.call(()).poll();
+        assert!(res.is_err());
+        assert_eq!(res.err().unwrap(), "error");
+    }
+}

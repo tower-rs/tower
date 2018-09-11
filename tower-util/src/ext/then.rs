@@ -104,3 +104,80 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::future::{err, ok, FutureResult};
+    use futures::{Async, Poll};
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    use super::*;
+    use ServiceExt;
+
+    struct Srv1(Rc<Cell<usize>>);
+    impl Service for Srv1 {
+        type Request = Result<&'static str, &'static str>;
+        type Response = &'static str;
+        type Error = ();
+        type Future = FutureResult<Self::Response, Self::Error>;
+
+        fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+            self.0.set(self.0.get() + 1);
+            Ok(Async::Ready(()))
+        }
+
+        fn call(&mut self, req: Self::Request) -> Self::Future {
+            match req {
+                Ok(msg) => ok(msg),
+                Err(_) => err(()),
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    struct Srv2(Rc<Cell<usize>>);
+
+    impl Service for Srv2 {
+        type Request = Result<&'static str, ()>;
+        type Response = (&'static str, &'static str);
+        type Error = ();
+        type Future = FutureResult<Self::Response, ()>;
+
+        fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+            self.0.set(self.0.get() + 1);
+            Ok(Async::Ready(()))
+        }
+
+        fn call(&mut self, req: Self::Request) -> Self::Future {
+            match req {
+                Ok(msg) => ok((msg, "ok")),
+                Err(()) => ok(("srv2", "err")),
+            }
+        }
+    }
+
+    #[test]
+    fn test_poll_ready() {
+        let cnt = Rc::new(Cell::new(0));
+        let mut srv = Srv1(cnt.clone()).then(Srv2(cnt.clone()));
+        let res = srv.poll_ready();
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Async::Ready(()));
+        assert_eq!(cnt.get(), 2);
+    }
+
+    #[test]
+    fn test_call() {
+        let cnt = Rc::new(Cell::new(0));
+        let mut srv = Srv1(cnt.clone()).then(Srv2(cnt));
+
+        let res = srv.call(Ok("srv1")).poll();
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Async::Ready(("srv1", "ok")));
+
+        let res = srv.call(Err("srv")).poll();
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Async::Ready(("srv2", "err")));
+    }
+}

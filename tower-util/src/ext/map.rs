@@ -20,10 +20,7 @@ where
 {
     /// Create new `Map` combinator
     pub fn new(service: T, f: F) -> Self {
-        Map {
-            service,
-            f,
-        }
+        Map { service, f }
     }
 }
 
@@ -89,5 +86,46 @@ where
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let resp = try_ready!(self.fut.poll());
         Ok(Async::Ready((self.f)(resp)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use futures::future::{ok, FutureResult};
+
+    use super::*;
+    use ServiceExt;
+
+    struct Srv;
+
+    impl Service for Srv {
+        type Request = ();
+        type Response = ();
+        type Error = ();
+        type Future = FutureResult<(), ()>;
+
+        fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+            Ok(Async::Ready(()))
+        }
+
+        fn call(&mut self, _: ()) -> Self::Future {
+            ok(())
+        }
+    }
+
+    #[test]
+    fn test_poll_ready() {
+        let mut srv = Srv.map(|_| "ok");
+        let res = srv.poll_ready();
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Async::Ready(()));
+    }
+
+    #[test]
+    fn test_call() {
+        let mut srv = Srv.map(|_| "ok");
+        let res = srv.call(()).poll();
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Async::Ready("ok"));
     }
 }
