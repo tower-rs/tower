@@ -32,10 +32,10 @@ fn basic_error_handle() {
     let req = handle.next_request().unwrap();
 
     req.error(false);
-    assert_eq!(
-        Err(Error::Inner(tower_mock::Error::Other(false))),
-        r2.wait()
-    );
+    match r2.wait() {
+        Err(Error::Upstream(tower_mock::Error::Other(ok))) if !ok => {}
+        x => unreachable!("{:?}", x),
+    }
 
     // err matched
     assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
@@ -43,9 +43,15 @@ fn basic_error_handle() {
     let req = handle.next_request().unwrap();
 
     req.error(true);
-    assert_eq!(Err(Error::Inner(tower_mock::Error::Other(true))), r3.wait());
+    match r3.wait() {
+        Err(Error::Upstream(tower_mock::Error::Other(ok))) if ok => {}
+        x => unreachable!("{:?}", x),
+    }
 
-    assert_eq!(Err(Error::Rejected), service.poll_ready());
+    match service.poll_ready() {
+        Ok(Async::NotReady) => {}
+        x => unreachable!("{:?}", x),
+    }
 }
 
 type Mock = tower_mock::Mock<&'static str, &'static str, bool>;

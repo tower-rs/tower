@@ -9,7 +9,6 @@ use super::instrument::Instrument;
 
 const ON_CLOSED: u8 = 0b0000_0001;
 const ON_HALF_OPEN: u8 = 0b0000_0010;
-const ON_REJECTED: u8 = 0b0000_0100;
 const ON_OPEN: u8 = 0b0000_1000;
 
 /// States of the state machine.
@@ -114,22 +113,34 @@ where
     ///
     /// It returns `true` if a call is allowed, or `false` if prohibited.
     pub fn is_call_permitted(&self) -> bool {
+        if self.is_open().is_none() {
+            true
+        } else {
+            self.instrument.on_call_rejected();
+            false
+        }
+    }
+
+    /// Returns a time until the circuit breaker stay in open state.
+    ///
+    /// If Some(Instant) the circuit breaker is open and reject all requests. If None the circuit
+    /// breaker is closed and permit requests.
+    pub fn is_open(&self) -> Option<Instant> {
         let mut instrument: u8 = 0;
 
-        let res = {
+        let result = {
             let mut shared = self.shared.lock();
 
             match shared.state {
-                State::Closed => true,
-                State::HalfOpen(_) => true,
+                State::Closed => None,
+                State::HalfOpen(_) => None,
                 State::Open(until, delay) => {
-                    if clock::now() > until {
+                    if clock::now() >= until {
                         shared.transit_to_half_open(delay);
                         instrument |= ON_HALF_OPEN;
-                        true
+                        None
                     } else {
-                        instrument |= ON_REJECTED;
-                        false
+                        Some(until)
                     }
                 }
             }
@@ -139,11 +150,7 @@ where
             self.instrument.on_half_open();
         }
 
-        if instrument & ON_REJECTED != 0 {
-            self.instrument.on_call_rejected();
-        }
-
-        res
+        result
     }
 
     /// Records a successful call.

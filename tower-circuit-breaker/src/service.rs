@@ -3,6 +3,7 @@ use std::fmt::{self, Display};
 use std::sync::Arc;
 
 use futures::{Async, Future, Poll};
+use tokio_timer::Delay;
 use tower_service::Service;
 
 use super::failure_policy::FailurePolicy;
@@ -11,10 +12,10 @@ use super::instrument::Instrument;
 use super::state_machine::StateMachine;
 
 /// A `CircuitBreaker`'s error.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Error<E> {
     /// An error from inner call.
-    Inner(E),
+    Upstream(E),
     /// An error when call was rejected.
     Rejected,
 }
@@ -26,7 +27,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Rejected => write!(f, "call was rejected"),
-            Error::Inner(err) => write!(f, "{}", err),
+            Error::Upstream(err) => write!(f, "{}", err),
         }
     }
 }
@@ -38,16 +39,22 @@ where
     fn description(&self) -> &str {
         match self {
             Error::Rejected => "call was rejected",
-            Error::Inner(err) => err.description(),
+            Error::Upstream(err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&StdError> {
         match self {
-            Error::Inner(ref err) => Some(err),
+            Error::Upstream(ref err) => Some(err),
             _ => None,
         }
     }
+}
+
+#[derive(Debug)]
+enum State {
+    Closed,
+    Open(Delay),
 }
 
 #[derive(Debug)]
@@ -61,6 +68,7 @@ struct Shared<P, I, T> {
 pub struct CircuitBreakerService<S, P, I, T> {
     shared: Arc<Shared<P, I, T>>,
     inner: S,
+    state: State,
 }
 
 impl<S, P, I, T> CircuitBreakerService<S, P, I, T>
@@ -76,6 +84,7 @@ where
                 state_machine: StateMachine::new(failure_policy, instrument),
                 failure_predicate,
             }),
+            state: State::Closed,
             inner,
         }
     }
@@ -94,32 +103,34 @@ where
     type Future = ResponseFuture<S::Future, P, I, T>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        if !self.shared.state_machine.is_call_permitted() {
-            return Err(Error::Rejected);
+        if let State::Closed = self.state {
+            if let Some(until) = self.shared.state_machine.is_open() {
+                self.state = State::Open(Delay::new(until))
+            }
         }
 
-        self.inner.poll_ready().map_err(Error::Inner)
+        if let State::Open(ref mut delay) = self.state {
+            let _ = try_ready!(delay.poll().map_err(|_| Error::Rejected));
+        }
+
+        self.state = State::Closed;
+        self.inner.poll_ready().map_err(Error::Upstream)
     }
 
+    #[inline]
     fn call(&mut self, req: Self::Request) -> Self::Future {
         ResponseFuture {
             future: self.inner.call(req),
             shared: self.shared.clone(),
-            state: State::Request,
+            ask: false,
         }
     }
-}
-
-enum State {
-    Request,
-    Permitted,
-    Rejected,
 }
 
 pub struct ResponseFuture<F, P, I, T> {
     future: F,
     shared: Arc<Shared<P, I, T>>,
-    state: State,
+    ask: bool,
 }
 
 impl<F, P, I, T> Future for ResponseFuture<F, P, I, T>
@@ -133,16 +144,11 @@ where
     type Error = Error<F::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let State::Request = self.state {
-            if self.shared.state_machine.is_call_permitted() {
-                self.state = State::Permitted
-            } else {
-                self.state = State::Rejected
+        if !self.ask {
+            self.ask = true;
+            if !self.shared.state_machine.is_call_permitted() {
+                return Err(Error::Rejected);
             }
-        }
-
-        if let State::Rejected = self.state {
-            return Err(Error::Rejected);
         }
 
         match self.future.poll() {
@@ -158,7 +164,7 @@ where
                     self.shared.state_machine.on_success();
                 }
 
-                Err(Error::Inner(err))
+                Err(Error::Upstream(err))
             }
         }
     }

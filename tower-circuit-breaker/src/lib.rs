@@ -1,5 +1,6 @@
 //#![cfg_attr(test, deny(warnings))]
 
+#[macro_use(try_ready)]
 extern crate futures;
 extern crate rand;
 extern crate spin;
