@@ -13,4 +13,6 @@ spin = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 tokio-executor = "0.1"
+tokio-test = { git = "https://github.com/carllerche/tokio-test" }
+tower-mock = { path = "../tower-mock" }
 

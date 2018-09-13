@@ -11,7 +11,7 @@ use super::instrument::Instrument;
 use super::state_machine::StateMachine;
 
 /// A `CircuitBreaker`'s error.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error<E> {
     /// An error from inner call.
     Inner(E),
@@ -65,7 +65,9 @@ pub struct CircuitBreakerService<S, P, I, T> {
 
 impl<S, P, I, T> CircuitBreakerService<S, P, I, T>
 where
+    S: Service,
     P: FailurePolicy,
+    T: FailurePredicate<S::Error>,
     I: Instrument,
 {
     pub fn new(inner: S, failure_policy: P, failure_predicate: T, instrument: I) -> Self {

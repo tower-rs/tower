@@ -27,6 +27,7 @@ pub use failure_policy::{
     consecutive_failures, success_rate_over_time_window, ConsecutiveFailures, FailurePolicy,
     SuccessRateOverTimeWindow,
 };
+pub use failure_predicate::FailurePredicate;
 pub use instrument::Instrument;
-pub use state_machine::StateMachine;
 pub use service::{CircuitBreakerService, Error, ResponseFuture};
+pub use state_machine::StateMachine;
