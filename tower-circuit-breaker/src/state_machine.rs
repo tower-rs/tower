@@ -211,7 +211,7 @@ mod tests {
 
     use backoff;
     use failure_policy::consecutive_failures;
-    use mock_clock as clock;
+    use mock_clock::{self as clock, IntoDuration};
 
     macro_rules! assert_ready {
         ($f:expr) => {{
@@ -371,16 +371,6 @@ mod tests {
             println!("state=closed");
             let mut own_state = self.state.lock().unwrap();
             *own_state = State::Closed
-        }
-    }
-
-    trait IntoDuration {
-        fn seconds(self) -> Duration;
-    }
-
-    impl IntoDuration for u64 {
-        fn seconds(self) -> Duration {
-            Duration::from_secs(self)
         }
     }
 }

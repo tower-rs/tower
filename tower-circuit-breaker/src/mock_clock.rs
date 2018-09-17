@@ -7,6 +7,16 @@ use tokio_timer::{timer, Timer};
 use tokio_executor::enter;
 use tokio_executor::park::ParkThread;
 
+pub trait IntoDuration {
+    fn seconds(self) -> Duration;
+}
+
+impl IntoDuration for u64 {
+    fn seconds(self) -> Duration {
+        Duration::from_secs(self)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MockClock(pub(crate) Arc<Mutex<Instant>>);
 

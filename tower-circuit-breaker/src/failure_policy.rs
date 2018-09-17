@@ -281,7 +281,7 @@ mod tests {
     use super::*;
 
     use backoff;
-    use mock_clock as clock;
+    use mock_clock::{self as clock, IntoDuration};
 
     mod consecutive_failures {
         use super::*;
@@ -456,15 +456,5 @@ mod tests {
 
     fn exp_backoff() -> backoff::Exponential {
         backoff::exponential(5.seconds(), 60.seconds())
-    }
-
-    trait IntoDuration {
-        fn seconds(self) -> Duration;
-    }
-
-    impl IntoDuration for u64 {
-        fn seconds(self) -> Duration {
-            Duration::from_secs(self)
-        }
     }
 }

@@ -108,7 +108,7 @@ fn to_millis(duration: Duration) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mock_clock as clock;
+    use mock_clock::{self as clock, IntoDuration};
 
     #[test]
     fn sum_when_time_stands_still() {
@@ -252,15 +252,5 @@ mod tests {
 
     fn new_windowed_adder() -> WindowedAdder {
         WindowedAdder::new(3.seconds(), 3)
-    }
-
-    trait IntoDuration {
-        fn seconds(self) -> Duration;
-    }
-
-    impl IntoDuration for u64 {
-        fn seconds(self) -> Duration {
-            Duration::from_secs(self)
-        }
     }
 }

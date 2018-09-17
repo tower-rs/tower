@@ -222,9 +222,11 @@ fn exponential_backoff_seconds(attempt: u32, base: Duration, max: Duration) -> u
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::prng::XorShiftRng;
     use rand::{RngCore, SeedableRng};
+
+    use super::*;
+    use mock_clock::IntoDuration;
 
     const SEED: &'static [u8; 16] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3, 2];
     struct TestGenRage<T>(T);
@@ -244,7 +246,7 @@ mod tests {
 
     #[test]
     fn exponential_growth() {
-        let backoff = exponential(Duration::from_secs(10), Duration::from_secs(100));
+        let backoff = exponential(10.seconds(), 100.seconds());
 
         let actual = backoff.take(6).map(|it| it.as_secs()).collect::<Vec<_>>();
         let expected = vec![10, 20, 40, 80, 100, 100];
@@ -253,8 +255,7 @@ mod tests {
 
     #[test]
     fn full_jittered_growth() {
-        let backoff = full_jittered(Duration::from_secs(10), Duration::from_secs(100))
-            .with_rng(TestGenRage::default());
+        let backoff = full_jittered(10.seconds(), 100.seconds()).with_rng(TestGenRage::default());
 
         let actual = backoff.take(10).map(|it| it.as_secs()).collect::<Vec<_>>();
         let expected = vec![26, 13, 69, 32, 61, 69, 55, 46, 92, 22];
@@ -263,8 +264,7 @@ mod tests {
 
     #[test]
     fn equal_jittered_growth() {
-        let backoff = equal_jittered(Duration::from_secs(5), Duration::from_secs(300))
-            .with_rng(TestGenRage::default());
+        let backoff = equal_jittered(5.seconds(), 300.seconds()).with_rng(TestGenRage::default());
 
         let actual = backoff.take(10).map(|it| it.as_secs()).collect::<Vec<_>>();
         let expected = vec![2, 5, 10, 37, 63, 133, 225, 153, 216, 170];
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn constant_growth() {
-        let backoff = constant(Duration::from_secs(3));
+        let backoff = constant(3.seconds());
 
         let actual = backoff.take(3).map(|it| it.as_secs()).collect::<Vec<_>>();
         let expected = vec![3, 3, 3];
