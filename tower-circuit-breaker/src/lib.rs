@@ -16,12 +16,12 @@ mod service;
 mod state_machine;
 mod windowed_adder;
 
+#[cfg(test)]
+mod mock_clock;
+
 pub mod backoff;
 pub mod failure_policy;
 pub mod failure_predicate;
-
-#[cfg(test)]
-mod mock_clock;
 
 pub use backoff::Backoff;
 pub use failure_policy::{

@@ -1,14 +1,15 @@
 use std::fmt::{self, Debug};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
+use futures::{Async, Future, Poll};
 use spin::Mutex;
-use tokio_timer::clock;
+use tokio_timer::{clock, Delay, Error as TimerError};
 
 use super::failure_policy::FailurePolicy;
 use super::instrument::Instrument;
 
 const ON_CLOSED: u8 = 0b0000_0001;
-const ON_HALF_OPEN: u8 = 0b0000_0010;
+//const ON_HALF_OPEN: u8 = 0b0000_0010;
 const ON_OPEN: u8 = 0b0000_1000;
 
 /// States of the state machine.
@@ -16,8 +17,8 @@ const ON_OPEN: u8 = 0b0000_1000;
 enum State {
     /// A closed breaker is operating normally and allowing.
     Closed,
-    /// An open breaker has tripped and will not allow requests through until an interval expired.
-    Open(Instant, Duration),
+    /// An open breaker has tripped and will not allow requests through until a time interval expired.
+    Open(Delay, Duration),
     /// A half open breaker has completed its wait interval and will allow requests. The state keeps
     /// the previous duration in an open state.
     HalfOpen(Duration),
@@ -87,6 +88,7 @@ where
     #[inline]
     fn transit_to_open(&mut self, delay: Duration) {
         let until = clock::now() + delay;
+        let until = Delay::new(until);
         self.state = State::Open(until, delay);
     }
 }
@@ -113,44 +115,38 @@ where
     ///
     /// It returns `true` if a call is allowed, or `false` if prohibited.
     pub fn is_call_permitted(&self) -> bool {
-        if self.is_open().is_none() {
-            true
-        } else {
+        let shared = self.shared.lock();
+        if let State::Open(_, _) = shared.state {
             self.instrument.on_call_rejected();
-            false
+            return false;
         }
+        true
     }
 
-    /// Returns a time until the circuit breaker stay in open state.
+    /// Wait until the circuit breaker allows a request.
     ///
-    /// If Some(Instant) the circuit breaker is open and reject all requests. If None the circuit
-    /// breaker is closed and permit requests.
-    pub fn is_open(&self) -> Option<Instant> {
-        let mut instrument: u8 = 0;
+    /// It returns `Ok(Async::Ready(())` when the circuit breaker permitted a call or
+    /// `Ok(Async::NotReady)` when the circuit breaker in the open state.
+    pub fn poll_ready(&self) -> Poll<(), TimerError> {
+        let mut on_half_open: Option<Duration> = None;
 
-        let result = {
+        {
             let mut shared = self.shared.lock();
+            if let State::Open(ref mut until, delay) = shared.state {
+                let _ready = try_ready!(until.poll());
+                on_half_open = Some(delay);
+            }
 
-            match shared.state {
-                State::Closed => None,
-                State::HalfOpen(_) => None,
-                State::Open(until, delay) => {
-                    if clock::now() >= until {
-                        shared.transit_to_half_open(delay);
-                        instrument |= ON_HALF_OPEN;
-                        None
-                    } else {
-                        Some(until)
-                    }
-                }
+            if let Some(delay) = on_half_open {
+                shared.transit_to_half_open(delay);
             }
         };
 
-        if instrument & ON_HALF_OPEN != 0 {
+        if on_half_open.is_some() {
             self.instrument.on_half_open();
         }
 
-        result
+        Ok(Async::Ready(()))
     }
 
     /// Records a successful call.
@@ -217,6 +213,22 @@ mod tests {
     use failure_policy::consecutive_failures;
     use mock_clock as clock;
 
+    macro_rules! assert_ready {
+        ($f:expr) => {{
+            match $f.poll_ready().unwrap() {
+                Async::Ready(v) => v,
+                Async::NotReady => panic!("NotReady"),
+            }
+        }};
+    }
+
+    macro_rules! assert_not_ready {
+        ($f:expr) => {{
+            let res = $f.poll_ready().unwrap();
+            assert!(!res.is_ready(), "actual={:?}", res)
+        }};
+    }
+
     /// Perform `Closed` -> `Open` -> `HalfOpen` -> `Open` -> `HalfOpen` -> `Closed` transitions.
     #[test]
     fn state_machine() {
@@ -226,7 +238,7 @@ mod tests {
             let policy = consecutive_failures(3, backoff);
             let state_machine = StateMachine::new(policy, observe.clone());
 
-            assert_eq!(true, state_machine.is_call_permitted());
+            assert_ready!(state_machine);
 
             // Perform success requests. the circuit breaker must be closed.
             for _i in 0..10 {
@@ -255,32 +267,32 @@ mod tests {
 
             // Wait 2s, the circuit breaker still open.
             time.advance(2.seconds());
-            assert_eq!(false, state_machine.is_call_permitted());
+            assert_not_ready!(state_machine);
             assert_eq!(true, observe.is_open());
 
             // Wait 4s (6s total), the circuit breaker now in the half open state.
             time.advance(4.seconds());
-            assert_eq!(true, state_machine.is_call_permitted());
+            assert_ready!(state_machine);
             assert_eq!(true, observe.is_half_open());
 
             // Perform a failed request and transit back to the open state for 10s.
             state_machine.on_error();
-            assert_eq!(false, state_machine.is_call_permitted());
+            assert_not_ready!(state_machine);
             assert_eq!(true, observe.is_open());
 
             // Wait 5s, the circuit breaker still open.
             time.advance(5.seconds());
-            assert_eq!(false, state_machine.is_call_permitted());
+            assert_not_ready!(state_machine);
             assert_eq!(true, observe.is_open());
 
             // Wait 6s (11s total), the circuit breaker now in the half open state.
             time.advance(6.seconds());
-            assert_eq!(true, state_machine.is_call_permitted());
+            assert_ready!(state_machine);
             assert_eq!(true, observe.is_half_open());
 
             // Perform a success request and transit to the closed state.
             state_machine.on_success();
-            assert_eq!(true, state_machine.is_call_permitted());
+            assert_ready!(state_machine);
             assert_eq!(true, observe.is_closed());
 
             // Perform success requests.

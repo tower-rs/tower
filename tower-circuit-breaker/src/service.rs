@@ -3,7 +3,6 @@ use std::fmt::{self, Display};
 use std::sync::Arc;
 
 use futures::{Async, Future, Poll};
-use tokio_timer::Delay;
 use tower_service::Service;
 
 use super::failure_policy::FailurePolicy;
@@ -52,12 +51,6 @@ where
 }
 
 #[derive(Debug)]
-enum State {
-    Closed,
-    Open(Delay),
-}
-
-#[derive(Debug)]
 struct Shared<P, I, T> {
     state_machine: StateMachine<P, I>,
     failure_predicate: T,
@@ -68,7 +61,6 @@ struct Shared<P, I, T> {
 pub struct CircuitBreakerService<S, P, I, T> {
     shared: Arc<Shared<P, I, T>>,
     inner: S,
-    state: State,
 }
 
 impl<S, P, I, T> CircuitBreakerService<S, P, I, T>
@@ -84,7 +76,6 @@ where
                 state_machine: StateMachine::new(failure_policy, instrument),
                 failure_predicate,
             }),
-            state: State::Closed,
             inner,
         }
     }
@@ -103,17 +94,12 @@ where
     type Future = ResponseFuture<S::Future, P, I, T>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        if let State::Closed = self.state {
-            if let Some(until) = self.shared.state_machine.is_open() {
-                self.state = State::Open(Delay::new(until))
-            }
-        }
-
-        if let State::Open(ref mut delay) = self.state {
-            let _ = try_ready!(delay.poll().map_err(|_| Error::Rejected));
-        }
-
-        self.state = State::Closed;
+        let _ready = try_ready!(
+            self.shared
+                .state_machine
+                .poll_ready()
+                .map_err(|_| Error::Rejected)
+        );
         self.inner.poll_ready().map_err(Error::Upstream)
     }
 
