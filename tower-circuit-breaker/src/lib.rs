@@ -10,6 +10,9 @@ extern crate tower_service;
 #[cfg(test)]
 extern crate tokio_executor;
 
+#[cfg(test)]
+extern crate tower_mock;
+
 mod ema;
 mod instrument;
 mod service;

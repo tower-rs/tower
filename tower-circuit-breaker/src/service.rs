@@ -155,3 +155,87 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tower_mock;
+
+    use super::*;
+    use failure_policy;
+    use backoff;
+    use mock_clock as clock;
+
+    #[test]
+    fn basic_error_handle() {
+        clock::freeze(|_time| {
+            let (mut service, mut handle) = new_service();
+
+            // ok
+            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+
+            let mut r1 = service.call("req 1");
+            let req = handle.next_request().unwrap();
+
+            req.respond("res 1");
+            match r1.poll() {
+                Ok(Async::Ready(s)) if s == "res 1" => {},
+                x => unreachable!("{:?}", x)
+            }
+
+            // err not matched
+            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+            let mut r2 = service.call("req 2");
+            let req = handle.next_request().unwrap();
+
+            req.error(false);
+            match r2.poll() {
+                Err(Error::Upstream(tower_mock::Error::Other(ok))) if !ok => {}
+                x => unreachable!("{:?}", x),
+            }
+
+            // err matched
+            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+            let mut r3 = service.call("req 2");
+            let req = handle.next_request().unwrap();
+
+            req.error(true);
+            match r3.poll() {
+                Err(Error::Upstream(tower_mock::Error::Other(ok))) if ok => {}
+                x => unreachable!("{:?}", x),
+            }
+
+            match service.poll_ready() {
+                Ok(Async::NotReady) => {}
+                x => unreachable!("{:?}", x),
+            }
+        })
+    }
+
+    type Mock = tower_mock::Mock<&'static str, &'static str, bool>;
+    type Handle = tower_mock::Handle<&'static str, &'static str, bool>;
+
+    fn new_service() -> (
+        CircuitBreaker<Mock, failure_policy::ConsecutiveFailures<backoff::Constant>, (), IsErr>,
+        Handle,
+    ) {
+        let (service, handle) = Mock::new();
+        let backoff = backoff::constant(Duration::from_secs(3));
+        let policy = failure_policy::consecutive_failures(1, backoff);
+        let service = CircuitBreaker::new(service, policy, IsErr, ());
+        (service, handle)
+    }
+
+    struct IsErr;
+
+    impl FailurePredicate<tower_mock::Error<bool>> for IsErr {
+        fn is_err(&self, err: &tower_mock::Error<bool>) -> bool {
+            match err {
+                tower_mock::Error::Other(ref err) => *err,
+                _ => true,
+            }
+        }
+    }
+
+}
