@@ -18,6 +18,7 @@ extern crate tokio_test;
 
 mod classification;
 mod ema;
+mod error;
 mod instrument;
 mod service;
 mod state_machine;
@@ -31,11 +32,12 @@ pub mod failure_policy;
 pub mod failure_predicate;
 
 pub use backoff::Backoff;
+pub use error::Error;
 pub use failure_policy::{
     consecutive_failures, success_rate_over_time_window, ConsecutiveFailures, FailurePolicy,
     SuccessRateOverTimeWindow,
 };
 pub use failure_predicate::FailurePredicate;
 pub use instrument::{Instrument, Observer};
-pub use service::{CircuitBreaker, Error, ResponseFuture};
+pub use service::{CircuitBreaker, ResponseFuture};
 pub use state_machine::StateMachine;
