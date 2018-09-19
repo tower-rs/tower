@@ -208,8 +208,8 @@ mod tests {
 
     use backoff;
     use failure_policy::consecutive_failures;
-    use mock_clock::{self as clock, IntoDuration};
     use instrument::Observer;
+    use mock_clock::{self as clock, IntoDuration};
 
     macro_rules! assert_ready {
         ($f:expr) => {{

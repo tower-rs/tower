@@ -158,59 +158,110 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
+    use tokio_test::MockTask;
     use tower_mock;
 
     use super::*;
-    use failure_policy;
     use backoff;
-    use mock_clock as clock;
+    use failure_policy;
+    use mock_clock::{self as clock, IntoDuration};
+
+    macro_rules! assert_ready {
+        ($expected:expr, $f:expr) => {{
+            match $f.unwrap() {
+                Async::Ready(v) => assert_eq!($expected, v),
+                Async::NotReady => panic!("NotReady"),
+            }
+        }};
+    }
+
+    macro_rules! assert_err {
+        ($expected:expr, $f:expr) => {{
+            match $f {
+                Err(Error::Upstream(tower_mock::Error::Other(err))) => assert_eq!($expected, err),
+                x => panic!("{:?}", x),
+            }
+        }};
+    }
+
+    macro_rules! assert_not_ready {
+        ($f:expr) => {{
+            match $f.unwrap() {
+                Async::NotReady => {}
+                x => panic!("{:?}", x),
+            }
+        }};
+    }
 
     #[test]
-    fn basic_error_handle() {
-        clock::freeze(|_time| {
+    fn from_closed_to_open_and_back_to_closed() {
+        clock::freeze(|time| {
             let (mut service, mut handle) = new_service();
 
-            // ok
-            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+            assert_ready!((), service.poll_ready());
 
+            // perform a successful request
             let mut r1 = service.call("req 1");
             let req = handle.next_request().unwrap();
-
             req.respond("res 1");
-            match r1.poll() {
-                Ok(Async::Ready(s)) if s == "res 1" => {},
-                x => unreachable!("{:?}", x)
-            }
 
-            // err not matched
-            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+            assert_ready!("res 1", r1.poll());
+            assert_ready!((), service.poll_ready());
+
+            // perform a request error, which doesn't translate to a circuit breaker's error.
             let mut r2 = service.call("req 2");
             let req = handle.next_request().unwrap();
-
             req.error(false);
-            match r2.poll() {
-                Err(Error::Upstream(tower_mock::Error::Other(ok))) if !ok => {}
-                x => unreachable!("{:?}", x),
-            }
 
-            // err matched
-            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+            assert_err!(false, r2.poll());
+            assert_ready!((), service.poll_ready());
+
+            // perform a request error which translates to a circuit breaker's error.
             let mut r3 = service.call("req 2");
             let req = handle.next_request().unwrap();
 
             req.error(true);
-            match r3.poll() {
-                Err(Error::Upstream(tower_mock::Error::Other(ok))) if ok => {}
-                x => unreachable!("{:?}", x),
-            }
+            assert_err!(true, r3.poll());
+            assert_not_ready!(service.poll_ready());
 
-            match service.poll_ready() {
-                Ok(Async::NotReady) => {}
-                x => unreachable!("{:?}", x),
-            }
+            // after 3s the circuit breaker is becoming closed.
+            time.advance(3.seconds());
+            assert_ready!((), service.poll_ready());
         })
+    }
+
+    #[test]
+    fn wait_until_service_becomes_ready() {
+        clock::freeze(|time| {
+            let (mut service, mut handle) = new_service();
+            let mut task1 = MockTask::new();
+            let mut task2 = MockTask::new();
+
+            assert_eq!(Async::Ready(()), service.poll_ready().unwrap());
+
+            let mut r1 = service.call("req 2");
+            let req = handle.next_request().unwrap();
+
+            req.error(true);
+            assert_err!(true, r1.poll());
+
+            task1.enter(|| {
+                assert_not_ready!(service.poll_ready());
+            });
+
+            task2.enter(|| {
+                assert_not_ready!(service.poll_ready());
+            });
+
+            assert_eq!(false, task1.is_notified());
+            assert_eq!(false, task2.is_notified());
+
+            // notify the last task after 3s.
+            time.advance(3.seconds());
+
+            assert_eq!(false, task1.is_notified());
+            assert_eq!(true, task2.is_notified());
+        });
     }
 
     type Mock = tower_mock::Mock<&'static str, &'static str, bool>;
@@ -221,7 +272,7 @@ mod tests {
         Handle,
     ) {
         let (service, handle) = Mock::new();
-        let backoff = backoff::constant(Duration::from_secs(3));
+        let backoff = backoff::constant(3.seconds());
         let policy = failure_policy::consecutive_failures(1, backoff);
         let service = CircuitBreaker::new(service, policy, IsErr, ());
         (service, handle)

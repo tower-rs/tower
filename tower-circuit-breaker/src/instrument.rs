@@ -45,13 +45,13 @@ mod observe {
     #[derive(Debug)]
     struct Shared {
         state: AtomicUsize,
-        rejected_calls: AtomicUsize
+        rejected_calls: AtomicUsize,
     }
 
     /// An instrumentation which record the state machine state and rejected calls.
     #[derive(Clone, Debug)]
     pub struct Observer {
-        shared: Arc<Shared>
+        shared: Arc<Shared>,
     }
 
     impl Observer {
@@ -61,7 +61,7 @@ mod observe {
                 shared: Arc::new(Shared {
                     state: AtomicUsize::new(CLOSED),
                     rejected_calls: AtomicUsize::new(0),
-                })
+                }),
             }
         }
 
@@ -69,7 +69,7 @@ mod observe {
         pub fn is_closed(&self) -> bool {
             match self.shared.state.load(Ordering::Acquire) {
                 CLOSED => true,
-                _ => false
+                _ => false,
             }
         }
 
@@ -77,7 +77,7 @@ mod observe {
         pub fn is_open(&self) -> bool {
             match self.shared.state.load(Ordering::Acquire) {
                 OPEN => true,
-                _ => false
+                _ => false,
             }
         }
 
@@ -85,7 +85,7 @@ mod observe {
         pub fn is_half_open(&self) -> bool {
             match self.shared.state.load(Ordering::Acquire) {
                 HALF_OPEN => true,
-                _ => false
+                _ => false,
             }
         }
 
