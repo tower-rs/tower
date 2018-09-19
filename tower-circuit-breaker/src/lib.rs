@@ -16,7 +16,6 @@ extern crate tower_mock;
 #[cfg(test)]
 extern crate tokio_test;
 
-mod classification;
 mod ema;
 mod error;
 mod instrument;
@@ -28,16 +27,16 @@ mod windowed_adder;
 mod mock_clock;
 
 pub mod backoff;
+pub mod classification;
 pub mod failure_policy;
-pub mod failure_predicate;
 
 pub use backoff::Backoff;
+pub use classification::{ErrorClassifier, ResponseClassifier};
 pub use error::Error;
 pub use failure_policy::{
     consecutive_failures, success_rate_over_time_window, ConsecutiveFailures, FailurePolicy,
     SuccessRateOverTimeWindow,
 };
-pub use failure_predicate::FailurePredicate;
 pub use instrument::{Instrument, Observer};
 pub use service::{CircuitBreaker, ResponseFuture};
 pub use state_machine::StateMachine;

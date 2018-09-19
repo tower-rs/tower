@@ -133,7 +133,7 @@ where
         {
             let mut shared = self.shared.lock();
             if let State::Open(ref mut until, delay) = shared.state {
-                let _ready = try_ready!(until.poll());
+                try_ready!(until.poll());
                 on_half_open = Some(delay);
             }
 
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn state_machine() {
         clock::freeze(move |time| {
-            let observe = Observer::new();
+            let observe = Observer::default();
             let backoff = backoff::exponential(5.seconds(), 300.seconds());
             let policy = consecutive_failures(3, backoff);
             let state_machine = StateMachine::new(policy, observe.clone());

@@ -54,9 +54,8 @@ mod observe {
         shared: Arc<Shared>,
     }
 
-    impl Observer {
-        /// Creates a new observer.
-        pub fn new() -> Self {
+    impl Default for Observer {
+        fn default() -> Self {
             Self {
                 shared: Arc::new(Shared {
                     state: AtomicUsize::new(CLOSED),
@@ -64,7 +63,9 @@ mod observe {
                 }),
             }
         }
+    }
 
+    impl Observer {
         /// Checks that the current state is closed.
         pub fn is_closed(&self) -> bool {
             match self.shared.state.load(Ordering::Acquire) {

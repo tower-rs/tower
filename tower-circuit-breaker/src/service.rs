@@ -3,62 +3,84 @@ use std::sync::Arc;
 use futures::{Async, Future, Poll};
 use tower_service::Service;
 
+use super::classification::{Callback, Classification, ErrorClassifier, ResponseClassifier};
 use super::error::Error;
 use super::failure_policy::FailurePolicy;
-use super::failure_predicate::FailurePredicate;
 use super::instrument::Instrument;
 use super::state_machine::StateMachine;
 
 #[derive(Debug)]
-struct Shared<P, I, T> {
-    state_machine: StateMachine<P, I>,
-    failure_predicate: T,
+struct Classifier<E, R> {
+    error: E,
+    response: R,
 }
 
 /// Circuit breaker services, it wraps an inner service instance.
 #[derive(Debug)]
-pub struct CircuitBreaker<S, P, I, T> {
-    shared: Arc<Shared<P, I, T>>,
+pub struct CircuitBreaker<S, P, I, E, R> {
     inner: S,
+    state_machine: Arc<StateMachine<P, I>>,
+    classifier: Arc<Classifier<E, R>>,
 }
 
-impl<S, P, I, T> CircuitBreaker<S, P, I, T>
+/// Record response status.
+#[derive(Debug)]
+pub struct CallbackHandler<P, I>(Arc<StateMachine<P, I>>);
+
+impl<S, P, I, E, R> CircuitBreaker<S, P, I, E, R>
 where
     S: Service,
     P: FailurePolicy,
-    T: FailurePredicate<S::Error>,
     I: Instrument,
+    E: ErrorClassifier<S::Error>,
+    R: ResponseClassifier<S::Response, CallbackHandler<P, I>>,
 {
-    pub fn new(inner: S, failure_policy: P, failure_predicate: T, instrument: I) -> Self {
+    pub fn new(
+        inner: S,
+        failure_policy: P,
+        instrument: I,
+        error_classifier: E,
+        response_classifier: R,
+    ) -> Self {
         Self {
-            shared: Arc::new(Shared {
-                state_machine: StateMachine::new(failure_policy, instrument),
-                failure_predicate,
-            }),
             inner,
+            state_machine: Arc::new(StateMachine::new(failure_policy, instrument)),
+            classifier: Arc::new(Classifier {
+                error: error_classifier,
+                response: response_classifier,
+            }),
         }
     }
 }
 
-impl<S, P, I, T> Service for CircuitBreaker<S, P, I, T>
+impl<P, I> Callback for CallbackHandler<P, I>
+where
+    P: FailurePolicy,
+    I: Instrument,
+{
+    fn notify(self, classification: Classification) {
+        match classification {
+            Classification::Success => self.0.on_success(),
+            Classification::Failure => self.0.on_error(),
+        }
+    }
+}
+
+impl<S, P, I, E, R> Service for CircuitBreaker<S, P, I, E, R>
 where
     S: Service,
     P: FailurePolicy,
-    T: FailurePredicate<S::Error>,
     I: Instrument,
+    E: ErrorClassifier<S::Error>,
+    R: ResponseClassifier<S::Response, CallbackHandler<P, I>>,
 {
     type Request = S::Request;
-    type Response = S::Response;
+    type Response = R::Response;
     type Error = Error<S::Error>;
-    type Future = ResponseFuture<S::Future, P, I, T>;
+    type Future = ResponseFuture<S::Future, P, I, E, R>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        let _ready = try_ready!(
-            self.shared
-                .state_machine
-                .poll_ready()
-                .map_err(|_| Error::Rejected)
-        );
+        try_ready!(self.state_machine.poll_ready().map_err(|_| Error::Rejected));
         self.inner.poll_ready().map_err(Error::Upstream)
     }
 
@@ -66,52 +88,55 @@ where
     fn call(&mut self, req: Self::Request) -> Self::Future {
         ResponseFuture {
             future: self.inner.call(req),
-            shared: self.shared.clone(),
+            state_machine: self.state_machine.clone(),
+            classifier: self.classifier.clone(),
             ask: false,
         }
     }
 }
 
-pub struct ResponseFuture<F, P, I, T> {
+pub struct ResponseFuture<F, P, I, E, R> {
     future: F,
-    shared: Arc<Shared<P, I, T>>,
+    state_machine: Arc<StateMachine<P, I>>,
+    classifier: Arc<Classifier<E, R>>,
     ask: bool,
 }
 
-impl<F, P, I, T> Future for ResponseFuture<F, P, I, T>
+impl<F, P, I, E, R> Future for ResponseFuture<F, P, I, E, R>
 where
     F: Future,
     P: FailurePolicy,
-    T: FailurePredicate<F::Error>,
     I: Instrument,
+    E: ErrorClassifier<F::Error>,
+    R: ResponseClassifier<F::Item, CallbackHandler<P, I>>,
 {
-    type Item = F::Item;
+    type Item = R::Response;
     type Error = Error<F::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if !self.ask {
             self.ask = true;
-            if !self.shared.state_machine.is_call_permitted() {
+            if !self.state_machine.is_call_permitted() {
                 return Err(Error::Rejected);
             }
         }
 
-        match self.future.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(rep)) => {
-                self.shared.state_machine.on_success();
-                Ok(Async::Ready(rep))
-            }
+        let resp = match self.future.poll() {
+            Ok(Async::NotReady) => return Ok(Async::NotReady),
+            Ok(Async::Ready(resp)) => resp,
             Err(err) => {
-                if self.shared.failure_predicate.is_err(&err) {
-                    self.shared.state_machine.on_error();
-                } else {
-                    self.shared.state_machine.on_success();
+                match self.classifier.error.classify(&err) {
+                    Classification::Success => self.state_machine.on_success(),
+                    Classification::Failure => self.state_machine.on_error(),
                 }
-
-                Err(Error::Upstream(err))
+                return Err(Error::Upstream(err));
             }
-        }
+        };
+
+        let callback = CallbackHandler(self.state_machine.clone());
+        let resp = self.classifier.response.classify(resp, callback);
+
+        Ok(Async::Ready(resp))
     }
 }
 
@@ -122,6 +147,7 @@ mod tests {
 
     use super::*;
     use backoff;
+    use classification::AlwaysSuccess;
     use failure_policy;
     use mock_clock::{self as clock, IntoDuration};
 
@@ -227,25 +253,30 @@ mod tests {
     type Handle = tower_mock::Handle<&'static str, &'static str, bool>;
 
     fn new_service() -> (
-        CircuitBreaker<Mock, failure_policy::ConsecutiveFailures<backoff::Constant>, (), IsErr>,
+        CircuitBreaker<
+            Mock,
+            failure_policy::ConsecutiveFailures<backoff::Constant>,
+            (),
+            IsErr,
+            AlwaysSuccess,
+        >,
         Handle,
     ) {
         let (service, handle) = Mock::new();
         let backoff = backoff::constant(3.seconds());
         let policy = failure_policy::consecutive_failures(1, backoff);
-        let service = CircuitBreaker::new(service, policy, IsErr, ());
+        let service = CircuitBreaker::new(service, policy, (), IsErr, AlwaysSuccess);
         (service, handle)
     }
 
     struct IsErr;
 
-    impl FailurePredicate<tower_mock::Error<bool>> for IsErr {
-        fn is_err(&self, err: &tower_mock::Error<bool>) -> bool {
+    impl ErrorClassifier<tower_mock::Error<bool>> for IsErr {
+        fn classify(&self, err: &tower_mock::Error<bool>) -> Classification {
             match err {
-                tower_mock::Error::Other(ref err) => *err,
-                _ => true,
+                tower_mock::Error::Other(ref err) if !err => Classification::Success,
+                _ => Classification::Failure,
             }
         }
     }
-
 }
