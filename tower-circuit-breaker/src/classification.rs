@@ -14,6 +14,14 @@ pub trait ErrorClassifier<E> {
     fn classify(&self, err: &E) -> Classification;
 }
 
+/// A classification which produces `Classification::Failure` on each invocation.
+#[derive(Debug, Copy, Clone)]
+pub struct AlwaysFailure;
+
+/// A classification which produces `Classification::Success` on each invocation.
+#[derive(Debug, Copy, Clone)]
+pub struct AlwaysSuccess;
+
 /// Classify response result.
 ///
 /// It uses a callback mechanism through oneshot channel for streaming responses.
@@ -24,48 +32,17 @@ pub trait ResponseClassifier<T> {
     fn classify(&self, res: T, sender: Sender<Classification>) -> Self::Response;
 }
 
-/// A classification which produces `Classification::Failure` on each invocation.
-#[derive(Debug, Copy, Clone)]
-pub struct AlwaysFail;
-
-/// Wrapper for response, which sent `Classification::Failure` through channel when dropped.
-#[derive(Debug)]
-pub struct FailOnDrop<T> {
-    inner: T,
-    channel: Option<Sender<Classification>>,
-}
-
-impl<T> FailOnDrop<T> {
-    fn new(inner: T, channel: Sender<Classification>) -> Self {
-        Self {
-            inner,
-            channel: Some(channel),
-        }
-    }
-
-    pub fn inner(&self) -> &T {
-        &self.inner
-    }
-}
-
-impl<T> Drop for FailOnDrop<T> {
-    fn drop(&mut self) {
-        if let Some(channel) = self.channel.take() {
-            let _ = channel.send(Classification::Failure);
-        }
-    }
-}
-
-impl<E> ErrorClassifier<E> for AlwaysFail {
+impl<E> ErrorClassifier<E> for AlwaysFailure {
     fn classify(&self, _err: &E) -> Classification {
         Classification::Failure
     }
 }
 
-impl<T> ResponseClassifier<T> for AlwaysFail {
-    type Response = FailOnDrop<T>;
+impl<T> ResponseClassifier<T> for AlwaysSuccess {
+    type Response = T;
 
     fn classify(&self, res: T, sender: Sender<Classification>) -> Self::Response {
-        FailOnDrop::new(res, sender)
+        let _ = sender.send(Classification::Success);
+        res
     }
 }
