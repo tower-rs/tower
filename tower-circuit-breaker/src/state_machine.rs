@@ -204,14 +204,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::{Arc, Mutex};
-
     use super::*;
 
     use backoff;
     use failure_policy::consecutive_failures;
     use mock_clock::{self as clock, IntoDuration};
+    use instrument::Observer;
 
     macro_rules! assert_ready {
         ($f:expr) => {{
@@ -301,76 +299,5 @@ mod tests {
                 state_machine.on_success();
             }
         });
-    }
-
-    #[derive(Debug)]
-    enum State {
-        Open,
-        HalfOpen,
-        Closed,
-    }
-
-    #[derive(Clone, Debug)]
-    struct Observer {
-        state: Arc<Mutex<State>>,
-        rejected_calls: Arc<AtomicUsize>,
-    }
-
-    impl Observer {
-        fn new() -> Self {
-            Observer {
-                state: Arc::new(Mutex::new(State::Closed)),
-                rejected_calls: Arc::new(AtomicUsize::new(0)),
-            }
-        }
-
-        fn is_closed(&self) -> bool {
-            match *self.state.lock().unwrap() {
-                State::Closed => true,
-                _ => false,
-            }
-        }
-
-        fn is_open(&self) -> bool {
-            match *self.state.lock().unwrap() {
-                State::Open => true,
-                _ => false,
-            }
-        }
-
-        fn is_half_open(&self) -> bool {
-            match *self.state.lock().unwrap() {
-                State::HalfOpen => true,
-                _ => false,
-            }
-        }
-
-        fn rejected_calls(&self) -> usize {
-            self.rejected_calls.load(Ordering::SeqCst)
-        }
-    }
-
-    impl Instrument for Observer {
-        fn on_call_rejected(&self) {
-            self.rejected_calls.fetch_add(1, Ordering::SeqCst);
-        }
-
-        fn on_open(&self) {
-            println!("state=open");
-            let mut own_state = self.state.lock().unwrap();
-            *own_state = State::Open
-        }
-
-        fn on_half_open(&self) {
-            println!("state=half_open");
-            let mut own_state = self.state.lock().unwrap();
-            *own_state = State::HalfOpen
-        }
-
-        fn on_closed(&self) {
-            println!("state=closed");
-            let mut own_state = self.state.lock().unwrap();
-            *own_state = State::Closed
-        }
     }
 }

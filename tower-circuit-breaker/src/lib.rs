@@ -29,6 +29,6 @@ pub use failure_policy::{
     SuccessRateOverTimeWindow,
 };
 pub use failure_predicate::FailurePredicate;
-pub use instrument::Instrument;
-pub use service::{CircuitBreakerService, Error, ResponseFuture};
+pub use instrument::{Instrument, Observer};
+pub use service::{CircuitBreaker, Error, ResponseFuture};
 pub use state_machine::StateMachine;

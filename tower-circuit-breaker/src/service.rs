@@ -58,12 +58,12 @@ struct Shared<P, I, T> {
 
 /// Circuit breaker services, it wraps an inner service instance.
 #[derive(Debug)]
-pub struct CircuitBreakerService<S, P, I, T> {
+pub struct CircuitBreaker<S, P, I, T> {
     shared: Arc<Shared<P, I, T>>,
     inner: S,
 }
 
-impl<S, P, I, T> CircuitBreakerService<S, P, I, T>
+impl<S, P, I, T> CircuitBreaker<S, P, I, T>
 where
     S: Service,
     P: FailurePolicy,
@@ -81,7 +81,7 @@ where
     }
 }
 
-impl<S, P, I, T> Service for CircuitBreakerService<S, P, I, T>
+impl<S, P, I, T> Service for CircuitBreaker<S, P, I, T>
 where
     S: Service,
     P: FailurePolicy,

@@ -11,7 +11,7 @@ use tokio_test::MockTask;
 use tower_service::Service;
 
 use tower_circuit_breaker::{
-    backoff, failure_policy, CircuitBreakerService, Error, FailurePredicate,
+    backoff, failure_policy, CircuitBreaker, Error, FailurePredicate,
 };
 
 #[test]
@@ -58,13 +58,13 @@ type Mock = tower_mock::Mock<&'static str, &'static str, bool>;
 type Handle = tower_mock::Handle<&'static str, &'static str, bool>;
 
 fn new_service() -> (
-    CircuitBreakerService<Mock, failure_policy::ConsecutiveFailures<backoff::Constant>, (), IsErr>,
+    CircuitBreaker<Mock, failure_policy::ConsecutiveFailures<backoff::Constant>, (), IsErr>,
     Handle,
 ) {
     let (service, handle) = Mock::new();
     let backoff = backoff::constant(Duration::from_secs(3));
     let policy = failure_policy::consecutive_failures(1, backoff);
-    let service = CircuitBreakerService::new(service, policy, IsErr, ());
+    let service = CircuitBreaker::new(service, policy, IsErr, ());
     (service, handle)
 }
 
