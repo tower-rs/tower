@@ -16,6 +16,7 @@ extern crate tower_mock;
 #[cfg(test)]
 extern crate tokio_test;
 
+mod classification;
 mod ema;
 mod instrument;
 mod service;
