@@ -77,11 +77,12 @@ enum State<T, U> {
 
 // ===== impl Filter =====
 
-impl<T, U> Filter<T, U>
-where T: Service + Clone,
-      U: Predicate<T::Request>,
-{
-    pub fn new(inner: T, predicate: U, buffer: usize) -> Self {
+impl<T, U> Filter<T, U> {
+    pub fn new<Request>(inner: T, predicate: U, buffer: usize) -> Self
+    where
+        T: Service<Request> + Clone,
+        U: Predicate<Request>,
+    {
         let counts = Counts {
             task: AtomicTask::new(),
             rem: AtomicUsize::new(buffer),
@@ -95,11 +96,10 @@ where T: Service + Clone,
     }
 }
 
-impl<T, U> Service for Filter<T, U>
-where T: Service + Clone,
-      U: Predicate<T::Request>,
+impl<T, U, Request> Service<Request> for Filter<T, U>
+where T: Service<Request> + Clone,
+      U: Predicate<Request>,
 {
-    type Request = T::Request;
     type Response = T::Response;
     type Error = Error<U::Error, T::Error>;
     type Future = ResponseFuture<U::Future, T>;
@@ -118,7 +118,7 @@ where T: Service + Clone,
         }
     }
 
-    fn call(&mut self, request: T::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let rem = self.counts.rem.load(SeqCst);
 
         if rem == 0 {
