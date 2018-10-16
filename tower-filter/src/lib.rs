@@ -21,17 +21,19 @@ pub struct Filter<T, U> {
     counts: Arc<Counts>,
 }
 
-pub struct ResponseFuture<T, S>
-where S: Service,
+pub struct ResponseFuture<T, S, Request>
+where
+    S: Service<Request>,
 {
-    inner: Option<ResponseInner<T, S>>,
+    inner: Option<ResponseInner<T, S, Request>>,
 }
 
 #[derive(Debug)]
-struct ResponseInner<T, S>
-where S: Service,
+struct ResponseInner<T, S, Request>
+where
+    S: Service<Request>,
 {
-    state: State<S::Request, S::Future>,
+    state: State<Request, S::Future>,
     check: T,
     service: S,
     counts: Arc<Counts>,
@@ -51,11 +53,11 @@ pub enum Error<T, U> {
 }
 
 /// Checks a request
-pub trait Predicate<T> {
+pub trait Predicate<Request> {
     type Error;
     type Future: Future<Item = (), Error = Self::Error>;
 
-    fn check(&mut self, request: &T) -> Self::Future;
+    fn check(&mut self, request: &Request) -> Self::Future;
 }
 
 #[derive(Debug)]
@@ -68,9 +70,9 @@ struct Counts {
 }
 
 #[derive(Debug)]
-enum State<T, U> {
-    Check(T),
-    WaitReady(T),
+enum State<Request, U> {
+    Check(Request),
+    WaitReady(Request),
     WaitResponse(U),
     NoCapacity,
 }
@@ -102,7 +104,7 @@ where T: Service<Request> + Clone,
 {
     type Response = T::Response;
     type Error = Error<U::Error, T::Error>;
-    type Future = ResponseFuture<U::Future, T>;
+    type Future = ResponseFuture<U::Future, T, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.counts.task.register();
@@ -166,12 +168,12 @@ impl<F, T, U> Predicate<T> for F
 
 // ===== impl ResponseFuture =====
 
-impl<T, U> Future for ResponseFuture<T, U>
+impl<T, S, Request> Future for ResponseFuture<T, S, Request>
 where T: Future,
-      U: Service,
+      S: Service<Request>,
 {
-    type Item = U::Response;
-    type Error = Error<T::Error, U::Error>;
+    type Item = S::Response;
+    type Error = Error<T::Error, S::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
@@ -181,11 +183,11 @@ where T: Future,
     }
 }
 
-impl<T, S> fmt::Debug for ResponseFuture<T, S>
+impl<T, S, Request> fmt::Debug for ResponseFuture<T, S, Request>
 where T: fmt::Debug,
-      S: Service + fmt::Debug,
-      S::Request: fmt::Debug,
+      S: Service<Request> + fmt::Debug,
       S::Future: fmt::Debug,
+      Request: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("ResponseFuture")
@@ -196,9 +198,9 @@ where T: fmt::Debug,
 
 // ===== impl ResponseInner =====
 
-impl<T, U> ResponseInner<T, U>
+impl<T, S, Request> ResponseInner<T, S, Request>
 where T: Future,
-      U: Service,
+      S: Service<Request>,
 {
     fn inc_rem(&self) {
         if 0 == self.counts.rem.fetch_add(1, SeqCst) {
@@ -206,7 +208,7 @@ where T: Future,
         }
     }
 
-    fn poll(&mut self) -> Poll<U::Response, Error<T::Error, U::Error>> {
+    fn poll(&mut self) -> Poll<S::Response, Error<T::Error, S::Error>> {
         use self::State::*;
 
         loop {
