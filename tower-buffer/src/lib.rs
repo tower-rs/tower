@@ -27,18 +27,16 @@ use std::sync::atomic::Ordering;
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
-pub struct Buffer<T>
-where T: Service,
+pub struct Buffer<T, Request>
+where T: Service<Request>,
 {
-    tx: UnboundedSender<Message<T>>,
+    tx: UnboundedSender<Message<Request, T::Future>>,
     state: Arc<State>,
 }
 
 /// Future eventually completed with the response to the original request.
-pub struct ResponseFuture<T>
-where T: Service,
-{
-    state: ResponseState<T::Future>,
+pub struct ResponseFuture<T> {
+    state: ResponseState<T>,
 }
 
 /// Errors produced by `Buffer`.
@@ -50,11 +48,11 @@ pub enum Error<T> {
 
 /// Task that handles processing the buffer. This type should not be used
 /// directly, instead `Buffer` requires an `Executor` that can accept this task.
-pub struct Worker<T>
-where T: Service,
+pub struct Worker<T, Request>
+where T: Service<Request>,
 {
-    current_message: Option<Message<T>>,
-    rx: UnboundedReceiver<Message<T>>,
+    current_message: Option<Message<Request, T::Future>>,
+    rx: UnboundedReceiver<Message<Request, T::Future>>,
     service: T,
     state: Arc<State>,
 }
@@ -67,9 +65,9 @@ pub struct SpawnError<T> {
 
 /// Message sent over buffer
 #[derive(Debug)]
-struct Message<T: Service> {
-    request: T::Request,
-    tx: oneshot::Sender<T::Future>,
+struct Message<Request, Fut> {
+    request: Request,
+    tx: oneshot::Sender<Fut>,
 }
 
 /// State shared between `Buffer` and `Worker`
@@ -82,8 +80,9 @@ enum ResponseState<T> {
     Poll(T),
 }
 
-impl<T> Buffer<T>
-where T: Service,
+impl<T, Request> Buffer<T, Request>
+where
+    T: Service<Request>,
 {
     /// Creates a new `Buffer` wrapping `service`.
     ///
@@ -91,7 +90,8 @@ where T: Service,
     /// draining the buffer and dispatching the requests to the internal
     /// service.
     pub fn new<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
-    where E: Executor<Worker<T>>,
+    where
+        E: Executor<Worker<T, Request>>,
     {
         let (tx, rx) = mpsc::unbounded();
 
@@ -117,13 +117,13 @@ where T: Service,
     }
 }
 
-impl<T> Service for Buffer<T>
-where T: Service,
+impl<T, Request> Service<Request> for Buffer<T, Request>
+where
+    T: Service<Request>,
 {
-    type Request = T::Request;
     type Response = T::Response;
     type Error = Error<T::Error>;
-    type Future = ResponseFuture<T>;
+    type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
@@ -136,7 +136,7 @@ where T: Service,
         }
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let (tx, rx) = oneshot::channel();
 
         let sent = self.tx.unbounded_send(Message {
@@ -152,8 +152,9 @@ where T: Service,
     }
 }
 
-impl<T> Clone for Buffer<T>
-where T: Service
+impl<T, Request> Clone for Buffer<T, Request>
+where
+    T: Service<Request>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -166,9 +167,10 @@ where T: Service
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where T: Service
+where
+    T: Future,
 {
-    type Item = T::Response;
+    type Item = T::Item;
     type Error = Error<T::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -197,11 +199,12 @@ where T: Service
 
 // ===== impl Worker =====
 
-impl<T> Worker<T>
-where T: Service
+impl<T, Request> Worker<T, Request>
+where
+    T: Service<Request>,
 {
     /// Return the next queued Message that hasn't been canceled.
-    fn poll_next_msg(&mut self) -> Poll<Option<Message<T>>, ()> {
+    fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future>>, ()> {
         if let Some(mut msg) = self.current_message.take() {
             // poll_cancel returns Async::Ready is the receiver is dropped.
             // Returning NotReady means it is still alive, so we should still
@@ -223,8 +226,9 @@ where T: Service
     }
 }
 
-impl<T> Future for Worker<T>
-where T: Service,
+impl<T, Request> Future for Worker<T, Request>
+where
+    T: Service<Request>,
 {
     type Item = ();
     type Error = ();
