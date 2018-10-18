@@ -51,10 +51,10 @@ where
 impl<D: Discover, M: Copy> Discover for Constant<D, M> {
     type Key = D::Key;
     type Service = Constant<D::Service, M>;
-    type DiscoverError = D::DiscoverError;
+    type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
         use self::Change::*;
 
         let change = match try_ready!(self.inner.poll()) {

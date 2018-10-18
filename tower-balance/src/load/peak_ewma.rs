@@ -81,13 +81,13 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 // ===== impl PeakEwma =====
 
 impl<D, I> WithPeakEwma<D, I>
-/*
-where
-    D: Discover,
-    I: Instrument<Handle, D::Response>,
-    */
 {
-    pub fn new(discover: D, decay: Duration, instrument: I) -> Self {
+    pub fn new<Request>(discover: D, decay: Duration, instrument: I) -> Self
+    where
+        D: Discover,
+        D::Service: Service<Request>,
+        I: Instrument<Handle, <D::Service as Service<Request>>::Response>
+    {
         WithPeakEwma {
             discover,
             decay_ns: nanos(decay),
@@ -103,9 +103,9 @@ where
 {
     type Key = D::Key;
     type Service = PeakEwma<D::Service, I>;
-    type DiscoverError = D::DiscoverError;
+    type Error = D::Error;
 
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
@@ -120,13 +120,7 @@ where
 // ===== impl PeakEwma =====
 
 impl<S, I> PeakEwma<S, I> {
-    fn new(service: S, decay_ns: f64, instrument: I) -> Self
-        /*
-    where
-        S: Service<Request>,
-        I: Instrument<Handle, S::Response>,
-        */
-    {
+    fn new(service: S, decay_ns: f64, instrument: I) -> Self {
         Self {
             service,
             decay_ns,

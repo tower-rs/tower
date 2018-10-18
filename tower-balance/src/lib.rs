@@ -160,7 +160,7 @@ where
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
     fn update_from_discover<Request>(&mut self)
-        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>
+        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::Error>>
     where
         D::Service: Service<Request>
     {
@@ -197,7 +197,7 @@ where
     /// When `poll_ready` returns ready, the service is removed from `not_ready` and inserted
     /// into `ready`, potentially altering the order of `ready` and/or `not_ready`.
     fn promote_to_ready<Request>(&mut self)
-        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>
+        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::Error>>
     where
         D::Service: Service<Request>,
     {
@@ -239,7 +239,7 @@ where
     /// If the service exists in `ready` and does not poll as ready, it is moved to
     /// `not_ready`, potentially altering the order of `ready` and/or `not_ready`.
     fn poll_ready_index<Request>(&mut self, idx: usize)
-        -> Option<Poll<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>>
+        -> Option<Poll<(), Error<<D::Service as Service<Request>>::Error, D::Error>>>
     where
         D::Service: Service<Request>,
     {
@@ -263,7 +263,7 @@ where
     ///
     /// Ensures that .
     fn choose_and_poll_ready<Request>(&mut self)
-        -> Poll<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>
+        -> Poll<(), Error<<D::Service as Service<Request>>::Error, D::Error>>
     where
         D::Service: Service<Request>,
     {
@@ -295,8 +295,8 @@ where
     C: Choose<D::Key, D::Service>,
 {
     type Response = <D::Service as Service<Request>>::Response;
-    type Error = Error<<D::Service as Service<Request>>::Error, D::DiscoverError>;
-    type Future = ResponseFuture<<D::Service as Service<Request>>::Future, D::DiscoverError>;
+    type Error = Error<<D::Service as Service<Request>>::Error, D::Error>;
+    type Future = ResponseFuture<<D::Service as Service<Request>>::Future, D::Error>;
 
     /// Prepares the balancer to process a request.
     ///
@@ -403,9 +403,9 @@ mod tests {
         type Response = ();
         type Error = ();
         type Service = ReluctantService;
-        type DiscoverError = ();
+        type Error = ();
 
-        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
+        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
             let r = self.0.pop_front().map(Async::Ready).unwrap_or(Async::NotReady);
             debug!("polling disco: {:?}", r.is_ready());
             Ok(r)

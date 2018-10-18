@@ -24,25 +24,13 @@ pub trait Discover {
     /// NewService key
     type Key: Hash + Eq;
 
-    /*
-    /// Responses given by the discovered services
-    type Response;
-
-    /// Errors produced by the discovered services
-    type Error;
-
-    /// The discovered `Service` instance.
-    type Service: Service<Request,
-                         Response = Self::Response,
-                            Error = Self::Error>;
-    */
     type Service;
 
     /// Error produced during discovery
-    type DiscoverError;
+    type Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError>;
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error>;
 }
 
 /// A change in the service set
@@ -79,9 +67,9 @@ where T: Iterator<Item = U>,
 {
     type Key = usize;
     type Service = U;
-    type DiscoverError = ();
+    type Error = ();
 
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.inner.next() {
             Some((i, service)) => Ok(Change::Insert(i, service).into()),
             None => Ok(Async::NotReady),

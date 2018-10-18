@@ -35,13 +35,7 @@ pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
 
-impl<S, I> PendingRequests<S, I>
-/*
-where
-    S: Service,
-    I: Instrument<Handle, S::Response>,
-    */
-{
+impl<S, I> PendingRequests<S, I> {
     fn new(service: S, instrument: I) -> Self {
         Self {
             service,
@@ -55,13 +49,7 @@ where
     }
 }
 
-impl<S, I> Load for PendingRequests<S, I>
-/*
-where
-    S: Service,
-    I: Instrument<Handle, S::Response>,
-    */
-{
+impl<S, I> Load for PendingRequests<S, I> {
     type Metric = Count;
 
     fn load(&self) -> Count {
@@ -90,14 +78,13 @@ where
 
 // ===== impl WithPendingRequests =====
 
-impl<D, I> WithPendingRequests<D, I>
-/*
-where
-    D: Discover,
-    I: Instrument<Handle, D::Response>,
-    */
-{
-    pub fn new(discover: D, instrument: I) -> Self {
+impl<D, I> WithPendingRequests<D, I> {
+    pub fn new<Request>(discover: D, instrument: I) -> Self
+    where
+        D: Discover,
+        D::Service: Service<Request>,
+        I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
+    {
         Self { discover, instrument }
     }
 }
@@ -106,14 +93,13 @@ impl<D, I> Discover for WithPendingRequests<D, I>
 where
     D: Discover,
     I: Clone,
-    // I: Instrument<Handle, D::Response>,
 {
     type Key = D::Key;
     type Service = PendingRequests<D::Service, I>;
-    type DiscoverError = D::DiscoverError;
+    type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
         use self::Change::*;
 
         let change = match try_ready!(self.discover.poll()) {
