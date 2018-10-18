@@ -25,11 +25,11 @@ where
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
 pub trait ServiceExt<Request>: Service<Request> {
-    fn apply<F, R>(self, f: F) -> Apply<Self, F, R, Request>
+    fn apply<F, In, Out>(self, f: F) -> Apply<Self, F, In, Out, Request>
     where
-        Self: Clone + Sized,
-        F: Fn(Request, Self) -> R,
-        R: IntoFuture<Error = Self::Error>,
+        Self: Service<Request> + Clone + Sized,
+        F: Fn(In, Self) -> Out,
+        Out: IntoFuture<Error = Self::Error>,
     {
         Apply::new(f, self)
     }

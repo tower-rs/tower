@@ -84,8 +84,7 @@ mod tests {
 
     struct Srv;
 
-    impl Service for Srv {
-        type Request = ();
+    impl Service<()> for Srv {
         type Response = ();
         type Error = ();
         type Future = FutureResult<(), ()>;

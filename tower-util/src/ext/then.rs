@@ -105,8 +105,7 @@ mod tests {
     use ServiceExt;
 
     struct Srv1(Rc<Cell<usize>>);
-    impl Service for Srv1 {
-        type Request = Result<&'static str, &'static str>;
+    impl Service<Result<&'static str, &'static str>> for Srv1 {
         type Response = &'static str;
         type Error = ();
         type Future = FutureResult<Self::Response, Self::Error>;
@@ -116,7 +115,7 @@ mod tests {
             Ok(Async::Ready(()))
         }
 
-        fn call(&mut self, req: Self::Request) -> Self::Future {
+        fn call(&mut self, req: Result<&'static str, &'static str>) -> Self::Future {
             match req {
                 Ok(msg) => ok(msg),
                 Err(_) => err(()),
@@ -127,8 +126,7 @@ mod tests {
     #[derive(Clone)]
     struct Srv2(Rc<Cell<usize>>);
 
-    impl Service for Srv2 {
-        type Request = Result<&'static str, ()>;
+    impl Service<Result<&'static str, ()>> for Srv2 {
         type Response = (&'static str, &'static str);
         type Error = ();
         type Future = FutureResult<Self::Response, ()>;
@@ -138,7 +136,7 @@ mod tests {
             Ok(Async::Ready(()))
         }
 
-        fn call(&mut self, req: Self::Request) -> Self::Future {
+        fn call(&mut self, req: Result<&'static str, ()>) -> Self::Future {
             match req {
                 Ok(msg) => ok((msg, "ok")),
                 Err(()) => ok(("srv2", "err")),

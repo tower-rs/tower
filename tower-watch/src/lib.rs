@@ -111,8 +111,7 @@ mod tests {
     #[test]
     fn rebind() {
         struct Svc(usize);
-        impl Service for Svc {
-            type Request = ();
+        impl Service<()> for Svc {
             type Response = usize;
             type Error = ();
             type Future = future::FutureResult<usize, ()>;
