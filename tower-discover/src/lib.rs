@@ -20,10 +20,11 @@ use std::iter::{Enumerate, IntoIterator};
 /// new `NewServiceSet` is yielded by `Discover`.
 ///
 /// See crate documentation for more details.
-pub trait Discover<Request> {
+pub trait Discover {
     /// NewService key
     type Key: Hash + Eq;
 
+    /*
     /// Responses given by the discovered services
     type Response;
 
@@ -34,6 +35,8 @@ pub trait Discover<Request> {
     type Service: Service<Request,
                          Response = Self::Response,
                             Error = Self::Error>;
+    */
+    type Service;
 
     /// Error produced during discovery
     type DiscoverError;
@@ -71,13 +74,10 @@ where
     }
 }
 
-impl<T, U, Request> Discover<Request> for List<T>
+impl<T, U> Discover for List<T>
 where T: Iterator<Item = U>,
-      U: Service<Request>,
 {
     type Key = usize;
-    type Response = U::Response;
-    type Error = U::Error;
     type Service = U;
     type DiscoverError = ();
 

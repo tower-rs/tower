@@ -28,7 +28,10 @@ pub use load::Load;
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]
-pub struct Balance<D: Discover, C> {
+pub struct Balance<D, C>
+where
+    D: Discover,
+{
     /// Provides endpoints from service discovery.
     discover: D,
 
@@ -156,8 +159,10 @@ where
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn update_from_discover(&mut self)
-        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    fn update_from_discover<Request>(&mut self)
+        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>
+    where
+        D::Service: Service<Request>
     {
         debug!("updating from discover");
         use tower_discover::Change::*;
@@ -191,8 +196,10 @@ where
     ///
     /// When `poll_ready` returns ready, the service is removed from `not_ready` and inserted
     /// into `ready`, potentially altering the order of `ready` and/or `not_ready`.
-    fn promote_to_ready(&mut self)
-        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    fn promote_to_ready<Request>(&mut self)
+        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>
+    where
+        D::Service: Service<Request>,
     {
         let n = self.not_ready.len();
         if n == 0 {
@@ -231,8 +238,10 @@ where
     ///
     /// If the service exists in `ready` and does not poll as ready, it is moved to
     /// `not_ready`, potentially altering the order of `ready` and/or `not_ready`.
-    fn poll_ready_index(&mut self, idx: usize)
-        -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>>
+    fn poll_ready_index<Request>(&mut self, idx: usize)
+        -> Option<Poll<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>>
+    where
+        D::Service: Service<Request>,
     {
         match self.ready.get_index_mut(idx) {
             None => return None,
@@ -253,8 +262,10 @@ where
     /// Chooses the next service to which a request will be dispatched.
     ///
     /// Ensures that .
-    fn choose_and_poll_ready(&mut self)
-        -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    fn choose_and_poll_ready<Request>(&mut self)
+        -> Poll<(), Error<<D::Service as Service<Request>>::Error, D::DiscoverError>>
+    where
+        D::Service: Service<Request>,
     {
         loop {
             let n = self.ready.len();
@@ -277,15 +288,15 @@ where
     }
 }
 
-impl<D, C> Service for Balance<D, C>
+impl<D, C, Request> Service<Request> for Balance<D, C>
 where
     D: Discover,
+    D::Service: Service<Request>,
     C: Choose<D::Key, D::Service>,
 {
-    type Request = <D::Service as Service>::Request;
-    type Response = <D::Service as Service>::Response;
-    type Error = Error<<D::Service as Service>::Error, D::DiscoverError>;
-    type Future = ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>;
+    type Response = <D::Service as Service<Request>>::Response;
+    type Error = Error<<D::Service as Service<Request>>::Error, D::DiscoverError>;
+    type Future = ResponseFuture<<D::Service as Service<Request>>::Future, D::DiscoverError>;
 
     /// Prepares the balancer to process a request.
     ///
@@ -310,7 +321,7 @@ where
         self.choose_and_poll_ready()
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let idx = self.chosen_ready_index.take().expect("not ready");
         let (_, svc) = self.ready.get_index_mut(idx).expect("invalid chosen ready index");
         self.dispatched_ready_index = Some(idx);

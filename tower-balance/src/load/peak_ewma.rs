@@ -81,9 +81,11 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 // ===== impl PeakEwma =====
 
 impl<D, I> WithPeakEwma<D, I>
+/*
 where
     D: Discover,
     I: Instrument<Handle, D::Response>,
+    */
 {
     pub fn new(discover: D, decay: Duration, instrument: I) -> Self {
         WithPeakEwma {
@@ -97,12 +99,9 @@ where
 impl<D, I> Discover for WithPeakEwma<D, I>
 where
     D: Discover,
-    I: Instrument<Handle, D::Response>,
+    I: Clone,
 {
     type Key = D::Key;
-    type Request = D::Request;
-    type Response = I::Output;
-    type Error = D::Error;
     type Service = PeakEwma<D::Service, I>;
     type DiscoverError = D::DiscoverError;
 
@@ -120,12 +119,14 @@ where
 
 // ===== impl PeakEwma =====
 
-impl<S, I> PeakEwma<S, I>
-where
-    S: Service,
-    I: Instrument<Handle, S::Response>,
-{
-    fn new(service: S, decay_ns: f64, instrument: I) -> Self {
+impl<S, I> PeakEwma<S, I> {
+    fn new(service: S, decay_ns: f64, instrument: I) -> Self
+        /*
+    where
+        S: Service<Request>,
+        I: Instrument<Handle, S::Response>,
+        */
+    {
         Self {
             service,
             decay_ns,
@@ -143,12 +144,11 @@ where
     }
 }
 
-impl<S, I> Service for PeakEwma<S, I>
+impl<S, I, Request> Service<Request> for PeakEwma<S, I>
 where
-    S: Service,
+    S: Service<Request>,
     I: Instrument<Handle, S::Response>,
 {
-    type Request = S::Request;
     type Response = I::Output;
     type Error = S::Error;
     type Future = InstrumentFuture<S::Future, I, Handle>;
@@ -157,7 +157,7 @@ where
         self.service.poll_ready()
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
+    fn call(&mut self, req: Request) -> Self::Future {
         InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
     }
 }
