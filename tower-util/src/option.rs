@@ -39,10 +39,9 @@ impl<T> OptionService<T> {
     }
 }
 
-impl<T> Service for OptionService<T>
-where T: Service,
+impl<T, Request> Service<Request> for OptionService<T>
+where T: Service<Request>,
 {
-    type Request = T::Request;
     type Response = T::Response;
     type Error = Error<T::Error>;
     type Future = ResponseFuture<T::Future>;
@@ -55,7 +54,7 @@ where T: Service,
         }
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let inner = self.inner.as_mut().map(|i| i.call(request));
         ResponseFuture { inner }
     }

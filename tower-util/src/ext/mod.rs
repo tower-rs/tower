@@ -17,15 +17,18 @@ pub use self::map::Map;
 pub use self::map_err::MapErr;
 pub use self::then::Then;
 
-impl<T: ?Sized> ServiceExt for T where T: Service {}
+impl<T: ?Sized, Request> ServiceExt<Request> for T
+where
+    T: Service<Request>
+{}
 
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
-pub trait ServiceExt: Service {
-    fn apply<F, R, Req>(self, f: F) -> Apply<Self, F, R, Req>
+pub trait ServiceExt<Request>: Service<Request> {
+    fn apply<F, R>(self, f: F) -> Apply<Self, F, R, Request>
     where
         Self: Clone + Sized,
-        F: Fn(Req, Self) -> R,
+        F: Fn(Request, Self) -> R,
         R: IntoFuture<Error = Self::Error>,
     {
         Apply::new(f, self)
@@ -43,7 +46,7 @@ pub trait ServiceExt: Service {
     fn and_then<B>(self, service: B) -> AndThen<Self, B>
     where
         Self: Sized,
-        B: Service<Request = Self::Response, Error = Self::Error> + Clone,
+        B: Service<Self::Response, Error = Self::Error> + Clone,
     {
         AndThen::new(self, service)
     }
@@ -69,7 +72,7 @@ pub trait ServiceExt: Service {
     fn then<B>(self, service: B) -> Then<Self, B>
     where
         Self: Sized,
-        B: Service<Request = Result<Self::Response, Self::Error>, Error = Self::Error> + Clone,
+        B: Service<Result<Self::Response, Self::Error>, Error = Self::Error> + Clone,
     {
         Then::new(self, service)
     }

@@ -4,16 +4,16 @@ use futures::{Future, IntoFuture, Poll};
 use tower_service::Service;
 
 /// `Apply` service combinator
-pub struct Apply<T, F, R, Req> {
+pub struct Apply<T, F, R, Request> {
     service: T,
     f: F,
-    _r: PhantomData<Fn(Req) -> R>,
+    _r: PhantomData<Fn(Request) -> R>,
 }
 
-impl<T, F, R, Req> Apply<T, F, R, Req>
+impl<T, F, R, Request> Apply<T, F, R, Request>
 where
-    T: Service<Error = R::Error> + Clone,
-    F: Fn(Req, T) -> R,
+    T: Service<Request, Error = R::Error> + Clone,
+    F: Fn(Request, T) -> R,
     R: IntoFuture,
 {
     /// Create new `Apply` combinator
@@ -26,10 +26,10 @@ where
     }
 }
 
-impl<T, F, R, Req> Clone for Apply<T, F, R, Req>
+impl<T, F, R, Request> Clone for Apply<T, F, R, Request>
 where
-    T: Service<Error = R::Error> + Clone,
-    F: Fn(Req, T) -> R + Clone,
+    T: Service<Request, Error = R::Error> + Clone,
+    F: Fn(Request, T) -> R + Clone,
     R: IntoFuture,
 {
     fn clone(&self) -> Self {
@@ -41,13 +41,12 @@ where
     }
 }
 
-impl<T, F, R, Req> Service for Apply<T, F, R, Req>
+impl<T, F, R, Request> Service<Request> for Apply<T, F, R, Request>
 where
-    T: Service<Error = R::Error> + Clone,
-    F: Fn(Req, T) -> R,
+    T: Service<Request, Error = R::Error> + Clone,
+    F: Fn(Request, T) -> R,
     R: IntoFuture,
 {
-    type Request = Req;
     type Response = <R::Future as Future>::Item;
     type Error = <R::Future as Future>::Error;
     type Future = R::Future;
@@ -56,7 +55,7 @@ where
         self.service.poll_ready()
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
+    fn call(&mut self, req: Request) -> Self::Future {
         let service = self.service.clone();
         (self.f)(req, service).into_future()
     }

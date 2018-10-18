@@ -8,22 +8,18 @@ pub struct NewServiceFn<T> {
 
 // ===== impl NewServiceFn =====
 
-impl<T, N> NewServiceFn<T>
-where T: Fn() -> N,
-      N: Service,
-{
+impl<T> NewServiceFn<T> {
     /// Returns a new `NewServiceFn` with the given closure.
     pub fn new(f: T) -> Self {
         NewServiceFn { f }
     }
 }
 
-impl<T, R, S> NewService for NewServiceFn<T>
+impl<T, R, S, Request> NewService<Request> for NewServiceFn<T>
 where T: Fn() -> R,
       R: IntoFuture<Item = S>,
-      S: Service,
+      S: Service<Request>,
 {
-    type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
     type Service = R::Item;
