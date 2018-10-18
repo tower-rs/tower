@@ -8,11 +8,12 @@ use tower_service::{Service, NewService};
 
 use std::{error, fmt};
 
-pub struct Reconnect<T>
-where T: NewService,
+pub struct Reconnect<T, Request>
+where
+    T: NewService<Request>,
 {
     new_service: T,
-    state: State<T>,
+    state: State<T, Request>,
 }
 
 #[derive(Debug)]
@@ -22,15 +23,20 @@ pub enum Error<T, U> {
     NotReady,
 }
 
-pub struct ResponseFuture<T>
-where T: NewService
+pub struct ResponseFuture<T, Request>
+where
+    // TODO:
+    // This struct should just be generic over the response future, but
+    // doing so would require changing the future's error type
+    T: NewService<Request>,
 {
-    inner: Option<<T::Service as Service>::Future>,
+    inner: Option<<T::Service as Service<Request>>::Future>,
 }
 
 #[derive(Debug)]
-enum State<T>
-where T: NewService
+enum State<T, Request>
+where
+    T: NewService<Request>
 {
     Idle,
     Connecting(T::Future),
@@ -39,8 +45,9 @@ where T: NewService
 
 // ===== impl Reconnect =====
 
-impl<T> Reconnect<T>
-where T: NewService,
+impl<T, Request> Reconnect<T, Request>
+where
+    T: NewService<Request>,
 {
     pub fn new(new_service: T) -> Self {
         Reconnect {
@@ -50,13 +57,13 @@ where T: NewService,
     }
 }
 
-impl<T> Service for Reconnect<T>
-where T: NewService
+impl<T, Request> Service<Request> for Reconnect<T, Request>
+where
+    T: NewService<Request>
 {
-    type Request = T::Request;
     type Response = T::Response;
     type Error = Error<T::Error, T::InitError>;
-    type Future = ResponseFuture<T>;
+    type Future = ResponseFuture<T, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         use self::State::*;
@@ -116,7 +123,7 @@ where T: NewService
         ret
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         use self::State::*;
 
         trace!("call");
@@ -131,10 +138,12 @@ where T: NewService
     }
 }
 
-impl<T> fmt::Debug for Reconnect<T>
-where T: NewService + fmt::Debug,
-      T::Future: fmt::Debug,
-      T::Service: fmt::Debug,
+impl<T, Request> fmt::Debug for Reconnect<T, Request>
+where
+    T: NewService<Request> + fmt::Debug,
+    T::Future: fmt::Debug,
+    T::Service: fmt::Debug,
+    Request: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Reconnect")
@@ -146,7 +155,10 @@ where T: NewService + fmt::Debug,
 
 // ===== impl ResponseFuture =====
 
-impl<T: NewService> Future for ResponseFuture<T> {
+impl<T, Request> Future for ResponseFuture<T, Request>
+where
+    T: NewService<Request>,
+{
     type Item = T::Response;
     type Error = Error<T::Error, T::InitError>;
 

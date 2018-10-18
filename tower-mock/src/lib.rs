@@ -100,8 +100,7 @@ impl<T, U, E> Mock<T, U, E> {
     }
 }
 
-impl<T, U, E> Service for Mock<T, U, E> {
-    type Request = T;
+impl<T, U, E> Service<T> for Mock<T, U, E> {
     type Response = U;
     type Error = Error<E>;
     type Future = ResponseFuture<U, E>;
@@ -133,7 +132,7 @@ impl<T, U, E> Service for Mock<T, U, E> {
         }
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: T) -> Self::Future {
         // Make sure that the service has capacity
         let mut state = self.state.lock().unwrap();
 
