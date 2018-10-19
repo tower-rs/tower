@@ -125,8 +125,7 @@ mod tests {
     use super::*;
 
     struct Svc;
-    impl Service for Svc {
-        type Request = ();
+    impl Service<()> for Svc {
         type Response = ();
         type Error = ();
         type Future = future::FutureResult<(), ()>;

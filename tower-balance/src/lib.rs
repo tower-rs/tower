@@ -399,9 +399,6 @@ mod tests {
 
     impl Discover for ReluctantDisco {
         type Key = usize;
-        type Request = ();
-        type Response = ();
-        type Error = ();
         type Service = ReluctantService;
         type Error = ();
 
@@ -412,8 +409,7 @@ mod tests {
         }
     }
 
-    impl Service for ReluctantService {
-        type Request = ();
+    impl Service<()> for ReluctantService {
         type Response = ();
         type Error = ();
         type Future = future::FutureResult<(), ()>;
