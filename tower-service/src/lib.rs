@@ -48,8 +48,7 @@ use std::sync::Arc;
 /// As an example, here is how an HTTP request is processed by a server:
 ///
 /// ```rust,ignore
-/// impl Service for HelloWorld {
-///     type Request = http::Request;
+/// impl Service<http::Request> for HelloWorld {
 ///     type Response = http::Response;
 ///     type Error = http::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
@@ -123,11 +122,11 @@ use std::sync::Arc;
 ///     }
 /// }
 ///
-/// impl<T> Service for Timeout<T>
-///     where T: Service,
-///           T::Error: From<Expired>,
+/// impl<T, Request> Service<Request> for Timeout<T>
+/// where
+///     T: Service<Request>,
+///     T::Error: From<Expired>,
 /// {
-///     type Request = T::Request;
 ///     type Response = T::Response;
 ///     type Error = T::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
@@ -136,7 +135,7 @@ use std::sync::Arc;
 ///         Ok(Async::Ready(()))
 ///     }
 ///
-///     fn call(&mut self, req: Self::Req) -> Self::Future {
+///     fn call(&mut self, req: Request) -> Self::Future {
 ///         let timeout = self.timer.sleep(self.delay)
 ///             .and_then(|_| Err(Self::Error::from(Expired)));
 ///

@@ -27,10 +27,9 @@
 //!     f: F,
 //! }
 //!
-//! impl<F> Service for ServiceFn<F>
+//! impl<F> Service<String> for ServiceFn<F>
 //! where F: Fn(String) -> String,
 //! {
-//!     type Request = String;
 //!     type Response = String;
 //!     type Error = ();
 //!     type Future = FutureResult<String, ()>;
