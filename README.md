@@ -91,7 +91,7 @@ terms or conditions.
 [tre-docs]: https://tower-rs.github.io/tower/tower_reconnect/index.html
 [`tower-router`]: tower-router
 [tro-docs]: https://tower-rs.github.io/tower/tower_router/index.html
-[`tower-timeout`]: tower-timeeout
+[`tower-timeout`]: tower-timeout
 [tt-docs]: https://tower-rs.github.io/tower/tower_timeout/index.html
 [`tower-util`]: tower-util
 [tu-docs]: https://tower-rs.github.io/tower/tower_util/index.html
