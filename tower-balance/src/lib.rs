@@ -28,10 +28,7 @@ pub use load::Load;
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]
-pub struct Balance<D, C>
-where
-    D: Discover,
-{
+pub struct Balance<D: Discover, C> {
     /// Provides endpoints from service discovery.
     discover: D,
 

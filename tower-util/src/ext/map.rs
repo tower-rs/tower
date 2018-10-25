@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 pub struct Map<T, F, R> {
     service: T,
     f: F,
-    _p: PhantomData<R>,
+    _p: PhantomData<fn() -> R>,
 }
 
 impl<T, F, R> Map<T, F, R> {

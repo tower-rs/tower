@@ -68,10 +68,9 @@ use std::fmt;
 ///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
-    inner: Box<Service<T,
-                      Response = U,
-                         Error = E,
-                        Future = BoxFuture<U, E>> + Send>,
+    inner: Box<Service<T, Response = U,
+                             Error = E,
+                            Future = BoxFuture<U, E>> + Send>,
 }
 
 /// A boxed `Future + Send` trait object.
@@ -82,10 +81,9 @@ pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send>;
 
 /// A boxed `Service` trait object.
 pub struct UnsyncBoxService<T, U, E> {
-    inner: Box<Service<T,
-                      Response = U,
-                         Error = E,
-                        Future = UnsyncBoxFuture<U, E>>>,
+    inner: Box<Service<T, Response = U,
+                             Error = E,
+                            Future = UnsyncBoxFuture<U, E>>>,
 }
 
 /// A boxed `Future` trait object.

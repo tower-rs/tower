@@ -209,7 +209,7 @@ pub trait Service<Request> {
 /// `Ready` values are produced by `Service::ready`.
 pub struct Ready<T, Request> {
     inner: Option<T>,
-    _p: PhantomData<Request>,
+    _p: PhantomData<fn() -> Request>,
 }
 
 /// Creates new `Service` values.
