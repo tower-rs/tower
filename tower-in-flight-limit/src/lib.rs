@@ -49,7 +49,10 @@ struct Shared {
 
 impl<T> InFlightLimit<T> {
     /// Create a new rate limiter
-    pub fn new(inner: T, max: usize) -> Self {
+    pub fn new<Request>(inner: T, max: usize) -> Self
+    where
+        T: Service<Request>,
+    {
         InFlightLimit {
             inner,
             state: State {
@@ -79,10 +82,10 @@ impl<T> InFlightLimit<T> {
     }
 }
 
-impl<S> Service for InFlightLimit<S>
-where S: Service
+impl<S, Request> Service<Request> for InFlightLimit<S>
+where
+    S: Service<Request>,
 {
-    type Request = S::Request;
     type Response = S::Response;
     type Error = Error<S::Error>;
     type Future = ResponseFuture<S::Future>;
@@ -105,7 +108,7 @@ where S: Service
             .map_err(Error::Upstream)
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         // In this implementation, `poll_ready` is not expected to be called
         // first (though, it might have been).
         if self.state.reserved {

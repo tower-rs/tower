@@ -1,84 +1,87 @@
 use futures::{Async, Future, Poll};
 use tower_service::Service;
 
+use std::marker::PhantomData;
+
 /// Service for the `map` combinator, changing the type of a service's response.
 ///
 /// This is created by the `ServiceExt::map` method.
-pub struct Map<T, F, R>
-where
-    T: Service,
-    F: Fn(T::Response) -> R + Clone,
-{
+pub struct Map<T, F, R> {
     service: T,
     f: F,
+    _p: PhantomData<fn() -> R>,
 }
 
-impl<T, F, R> Map<T, F, R>
-where
-    T: Service,
-    F: Fn(T::Response) -> R + Clone,
-{
+impl<T, F, R> Map<T, F, R> {
     /// Create new `Map` combinator
-    pub fn new(service: T, f: F) -> Self {
-        Map { service, f }
+    pub fn new<Request>(service: T, f: F) -> Self
+    where
+        T: Service<Request>,
+        F: Fn(T::Response) -> R + Clone,
+    {
+        Map {
+            service,
+            f,
+            _p: PhantomData,
+        }
     }
 }
 
 impl<T, F, R> Clone for Map<T, F, R>
 where
-    T: Service + Clone,
-    F: Fn(T::Response) -> R + Clone,
+    T: Clone,
+    F: Clone,
 {
     fn clone(&self) -> Self {
         Map {
             service: self.service.clone(),
             f: self.f.clone(),
+            _p: PhantomData,
         }
     }
 }
 
-impl<T, F, R> Service for Map<T, F, R>
+impl<T, F, R, Request> Service<Request> for Map<T, F, R>
 where
-    T: Service,
+    T: Service<Request>,
     F: Fn(T::Response) -> R + Clone,
 {
-    type Request = T::Request;
     type Response = R;
     type Error = T::Error;
-    type Future = MapFuture<T, F, R>;
+    type Future = MapFuture<T::Future, F, R>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
+    fn call(&mut self, req: Request) -> Self::Future {
         MapFuture::new(self.service.call(req), self.f.clone())
     }
 }
 
 pub struct MapFuture<T, F, R>
 where
-    T: Service,
-    F: Fn(T::Response) -> R,
+    T: Future,
+    F: Fn(T::Item) -> R,
 {
     f: F,
-    fut: T::Future,
+    fut: T,
 }
 
 impl<T, F, R> MapFuture<T, F, R>
 where
-    T: Service,
-    F: Fn(T::Response) -> R,
+    T: Future,
+    F: Fn(T::Item) -> R,
 {
-    fn new(fut: T::Future, f: F) -> Self {
+    fn new(fut: T, f: F) -> Self {
         MapFuture { f, fut }
     }
 }
 
 impl<T, F, R> Future for MapFuture<T, F, R>
 where
-    T: Service,
-    F: Fn(T::Response) -> R,
+    T: Future,
+    F: Fn(T::Item) -> R,
 {
     type Item = R;
     type Error = T::Error;
@@ -98,8 +101,7 @@ mod tests {
 
     struct Srv;
 
-    impl Service for Srv {
-        type Request = ();
+    impl Service<()> for Srv {
         type Response = ();
         type Error = ();
         type Future = FutureResult<(), ()>;

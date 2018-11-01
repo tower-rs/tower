@@ -156,8 +156,10 @@ where
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn update_from_discover(&mut self)
-        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    fn update_from_discover<Request>(&mut self)
+        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::Error>>
+    where
+        D::Service: Service<Request>
     {
         debug!("updating from discover");
         use tower_discover::Change::*;
@@ -191,8 +193,10 @@ where
     ///
     /// When `poll_ready` returns ready, the service is removed from `not_ready` and inserted
     /// into `ready`, potentially altering the order of `ready` and/or `not_ready`.
-    fn promote_to_ready(&mut self)
-        -> Result<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    fn promote_to_ready<Request>(&mut self)
+        -> Result<(), Error<<D::Service as Service<Request>>::Error, D::Error>>
+    where
+        D::Service: Service<Request>,
     {
         let n = self.not_ready.len();
         if n == 0 {
@@ -231,8 +235,10 @@ where
     ///
     /// If the service exists in `ready` and does not poll as ready, it is moved to
     /// `not_ready`, potentially altering the order of `ready` and/or `not_ready`.
-    fn poll_ready_index(&mut self, idx: usize)
-        -> Option<Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>>
+    fn poll_ready_index<Request>(&mut self, idx: usize)
+        -> Option<Poll<(), Error<<D::Service as Service<Request>>::Error, D::Error>>>
+    where
+        D::Service: Service<Request>,
     {
         match self.ready.get_index_mut(idx) {
             None => return None,
@@ -253,8 +259,10 @@ where
     /// Chooses the next service to which a request will be dispatched.
     ///
     /// Ensures that .
-    fn choose_and_poll_ready(&mut self)
-        -> Poll<(), Error<<D::Service as Service>::Error, D::DiscoverError>>
+    fn choose_and_poll_ready<Request>(&mut self)
+        -> Poll<(), Error<<D::Service as Service<Request>>::Error, D::Error>>
+    where
+        D::Service: Service<Request>,
     {
         loop {
             let n = self.ready.len();
@@ -277,15 +285,15 @@ where
     }
 }
 
-impl<D, C> Service for Balance<D, C>
+impl<D, C, Request> Service<Request> for Balance<D, C>
 where
     D: Discover,
+    D::Service: Service<Request>,
     C: Choose<D::Key, D::Service>,
 {
-    type Request = <D::Service as Service>::Request;
-    type Response = <D::Service as Service>::Response;
-    type Error = Error<<D::Service as Service>::Error, D::DiscoverError>;
-    type Future = ResponseFuture<<D::Service as Service>::Future, D::DiscoverError>;
+    type Response = <D::Service as Service<Request>>::Response;
+    type Error = Error<<D::Service as Service<Request>>::Error, D::Error>;
+    type Future = ResponseFuture<<D::Service as Service<Request>>::Future, D::Error>;
 
     /// Prepares the balancer to process a request.
     ///
@@ -310,7 +318,7 @@ where
         self.choose_and_poll_ready()
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let idx = self.chosen_ready_index.take().expect("not ready");
         let (_, svc) = self.ready.get_index_mut(idx).expect("invalid chosen ready index");
         self.dispatched_ready_index = Some(idx);
@@ -388,21 +396,17 @@ mod tests {
 
     impl Discover for ReluctantDisco {
         type Key = usize;
-        type Request = ();
-        type Response = ();
-        type Error = ();
         type Service = ReluctantService;
-        type DiscoverError = ();
+        type Error = ();
 
-        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
+        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
             let r = self.0.pop_front().map(Async::Ready).unwrap_or(Async::NotReady);
             debug!("polling disco: {:?}", r.is_ready());
             Ok(r)
         }
     }
 
-    impl Service for ReluctantService {
-        type Request = ();
+    impl Service<()> for ReluctantService {
         type Response = ();
         type Error = ();
         type Future = future::FutureResult<(), ()>;

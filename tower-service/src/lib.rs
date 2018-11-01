@@ -17,6 +17,7 @@ extern crate futures;
 
 use futures::{Future, IntoFuture, Poll};
 
+use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -47,11 +48,10 @@ use std::sync::Arc;
 /// As an example, here is how an HTTP request is processed by a server:
 ///
 /// ```rust,ignore
-/// impl Service for HelloWorld {
-///     type Request = http::Request;
+/// impl Service<http::Request> for HelloWorld {
 ///     type Response = http::Response;
 ///     type Error = http::Error;
-///     type Future = Box<Future<Item = Self::Response, Error = http::Error>>;
+///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
 ///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
 ///         Ok(Async::Ready(()))
@@ -122,11 +122,11 @@ use std::sync::Arc;
 ///     }
 /// }
 ///
-/// impl<T> Service for Timeout<T>
-///     where T: Service,
-///           T::Error: From<Expired>,
+/// impl<T, Request> Service<Request> for Timeout<T>
+/// where
+///     T: Service<Request>,
+///     T::Error: From<Expired>,
 /// {
-///     type Request = T::Request;
 ///     type Response = T::Response;
 ///     type Error = T::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
@@ -135,7 +135,7 @@ use std::sync::Arc;
 ///         Ok(Async::Ready(()))
 ///     }
 ///
-///     fn call(&mut self, req: Self::Req) -> Self::Future {
+///     fn call(&mut self, req: Request) -> Self::Future {
 ///         let timeout = self.timer.sleep(self.delay)
 ///             .and_then(|_| Err(Self::Error::from(Expired)));
 ///
@@ -162,10 +162,7 @@ use std::sync::Arc;
 /// `Service` provides a mechanism by which the caller is able to coordinate
 /// readiness. `Service::poll_ready` returns `Ready` if the service expects that
 /// it is able to process a request.
-pub trait Service {
-
-    /// Requests handled by the service.
-    type Request;
+pub trait Service<Request> {
 
     /// Responses given by the service.
     type Response;
@@ -177,8 +174,11 @@ pub trait Service {
     type Future: Future<Item = Self::Response, Error = Self::Error>;
 
     /// A future yielding the service when it is ready to accept a request.
-    fn ready(self) -> Ready<Self> where Self: Sized {
-        Ready { inner: Some(self) }
+    fn ready(self) -> Ready<Self, Request> where Self: Sized {
+        Ready {
+            inner: Some(self),
+            _p: PhantomData,
+        }
     }
 
     /// Returns `Ready` when the service is able to process requests.
@@ -201,14 +201,15 @@ pub trait Service {
     ///
     /// Calling `call` without calling `poll_ready` is permitted. The
     /// implementation must be resilient to this fact.
-    fn call(&mut self, req: Self::Request) -> Self::Future;
+    fn call(&mut self, req: Request) -> Self::Future;
 }
 
 /// Future yielding a `Service` once the service is ready to process a request
 ///
 /// `Ready` values are produced by `Service::ready`.
-pub struct Ready<T> {
+pub struct Ready<T, Request> {
     inner: Option<T>,
+    _p: PhantomData<fn() -> Request>,
 }
 
 /// Creates new `Service` values.
@@ -218,10 +219,7 @@ pub struct Ready<T> {
 /// accepts new TCP streams, obtains a new `Service` value using the
 /// `NewService` trait, and uses that new `Service` value to process inbound
 /// requests on that new TCP stream.
-pub trait NewService {
-    /// Requests handled by the service
-    type Request;
-
+pub trait NewService<Request> {
     /// Responses given by the service
     type Response;
 
@@ -229,7 +227,7 @@ pub trait NewService {
     type Error;
 
     /// The `Service` value created by this factory
-    type Service: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
+    type Service: Service<Request, Response = Self::Response, Error = Self::Error>;
 
     /// Errors produced while building a service.
     type InitError;
@@ -241,8 +239,8 @@ pub trait NewService {
     fn new_service(&self) -> Self::Future;
 }
 
-impl<T> Future for Ready<T>
-where T: Service,
+impl<T, Request> Future for Ready<T, Request>
+where T: Service<Request>,
 {
     type Item = T;
     type Error = T::Error;
@@ -259,12 +257,11 @@ where T: Service,
     }
 }
 
-impl<F, R, E, S> NewService for F
+impl<F, R, E, S, Request> NewService<Request> for F
     where F: Fn() -> R,
           R: IntoFuture<Item = S, Error = E>,
-          S: Service,
+          S: Service<Request>,
 {
-    type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
     type Service = S;
@@ -276,8 +273,10 @@ impl<F, R, E, S> NewService for F
     }
 }
 
-impl<S: NewService + ?Sized> NewService for Arc<S> {
-    type Request = S::Request;
+impl<S, Request> NewService<Request> for Arc<S>
+where
+    S: NewService<Request> + ?Sized,
+{
     type Response = S::Response;
     type Error = S::Error;
     type Service = S::Service;
@@ -289,8 +288,10 @@ impl<S: NewService + ?Sized> NewService for Arc<S> {
     }
 }
 
-impl<S: NewService + ?Sized> NewService for Rc<S> {
-    type Request = S::Request;
+impl<S, Request> NewService<Request> for Rc<S>
+where
+    S: NewService<Request> + ?Sized,
+{
     type Response = S::Response;
     type Error = S::Error;
     type Service = S::Service;
@@ -302,8 +303,10 @@ impl<S: NewService + ?Sized> NewService for Rc<S> {
     }
 }
 
-impl<'a, S: Service + 'a> Service for &'a mut S {
-    type Request = S::Request;
+impl<'a, S, Request> Service<Request> for &'a mut S
+where
+    S: Service<Request> + 'a
+{
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
@@ -312,13 +315,15 @@ impl<'a, S: Service + 'a> Service for &'a mut S {
         (**self).poll_ready()
     }
 
-    fn call(&mut self, request: S::Request) -> S::Future {
+    fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
     }
 }
 
-impl<S: Service + ?Sized> Service for Box<S> {
-    type Request = S::Request;
+impl<S, Request> Service<Request> for Box<S>
+where
+    S: Service<Request> + ?Sized,
+{
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
@@ -327,7 +332,7 @@ impl<S: Service + ?Sized> Service for Box<S> {
         (**self).poll_ready()
     }
 
-    fn call(&mut self, request: S::Request) -> S::Future {
+    fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
     }
 }

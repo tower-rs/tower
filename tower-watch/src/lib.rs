@@ -9,7 +9,7 @@ use tower_service::Service;
 
 /// Binds new instances of a Service with a borrowed reference to the watched value.
 pub trait Bind<T> {
-    type Service: Service;
+    type Service;
 
     fn bind(&mut self, t: &T) -> Self::Service;
 }
@@ -56,18 +56,21 @@ impl<T, B: Bind<T>> WatchService<T, B> {
     }
 }
 
-impl<T, B: Bind<T>> Service for WatchService<T, B> {
-    type Request = <B::Service as Service>::Request;
-    type Response = <B::Service as Service>::Response;
-    type Error = Error<<B::Service as Service>::Error>;
-    type Future = ResponseFuture<<B::Service as Service>::Future>;
+impl<T, B, Request> Service<Request> for WatchService<T, B>
+where
+    B: Bind<T>,
+    B::Service: Service<Request>,
+{
+    type Response = <B::Service as Service<Request>>::Response;
+    type Error = Error<<B::Service as Service<Request>>::Error>;
+    type Future = ResponseFuture<<B::Service as Service<Request>>::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         let _ = self.poll_rebind().map_err(Error::WatchError)?;
         self.inner.poll_ready().map_err(Error::Inner)
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
+    fn call(&mut self, req: Request) -> Self::Future {
         ResponseFuture(self.inner.call(req))
     }
 }
@@ -76,7 +79,6 @@ impl<T, B: Bind<T>> Service for WatchService<T, B> {
 
 impl<T, S, F> Bind<T> for F
 where
-    S: Service,
     for<'t> F: FnMut(&'t T) -> S,
 {
     type Service = S;
@@ -109,8 +111,7 @@ mod tests {
     #[test]
     fn rebind() {
         struct Svc(usize);
-        impl Service for Svc {
-            type Request = ();
+        impl Service<()> for Svc {
             type Response = usize;
             type Error = ();
             type Future = future::FutureResult<usize, ()>;

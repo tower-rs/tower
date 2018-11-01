@@ -15,8 +15,12 @@ pub struct Retry<P, S> {
 }
 
 #[derive(Debug)]
-pub struct ResponseFuture<P: Policy<S::Request, S::Response, S::Error>, S: Service> {
-    request: Option<S::Request>,
+pub struct ResponseFuture<P, S, Request>
+where
+    P: Policy<Request, S::Response, S::Error>,
+    S: Service<Request>,
+{
+    request: Option<Request>,
     retry: Retry<P, S>,
     state: State<S::Future, P::Future, S::Response, S::Error>,
 }
@@ -40,12 +44,12 @@ pub trait Policy<Req, Res, E>: Sized {
 
 // ===== impl Retry =====
 
-impl<P, S> Retry<P, S>
-where
-    P: Policy<S::Request, S::Response, S::Error> + Clone,
-    S: Service + Clone,
-{
-    pub fn new(policy: P, service: S) -> Self {
+impl<P, S> Retry<P, S> {
+    pub fn new<Request>(policy: P, service: S) -> Self
+    where
+        P: Policy<Request, S::Response, S::Error> + Clone,
+        S: Service<Request> + Clone,
+    {
         Retry {
             policy,
             service,
@@ -53,21 +57,20 @@ where
     }
 }
 
-impl<P, S> Service for Retry<P, S>
+impl<P, S, Request> Service<Request> for Retry<P, S>
 where
-    P: Policy<S::Request, S::Response, S::Error> + Clone,
-    S: Service + Clone,
+    P: Policy<Request, S::Response, S::Error> + Clone,
+    S: Service<Request> + Clone,
 {
-    type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
-    type Future = ResponseFuture<P, S>;
+    type Future = ResponseFuture<P, S, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let cloned = self.policy.clone_request(&request);
         let future = self.service.call(request);
         ResponseFuture {
@@ -80,10 +83,10 @@ where
 
 // ===== impl ResponseFuture =====
 
-impl<P, S> Future for ResponseFuture<P, S>
+impl<P, S, Request> Future for ResponseFuture<P, S, Request>
 where
-    P: Policy<S::Request, S::Response, S::Error> + Clone,
-    S: Service + Clone,
+    P: Policy<Request, S::Response, S::Error> + Clone,
+    S: Service<Request> + Clone,
 {
     type Item = S::Response;
     type Error = S::Error;

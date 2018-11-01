@@ -100,16 +100,16 @@ fn run<D, C>(
     executor: &runtime::TaskExecutor,
 ) -> impl Future<Item = (), Error = ()>
 where
-    D: Discover<Request = Req, Response = Rsp> + Send + 'static,
+    D: Discover + Send + 'static,
     D::Key: Send,
-    D::Service: Send,
+    D::Service: Service<Req, Response = Rsp> + Send,
     D::Error: Send,
-    D::DiscoverError: Send,
-    <D::Service as Service>::Future: Send,
+    <D::Service as Service<Req>>::Future: Send,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     println!("{}", name);
     let t0 = Instant::now();
+
     compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY, executor))
         .map(move |h| report(&h, t0.elapsed()))
         .map_err(|_| {})
@@ -180,8 +180,7 @@ struct Rsp {
     latency: Duration,
 }
 
-impl Service for DelayService {
-    type Request = Req;
+impl Service<Req> for DelayService {
     type Response = Rsp;
     type Error = timer::Error;
     type Future = Delay;
@@ -217,13 +216,10 @@ impl Future for Delay {
 
 impl Discover for Disco {
     type Key = usize;
-    type Request = Req;
-    type Response = Rsp;
-    type Error = tower_in_flight_limit::Error<tower_buffer::Error<timer::Error>>;
-    type Service = InFlightLimit<Buffer<DelayService>>;
-    type DiscoverError = ();
+    type Error = ();
+    type Service = InFlightLimit<Buffer<DelayService, Req>>;
 
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.changes.pop_front() {
             Some(Change::Insert(k, svc)) => {
                 let svc = Buffer::new(svc, &self.executor).unwrap();
@@ -236,26 +232,31 @@ impl Discover for Disco {
     }
 }
 
+type DemoService<D, C> =
+    InFlightLimit<
+        Buffer<
+            lb::Balance<D, C>,
+            Req>>;
+
 struct SendRequests<D, C>
 where
-    D: Discover<Request = Req, Response = Rsp>,
+    D: Discover,
+    D::Service: Service<Req>,
     C: lb::Choose<D::Key, D::Service>,
 {
     send_remaining: usize,
-    lb: InFlightLimit<Buffer<lb::Balance<D, C>>>,
-    responses: stream::FuturesUnordered<
-        tower_in_flight_limit::ResponseFuture<tower_buffer::ResponseFuture<lb::Balance<D, C>>>,
-    >,
+    lb: DemoService<D, C>,
+    responses: stream::FuturesUnordered<<DemoService<D, C> as Service<Req>>::Future>,
 }
 
 impl<D, C> SendRequests<D, C>
 where
-    D: Discover<Request = Req, Response = Rsp> + Send + 'static,
+    D: Discover + Send + 'static,
+    D::Service: Service<Req>,
     D::Key: Send,
     D::Service: Send,
     D::Error: Send,
-    D::DiscoverError: Send,
-    <D::Service as Service>::Future: Send,
+    <D::Service as Service<Req>>::Future: Send,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     pub fn new(
@@ -274,12 +275,12 @@ where
 
 impl<D, C> Stream for SendRequests<D, C>
 where
-    D: Discover<Request = Req, Response = Rsp>,
+    D: Discover,
+    D::Service: Service<Req>,
     C: lb::Choose<D::Key, D::Service>,
 {
-    type Item = Rsp;
-    type Error =
-        tower_in_flight_limit::Error<tower_buffer::Error<<lb::Balance<D, C> as Service>::Error>>;
+    type Item = <DemoService<D, C> as Service<Req>>::Response;
+    type Error = <DemoService<D, C> as Service<Req>>::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         debug!(

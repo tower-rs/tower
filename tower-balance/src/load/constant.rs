@@ -29,8 +29,11 @@ impl<T, M: Copy> Load for Constant<T, M> {
     }
 }
 
-impl<S: Service, M: Copy> Service for Constant<S, M> {
-    type Request = S::Request;
+impl<S, M, Request> Service<Request> for Constant<S, M>
+where
+    S: Service<Request>,
+    M: Copy,
+{
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
@@ -39,7 +42,7 @@ impl<S: Service, M: Copy> Service for Constant<S, M> {
         self.inner.poll_ready()
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
+    fn call(&mut self, req: Request) -> Self::Future {
         self.inner.call(req)
     }
 }
@@ -47,14 +50,11 @@ impl<S: Service, M: Copy> Service for Constant<S, M> {
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
 impl<D: Discover, M: Copy> Discover for Constant<D, M> {
     type Key = D::Key;
-    type Request = D::Request;
-    type Response = D::Response;
-    type Error = D::Error;
     type Service = Constant<D::Service, M>;
-    type DiscoverError = D::DiscoverError;
+    type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
         use self::Change::*;
 
         let change = match try_ready!(self.inner.poll()) {

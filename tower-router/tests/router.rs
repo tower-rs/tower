@@ -103,16 +103,15 @@ impl<T> MapRecognize<T> {
     }
 }
 
-impl<T> Recognize for MapRecognize<T>
-where T: Service<Request=String, Response=String, Error = ()> + 'static,
+impl<T> Recognize<String> for MapRecognize<T>
+where T: Service<String, Response=String, Error = ()> + 'static,
 {
-    type Request = String;
     type Response = String;
     type Error = ();
     type RouteError = ();
     type Service = T;
 
-    fn recognize(&mut self, request: &Self::Request)
+    fn recognize(&mut self, request: &String)
         -> Result<&mut Self::Service, Self::RouteError>
     {
         match self.map.get_mut(request) {
@@ -143,8 +142,7 @@ impl StringService {
     }
 }
 
-impl Service for StringService {
-    type Request = String;
+impl Service<String> for StringService {
     type Response = String;
     type Error = ();
     type Future = FutureResult<Self::Response, Self::Error>;
@@ -153,7 +151,7 @@ impl Service for StringService {
         Ok(Async::Ready(()))
     }
 
-    fn call(&mut self, _: Self::Request) -> Self::Future {
+    fn call(&mut self, _: String) -> Self::Future {
         future::result(self.string.clone())
     }
 }
@@ -177,8 +175,7 @@ impl MaybeService {
     }
 }
 
-impl Service for MaybeService {
-    type Request = String;
+impl Service<String> for MaybeService {
     type Response = String;
     type Error = ();
     type Future = FutureResult<Self::Response, Self::Error>;
@@ -191,7 +188,7 @@ impl Service for MaybeService {
         }
     }
 
-    fn call(&mut self, _: Self::Request) -> Self::Future {
+    fn call(&mut self, _: String) -> Self::Future {
         match self.string.clone() {
             Some(string) => future::ok(string),
             None => future::err(()),

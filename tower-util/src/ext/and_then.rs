@@ -5,83 +5,60 @@ use tower_service::Service;
 /// another service which completes successfully.
 ///
 /// This is created by the `ServiceExt::and_then` method.
+#[derive(Clone)]
 pub struct AndThen<A, B> {
     a: A,
     b: B,
 }
 
-impl<A, B> AndThen<A, B>
-where
-    A: Service,
-    B: Service<Request = A::Response, Error = A::Error> + Clone,
-{
+impl<A, B> AndThen<A, B> {
     /// Create new `AndThen` combinator
-    pub fn new(a: A, b: B) -> AndThen<A, B> {
+    pub fn new<Request>(a: A, b: B) -> AndThen<A, B>
+    where
+        A: Service<Request>,
+        B: Service<A::Response, Error = A::Error> + Clone,
+    {
         AndThen { a, b }
     }
 }
 
-impl<A, B> Clone for AndThen<A, B>
+impl<A, B, Request> Service<Request> for AndThen<A, B>
 where
-    A: Service + Clone,
-    B: Service<Request = A::Response, Error = A::Error> + Clone,
+    A: Service<Request>,
+    B: Service<A::Response, Error = A::Error> + Clone,
 {
-    fn clone(&self) -> Self {
-        AndThen {
-            a: self.a.clone(),
-            b: self.b.clone(),
-        }
-    }
-}
-
-impl<A, B> Service for AndThen<A, B>
-where
-    A: Service,
-    B: Service<Request = A::Response, Error = A::Error> + Clone,
-{
-    type Request = A::Request;
     type Response = B::Response;
     type Error = B::Error;
-    type Future = AndThenFuture<A, B>;
+    type Future = AndThenFuture<A, B, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         let _ = try_ready!(self.a.poll_ready());
         self.b.poll_ready()
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
-        AndThenFuture::new(self.a.call(req), self.b.clone())
+    fn call(&mut self, req: Request) -> Self::Future {
+        AndThenFuture {
+            fut_a: self.a.call(req),
+            b: self.b.clone(),
+            fut_b: None,
+        }
     }
 }
 
-pub struct AndThenFuture<A, B>
+pub struct AndThenFuture<A, B, Request>
 where
-    A: Service,
-    B: Service<Request = A::Response, Error = A::Error>,
+    A: Service<Request>,
+    B: Service<A::Response, Error = A::Error>,
 {
     b: B,
     fut_b: Option<B::Future>,
     fut_a: A::Future,
 }
 
-impl<A, B> AndThenFuture<A, B>
+impl<A, B, Request> Future for AndThenFuture<A, B, Request>
 where
-    A: Service,
-    B: Service<Request = A::Response, Error = A::Error>,
-{
-    fn new(fut_a: A::Future, b: B) -> Self {
-        AndThenFuture {
-            b,
-            fut_a,
-            fut_b: None,
-        }
-    }
-}
-
-impl<A, B> Future for AndThenFuture<A, B>
-where
-    A: Service,
-    B: Service<Request = A::Response, Error = A::Error>,
+    A: Service<Request>,
+    B: Service<A::Response, Error = A::Error>,
 {
     type Item = B::Response;
     type Error = B::Error;
@@ -108,8 +85,7 @@ mod tests {
     use ServiceExt;
 
     struct Srv1(Rc<Cell<usize>>);
-    impl Service for Srv1 {
-        type Request = &'static str;
+    impl Service<&'static str> for Srv1 {
         type Response = &'static str;
         type Error = ();
         type Future = FutureResult<Self::Response, ()>;
@@ -119,7 +95,7 @@ mod tests {
             Ok(Async::Ready(()))
         }
 
-        fn call(&mut self, req: Self::Request) -> Self::Future {
+        fn call(&mut self, req: &'static str) -> Self::Future {
             ok(req)
         }
     }
@@ -127,8 +103,7 @@ mod tests {
     #[derive(Clone)]
     struct Srv2(Rc<Cell<usize>>);
 
-    impl Service for Srv2 {
-        type Request = &'static str;
+    impl Service<&'static str> for Srv2 {
         type Response = (&'static str, &'static str);
         type Error = ();
         type Future = FutureResult<Self::Response, ()>;
@@ -138,7 +113,7 @@ mod tests {
             Ok(Async::Ready(()))
         }
 
-        fn call(&mut self, req: Self::Request) -> Self::Future {
+        fn call(&mut self, req: &'static str) -> Self::Future {
             ok((req, "srv2"))
         }
     }

@@ -24,25 +24,13 @@ pub trait Discover {
     /// NewService key
     type Key: Hash + Eq;
 
-    /// Requests handled by the discovered services
-    type Request;
-
-    /// Responses given by the discovered services
-    type Response;
-
-    /// Errors produced by the discovered services
-    type Error;
-
-    /// The discovered `Service` instance.
-    type Service: Service<Request = Self::Request,
-                         Response = Self::Response,
-                            Error = Self::Error>;
+    type Service;
 
     /// Error produced during discovery
-    type DiscoverError;
+    type Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError>;
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error>;
 }
 
 /// A change in the service set
@@ -62,11 +50,13 @@ pub struct List<T> {
 // ===== impl List =====
 
 impl<T, U> List<T>
-where T: Iterator<Item = U>,
-      U: Service,
+where
+    T: Iterator<Item = U>
 {
-    pub fn new<I>(services: I) -> List<T>
-    where I: IntoIterator<Item = U, IntoIter = T>,
+    pub fn new<I, Request>(services: I) -> List<T>
+    where
+        I: IntoIterator<Item = U, IntoIter = T>,
+        U: Service<Request>
     {
         List { inner: services.into_iter().enumerate() }
     }
@@ -74,16 +64,12 @@ where T: Iterator<Item = U>,
 
 impl<T, U> Discover for List<T>
 where T: Iterator<Item = U>,
-      U: Service,
 {
     type Key = usize;
-    type Request = U::Request;
-    type Response = U::Response;
-    type Error = U::Error;
     type Service = U;
-    type DiscoverError = ();
+    type Error = ();
 
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::DiscoverError> {
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.inner.next() {
             Some((i, service)) => Ok(Change::Insert(i, service).into()),
             None => Ok(Async::NotReady),

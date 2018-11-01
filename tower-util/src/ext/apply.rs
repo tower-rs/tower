@@ -4,20 +4,23 @@ use futures::{Future, IntoFuture, Poll};
 use tower_service::Service;
 
 /// `Apply` service combinator
-pub struct Apply<T, F, R, Req> {
+pub struct Apply<T, F, In, Out, Request>
+where
+    T: Service<Request>,
+{
     service: T,
     f: F,
-    _r: PhantomData<Fn(Req) -> R>,
+    _r: PhantomData<Fn((In, Request)) -> Out>,
 }
 
-impl<T, F, R, Req> Apply<T, F, R, Req>
+impl<T, F, In, Out, Request> Apply<T, F, In, Out, Request>
 where
-    T: Service<Error = R::Error> + Clone,
-    F: Fn(Req, T) -> R,
-    R: IntoFuture,
+    T: Service<Request>,
+    F: Fn(In, T) -> Out,
+    Out: IntoFuture,
 {
     /// Create new `Apply` combinator
-    pub fn new(f: F, service: T) -> Self {
+    pub(crate) fn new(f: F, service: T) -> Self {
         Self {
             service,
             f,
@@ -26,11 +29,10 @@ where
     }
 }
 
-impl<T, F, R, Req> Clone for Apply<T, F, R, Req>
+impl<T, F, In, Out, Request> Clone for Apply<T, F, In, Out, Request>
 where
-    T: Service<Error = R::Error> + Clone,
-    F: Fn(Req, T) -> R + Clone,
-    R: IntoFuture,
+    T: Service<Request> + Clone,
+    F: Clone,
 {
     fn clone(&self) -> Self {
         Apply {
@@ -41,22 +43,21 @@ where
     }
 }
 
-impl<T, F, R, Req> Service for Apply<T, F, R, Req>
+impl<T, F, In, Out, Request> Service<In> for Apply<T, F, In, Out, Request>
 where
-    T: Service<Error = R::Error> + Clone,
-    F: Fn(Req, T) -> R,
-    R: IntoFuture,
+    T: Service<Request, Error = Out::Error> + Clone,
+    F: Fn(In, T) -> Out,
+    Out: IntoFuture,
 {
-    type Request = Req;
-    type Response = <R::Future as Future>::Item;
-    type Error = <R::Future as Future>::Error;
-    type Future = R::Future;
+    type Response = <Out::Future as Future>::Item;
+    type Error = <Out::Future as Future>::Error;
+    type Future = Out::Future;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
-    fn call(&mut self, req: Self::Request) -> Self::Future {
+    fn call(&mut self, req: In) -> Self::Future {
         let service = self.service.clone();
         (self.f)(req, service).into_future()
     }
@@ -72,8 +73,7 @@ mod tests {
 
     #[derive(Clone)]
     struct Srv;
-    impl Service for Srv {
-        type Request = ();
+    impl Service<()> for Srv {
         type Response = ();
         type Error = ();
         type Future = FutureResult<(), ()>;

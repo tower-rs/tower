@@ -49,10 +49,10 @@ impl<T> Timeout<T> {
     }
 }
 
-impl<S> Service for Timeout<S>
-where S: Service,
+impl<S, Request> Service<Request> for Timeout<S>
+where
+    S: Service<Request>,
 {
-    type Request = S::Request;
     type Response = S::Response;
     type Error = Error<S::Error>;
     type Future = ResponseFuture<S::Future>;
@@ -62,7 +62,7 @@ where S: Service,
             .map_err(Error::Inner)
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         ResponseFuture {
             response: self.inner.call(request),
             sleep: Delay::new(clock::now() + self.timeout),
