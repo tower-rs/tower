@@ -86,10 +86,9 @@ where
 
 /// Dynamic service discovery based on a stream of service changes.
 pub struct Services<S, K, Svc> {
-    inner: S,
+    inner: futures::stream::Fuse<S>,
     _marker_k: PhantomData<K>,
     _marker_v: PhantomData<Svc>,
-    finished: bool,
 }
 
 // ===== impl Services =====
@@ -103,10 +102,9 @@ where
         Svc: Service<Request>,
     {
         Services {
-            inner: services,
+            inner: services.fuse(),
             _marker_k: PhantomData,
             _marker_v: PhantomData,
-            finished: false,
         }
     }
 }
@@ -121,16 +119,11 @@ where
     type Error = S::Error;
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        if self.finished {
-            Ok(Async::NotReady)
-        } else {
-            match try_ready!(self.inner.poll()) {
-                Some(c) => Ok(Async::Ready(c)),
-                None => {
-                    // there are no more service changes coming
-                    self.finished = true;
-                    Ok(Async::NotReady)
-                }
+        match try_ready!(self.inner.poll()) {
+            Some(c) => Ok(Async::Ready(c)),
+            None => {
+                // there are no more service changes coming
+                Ok(Async::NotReady)
             }
         }
     }
