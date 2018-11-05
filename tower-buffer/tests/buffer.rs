@@ -58,12 +58,13 @@ fn clears_canceled_requests() {
 
 type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
 type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
+type DirectedMock = tower_buffer::DirectedService<Mock, &'static str>;
 
 struct Exec;
 
-impl futures::future::Executor<Worker<Mock, &'static str>> for Exec {
-    fn execute(&self, fut: Worker<Mock, &'static str>)
-        -> Result<(), futures::future::ExecuteError<Worker<Mock, &'static str>>>
+impl futures::future::Executor<Worker<DirectedMock, &'static str>> for Exec {
+    fn execute(&self, fut: Worker<DirectedMock, &'static str>)
+        -> Result<(), futures::future::ExecuteError<Worker<DirectedMock, &'static str>>>
     {
         thread::spawn(move || {
             fut.wait().unwrap();
@@ -74,7 +75,7 @@ impl futures::future::Executor<Worker<Mock, &'static str>> for Exec {
 
 fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
     let (service, handle) = Mock::new();
-    let service = Buffer::new(service, &Exec).unwrap();
+    let service = Buffer::new(service, 0, &Exec).unwrap();
     (service, handle)
 }
 
