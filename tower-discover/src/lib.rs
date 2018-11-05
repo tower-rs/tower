@@ -43,27 +43,32 @@ pub enum Change<K, V> {
 ///
 /// `List` is created with an initial list of services. The discovery process
 /// will yield this list once and do nothing after.
-pub struct List<T> {
-    inner: Enumerate<T>,
+pub struct List<T>
+where
+    T: IntoIterator,
+{
+    inner: Enumerate<T::IntoIter>,
 }
 
 // ===== impl List =====
 
 impl<T, U> List<T>
 where
-    T: Iterator<Item = U>
+    T: IntoIterator<Item = U>,
 {
-    pub fn new<I, Request>(services: I) -> List<T>
+    pub fn new<Request>(services: T) -> List<T>
     where
-        I: IntoIterator<Item = U, IntoIter = T>,
-        U: Service<Request>
+        U: Service<Request>,
     {
-        List { inner: services.into_iter().enumerate() }
+        List {
+            inner: services.into_iter().enumerate(),
+        }
     }
 }
 
 impl<T, U> Discover for List<T>
-where T: Iterator<Item = U>,
+where
+    T: IntoIterator<Item = U>,
 {
     type Key = usize;
     type Service = U;
@@ -76,3 +81,12 @@ where T: Iterator<Item = U>,
         }
     }
 }
+
+// check that List can be directly over collections
+#[cfg(test)]
+#[allow(dead_code)]
+type ListVecTest<T> = List<Vec<T>>;
+
+#[cfg(test)]
+#[allow(dead_code)]
+type ListVecIterTest<T> = List<::std::vec::IntoIter<T>>;
