@@ -9,6 +9,7 @@ extern crate rand;
 extern crate tokio_timer;
 extern crate tower_discover;
 extern crate tower_service;
+extern crate tower_direct_service;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
@@ -17,7 +18,8 @@ use std::collections::HashSet;
 use std::{fmt, error};
 use std::marker::PhantomData;
 use tower_discover::Discover;
-use tower_service::{DirectService, Service};
+use tower_service::Service;
+use tower_direct_service::DirectService;
 
 pub mod choose;
 pub mod load;

@@ -8,6 +8,7 @@
 #[macro_use]
 extern crate futures;
 extern crate tower_service;
+extern crate tower_direct_service;
 
 use futures::future::Executor;
 use futures::sync::mpsc;
@@ -18,7 +19,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::{error, fmt};
-use tower_service::{DirectService, Service};
+use tower_service::Service;
+use tower_direct_service::DirectService;
 
 /// Adds a buffer in front of an inner service.
 ///
