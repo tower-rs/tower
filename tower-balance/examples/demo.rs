@@ -217,7 +217,7 @@ impl Future for Delay {
 impl Discover for Disco {
     type Key = usize;
     type Error = ();
-    type Service = InFlightLimit<Buffer<DelayService, Req>>;
+    type Service = InFlightLimit<Buffer<Req, Delay>>;
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.changes.pop_front() {
@@ -232,11 +232,7 @@ impl Discover for Disco {
     }
 }
 
-type DemoService<D, C> =
-    InFlightLimit<
-        Buffer<
-            lb::Balance<D, C>,
-            Req>>;
+type DemoService<D, C> = InFlightLimit<Buffer<Req, <lb::Balance<D, C> as Service<Req>>::Future>>;
 
 struct SendRequests<D, C>
 where

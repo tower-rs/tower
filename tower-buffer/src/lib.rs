@@ -25,10 +25,8 @@ use tower_direct_service::DirectService;
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
-pub struct Buffer<T, Request>
-where T: Service<Request>,
-{
-    tx: mpsc::Sender<Message<Request, T::Future>>,
+pub struct Buffer<Request, Fut> {
+    tx: mpsc::Sender<Message<Request, Fut>>,
     state: Arc<State>,
 }
 
@@ -84,31 +82,6 @@ where
     }
 }
 
-/// A handle to a `DirectService` that has been spawned elsewhere.
-pub struct HandleTo<T, Request>
-where
-    T: DirectService<Request>,
-{
-    _marker: PhantomData<(T, Request)>,
-}
-
-impl<T, Request> Service<Request> for HandleTo<T, Request>
-where
-    T: DirectService<Request>,
-{
-    type Response = T::Response;
-    type Error = T::Error;
-    type Future = T::Future;
-
-    fn poll_ready(&mut self) -> Result<Async<()>, Self::Error> {
-        unreachable!("cannot poll service through marker")
-    }
-
-    fn call(&mut self, _: Request) -> Self::Future {
-        unreachable!("cannot call service through marker")
-    }
-}
-
 /// Task that handles processing the buffer. This type should not be used
 /// directly, instead `Buffer` requires an `Executor` that can accept this task.
 pub struct Worker<T, Request>
@@ -146,10 +119,7 @@ enum ResponseState<T> {
     Poll(T),
 }
 
-impl<T, Request> Buffer<T, Request>
-where
-    T: Service<Request>,
-{
+impl<Request, Fut> Buffer<Request, Fut> {
     /// Creates a new `Buffer` wrapping `service`.
     ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
@@ -158,9 +128,11 @@ where
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
-    pub fn new<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
+    pub fn new<T, E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<DirectedService<T, Request>, Request>>,
+        T: Service<Request, Future = Fut>,
+        Fut: Future<Item = T::Response, Error = T::Error>,
     {
         let (tx, rx) = mpsc::channel(bound);
 
@@ -190,10 +162,7 @@ where
     }
 }
 
-impl<T, Request> Buffer<HandleTo<T, Request>, Request>
-where
-    T: DirectService<Request>,
-{
+impl<Request, Fut> Buffer<Request, Fut> {
     /// Creates a new `Buffer` wrapping the given directly driven `service`.
     ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
@@ -202,9 +171,11 @@ where
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
-    pub fn new_direct<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
+    pub fn new_direct<T, E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<T, Request>>,
+        T: DirectService<Request, Future = Fut>,
+        Fut: Future<Item = T::Response, Error = T::Error>,
     {
         let (tx, rx) = mpsc::channel(bound);
 
@@ -227,13 +198,13 @@ where
     }
 }
 
-impl<T, Request> Service<Request> for Buffer<T, Request>
+impl<Request, Fut> Service<Request> for Buffer<Request, Fut>
 where
-    T: Service<Request>,
+    Fut: Future,
 {
-    type Response = T::Response;
-    type Error = Error<T::Error>;
-    type Future = ResponseFuture<T::Future>;
+    type Response = Fut::Item;
+    type Error = Error<Fut::Error>;
+    type Future = ResponseFuture<Fut>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
