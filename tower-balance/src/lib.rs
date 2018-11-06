@@ -14,7 +14,6 @@ extern crate tower_direct_service;
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
 use rand::{rngs::SmallRng, SeedableRng};
-use std::collections::HashSet;
 use std::{fmt, error};
 use std::marker::PhantomData;
 use tower_discover::Discover;
@@ -43,10 +42,6 @@ pub struct Balance<D: Discover, C> {
     /// Holds an index into `ready`, indicating the service that dispatched the last
     /// request.
     dispatched_ready_index: Option<usize>,
-
-    /// Holds keys for services that have outstanding requests (i.e., that need
-    /// `poll_outstanding`).
-    pending: HashSet<D::Key>,
 
     /// Holds all possibly-available endpoints (i.e. from `discover`).
     ready: IndexMap<D::Key, D::Service>,
@@ -125,7 +120,6 @@ where
             choose,
             chosen_ready_index: None,
             dispatched_ready_index: None,
-            pending: HashSet::default(),
             ready: IndexMap::default(),
             not_ready: IndexMap::default(),
         }
@@ -178,7 +172,6 @@ where
                 }
 
                 Remove(key) => {
-                    self.pending.remove(&key);
                     let _ejected = match self.ready.remove(&key) {
                         None => self.not_ready.remove(&key),
                         Some(s) => Some(s),
@@ -372,45 +365,26 @@ where
     }
 
     fn poll_service(&mut self) -> Result<Async<()>, Self::Error> {
-        let ready = &mut self.ready;
-        let not_ready = &mut self.not_ready;
-        let mut err = None;
-        self.pending.retain(|k| {
-            // NOTE: We here have to decide whether it's more likely for a service to be ready or
-            // not ready. Choosing incorrectly means we do an extra IndexMap lookup...
-            if let Some(s) = ready.get_mut(k) {
-                match s.poll_service() {
-                    Err(e) => {
-                        err = Some(e);
-                        return false;
-                    }
-                    Ok(Async::Ready(())) => return false,
-                    Ok(Async::NotReady) => return true,
-                }
+        let mut any_not_ready = false;
+
+        // TODO: don't re-poll services that return Ready until call is invoked on them
+
+        for (_, svc) in &mut self.ready {
+            if let Async::NotReady = svc.poll_service().map_err(Error::Inner)? {
+                any_not_ready = true;
             }
-
-            if let Some(s) = not_ready.get_mut(k) {
-                match s.poll_service() {
-                    Err(e) => {
-                        err = Some(e);
-                        return false;
-                    }
-                    Ok(Async::Ready(())) => return false,
-                    Ok(Async::NotReady) => return true,
-                }
-            }
-
-            unreachable!("pending service is neither ready nor not ready");
-        });
-
-        if let Some(e) = err {
-            return Err(Error::Inner(e));
         }
 
-        if self.pending.is_empty() {
-            Ok(Async::Ready(()))
-        } else {
+        for (_, svc) in &mut self.not_ready {
+            if let Async::NotReady = svc.poll_service().map_err(Error::Inner)? {
+                any_not_ready = true;
+            }
+        }
+
+        if any_not_ready {
             Ok(Async::NotReady)
+        } else {
+            Ok(Async::Ready(()))
         }
     }
 
