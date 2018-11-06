@@ -75,7 +75,7 @@ impl futures::future::Executor<Worker<DirectedMock, &'static str>> for Exec {
 
 fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
     let (service, handle) = Mock::new();
-    let service = Buffer::new(service, &Exec).unwrap();
+    let service = Buffer::new(service, 0, &Exec).unwrap();
     (service, handle)
 }
 

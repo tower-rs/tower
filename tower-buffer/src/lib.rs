@@ -4,10 +4,6 @@
 //! out of the buffer and dispatching them to the inner service. By adding a
 //! buffer and a dedicated task, the `Buffer` layer in front of the service can
 //! be `Clone` even if the inner service is not.
-//!
-//! Currently, `Buffer` uses an unbounded buffering strategy, which is not a
-//! good thing to put in production situations. However, it illustrates the idea
-//! and capabilities around adding buffering to an arbitrary `Service`.
 
 #[macro_use]
 extern crate futures;
@@ -15,8 +11,8 @@ extern crate tower_service;
 extern crate tower_direct_service;
 
 use futures::future::Executor;
+use futures::sync::mpsc;
 use futures::sync::oneshot;
-use futures::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use futures::{Async, Future, Poll, Stream};
 use std::marker::PhantomData;
 use std::sync::atomic::AtomicBool;
@@ -33,7 +29,7 @@ pub struct Buffer<T, Request>
 where
     T: Service<Request>,
 {
-    tx: UnboundedSender<Message<Request, T::Future>>,
+    tx: mpsc::Sender<Message<Request, T::Future>>,
     state: Arc<State>,
 }
 
@@ -120,7 +116,7 @@ where
     T: DirectService<Request>,
 {
     current_message: Option<Message<Request, T::Future>>,
-    rx: UnboundedReceiver<Message<Request, T::Future>>,
+    rx: mpsc::Receiver<Message<Request, T::Future>>,
     service: T,
     finish: bool,
     state: Arc<State>,
@@ -145,6 +141,7 @@ struct State {
 }
 
 enum ResponseState<T> {
+    Failed,
     Rx(oneshot::Receiver<T>),
     Poll(T),
 }
@@ -158,11 +155,14 @@ where
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
-    pub fn new<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
+    ///
+    /// `bound` gives the maximal number of requests that can be queued for the service before
+    /// backpressure is applied to callers.
+    pub fn new<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<DirectedService<T>, Request>>,
     {
-        let (tx, rx) = mpsc::unbounded();
+        let (tx, rx) = mpsc::channel(bound);
 
         let state = Arc::new(State {
             open: AtomicBool::new(true),
@@ -196,11 +196,14 @@ where
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
-    pub fn new_direct<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
+    ///
+    /// `bound` gives the maximal number of requests that can be queued for the service before
+    /// backpressure is applied to callers.
+    pub fn new_direct<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<T, Request>>,
     {
-        let (tx, rx) = mpsc::unbounded();
+        let (tx, rx) = mpsc::channel(bound);
 
         let state = Arc::new(State {
             open: AtomicBool::new(true),
@@ -234,25 +237,28 @@ where
         if !self.state.open.load(Ordering::Acquire) {
             return Err(Error::Closed);
         } else {
-            // Ideally we could query if the `mpsc` is closed, but this is not
-            // currently possible.
-            Ok(().into())
+            self.tx.poll_ready().map_err(|_| Error::Closed)
         }
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
+        // TODO:
+        // ideally we'd poll_ready again here so we don't allocate the oneshot
+        // if the try_send is about to fail, but sadly we can't call poll_ready
+        // outside of task context.
         let (tx, rx) = oneshot::channel();
 
-        let sent = self.tx.unbounded_send(Message {
-            request,
-            tx,
-        });
-
+        let sent = self.tx.try_send(Message { request, tx });
         if sent.is_err() {
             self.state.open.store(false, Ordering::Release);
+            ResponseFuture {
+                state: ResponseState::Failed,
+            }
+        } else {
+            ResponseFuture {
+                state: ResponseState::Rx(rx),
+            }
         }
-
-        ResponseFuture { state: ResponseState::Rx(rx) }
     }
 }
 
@@ -284,6 +290,9 @@ where
             let fut;
 
             match self.state {
+                Failed => {
+                    return Err(Error::Closed);
+                }
                 Rx(ref mut rx) => {
                     match rx.poll() {
                         Ok(Async::Ready(f)) => fut = f,
