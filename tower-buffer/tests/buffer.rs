@@ -78,7 +78,7 @@ fn new_service() -> (
     Handle,
 ) {
     let (service, handle) = Mock::new();
-    let service = Buffer::new(service, 0, &Exec).unwrap();
+    let service = Buffer::new(service, &Exec).unwrap();
     (service, handle)
 }
 
