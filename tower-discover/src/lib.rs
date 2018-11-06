@@ -5,14 +5,16 @@
 //! via the network; however, it is possible to discover services available in
 //! other processes or even in process.
 
+#[macro_use]
 extern crate futures;
 extern crate tower_service;
 
-use futures::{Poll, Async};
+use futures::{Async, Poll, Stream};
 use tower_service::Service;
 
 use std::hash::Hash;
 use std::iter::{Enumerate, IntoIterator};
+use std::marker::PhantomData;
 
 /// Provide a uniform set of services able to satisfy a request.
 ///
@@ -78,6 +80,51 @@ where
         match self.inner.next() {
             Some((i, service)) => Ok(Change::Insert(i, service).into()),
             None => Ok(Async::NotReady),
+        }
+    }
+}
+
+/// Dynamic service discovery based on a stream of service changes.
+pub struct Services<S, K, Svc> {
+    inner: futures::stream::Fuse<S>,
+    _marker_k: PhantomData<K>,
+    _marker_v: PhantomData<Svc>,
+}
+
+// ===== impl Services =====
+
+impl<S, K, Svc> Services<S, K, Svc>
+where
+    S: Stream<Item = Change<K, Svc>>,
+{
+    pub fn new<Request>(services: S) -> Self
+    where
+        Svc: Service<Request>,
+    {
+        Services {
+            inner: services.fuse(),
+            _marker_k: PhantomData,
+            _marker_v: PhantomData,
+        }
+    }
+}
+
+impl<S, K, Svc> Discover for Services<S, K, Svc>
+where
+    K: Hash + Eq,
+    S: Stream<Item = Change<K, Svc>>,
+{
+    type Key = K;
+    type Service = Svc;
+    type Error = S::Error;
+
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
+        match try_ready!(self.inner.poll()) {
+            Some(c) => Ok(Async::Ready(c)),
+            None => {
+                // there are no more service changes coming
+                Ok(Async::NotReady)
+            }
         }
     }
 }
