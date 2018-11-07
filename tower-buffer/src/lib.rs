@@ -230,9 +230,7 @@ where
     }
 }
 
-impl<T, Request> Clone for Buffer<T, Request>
-where
-    T: Service<Request>,
+impl<Request, Fut> Clone for Buffer<Request, Fut>
 {
     fn clone(&self) -> Self {
         Self {
