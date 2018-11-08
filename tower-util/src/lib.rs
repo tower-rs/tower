@@ -14,4 +14,4 @@ pub use boxed::BoxService;
 pub use either::EitherService;
 pub use ext::ServiceExt;
 pub use option::OptionService;
-pub use service_fn::NewServiceFn;
+pub use service_fn::ServiceFn;

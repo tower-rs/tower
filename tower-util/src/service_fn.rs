@@ -1,32 +1,33 @@
-use futures::IntoFuture;
-use tower_service::{Service, NewService};
+use futures::{IntoFuture, Poll};
+use tower_service::Service;
 
-/// A `NewService` implemented by a closure.
-pub struct NewServiceFn<T> {
+/// A `Service` implemented by a closure.
+pub struct ServiceFn<T> {
     f: T,
 }
 
-// ===== impl NewServiceFn =====
+// ===== impl ServiceFn =====
 
-impl<T> NewServiceFn<T> {
+impl<T> ServiceFn<T> {
     /// Returns a new `NewServiceFn` with the given closure.
     pub fn new(f: T) -> Self {
-        NewServiceFn { f }
+        ServiceFn { f }
     }
 }
 
-impl<T, R, S, Request> NewService<Request> for NewServiceFn<T>
-where T: Fn() -> R,
-      R: IntoFuture<Item = S>,
-      S: Service<Request>,
+impl<T, F, Request> Service<Request> for ServiceFn<T>
+where T: Fn(Request) -> F,
+      F: IntoFuture,
 {
-    type Response = S::Response;
-    type Error = S::Error;
-    type Service = R::Item;
-    type InitError = R::Error;
-    type Future = R::Future;
+    type Response = F::Item;
+    type Error = F::Error;
+    type Future = F::Future;
 
-    fn new_service(&self) -> Self::Future {
-        (self.f)().into_future()
+    fn poll_ready(&mut self) -> Poll<(), F::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        (self.f)(req).into_future()
     }
 }
