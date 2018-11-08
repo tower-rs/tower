@@ -29,10 +29,16 @@ use tower_direct_service::DirectService;
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
-pub struct Buffer<Request, Fut> {
-    tx: UnboundedSender<Message<Request, Fut>>,
+pub struct Buffer<T, Request>
+where
+    T: Service<Request>,
+{
+    tx: UnboundedSender<Message<Request, T::Future>>,
     state: Arc<State>,
 }
+
+/// A [`Buffer`] that is backed by a `DirectService`.
+pub type DirectBuffer<T, Request> = Buffer<DirectServiceRef<T>, Request>;
 
 /// Future eventually completed with the response to the original request.
 pub struct ResponseFuture<T> {
@@ -48,8 +54,35 @@ pub enum Error<T> {
     Closed,
 }
 
-/// A wrapper that exposes a `Service` (which does not need to be driven) as a `DirectedService` so
-/// that a construct that is *able* to take a `DirectedService` can also take instances of
+/// An adapter that exposes the associated types of a `DirectService` through `Service`.
+/// This type does *not* let you pretend that a `DirectService` is a `Service`; that would be
+/// incorrect, as the caller would then not call `poll_service` and `poll_close` as necessary on
+/// the underlying `DirectService`. Instead, it merely provides a type-level adapter which allows
+/// types that are generic over `T: Service`, but only need access to associated types of `T`, to
+/// also take a `DirectService` ([`Buffer`] is an example of such a type).
+pub struct DirectServiceRef<T> {
+    _marker: PhantomData<T>,
+}
+
+impl<T, Request> Service<Request> for DirectServiceRef<T>
+where
+    T: DirectService<Request>,
+{
+    type Response = T::Response;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    fn poll_ready(&mut self) -> Result<Async<()>, Self::Error> {
+        unreachable!("tried to poll a DirectService through a marker reference")
+    }
+
+    fn call(&mut self, _: Request) -> Self::Future {
+        unreachable!("tried to call a DirectService through a marker reference")
+    }
+}
+
+/// A wrapper that exposes a `Service` (which does not need to be driven) as a `DirectService` so
+/// that a construct that is *able* to take a `DirectService` can also take instances of
 /// `Service`.
 pub struct DirectedService<T, Request>
 where
@@ -122,17 +155,18 @@ enum ResponseState<T> {
     Poll(T),
 }
 
-impl<Request, Fut> Buffer<Request, Fut> {
+impl<T, Request> Buffer<T, Request>
+where
+    T: Service<Request>,
+{
     /// Creates a new `Buffer` wrapping `service`.
     ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
-    pub fn new<T, E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
+    pub fn new<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<DirectedService<T, Request>, Request>>,
-        T: Service<Request, Future = Fut>,
-        Fut: Future<Item = T::Response, Error = T::Error>,
     {
         let (tx, rx) = mpsc::unbounded();
 
@@ -162,17 +196,18 @@ impl<Request, Fut> Buffer<Request, Fut> {
     }
 }
 
-impl<Request, Fut> Buffer<Request, Fut> {
+impl<T, Request> Buffer<DirectServiceRef<T>, Request>
+where
+    T: DirectService<Request>,
+{
     /// Creates a new `Buffer` wrapping the given directly driven `service`.
     ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
-    pub fn new_direct<T, E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
+    pub fn new_direct<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<T, Request>>,
-        T: DirectService<Request, Future = Fut>,
-        Fut: Future<Item = T::Response, Error = T::Error>,
     {
         let (tx, rx) = mpsc::unbounded();
 
@@ -195,13 +230,13 @@ impl<Request, Fut> Buffer<Request, Fut> {
     }
 }
 
-impl<Request, Fut> Service<Request> for Buffer<Request, Fut>
+impl<T, Request> Service<Request> for Buffer<T, Request>
 where
-    Fut: Future,
+    T: Service<Request>,
 {
-    type Response = Fut::Item;
-    type Error = Error<Fut::Error>;
-    type Future = ResponseFuture<Fut>;
+    type Response = T::Response;
+    type Error = Error<T::Error>;
+    type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
@@ -230,7 +265,9 @@ where
     }
 }
 
-impl<Request, Fut> Clone for Buffer<Request, Fut>
+impl<T, Request> Clone for Buffer<T, Request>
+where
+    T: Service<Request>,
 {
     fn clone(&self) -> Self {
         Self {
