@@ -237,7 +237,7 @@ where T: Service<Request>,
 /// requests on that new TCP stream.
 ///
 /// This is essentially a trait alias for a `Service` of `Service`s.
-pub trait MakeService<Target, Request> {
+pub trait MakeService<Target, Request>: self::sealed::Sealed<Target, Request> {
     /// Responses given by the service
     type Response;
 
@@ -267,6 +267,11 @@ pub trait MakeService<Target, Request> {
     /// Create and return a new service value asynchronously.
     fn make_service(&mut self, target: Target) -> Self::Future;
 }
+
+impl<M, S, Target, Request> self::sealed::Sealed<Target, Request> for M
+    where M: Service<Target, Response=S>,
+          S: Service<Request>,
+{}
 
 impl<M, S, Target, Request> MakeService<Target, Request> for M
     where M: Service<Target, Response=S>,
@@ -319,4 +324,8 @@ where
     fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
     }
+}
+
+mod sealed {
+    pub trait Sealed<A, B> {}
 }
