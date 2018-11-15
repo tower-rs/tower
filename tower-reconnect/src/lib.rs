@@ -4,34 +4,29 @@ extern crate log;
 extern crate tower_service;
 
 use futures::{Future, Async, Poll};
-use tower_service::{Service, MakeService};
+use tower_service::{MakeService, Service};
 
-use std::{error, fmt};
+use std::{error, fmt, marker::PhantomData};
 
-pub struct Reconnect<T, Target, Request>
+pub struct Reconnect<M, Target>
 where
-    T: MakeService<Target, Request>,
+    M: Service<Target>,
 {
-    context: Target,
-    mk_service: T,
-    state: State<T::Future, T::Service>,
+    mk_service: M,
+    state: State<M::Future, M::Response>,
+    target: Target,
 }
 
 #[derive(Debug)]
 pub enum Error<T, U> {
-    Inner(T),
+    Service(T),
     Connect(U),
     NotReady,
 }
 
-pub struct ResponseFuture<T, Target, Request>
-where
-    // TODO:
-    // This struct should just be generic over the response future, but
-    // doing so would require changing the future's error type
-    T: MakeService<Target, Request>,
-{
-    inner: Option<<T::Service as Service<Request>>::Future>,
+pub struct ResponseFuture<F, E> {
+    inner: Option<F>,
+    _connect_error_marker: PhantomData<fn() -> E>,
 }
 
 #[derive(Debug)]
@@ -43,38 +38,37 @@ enum State<F, S> {
 
 // ===== impl Reconnect =====
 
-impl<T, Target, Request> Reconnect<T, Target, Request>
+impl<M, Target> Reconnect<M, Target>
 where
-    T: MakeService<Target, Request>,
+    M: Service<Target>,
     Target: Clone,
 {
-    pub fn new(mk_service: T, context: Target) -> Self {
+    pub fn new(mk_service: M, target: Target) -> Self {
         Reconnect {
-            context,
             mk_service,
             state: State::Idle,
+            target,
         }
     }
 }
 
-impl<T, Target, Request> Service<Request> for Reconnect<T, Target, Request>
+impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
-    T: MakeService<Target, Request>,
+    M: Service<Target, Response=S>,
+    S: Service<Request>,
     Target: Clone,
 {
-    type Response = T::Response;
-    type Error = Error<T::Error, T::MakeError>;
-    type Future = ResponseFuture<T, Target, Request>;
+    type Response = S::Response;
+    type Error = Error<S::Error, M::Error>;
+    type Future = ResponseFuture<S::Future, M::Error>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        use self::State::*;
-
         let ret;
         let mut state;
 
         loop {
             match self.state {
-                Idle => {
+                State::Idle => {
                     trace!("poll_ready; idle");
                     match self.mk_service.poll_ready() {
                         Ok(Async::Ready(())) => (),
@@ -88,15 +82,15 @@ where
                         }
                     }
 
-                    let fut = self.mk_service.make_service(self.context.clone());
-                    self.state = Connecting(fut);
+                    let fut = self.mk_service.make_service(self.target.clone());
+                    self.state = State::Connecting(fut);
                     continue;
                 }
-                Connecting(ref mut f) => {
+                State::Connecting(ref mut f) => {
                     trace!("poll_ready; connecting");
                     match f.poll() {
                         Ok(Async::Ready(service)) => {
-                            state = Connected(service);
+                            state = State::Connected(service);
                         }
                         Ok(Async::NotReady) => {
                             trace!("poll_ready; not ready");
@@ -104,13 +98,13 @@ where
                         }
                         Err(e) => {
                             trace!("poll_ready; error");
-                            state = Idle;
+                            state = State::Idle;
                             ret = Err(Error::Connect(e));
                             break;
                         }
                     }
                 }
-                Connected(ref mut inner) => {
+                State::Connected(ref mut inner) => {
                     trace!("poll_ready; connected");
                     match inner.poll_ready() {
                         Ok(Async::Ready(_)) => {
@@ -123,7 +117,7 @@ where
                         }
                         Err(_) => {
                             trace!("poll_ready; error");
-                            state = Idle;
+                            state = State::Idle;
                         }
                     }
                 }
@@ -137,52 +131,54 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        use self::State::*;
-
-        trace!("call");
-
         let service = match self.state {
-            Connected(ref mut service) => service,
-            _ => return ResponseFuture { inner: None },
+            State::Connected(ref mut service) => service,
+            _ => return ResponseFuture::new(None),
         };
 
         let fut = service.call(request);
-        ResponseFuture { inner: Some(fut) }
+        ResponseFuture::new(Some(fut))
     }
 }
 
-impl<T, Target, Request> fmt::Debug for Reconnect<T, Target, Request>
+impl<M, Target> fmt::Debug for Reconnect<M, Target>
 where
-    T: MakeService<Target, Request> + fmt::Debug,
-    T::Future: fmt::Debug,
-    T::Service: fmt::Debug,
+    M: Service<Target> + fmt::Debug,
+    M::Future: fmt::Debug,
+    M::Response: fmt::Debug,
     Target: fmt::Debug,
-    Request: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Reconnect")
-            .field("context", &self.context)
             .field("mk_service", &self.mk_service)
             .field("state", &self.state)
+            .field("target", &self.target)
             .finish()
     }
 }
 
 // ===== impl ResponseFuture =====
 
-impl<T, Target, Request> Future for ResponseFuture<T, Target, Request>
+impl<F, E> ResponseFuture<F, E> {
+    fn new(inner: Option<F>) -> Self {
+        ResponseFuture {
+            inner,
+            _connect_error_marker: PhantomData,
+        }
+    }
+}
+
+impl<F, E> Future for ResponseFuture<F, E>
 where
-    T: MakeService<Target, Request>,
+    F: Future,
 {
-    type Item = T::Response;
-    type Error = Error<T::Error, T::MakeError>;
+    type Item = F::Item;
+    type Error = Error<F::Error, E>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        trace!("poll response");
-
         match self.inner {
             Some(ref mut f) => {
-                f.poll().map_err(Error::Inner)
+                f.poll().map_err(Error::Service)
             }
             None => Err(Error::NotReady),
         }
@@ -199,7 +195,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Inner(ref why) => fmt::Display::fmt(why, f),
+            Error::Service(ref why) => fmt::Display::fmt(why, f),
             Error::Connect(ref why) => write!(f, "connection failed: {}", why),
             Error::NotReady => f.pad("not ready"),
         }
@@ -213,15 +209,15 @@ where
 {
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            Error::Inner(ref why) => Some(why),
+            Error::Service(ref why) => Some(why),
             Error::Connect(ref why) => Some(why),
-            _ => None,
+            Error::NotReady => None,
         }
     }
 
     fn description(&self) -> &str {
         match *self {
-            Error::Inner(_) => "inner service error",
+            Error::Service(_) => "inner service error",
             Error::Connect(_) => "connection failed",
             Error::NotReady => "not ready",
         }
