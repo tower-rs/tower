@@ -72,7 +72,7 @@ where
     type Error = T::Error;
     type Future = T::Future;
 
-    fn poll_ready(&mut self) -> Result<Async<()>, Self::Error> {
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         unreachable!("tried to poll a DirectService through a marker reference")
     }
 
@@ -100,16 +100,16 @@ where
     type Error = T::Error;
     type Future = T::Future;
 
-    fn poll_ready(&mut self) -> Result<Async<()>, Self::Error> {
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.inner.poll_ready()
     }
 
-    fn poll_service(&mut self) -> Result<Async<()>, Self::Error> {
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
         // TODO: is this the right thing to do?
         Ok(Async::Ready(()))
     }
 
-    fn poll_close(&mut self) -> Result<Async<()>, Self::Error> {
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
         // TODO: is this the right thing to do?
         Ok(Async::Ready(()))
     }

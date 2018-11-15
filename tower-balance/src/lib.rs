@@ -364,7 +364,7 @@ where
         self.call(D::Service::call, request)
     }
 
-    fn poll_service(&mut self) -> Result<Async<()>, Self::Error> {
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
         let mut any_not_ready = false;
 
         // TODO: don't re-poll services that return Ready until call is invoked on them
@@ -388,7 +388,7 @@ where
         }
     }
 
-    fn poll_close(&mut self) -> Result<Async<()>, Self::Error> {
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
         let mut err = None;
         self.ready.retain(|_, svc| match svc.poll_close() {
             Ok(Async::Ready(())) => return false,
