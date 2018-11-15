@@ -58,7 +58,7 @@ fn clears_canceled_requests() {
 
 type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
 type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
-type DirectedMock = tower_buffer::DirectedService<Mock, &'static str>;
+type DirectedMock = tower_buffer::DirectedService<Mock>;
 
 struct Exec;
 

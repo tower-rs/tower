@@ -84,15 +84,9 @@ where
 /// A wrapper that exposes a `Service` (which does not need to be driven) as a `DirectService` so
 /// that a construct that is *able* to take a `DirectService` can also take instances of
 /// `Service`.
-pub struct DirectedService<T, Request>
-where
-    T: Service<Request>,
-{
-    inner: T,
-    _marker: PhantomData<Request>,
-}
+pub struct DirectedService<T>(T);
 
-impl<T, Request> DirectService<Request> for DirectedService<T, Request>
+impl<T, Request> DirectService<Request> for DirectedService<T>
 where
     T: Service<Request>,
 {
@@ -101,7 +95,7 @@ where
     type Future = T::Future;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+        self.0.poll_ready()
     }
 
     fn poll_service(&mut self) -> Poll<(), Self::Error> {
@@ -115,7 +109,7 @@ where
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        self.inner.call(req)
+        self.0.call(req)
     }
 }
 
@@ -166,7 +160,7 @@ where
     /// service.
     pub fn new<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
     where
-        E: Executor<Worker<DirectedService<T, Request>, Request>>,
+        E: Executor<Worker<DirectedService<T>, Request>>,
     {
         let (tx, rx) = mpsc::unbounded();
 
@@ -177,10 +171,7 @@ where
         let worker = Worker {
             current_message: None,
             rx,
-            service: DirectedService {
-                inner: service,
-                _marker: PhantomData,
-            },
+            service: DirectedService(service),
             finish: false,
             state: state.clone(),
         };
