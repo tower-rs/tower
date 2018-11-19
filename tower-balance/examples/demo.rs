@@ -232,11 +232,7 @@ impl Discover for Disco {
     }
 }
 
-type DemoService<D, C> =
-    InFlightLimit<
-        Buffer<
-            lb::Balance<D, C>,
-            Req>>;
+type DemoService<D, C> = InFlightLimit<Buffer<lb::Balance<D, C>, Req>>;
 
 struct SendRequests<D, C>
 where
