@@ -12,12 +12,9 @@
 //! * [`MakeService`](trait.MakeService.html) is essentially a service factory. It
 //! is responsible for generating `Service` values on demand.
 
-#[macro_use]
 extern crate futures;
 
 use futures::{Future, Poll};
-
-use std::marker::PhantomData;
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
@@ -171,14 +168,6 @@ pub trait Service<Request> {
     /// The future response value.
     type Future: Future<Item = Self::Response, Error = Self::Error>;
 
-    /// A future yielding the service when it is ready to accept a request.
-    fn ready(self) -> Ready<Self, Request> where Self: Sized {
-        Ready {
-            inner: Some(self),
-            _p: PhantomData,
-        }
-    }
-
     /// Returns `Ready` when the service is able to process requests.
     ///
     /// If the service is at capacity, then `NotReady` is returned and the task
@@ -200,32 +189,6 @@ pub trait Service<Request> {
     /// Calling `call` without calling `poll_ready` is permitted. The
     /// implementation must be resilient to this fact.
     fn call(&mut self, req: Request) -> Self::Future;
-}
-
-/// Future yielding a `Service` once the service is ready to process a request
-///
-/// `Ready` values are produced by `Service::ready`.
-pub struct Ready<T, Request> {
-    inner: Option<T>,
-    _p: PhantomData<fn() -> Request>,
-}
-
-impl<T, Request> Future for Ready<T, Request>
-where T: Service<Request>,
-{
-    type Item = T;
-    type Error = T::Error;
-
-    fn poll(&mut self) -> Poll<T, T::Error> {
-        match self.inner {
-            Some(ref mut service) => {
-                let _ = try_ready!(service.poll_ready());
-            }
-            None => panic!("called `poll` after future completed"),
-        }
-
-        Ok(self.inner.take().unwrap().into())
-    }
 }
 
 /// Creates new `Service` values.
