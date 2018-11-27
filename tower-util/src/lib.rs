@@ -2,6 +2,7 @@
 
 #[macro_use]
 extern crate futures;
+extern crate tower_direct_service;
 extern crate tower_service;
 
 pub mod boxed;
