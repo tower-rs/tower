@@ -398,9 +398,11 @@ where
                         Ok(Async::NotReady) => {
                             // Put out current message back in its slot.
                             self.current_message = Some(msg);
-                            // We don't want to return quite yet
-                            // We want to also make progress on current requests
-                            break;
+
+                            if !any_outstanding {
+                                return Ok(Async::NotReady);
+                            }
+                            // We may want to also make progress on current requests
                         }
                         Err(_) => {
                             self.state.open.store(false, Ordering::Release);
@@ -428,6 +430,7 @@ where
                 // We are all done!
                 break;
             } else {
+                debug_assert!(any_outstanding);
                 if let Async::Ready(()) = self.service.poll_service().map_err(|_| ())? {
                     // Note to future iterations that there's no reason to call poll_service.
                     any_outstanding = false;
