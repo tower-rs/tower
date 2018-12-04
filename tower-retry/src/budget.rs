@@ -40,28 +40,37 @@ struct Generation {
 // ===== impl Budget =====
 
 impl Budget {
-    pub fn new(ttl: Duration, min_per_sec: isize, retry_percent: f32) -> Self {
+    pub fn new(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Self {
         // assertions taken from finagle
         assert!(ttl >= Duration::from_secs(1));
         assert!(ttl <= Duration::from_secs(60));
-        assert!(retry_percent > 0.0);
-        assert!(retry_percent < 1000.0);
-        assert!(min_per_sec >= 0);
+        assert!(retry_percent >= 0.0);
+        assert!(retry_percent <= 1000.0);
+        assert!(min_per_sec < ::std::i32::MAX as u32);
+
+
+        let (deposit_amount, withdraw_amount) = if retry_percent == 0.0 {
+            // If there is no percent, then you gain nothing from deposits.
+            // Withdrawals can only be made against the reserve, over time.
+            (0, 1)
+        } else if retry_percent <= 1.0 {
+            (1, (1.0 / retry_percent) as isize)
+        } else {
+            // Support for when retry_percent is between 1.0 and 1000.0,
+            // meaning for every deposit D, D*retry_percent withdrawals
+            // can be made.
+            (1000, (1000.0 / retry_percent) as isize)
+        };
+        let reserve = (min_per_sec as isize)
+            .saturating_mul(ttl.as_secs() as isize) // ttl is between 1 and 60 seconds
+            .saturating_mul(withdraw_amount);
 
         // AtomicIsize isn't clone, so the slots need to be built in a loop...
-        let windows = 10;
-        let mut slots = Vec::with_capacity(windows);
+        let windows = 10u32;
+        let mut slots = Vec::with_capacity(windows as usize);
         for _ in 0..windows {
             slots.push(AtomicIsize::new(0));
         }
-
-        let deposit_amount = 1000;
-        let withdraw_amount = (1000.0 / retry_percent) as isize;
-        let reserve = min_per_sec
-            .checked_mul(ttl.as_secs() as isize) // ttl is between 1 and 60 seconds
-            .expect("min_per_sec overflow")
-            .checked_mul(withdraw_amount)
-            .expect("min_per_sec overflow");
 
         Budget {
             bucket: Bucket {
@@ -71,7 +80,7 @@ impl Budget {
                 }),
                 reserve,
                 slots: slots.into_boxed_slice(),
-                window: ttl / windows as u32,
+                window: ttl / windows,
                 writer: AtomicIsize::new(0),
             },
             deposit_amount,
@@ -166,9 +175,12 @@ impl Bucket {
             .slots
             .iter()
             .map(|slot| slot.load(Ordering::SeqCst))
-            .sum();
+            // fold() is used instead of sum() to determine overflow behavior
+            .fold(0, isize::saturating_add);
 
-        current + windowed_sum + self.reserve
+        current
+            .saturating_add(windowed_sum)
+            .saturating_add(self.reserve)
     }
 }
 

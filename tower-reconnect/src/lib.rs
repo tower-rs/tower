@@ -2,9 +2,11 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate tower_service;
+extern crate tower_util;
 
 use futures::{Future, Async, Poll};
-use tower_service::{MakeService, Service};
+use tower_service::Service;
+use tower_util::MakeService;
 
 use std::{error, fmt, marker::PhantomData};
 
