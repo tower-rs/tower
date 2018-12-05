@@ -100,7 +100,8 @@ where
 
 fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
     let (service, handle) = Mock::new();
-    let service = Buffer::with_executor(service, &Exec).unwrap();
+    // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
+    let service = Buffer::with_executor(service, 10, &Exec).unwrap();
     (service, handle)
 }
 

@@ -213,7 +213,7 @@ impl Discover for Disco {
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.changes.pop_front() {
             Some(Change::Insert(k, svc)) => {
-                let svc = Buffer::new(svc).unwrap();
+                let svc = Buffer::new(svc, 0).unwrap();
                 let svc = InFlightLimit::new(svc, ENDPOINT_CAPACITY);
                 Ok(Async::Ready(Change::Insert(k, svc)))
             }
@@ -249,7 +249,7 @@ where
     pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize) -> Self {
         Self {
             send_remaining: total,
-            lb: InFlightLimit::new(Buffer::new(lb).ok().expect("buffer"), concurrency),
+            lb: InFlightLimit::new(Buffer::new(lb, 0).ok().expect("buffer"), concurrency),
             responses: stream::FuturesUnordered::new(),
         }
     }
