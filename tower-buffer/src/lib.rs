@@ -446,6 +446,22 @@ where
                 if let Async::Ready(()) = self.service.poll_service().map_err(|_| ())? {
                     // Note to future iterations that there's no reason to call poll_service.
                     any_outstanding = false;
+                } else {
+                    // The service can't make any more progress.
+                    // Let's see how we can have gotten here:
+                    //
+                    //  - If poll_next_msg returned NotReady, we should return NotReady.
+                    //  - If poll_next_msg returned Ready(None), we'd have self.finish = true,
+                    //    but we're in the else clause, so that can't be the case.
+                    //  - If poll_next_msg returned Ready(Some) and poll_ready() returned NotReady,
+                    //    we should return NotReady here as well, since the service can't make
+                    //    progress yet to accept the message.
+                    //  - If poll_next_msg returned Ready(Some) and poll_ready() returned Ready,
+                    //    we'd have continued, so that can't be the case.
+                    //
+                    // Thus, in all cases when we get to this point, we should return NotReady.
+                    // So:
+                    return Ok(Async::NotReady);
                 }
             }
         }
