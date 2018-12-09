@@ -58,11 +58,13 @@ fn main() {
     let mut rt = runtime::Runtime::new().unwrap();
     let executor = rt.executor();
 
+    let default_rtt = Duration::from_millis(30);
+
     let exec = executor.clone();
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco(exec.clone());
-        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, decay, lb::load::NoInstrument));
+        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, default_rtt, decay, lb::load::NoInstrument));
         run("P2C+PeakEWMA", pe, &exec)
     });
 
