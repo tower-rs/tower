@@ -8,6 +8,7 @@ mod apply;
 mod from_err;
 mod map;
 mod map_err;
+mod ready;
 mod then;
 
 pub use self::and_then::AndThen;
@@ -15,6 +16,7 @@ pub use self::apply::Apply;
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;
+pub use self::ready::Ready;
 pub use self::then::Then;
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T
@@ -25,6 +27,14 @@ where
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
 pub trait ServiceExt<Request>: Service<Request> {
+    /// A future yielding the service when it is ready to accept a request.
+    fn ready(self) -> Ready<Self, Request>
+    where
+        Self: Sized,
+    {
+        Ready::new(self)
+    }
+
     fn apply<F, In, Out>(self, f: F) -> Apply<Self, F, In, Out, Request>
     where
         Self: Service<Request> + Clone + Sized,

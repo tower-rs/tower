@@ -4,35 +4,39 @@
 //! out of the buffer and dispatching them to the inner service. By adding a
 //! buffer and a dedicated task, the `Buffer` layer in front of the service can
 //! be `Clone` even if the inner service is not.
-//!
-//! Currently, `Buffer` uses an unbounded buffering strategy, which is not a
-//! good thing to put in production situations. However, it illustrates the idea
-//! and capabilities around adding buffering to an arbitrary `Service`.
 
 #[macro_use]
 extern crate futures;
 extern crate tower_service;
+extern crate tokio_executor;
+extern crate tower_direct_service;
 
-use futures::{Future, Stream, Poll, Async};
 use futures::future::Executor;
+use futures::sync::mpsc;
 use futures::sync::oneshot;
-use futures::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
-use tower_service::Service;
-
-use std::{error, fmt};
-use std::sync::Arc;
+use futures::{Async, Future, Poll, Stream};
+use std::marker::PhantomData;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::{error, fmt};
+use tower_service::Service;
+use tokio_executor::DefaultExecutor;
+use tower_direct_service::DirectService;
 
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
 pub struct Buffer<T, Request>
-where T: Service<Request>,
+where
+    T: Service<Request>,
 {
-    tx: UnboundedSender<Message<Request, T::Future>>,
+    tx: mpsc::Sender<Message<Request, T::Future>>,
     state: Arc<State>,
 }
+
+/// A [`Buffer`] that is backed by a `DirectService`.
+pub type DirectBuffer<T, Request> = Buffer<DirectServiceRef<T>, Request>;
 
 /// Future eventually completed with the response to the original request.
 pub struct ResponseFuture<T> {
@@ -42,19 +46,100 @@ pub struct ResponseFuture<T> {
 /// Errors produced by `Buffer`.
 #[derive(Debug)]
 pub enum Error<T> {
+    /// The `Service` call errored.
     Inner(T),
+    /// The underlying `Service` failed.
     Closed,
 }
 
-/// Task that handles processing the buffer. This type should not be used
-/// directly, instead `Buffer` requires an `Executor` that can accept this task.
-pub struct Worker<T, Request>
-where T: Service<Request>,
+/// An adapter that exposes the associated types of a `DirectService` through `Service`.
+/// This type does *not* let you pretend that a `DirectService` is a `Service`; that would be
+/// incorrect, as the caller would then not call `poll_service` and `poll_close` as necessary on
+/// the underlying `DirectService`. Instead, it merely provides a type-level adapter which allows
+/// types that are generic over `T: Service`, but only need access to associated types of `T`, to
+/// also take a `DirectService` ([`Buffer`] is an example of such a type).
+pub struct DirectServiceRef<T> {
+    _marker: PhantomData<T>,
+}
+
+impl<T, Request> Service<Request> for DirectServiceRef<T>
+where
+    T: DirectService<Request>,
 {
-    current_message: Option<Message<Request, T::Future>>,
-    rx: UnboundedReceiver<Message<Request, T::Future>>,
-    service: T,
-    state: Arc<State>,
+    type Response = T::Response;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        unreachable!("tried to poll a DirectService through a marker reference")
+    }
+
+    fn call(&mut self, _: Request) -> Self::Future {
+        unreachable!("tried to call a DirectService through a marker reference")
+    }
+}
+
+/// A wrapper that exposes a `Service` (which does not need to be driven) as a `DirectService` so
+/// that a construct that is *able* to take a `DirectService` can also take instances of
+/// `Service`.
+pub struct DirectedService<T>(T);
+
+impl<T, Request> DirectService<Request> for DirectedService<T>
+where
+    T: Service<Request>,
+{
+    type Response = T::Response;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        self.0.poll_ready()
+    }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        // TODO: is this the right thing to do?
+        Ok(Async::Ready(()))
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        // TODO: is this the right thing to do?
+        Ok(Async::Ready(()))
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        self.0.call(req)
+    }
+}
+
+mod sealed {
+    use super::*;
+
+    /// Task that handles processing the buffer. This type should not be used
+    /// directly, instead `Buffer` requires an `Executor` that can accept this task.
+    pub struct Worker<T, Request>
+    where
+        T: DirectService<Request>,
+    {
+        pub(crate) current_message: Option<Message<Request, T::Future>>,
+        pub(crate) rx: mpsc::Receiver<Message<Request, T::Future>>,
+        pub(crate) service: T,
+        pub(crate) finish: bool,
+        pub(crate) state: Arc<State>,
+    }
+}
+use sealed::Worker;
+
+/// This trait allows you to use either Tokio's threaded runtime's executor or the `current_thread`
+/// runtime's executor depending on if `T` is `Send` or `!Send`.
+pub trait WorkerExecutor<T, Request>: Executor<sealed::Worker<T, Request>>
+where
+    T: DirectService<Request>,
+{
+}
+
+impl<T, Request, E: Executor<sealed::Worker<T, Request>>> WorkerExecutor<T, Request> for E where
+    T: DirectService<Request>
+{
 }
 
 /// Error produced when spawning the worker fails
@@ -76,6 +161,7 @@ struct State {
 }
 
 enum ResponseState<T> {
+    Failed,
     Rx(oneshot::Receiver<T>),
     Poll(T),
 }
@@ -86,14 +172,33 @@ where
 {
     /// Creates a new `Buffer` wrapping `service`.
     ///
+    /// `bound` gives the maximal number of requests that can be queued for the service before
+    /// backpressure is applied to callers.
+    ///
+    /// The default Tokio executor is used to run the given service, which means that this method
+    /// must be called while on the Tokio runtime.
+    pub fn new(service: T, bound: usize) -> Result<Self, SpawnError<T>>
+    where
+        T: Send + 'static,
+        T::Future: Send,
+        Request: Send + 'static,
+    {
+        Self::with_executor(service, bound, &DefaultExecutor::current())
+    }
+
+    /// Creates a new `Buffer` wrapping `service`.
+    ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
-    pub fn new<E>(service: T, executor: &E) -> Result<Self, SpawnError<T>>
+    ///
+    /// `bound` gives the maximal number of requests that can be queued for the service before
+    /// backpressure is applied to callers.
+    pub fn with_executor<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
     where
-        E: Executor<Worker<T, Request>>,
+        E: WorkerExecutor<DirectedService<T>, Request>,
     {
-        let (tx, rx) = mpsc::unbounded();
+        let (tx, rx) = mpsc::channel(bound);
 
         let state = Arc::new(State {
             open: AtomicBool::new(true),
@@ -102,7 +207,8 @@ where
         let worker = Worker {
             current_message: None,
             rx,
-            service,
+            service: DirectedService(service),
+            finish: false,
             state: state.clone(),
         };
 
@@ -114,6 +220,43 @@ where
             tx,
             state: state,
         })
+    }
+}
+
+impl<T, Request> Buffer<DirectServiceRef<T>, Request>
+where
+    T: DirectService<Request>,
+{
+    /// Creates a new `Buffer` wrapping the given directly driven `service`.
+    ///
+    /// `executor` is used to spawn a new `Worker` task that is dedicated to
+    /// draining the buffer and dispatching the requests to the internal
+    /// service.
+    ///
+    /// `bound` gives the maximal number of requests that can be queued for the service before
+    /// backpressure is applied to callers.
+    pub fn new_direct<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
+    where
+        E: Executor<Worker<T, Request>>,
+    {
+        let (tx, rx) = mpsc::channel(bound);
+
+        let state = Arc::new(State {
+            open: AtomicBool::new(true),
+        });
+
+        let worker = Worker {
+            current_message: None,
+            rx,
+            service,
+            finish: false,
+            state: state.clone(),
+        };
+
+        // TODO: handle error
+        executor.execute(worker).ok().unwrap();
+
+        Ok(Buffer { tx, state: state })
     }
 }
 
@@ -130,25 +273,28 @@ where
         if !self.state.open.load(Ordering::Acquire) {
             return Err(Error::Closed);
         } else {
-            // Ideally we could query if the `mpsc` is closed, but this is not
-            // currently possible.
-            Ok(().into())
+            self.tx.poll_ready().map_err(|_| Error::Closed)
         }
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
+        // TODO:
+        // ideally we'd poll_ready again here so we don't allocate the oneshot
+        // if the try_send is about to fail, but sadly we can't call poll_ready
+        // outside of task context.
         let (tx, rx) = oneshot::channel();
 
-        let sent = self.tx.unbounded_send(Message {
-            request,
-            tx,
-        });
-
+        let sent = self.tx.try_send(Message { request, tx });
         if sent.is_err() {
             self.state.open.store(false, Ordering::Release);
+            ResponseFuture {
+                state: ResponseState::Failed,
+            }
+        } else {
+            ResponseFuture {
+                state: ResponseState::Rx(rx),
+            }
         }
-
-        ResponseFuture { state: ResponseState::Rx(rx) }
     }
 }
 
@@ -180,6 +326,9 @@ where
             let fut;
 
             match self.state {
+                Failed => {
+                    return Err(Error::Closed);
+                }
                 Rx(ref mut rx) => {
                     match rx.poll() {
                         Ok(Async::Ready(f)) => fut = f,
@@ -201,10 +350,15 @@ where
 
 impl<T, Request> Worker<T, Request>
 where
-    T: Service<Request>,
+    T: DirectService<Request>,
 {
     /// Return the next queued Message that hasn't been canceled.
     fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future>>, ()> {
+        if self.finish {
+            // We've already received None and are shutting down
+            return Ok(Async::Ready(None));
+        }
+
         if let Some(mut msg) = self.current_message.take() {
             // poll_cancel returns Async::Ready is the receiver is dropped.
             // Returning NotReady means it is still alive, so we should still
@@ -228,35 +382,88 @@ where
 
 impl<T, Request> Future for Worker<T, Request>
 where
-    T: Service<Request>,
+    T: DirectService<Request>,
 {
     type Item = ();
     type Error = ();
 
     fn poll(&mut self) -> Poll<(), ()> {
-        while let Some(msg) = try_ready!(self.poll_next_msg()) {
-            // Wait for the service to be ready
-            match self.service.poll_ready() {
-                Ok(Async::Ready(())) => {
-                    let response = self.service.call(msg.request);
+        let mut any_outstanding = true;
+        loop {
+            match self.poll_next_msg()? {
+                Async::Ready(Some(msg)) => {
+                    // Wait for the service to be ready
+                    match self.service.poll_ready() {
+                        Ok(Async::Ready(())) => {
+                            let response = self.service.call(msg.request);
 
-                    // Send the response future back to the sender.
-                    //
-                    // An error means the request had been canceled in-between
-                    // our calls, the response future will just be dropped.
-                    let _ = msg.tx.send(response);
+                            // Send the response future back to the sender.
+                            //
+                            // An error means the request had been canceled in-between
+                            // our calls, the response future will just be dropped.
+                            let _ = msg.tx.send(response);
+
+                            // Try to queue another request before we poll outstanding requests.
+                            any_outstanding = true;
+                            continue;
+                        }
+                        Ok(Async::NotReady) => {
+                            // Put out current message back in its slot.
+                            self.current_message = Some(msg);
+
+                            if !any_outstanding {
+                                return Ok(Async::NotReady);
+                            }
+                            // We may want to also make progress on current requests
+                        }
+                        Err(_) => {
+                            self.state.open.store(false, Ordering::Release);
+                            return Ok(().into());
+                        }
+                    }
                 }
-                Ok(Async::NotReady) => {
-                    // Put out current message back in its slot.
-                    self.current_message = Some(msg);
+                Async::Ready(None) => {
+                    // No more more requests _ever_.
+                    self.finish = true;
+                }
+                Async::NotReady if any_outstanding => {
+                    // Make some progress on the service if we can.
+                }
+                Async::NotReady => {
+                    // There are no outstanding requests to make progress on.
+                    // And we don't have any new requests to enqueue.
+                    // So we yield.
                     return Ok(Async::NotReady);
-                }
-                Err(_) => {
-                    self.state.open.store(false, Ordering::Release);
-                    return Ok(().into())
                 }
             }
 
+            if self.finish {
+                try_ready!(self.service.poll_close().map_err(|_| ()));
+                // We are all done!
+                break;
+            } else {
+                debug_assert!(any_outstanding);
+                if let Async::Ready(()) = self.service.poll_service().map_err(|_| ())? {
+                    // Note to future iterations that there's no reason to call poll_service.
+                    any_outstanding = false;
+                } else {
+                    // The service can't make any more progress.
+                    // Let's see how we can have gotten here:
+                    //
+                    //  - If poll_next_msg returned NotReady, we should return NotReady.
+                    //  - If poll_next_msg returned Ready(None), we'd have self.finish = true,
+                    //    but we're in the else clause, so that can't be the case.
+                    //  - If poll_next_msg returned Ready(Some) and poll_ready() returned NotReady,
+                    //    we should return NotReady here as well, since the service can't make
+                    //    progress yet to accept the message.
+                    //  - If poll_next_msg returned Ready(Some) and poll_ready() returned Ready,
+                    //    we'd have continued, so that can't be the case.
+                    //
+                    // Thus, in all cases when we get to this point, we should return NotReady.
+                    // So:
+                    return Ok(Async::NotReady);
+                }
+            }
         }
 
         // All senders are dropped... the task is no longer needed

@@ -28,6 +28,7 @@ use tower_service::Service;
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 50;
+const DEFAULT_RTT: Duration = Duration::from_millis(30);
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
 static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(1),
@@ -56,36 +57,30 @@ fn main() {
     println!("]");
 
     let mut rt = runtime::Runtime::new().unwrap();
-    let executor = rt.executor();
 
-    let default_rtt = Duration::from_millis(30);
-
-    let exec = executor.clone();
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
-        let d = gen_disco(exec.clone());
-        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, default_rtt, decay, lb::load::NoInstrument));
-        run("P2C+PeakEWMA", pe, &exec)
+        let d = gen_disco();
+        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, DEFAULT_RTT, decay, lb::load::NoInstrument));
+        run("P2C+PeakEWMA", pe)
     });
 
-    let exec = executor.clone();
     let fut = fut.and_then(move |_| {
-        let d = gen_disco(exec.clone());
+        let d = gen_disco();
         let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(d, lb::load::NoInstrument));
-        run("P2C+LeastLoaded", ll, &exec)
+        run("P2C+LeastLoaded", ll)
     });
 
-    let exec = executor;
     let fut = fut.and_then(move |_| {
-        let rr = lb::Balance::round_robin(gen_disco(exec.clone()));
-        run("RoundRobin", rr, &exec)
+        let rr = lb::Balance::round_robin(gen_disco());
+        run("RoundRobin", rr)
     });
 
     rt.spawn(fut);
     rt.shutdown_on_idle().wait().unwrap();
 }
 
-fn gen_disco(executor: runtime::TaskExecutor) -> Disco {
+fn gen_disco() -> Disco {
     use self::Change::Insert;
 
     let mut changes = VecDeque::new();
@@ -93,14 +88,10 @@ fn gen_disco(executor: runtime::TaskExecutor) -> Disco {
         changes.push_back(Insert(i, DelayService(*latency)));
     }
 
-    Disco { changes, executor }
+    Disco { changes }
 }
 
-fn run<D, C>(
-    name: &'static str,
-    lb: lb::Balance<D, C>,
-    executor: &runtime::TaskExecutor,
-) -> impl Future<Item = (), Error = ()>
+fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
 where
     D: Discover + Send + 'static,
     D::Key: Send,
@@ -112,7 +103,7 @@ where
     println!("{}", name);
     let t0 = Instant::now();
 
-    compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY, executor))
+    compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY))
         .map(move |h| report(&h, t0.elapsed()))
         .map_err(|_| {})
 }
@@ -171,7 +162,6 @@ struct Delay {
 
 struct Disco {
     changes: VecDeque<Change<usize, DelayService>>,
-    executor: runtime::TaskExecutor,
 }
 
 #[derive(Debug)]
@@ -224,7 +214,7 @@ impl Discover for Disco {
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.changes.pop_front() {
             Some(Change::Insert(k, svc)) => {
-                let svc = Buffer::new(svc, &self.executor).unwrap();
+                let svc = Buffer::new(svc, 0).unwrap();
                 let svc = InFlightLimit::new(svc, ENDPOINT_CAPACITY);
                 Ok(Async::Ready(Change::Insert(k, svc)))
             }
@@ -234,11 +224,7 @@ impl Discover for Disco {
     }
 }
 
-type DemoService<D, C> =
-    InFlightLimit<
-        Buffer<
-            lb::Balance<D, C>,
-            Req>>;
+type DemoService<D, C> = InFlightLimit<Buffer<lb::Balance<D, C>, Req>>;
 
 struct SendRequests<D, C>
 where
@@ -261,15 +247,10 @@ where
     <D::Service as Service<Req>>::Future: Send,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
-    pub fn new(
-        lb: lb::Balance<D, C>,
-        total: usize,
-        concurrency: usize,
-        executor: &runtime::TaskExecutor,
-    ) -> Self {
+    pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize) -> Self {
         Self {
             send_remaining: total,
-            lb: InFlightLimit::new(Buffer::new(lb, executor).ok().expect("buffer"), concurrency),
+            lb: InFlightLimit::new(Buffer::new(lb, 0).ok().expect("buffer"), concurrency),
             responses: stream::FuturesUnordered::new(),
         }
     }
