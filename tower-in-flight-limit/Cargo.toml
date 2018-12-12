@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 futures = "0.1"
-tower-service = { version = "0.1", path = "../tower-service" }
+tower-service = { version = "0.2", path = "../tower-service" }
 
 [dev-dependencies]
 tokio-test = { git = "https://github.com/carllerche/tokio-test" }

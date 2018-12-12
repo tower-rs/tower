@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tower/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower/0.2.0")]
 
 //! Definition of the core `Service` trait to Tower
 //!
