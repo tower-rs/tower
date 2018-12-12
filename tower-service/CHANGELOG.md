@@ -1,0 +1,26 @@
+# 0.2.0 (Dec 12, 2018)
+
+* Change `Service`'s `Request` associated type to be a generic instead.
+  * Before:
+
+    ```rust
+    impl Service for Client {
+        type Request = HttpRequest;
+        type Response = HttpResponse;
+        // ...
+    }
+    ```
+  * After:
+
+    ```rust
+    impl Service<HttpRequest> for Client {
+        type Response = HttpResponse;
+        // ...
+    }
+    ```
+* Remove `NewService`, use `tower_util::MakeService` instead.
+* Remove `Service::ready` and `Ready`, use `tower_util::ServiceExt` instead.
+
+# 0.1.0 (Aug 9, 2018)
+
+* Initial release
