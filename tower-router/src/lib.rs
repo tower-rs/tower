@@ -21,10 +21,7 @@ pub struct Router<T> {
 }
 
 /// Matches the request with a route
-pub trait Recognize: 'static {
-    /// Request being matched
-    type Request;
-
+pub trait Recognize<Request>: 'static {
     /// Inner service's response
     type Response;
 
@@ -35,7 +32,7 @@ pub trait Recognize: 'static {
     type RouteError;
 
     /// The destination service
-    type Service: Service<Request = Self::Request,
+    type Service: Service<Request,
                          Response = Self::Response,
                             Error = Self::Error>;
 
@@ -50,14 +47,14 @@ pub trait Recognize: 'static {
     /// service should determine the buffering strategy used to handle the
     /// request until the request can be processed.  This behavior enables
     /// punting all buffering decisions to the inner service.
-    fn recognize(&mut self, request: &Self::Request)
+    fn recognize(&mut self, request: &Request)
         -> Result<&mut Self::Service, Self::RouteError>;
 }
 
-pub struct ResponseFuture<T>
-where T: Recognize,
+pub struct ResponseFuture<T, Request>
+where T: Recognize<Request>,
 {
-    state: ResponseState<T>,
+    state: ResponseState<T, Request>,
 }
 
 /// Error produced by the `Router` service
@@ -75,14 +72,14 @@ pub enum Error<T, U> {
     NotReady,
 }
 
-enum ResponseState<T>
-where T: Recognize
+enum ResponseState<T, Request>
+where T: Recognize<Request>
 {
-    Dispatched(<T::Service as Service>::Future),
+    Dispatched(<T::Service as Service<Request>>::Future),
     RouteError(T::RouteError),
     Queued {
         service: BorrowGuard<T::Service>,
-        request: T::Request,
+        request: Request,
     },
     NotReady,
     Invalid,
@@ -90,22 +87,22 @@ where T: Recognize
 
 // ===== impl Router =====
 
-impl<T> Router<T>
-where T: Recognize
-{
+impl<T> Router<T> {
     /// Create a new router
-    pub fn new(recognize: T) -> Self {
+    pub fn new<Request>(recognize: T) -> Self
+    where
+        T: Recognize<Request>,
+    {
         Router { recognize: Borrow::new(recognize) }
     }
 }
 
-impl<T> Service for Router<T>
-where T: Recognize,
+impl<T, Request> Service<Request> for Router<T>
+where T: Recognize<Request>,
 {
-    type Request = T::Request;
     type Response = T::Response;
     type Error = Error<T::Error, T::RouteError>;
-    type Future = ResponseFuture<T>;
+    type Future = ResponseFuture<T, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // Checks if there is an outstanding borrow (i.e. there is an in-flight
@@ -116,7 +113,7 @@ where T: Recognize,
         self.recognize.poll_ready().map_err(|_| panic!())
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let borrow = match self.recognize.try_borrow() {
             Ok(borrow) => borrow,
             Err(_) => {
@@ -151,8 +148,8 @@ where T: Recognize,
 
 // ===== impl ResponseFuture =====
 
-impl<T> Future for ResponseFuture<T>
-where T: Recognize,
+impl<T, Request> Future for ResponseFuture<T, Request>
+where T: Recognize<Request>,
 {
     type Item = T::Response;
     type Error = Error<T::Error, T::RouteError>;

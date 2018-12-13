@@ -16,13 +16,12 @@ pub enum EitherService<A, B> {
     B(B),
 }
 
-impl<A, B> Service for EitherService<A, B>
-where A: Service,
-      B: Service<Request = A::Request,
+impl<A, B, Request> Service<Request> for EitherService<A, B>
+where A: Service<Request>,
+      B: Service<Request,
                 Response = A::Response,
                    Error = A::Error>,
 {
-    type Request = A::Request;
     type Response = A::Response;
     type Error = A::Error;
     type Future = Either<A::Future, B::Future>;
@@ -36,7 +35,7 @@ where A: Service,
         }
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         use self::EitherService::*;
 
         match *self {

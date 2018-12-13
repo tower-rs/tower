@@ -56,13 +56,41 @@ fn clears_canceled_requests() {
     assert_eq!(res3.wait().unwrap(), "world3");
 }
 
+#[test]
+fn when_inner_is_not_ready() {
+    let (mut service, mut handle) = new_service();
+
+    // Make the service NotReady
+    handle.allow(0);
+
+    let mut res1 = service.call("hello");
+
+    // Allow the Buffer's executor to do work
+    ::std::thread::sleep(::std::time::Duration::from_millis(100));
+    with_task(|| {
+        assert!(res1.poll().expect("res1.poll").is_not_ready());
+        assert!(handle.poll_request().expect("poll_request").is_not_ready());
+    });
+
+    handle.allow(1);
+
+    let req1 = handle.next_request().expect("next_request1");
+    assert_eq!(*req1, "hello");
+    req1.respond("world");
+
+    assert_eq!(res1.wait().expect("res1.wait"), "world");
+}
+
 type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
 type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
 
 struct Exec;
 
-impl futures::future::Executor<Worker<Mock>> for Exec {
-    fn execute(&self, fut: Worker<Mock>) -> Result<(), futures::future::ExecuteError<Worker<Mock>>> {
+impl<F> futures::future::Executor<F> for Exec
+where
+    F: Future<Item = (), Error = ()> + Send + 'static,
+{
+    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
         thread::spawn(move || {
             fut.wait().unwrap();
         });
@@ -70,9 +98,10 @@ impl futures::future::Executor<Worker<Mock>> for Exec {
     }
 }
 
-fn new_service() -> (Buffer<Mock>, Handle) {
+fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
     let (service, handle) = Mock::new();
-    let service = Buffer::new(service, &Exec).unwrap();
+    // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
+    let service = Buffer::with_executor(service, 10, &Exec).unwrap();
     (service, handle)
 }
 

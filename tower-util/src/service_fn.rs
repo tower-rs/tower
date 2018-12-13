@@ -1,36 +1,59 @@
-use futures::IntoFuture;
-use tower_service::{Service, NewService};
+use futures::{IntoFuture, Poll};
+use tower_direct_service::DirectService;
+use tower_service::Service;
 
-/// A `NewService` implemented by a closure.
-pub struct NewServiceFn<T> {
+/// A `Service` implemented by a closure.
+pub struct ServiceFn<T> {
     f: T,
 }
 
-// ===== impl NewServiceFn =====
+// ===== impl ServiceFn =====
 
-impl<T, N> NewServiceFn<T>
-where T: Fn() -> N,
-      N: Service,
-{
+impl<T> ServiceFn<T> {
     /// Returns a new `NewServiceFn` with the given closure.
     pub fn new(f: T) -> Self {
-        NewServiceFn { f }
+        ServiceFn { f }
     }
 }
 
-impl<T, R, S> NewService for NewServiceFn<T>
-where T: Fn() -> R,
-      R: IntoFuture<Item = S>,
-      S: Service,
+impl<T, F, Request> Service<Request> for ServiceFn<T>
+where T: Fn(Request) -> F,
+      F: IntoFuture,
 {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Service = R::Item;
-    type InitError = R::Error;
-    type Future = R::Future;
+    type Response = F::Item;
+    type Error = F::Error;
+    type Future = F::Future;
 
-    fn new_service(&self) -> Self::Future {
-        (self.f)().into_future()
+    fn poll_ready(&mut self) -> Poll<(), F::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        (self.f)(req).into_future()
+    }
+}
+
+impl<T, F, Request> DirectService<Request> for ServiceFn<T>
+where T: Fn(Request) -> F,
+      F: IntoFuture,
+{
+    type Response = F::Item;
+    type Error = F::Error;
+    type Future = F::Future;
+
+    fn poll_ready(&mut self) -> Poll<(), F::Error> {
+        Ok(().into())
+    }
+
+    fn poll_service(&mut self) -> Poll<(), F::Error> {
+        Ok(().into())
+    }
+
+    fn poll_close(&mut self) -> Poll<(), F::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        (self.f)(req).into_future()
     }
 }

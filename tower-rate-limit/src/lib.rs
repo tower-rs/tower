@@ -53,7 +53,10 @@ enum State {
 
 impl<T> RateLimit<T> {
     /// Create a new rate limiter
-    pub fn new(inner: T, rate: Rate) -> Self {
+    pub fn new<Request>(inner: T, rate: Rate) -> Self
+    where
+        T: Service<Request>,
+    {
         let state = State::Ready {
             until: Instant::now(),
             rem: rate.num,
@@ -96,10 +99,9 @@ impl Rate {
     }
 }
 
-impl<S> Service for RateLimit<S>
-where S: Service
+impl<S, Request> Service<Request> for RateLimit<S>
+where S: Service<Request>
 {
-    type Request = S::Request;
     type Response = S::Response;
     type Error = Error<S::Error>;
     type Future = ResponseFuture<S::Future>;
@@ -123,7 +125,7 @@ where S: Service
         Ok(().into())
     }
 
-    fn call(&mut self, request: Self::Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         match self.state {
             State::Ready { mut until, mut rem } => {
                 let now = Instant::now();
