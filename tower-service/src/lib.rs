@@ -4,7 +4,7 @@
 //! Definition of the core `Service` trait to Tower
 //!
 //! These traits provide the necessary abstractions for defining a request /
-//! response clients and servers. They are simple but powerul and are the
+//! response clients and servers. They are simple but powerul and are
 //! used as the foundation for the rest of Tower.
 //!
 //! * [`Service`](trait.Service.html) is the primary trait and defines the request
@@ -148,7 +148,7 @@ use futures::{Future, Poll};
 ///
 /// # Backpressure
 ///
-/// Calling an at capacity `Service` (i.e., it temporarily unable to process a
+/// Calling a `Service` which is at capacity (i.e., it is temporarily unable to process a
 /// request) should result in an error. The caller is responsible for ensuring
 /// that the service is ready to receive the request before calling it.
 ///
