@@ -3,6 +3,7 @@ extern crate futures;
 extern crate futures_watch;
 extern crate tower_service;
 
+use std::{fmt, error};
 use futures::{Async, Future, Poll, Stream};
 use futures_watch::{Watch, WatchError};
 use tower_service::Service;
@@ -72,6 +73,32 @@ where
 
     fn call(&mut self, req: Request) -> Self::Future {
         ResponseFuture(self.inner.call(req))
+    }
+}
+
+// ==== impl Error ====
+
+impl<E> fmt::Display for Error<E>
+where
+    E: fmt::Display
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::WatchError(_) => f.pad("watch error"),
+            Error::Inner(e) => fmt::Display::fmt(e, f),
+        }
+    }
+}
+
+impl<E> error::Error for Error<E>
+where
+    E: error::Error,
+{
+    fn cause(&self) -> Option<&error::Error> {
+        match self {
+            Error::WatchError(_) => None,
+            Error::Inner(e) => e.cause(),
+        }
     }
 }
 

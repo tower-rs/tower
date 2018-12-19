@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 futures = "0.1"
-tower-service = { version = "0.1", path = "../tower-service" }
+tower-service = { version = "0.2", path = "../tower-service" }
 futures-borrow = { git = "https://github.com/carllerche/better-future" }
 
 [dev-dependencies]
