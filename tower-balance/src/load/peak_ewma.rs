@@ -75,6 +75,13 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 impl<D, I> WithPeakEwma<D, I>
 {
+    /// Wraps a `D`-typed `Discover` so that services have a `PeakEwma` load metric.
+    ///
+    /// The provided `default_rtt` is used as the default RTT estimate for newly
+    /// added services.
+    ///
+    /// They `decay` value determines over what time period a RTT estimate should
+    /// decay.
     pub fn new<Request>(discover: D, default_rtt: Duration, decay: Duration, instrument: I) -> Self
     where
         D: Discover,
