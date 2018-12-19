@@ -28,6 +28,7 @@ use tower_service::Service;
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 50;
+const DEFAULT_RTT: Duration = Duration::from_millis(30);
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
 static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(1),
@@ -60,7 +61,7 @@ fn main() {
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
-        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, decay, lb::load::NoInstrument));
+        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, DEFAULT_RTT, decay, lb::load::NoInstrument));
         run("P2C+PeakEWMA", pe)
     });
 
