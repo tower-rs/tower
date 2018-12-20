@@ -204,22 +204,19 @@ where
             open: AtomicBool::new(true),
         });
 
-        let worker = Worker {
-            current_message: None,
-            rx,
-            service: DirectedService(service),
-            finish: false,
-            state: state.clone(),
-        };
-
-        // TODO: handle error
-        executor.execute(worker)
-            .ok().unwrap();
-
-        Ok(Buffer {
-            tx,
-            state: state,
-        })
+        match Worker::spawn(DirectedService(service), rx, state.clone(), executor) {
+            Ok(()) => {
+                Ok(Buffer {
+                    tx,
+                    state: state,
+                })
+            },
+            Err(DirectedService(service)) => {
+                Err(SpawnError {
+                    inner: service,
+                })
+            },
+        }
     }
 }
 
@@ -245,18 +242,19 @@ where
             open: AtomicBool::new(true),
         });
 
-        let worker = Worker {
-            current_message: None,
-            rx,
-            service,
-            finish: false,
-            state: state.clone(),
-        };
-
-        // TODO: handle error
-        executor.execute(worker).ok().unwrap();
-
-        Ok(Buffer { tx, state: state })
+        match Worker::spawn(service, rx, state.clone(), executor) {
+            Ok(()) => {
+                Ok(Buffer {
+                    tx,
+                    state: state,
+                })
+            },
+            Err(service) => {
+                Err(SpawnError {
+                    inner: service,
+                })
+            },
+        }
     }
 }
 
@@ -347,6 +345,29 @@ where
 }
 
 // ===== impl Worker =====
+
+impl<T, Request> Worker<T, Request>
+where
+    T: DirectService<Request>,
+{
+    fn spawn<E>(service: T, rx: mpsc::Receiver<Message<Request, T::Future>>, state: Arc<State>, executor: &E) -> Result<(), T>
+    where
+        E: WorkerExecutor<T, Request>,
+    {
+        let worker = Worker {
+            current_message: None,
+            finish: false,
+            rx,
+            service,
+            state,
+        };
+
+        match executor.execute(worker) {
+            Ok(()) => Ok(()),
+            Err(err) => Err(err.into_future().service),
+        }
+    }
+}
 
 impl<T, Request> Worker<T, Request>
 where
