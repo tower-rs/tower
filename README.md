@@ -32,11 +32,11 @@ crates.
 * [`tower-filter`]: Middleware that conditionally dispatch requests to the inner
   service based on a predicate ([docs][tf-docs]);
 
-* [`tower-in-flight-limit`]: Middleware limiting thee number of requests that
+* [`tower-in-flight-limit`]: Middleware limiting the number of requests that
   are in-flight for the inner service ([docs][tifl-docs]).
 
 * [`tower-mock`]: Testing utility for mocking a `Service`. This is useful for
-  testing middleware implemeentations ([docs][tm-docs]);
+  testing middleware implementations ([docs][tm-docs]);
 
 * [`tower-rate-limit`]: Middleware limiting the number of requests to the inner
   service over a period of time ([docs][trl-docs]).
@@ -44,7 +44,7 @@ crates.
 * [`tower-reconnect`]: Middleware that automatically reconnects the inner
   service when it becomes degraded ([docs][tre-docs]).
 
-* [`tower-router`]: Routes requests to one of many inner inner services based on 
+* [`tower-router`]: Routes requests to one of many inner services based on 
   the request ([docs][tro-docs]).
 
 * [`tower-timeout`]: Middleware that applies a timeout to requests
