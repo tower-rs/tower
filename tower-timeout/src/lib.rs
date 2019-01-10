@@ -13,6 +13,7 @@ extern crate tokio;
 
 use futures::{Future, Poll, Async};
 use tower_service::Service;
+use tokio::clock;
 use tokio::timer::{Delay, Error as TimerError};
 
 use std::{error, fmt};
@@ -41,7 +42,6 @@ enum Kind<T> {
     /// Timer returned an error.
     Timer(TimerError),
 }
-
 
 /// `Timeout` response future
 #[derive(Debug)]
@@ -80,7 +80,7 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         ResponseFuture {
             response: self.inner.call(request),
-            sleep: Delay::new(Instant::now() + self.timeout),
+            sleep: Delay::new(clock::now() + self.timeout),
         }
     }
 }
@@ -109,7 +109,6 @@ where T: Future,
         }
     }
 }
-
 
 // ===== impl Error =====
 
