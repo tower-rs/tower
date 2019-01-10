@@ -17,7 +17,7 @@ use tokio::clock;
 use tokio::timer::{Delay, Error as TimerError};
 
 use std::{error, fmt};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Applies a timeout to requests.
 #[derive(Debug)]
