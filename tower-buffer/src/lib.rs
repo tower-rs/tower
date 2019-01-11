@@ -10,14 +10,13 @@ extern crate futures;
 extern crate tower_service;
 extern crate tokio_executor;
 extern crate tower_direct_service;
+extern crate lazycell;
 
 use futures::future::Executor;
 use futures::sync::mpsc;
 use futures::sync::oneshot;
 use futures::{Async, Future, Poll, Stream};
 use std::marker::PhantomData;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::{error, fmt};
 use tower_service::Service;
@@ -31,25 +30,34 @@ pub struct Buffer<T, Request>
 where
     T: Service<Request>,
 {
-    tx: mpsc::Sender<Message<Request, T::Future>>,
-    state: Arc<State>,
+    tx: mpsc::Sender<Message<Request, T::Future, T::Error>>,
+    state: Arc<State<T::Error>>,
 }
 
 /// A [`Buffer`] that is backed by a `DirectService`.
 pub type DirectBuffer<T, Request> = Buffer<DirectServiceRef<T>, Request>;
 
 /// Future eventually completed with the response to the original request.
-pub struct ResponseFuture<T> {
-    state: ResponseState<T>,
+pub struct ResponseFuture<T, E> {
+    state: ResponseState<T, E>,
+}
+
+/// An error produced by a `Service` wrapped by a `Buffer`
+#[derive(Debug)]
+pub struct ServiceError<E> {
+    /// The method that was called on `Service` when it failed.
+    pub method: &'static str,
+    /// The error produced by the `Service`.
+    pub inner: E,
 }
 
 /// Errors produced by `Buffer`.
 #[derive(Debug)]
-pub enum Error<T> {
+pub enum Error<E> {
     /// The `Service` call errored.
-    Inner(T),
-    /// The underlying `Service` failed.
-    Closed,
+    Inner(E),
+    /// The underlying `Service` failed. All subsequent requests will fail.
+    Closed(Arc<ServiceError<E>>),
 }
 
 /// An adapter that exposes the associated types of a `DirectService` through `Service`.
@@ -120,11 +128,12 @@ mod sealed {
     where
         T: DirectService<Request>,
     {
-        pub(crate) current_message: Option<Message<Request, T::Future>>,
-        pub(crate) rx: mpsc::Receiver<Message<Request, T::Future>>,
+        pub(crate) current_message: Option<Message<Request, T::Future, T::Error>>,
+        pub(crate) rx: mpsc::Receiver<Message<Request, T::Future, T::Error>>,
         pub(crate) service: T,
         pub(crate) finish: bool,
-        pub(crate) state: Arc<State>,
+        pub(crate) failed: Option<Arc<ServiceError<T::Error>>>,
+        pub(crate) state: Arc<State<T::Error>>,
     }
 }
 use sealed::Worker;
@@ -150,19 +159,19 @@ pub struct SpawnError<T> {
 
 /// Message sent over buffer
 #[derive(Debug)]
-struct Message<Request, Fut> {
+struct Message<Request, Fut, E> {
     request: Request,
-    tx: oneshot::Sender<Fut>,
+    tx: oneshot::Sender<Result<Fut, Arc<ServiceError<E>>>>,
 }
 
 /// State shared between `Buffer` and `Worker`
-struct State {
-    open: AtomicBool,
+struct State<E> {
+    err: lazycell::AtomicLazyCell<Arc<ServiceError<E>>>,
 }
 
-enum ResponseState<T> {
-    Failed,
-    Rx(oneshot::Receiver<T>),
+enum ResponseState<T, E> {
+    Failed(Arc<ServiceError<E>>),
+    Rx(oneshot::Receiver<Result<T, Arc<ServiceError<E>>>>),
     Poll(T),
 }
 
@@ -181,6 +190,7 @@ where
     where
         T: Send + 'static,
         T::Future: Send,
+        T::Error: Send + Sync,
         Request: Send + 'static,
     {
         Self::with_executor(service, bound, &DefaultExecutor::current())
@@ -201,7 +211,7 @@ where
         let (tx, rx) = mpsc::channel(bound);
 
         let state = Arc::new(State {
-            open: AtomicBool::new(true),
+            err: lazycell::AtomicLazyCell::new(),
         });
 
         match Worker::spawn(DirectedService(service), rx, state.clone(), executor) {
@@ -239,7 +249,7 @@ where
         let (tx, rx) = mpsc::channel(bound);
 
         let state = Arc::new(State {
-            open: AtomicBool::new(true),
+            err: lazycell::AtomicLazyCell::new(),
         });
 
         match Worker::spawn(service, rx, state.clone(), executor) {
@@ -264,15 +274,19 @@ where
 {
     type Response = T::Response;
     type Error = Error<T::Error>;
-    type Future = ResponseFuture<T::Future>;
+    type Future = ResponseFuture<T::Future, T::Error>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
-        if !self.state.open.load(Ordering::Acquire) {
-            return Err(Error::Closed);
-        } else {
-            self.tx.poll_ready().map_err(|_| Error::Closed)
-        }
+        self.tx.poll_ready().map_err(move |_| {
+            Error::Closed(
+                self.state
+                    .err
+                    .borrow()
+                    .cloned()
+                    .expect("Worker exited, but did not set error."),
+            )
+        })
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -284,9 +298,14 @@ where
 
         let sent = self.tx.try_send(Message { request, tx });
         if sent.is_err() {
-            self.state.open.store(false, Ordering::Release);
+            let e = self
+                .state
+                .err
+                .borrow()
+                .cloned()
+                .expect("Worker exited, but did not set error.");
             ResponseFuture {
-                state: ResponseState::Failed,
+                state: ResponseState::Failed(e),
             }
         } else {
             ResponseFuture {
@@ -310,7 +329,7 @@ where
 
 // ===== impl ResponseFuture =====
 
-impl<T> Future for ResponseFuture<T>
+impl<T> Future for ResponseFuture<T, T::Error>
 where
     T: Future,
 {
@@ -324,16 +343,17 @@ where
             let fut;
 
             match self.state {
-                Failed => {
-                    return Err(Error::Closed);
+                Failed(ref e) => {
+                    return Err(Error::Closed(e.clone()));
                 }
-                Rx(ref mut rx) => {
-                    match rx.poll() {
-                        Ok(Async::Ready(f)) => fut = f,
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Err(_) => return Err(Error::Closed),
-                    }
-                }
+                Rx(ref mut rx) => match rx.poll() {
+                    Ok(Async::Ready(Ok(f))) => fut = f,
+                    Ok(Async::Ready(Err(e))) => return Err(Error::Closed(e)),
+                    Ok(Async::NotReady) => return Ok(Async::NotReady),
+                    Err(futures::Canceled) => unreachable!(
+                        "Worker exited without sending error to all outstanding requests."
+                    ),
+                },
                 Poll(ref mut fut) => {
                     return fut.poll().map_err(Error::Inner);
                 }
@@ -350,13 +370,19 @@ impl<T, Request> Worker<T, Request>
 where
     T: DirectService<Request>,
 {
-    fn spawn<E>(service: T, rx: mpsc::Receiver<Message<Request, T::Future>>, state: Arc<State>, executor: &E) -> Result<(), T>
+    fn spawn<E>(
+        service: T,
+        rx: mpsc::Receiver<Message<Request, T::Future, T::Error>>,
+        state: Arc<State<T::Error>>,
+        executor: &E,
+    ) -> Result<(), T>
     where
         E: WorkerExecutor<T, Request>,
     {
         let worker = Worker {
             current_message: None,
             finish: false,
+            failed: None,
             rx,
             service,
             state,
@@ -374,7 +400,7 @@ where
     T: DirectService<Request>,
 {
     /// Return the next queued Message that hasn't been canceled.
-    fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future>>, ()> {
+    fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future, T::Error>>, ()> {
         if self.finish {
             // We've already received None and are shutting down
             return Ok(Async::Ready(None));
@@ -399,6 +425,35 @@ where
 
         Ok(Async::Ready(None))
     }
+
+    fn failed(&mut self, method: &'static str, error: T::Error) {
+        // The underlying service failed when we called `method` on it with the given `error`. We
+        // need to communicate this to all the `Buffer` handles. To do so, we wrap up the error in
+        // an `Arc`, send that `Arc<E>` to all pending requests, and store it so that subsequent
+        // requests will also fail with the same error.
+
+        // Note that we need to handle the case where some handle is concurrently trying to send us
+        // a request. We need to make sure that *either* the send of the request fails *or* it
+        // receives an error on the `oneshot` it constructed. Specifically, we want to avoid the
+        // case where we send errors to all outstanding requests, and *then* the caller sends its
+        // request. We do this by *first* exposing the error, *then* closing the channel used to
+        // send more requests (so the client will see the error when the send fails), and *then*
+        // sending the error to all outstanding requests.
+        let error = Arc::new(ServiceError {
+            method,
+            inner: error,
+        });
+        if let Err(_) = self.state.err.fill(error.clone()) {
+            // Future::poll was called after we've already errored out!
+            return;
+        }
+        self.rx.close();
+
+        // By closing the mpsc::Receiver, we know that poll_next_msg will soon return Ready(None),
+        // which will trigger the `self.finish == true` phase. We just need to make sure that any
+        // requests that we receive before we've exhausted the receiver receive the error:
+        self.failed = Some(error);
+    }
 }
 
 impl<T, Request> Future for Worker<T, Request>
@@ -413,6 +468,11 @@ where
         loop {
             match self.poll_next_msg()? {
                 Async::Ready(Some(msg)) => {
+                    if let Some(ref failed) = self.failed {
+                        let _ = msg.tx.send(Err(failed.clone()));
+                        continue;
+                    }
+
                     // Wait for the service to be ready
                     match self.service.poll_ready() {
                         Ok(Async::Ready(())) => {
@@ -422,7 +482,7 @@ where
                             //
                             // An error means the request had been canceled in-between
                             // our calls, the response future will just be dropped.
-                            let _ = msg.tx.send(response);
+                            let _ = msg.tx.send(Ok(response));
 
                             // Try to queue another request before we poll outstanding requests.
                             any_outstanding = true;
@@ -437,15 +497,22 @@ where
                             }
                             // We may want to also make progress on current requests
                         }
-                        Err(_) => {
-                            self.state.open.store(false, Ordering::Release);
-                            return Ok(().into());
+                        Err(e) => {
+                            self.failed("poll_ready", e);
+                            let _ = msg.tx.send(Err(self
+                                .failed
+                                .clone()
+                                .expect("Worker::failed did not set self.failed?")));
                         }
                     }
                 }
                 Async::Ready(None) => {
                     // No more more requests _ever_.
                     self.finish = true;
+                }
+                Async::NotReady if self.failed.is_some() => {
+                    // No need to poll the service as it has already failed.
+                    return Ok(Async::NotReady);
                 }
                 Async::NotReady if any_outstanding => {
                     // Make some progress on the service if we can.
@@ -459,12 +526,16 @@ where
             }
 
             if self.finish {
-                try_ready!(self.service.poll_close().map_err(|_| ()));
+                try_ready!(self.service.poll_close().map_err(move |e| {
+                    self.failed("poll_close", e);
+                }));
                 // We are all done!
                 break;
             } else {
                 debug_assert!(any_outstanding);
-                if let Async::Ready(()) = self.service.poll_service().map_err(|_| ())? {
+                if let Async::Ready(()) = self.service.poll_service().map_err(|e| {
+                    self.failed("poll_service", e);
+                })? {
                     // Note to future iterations that there's no reason to call poll_service.
                     any_outstanding = false;
                 } else {
@@ -501,7 +572,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Closed => f.pad("buffer closed"),
+            Error::Closed(ref e) => write!(f, "Service::{} failed: {}", e.method, e.inner),
         }
     }
 }
@@ -511,20 +582,18 @@ where
     T: error::Error,
 {
     fn cause(&self) -> Option<&error::Error> {
-        if let Error::Inner(ref why) = *self {
-            Some(why)
-        } else {
-            None
+        match *self {
+            Error::Inner(ref why) => Some(why),
+            Error::Closed(ref e) => Some(&e.inner),
         }
     }
 
     fn description(&self) -> &str {
         match *self {
             Error::Inner(ref e) => e.description(),
-            Error::Closed => "buffer closed",
+            Error::Closed(ref e) => e.inner.description(),
         }
     }
-
 }
 
 // ===== impl SpawnError =====
