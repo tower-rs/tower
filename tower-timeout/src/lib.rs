@@ -131,7 +131,7 @@ where
 {
     fn description(&self) -> &str {
         match self.0 {
-            Kind::Inner(_) => "inner service error",
+            Kind::Inner(e) => e.description(),
             Kind::Elapsed => "request timed out",
             Kind::Timer(_) => "internal timer error"
         }
