@@ -7,8 +7,4 @@ publish = false
 [dependencies]
 futures = "0.1"
 tower-service = { version = "0.2", path = "../tower-service" }
-
-[dependencies.tokio]
-version = "0.1.14"
-default-features = false
-features = ["timer"]
+tokio-timer = "0.2.6"

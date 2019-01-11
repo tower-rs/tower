@@ -9,12 +9,11 @@
 
 extern crate futures;
 extern crate tower_service;
-extern crate tokio;
+extern crate tokio_timer;
 
 use futures::{Future, Poll, Async};
 use tower_service::Service;
-use tokio::clock;
-use tokio::timer::{Delay, Error as TimerError};
+use tokio_timer::{clock, Delay, Error as TimerError};
 
 use std::{error, fmt};
 use std::time::Duration;
@@ -131,9 +130,9 @@ where
 {
     fn description(&self) -> &str {
         match self.0 {
-            Kind::Inner(e) => e.description(),
+            Kind::Inner(ref e) => e.description(),
             Kind::Elapsed => "request timed out",
-            Kind::Timer(_) => "internal timer error"
+            Kind::Timer(ref e) => e.description(),
         }
     }
 
