@@ -226,13 +226,26 @@ where
 {
     /// Creates a new `Buffer` wrapping the given directly driven `service`.
     ///
+    /// `bound` gives the maximal number of requests that can be queued for the service before
+    /// backpressure is applied to callers.
+    pub fn new_direct(service: T, bound: usize) -> Result<Self, SpawnError<T>>
+    where
+        T: Send + 'static,
+        T::Future: Send,
+        Request: Send + 'static,
+    {
+        Self::with_executor_direct(service, bound, &DefaultExecutor::current())
+    }
+
+    /// Creates a new `Buffer` wrapping `service`.
+    ///
     /// `executor` is used to spawn a new `Worker` task that is dedicated to
     /// draining the buffer and dispatching the requests to the internal
     /// service.
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
-    pub fn new_direct<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
+    pub fn with_executor_direct<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
     where
         E: Executor<Worker<T, Request>>,
     {
@@ -493,6 +506,15 @@ where
 }
 
 // ===== impl Error =====
+
+impl<T> Error<T> {
+    pub fn into_inner(self) -> Option<T> {
+        match self {
+            Error::Inner(inner) => Some(inner),
+            Error::Closed => None
+        }
+    }
+}
 
 impl<T> fmt::Display for Error<T>
 where
