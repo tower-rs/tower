@@ -1,5 +1,6 @@
 use futures::{Future, Poll};
 use tower_service::Service;
+use tower_direct_service::DirectService;
 
 /// Creates new `Service` values.
 ///
@@ -18,7 +19,7 @@ pub trait MakeService<Target, Request>: self::sealed::Sealed<Target, Request> {
     type Error;
 
     /// The `Service` value created by this factory
-    type Service: Service<Request, Response = Self::Response, Error = Self::Error>;
+    type Service: DirectService<Request, Response = Self::Response, Error = Self::Error>;
 
     /// Errors produced while building a service.
     type MakeError;
@@ -43,12 +44,12 @@ pub trait MakeService<Target, Request>: self::sealed::Sealed<Target, Request> {
 
 impl<M, S, Target, Request> self::sealed::Sealed<Target, Request> for M
     where M: Service<Target, Response=S>,
-          S: Service<Request>,
+          S: DirectService<Request>,
 {}
 
 impl<M, S, Target, Request> MakeService<Target, Request> for M
     where M: Service<Target, Response=S>,
-          S: Service<Request>,
+          S: DirectService<Request>,
 {
     type Response = S::Response;
     type Error = S::Error;
