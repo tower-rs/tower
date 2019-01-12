@@ -222,6 +222,14 @@ where
             Err(DirectedService(service)) => Err(SpawnError { inner: service }),
         }
     }
+
+    fn get_error_on_closed(&self) -> Arc<ServiceError<T::Error>> {
+        self.state
+            .err
+            .borrow()
+            .cloned()
+            .expect("Worker exited, but did not set error.")
+    }
 }
 
 impl<T, Request> Buffer<DirectServiceRef<T>, Request>
@@ -263,15 +271,9 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
-        self.tx.poll_ready().map_err(move |_| {
-            Error::Closed(
-                self.state
-                    .err
-                    .borrow()
-                    .cloned()
-                    .expect("Worker exited, but did not set error."),
-            )
-        })
+        self.tx
+            .poll_ready()
+            .map_err(move |_| Error::Closed(self.get_error_on_closed()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -284,14 +286,8 @@ where
         match self.tx.try_send(Message { request, tx }) {
             Err(e) => {
                 if e.is_disconnected() {
-                    let e = self
-                        .state
-                        .err
-                        .borrow()
-                        .cloned()
-                        .expect("Worker exited, but did not set error.");
                     ResponseFuture {
-                        state: ResponseState::Failed(e),
+                        state: ResponseState::Failed(self.get_error_on_closed()),
                     }
                 } else {
                     ResponseFuture {
