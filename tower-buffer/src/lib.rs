@@ -7,10 +7,10 @@
 
 #[macro_use]
 extern crate futures;
-extern crate tower_service;
+extern crate lazycell;
 extern crate tokio_executor;
 extern crate tower_direct_service;
-extern crate lazycell;
+extern crate tower_service;
 
 use futures::future::Executor;
 use futures::sync::mpsc;
@@ -19,9 +19,9 @@ use futures::{Async, Future, Poll, Stream};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{error, fmt};
-use tower_service::Service;
 use tokio_executor::DefaultExecutor;
 use tower_direct_service::DirectService;
+use tower_service::Service;
 
 /// Adds a buffer in front of an inner service.
 ///
@@ -218,17 +218,8 @@ where
         });
 
         match Worker::spawn(DirectedService(service), rx, state.clone(), executor) {
-            Ok(()) => {
-                Ok(Buffer {
-                    tx,
-                    state: state,
-                })
-            },
-            Err(DirectedService(service)) => {
-                Err(SpawnError {
-                    inner: service,
-                })
-            },
+            Ok(()) => Ok(Buffer { tx, state: state }),
+            Err(DirectedService(service)) => Err(SpawnError { inner: service }),
         }
     }
 }
@@ -256,17 +247,8 @@ where
         });
 
         match Worker::spawn(service, rx, state.clone(), executor) {
-            Ok(()) => {
-                Ok(Buffer {
-                    tx,
-                    state: state,
-                })
-            },
-            Err(service) => {
-                Err(SpawnError {
-                    inner: service,
-                })
-            },
+            Ok(()) => Ok(Buffer { tx, state: state }),
+            Err(service) => Err(SpawnError { inner: service }),
         }
     }
 }
@@ -633,5 +615,4 @@ where
     fn description(&self) -> &str {
         "error spawning buffer task"
     }
-
 }
