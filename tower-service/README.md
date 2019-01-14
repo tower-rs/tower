@@ -23,7 +23,7 @@ By using standardizing the interface, middleware can be created. Middleware
 *implement* `Service` by passing the request to another `Service`. The
 middleware may take actions such as modify the request.
 
-[`Service`]: https://docs.rs/tower-service/0.2.0/tower_service/trait.Service.html
+[`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
 
 ## License
 
