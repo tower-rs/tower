@@ -45,10 +45,20 @@ pub struct ResponseFuture<T, E> {
 /// An error produced by a `Service` wrapped by a `Buffer`
 #[derive(Debug)]
 pub struct ServiceError<E> {
+    method: &'static str,
+    inner: E,
+}
+
+impl<E> ServiceError<E> {
     /// The method that was called on `Service` when it failed.
-    pub method: &'static str,
-    /// The error produced by the `Service`.
-    pub inner: E,
+    pub fn method(&self) -> &'static str {
+        self.method
+    }
+
+    /// The error produced by the `Service` when `method` was called.
+    pub fn error(&self) -> &E {
+        &self.inner
+    }
 }
 
 /// Errors produced by `Buffer`.

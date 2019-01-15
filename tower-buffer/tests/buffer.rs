@@ -96,8 +96,8 @@ fn when_inner_fails() {
     with_task(|| {
         let e = res1.poll().unwrap_err();
         if let Error::Closed(e) = e {
-            assert_eq!(e.method, "poll_ready");
-            assert_eq!(e.inner, tower_mock::Error::Other("foobar"));
+            assert_eq!(e.method(), "poll_ready");
+            assert_eq!(e.error(), &tower_mock::Error::Other("foobar"));
         } else {
             panic!("unexpected error type: {:?}", e);
         }
