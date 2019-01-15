@@ -50,11 +50,6 @@ pub struct ServiceError<E> {
 }
 
 impl<E> ServiceError<E> {
-    /// The method that was called on `Service` when it failed.
-    pub fn method(&self) -> &'static str {
-        self.method
-    }
-
     /// The error produced by the `Service` when `method` was called.
     pub fn error(&self) -> &E {
         &self.inner
