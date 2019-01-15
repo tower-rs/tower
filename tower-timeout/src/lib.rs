@@ -104,7 +104,7 @@ where T: Future,
         match self.sleep.poll() {
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Ok(Async::Ready(_)) => Err(Error(Kind::Elapsed)),
-            Err(_) => Err(Error(Kind::Elapsed)),
+            Err(e) => Err(Error(Kind::Timer(e))),
         }
     }
 }
