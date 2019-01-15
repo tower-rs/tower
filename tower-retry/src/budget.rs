@@ -1,15 +1,23 @@
+//! A retry "budget" for allowing only a certain amount of retries over time.
+
 use std::fmt;
 use std::sync::{Mutex, atomic::{AtomicIsize, Ordering}};
 use std::time::{Duration, Instant};
 
 use tokio_timer::clock;
 
+/// Represents a "budget" for retrying requests.
+///
+/// This is useful for limiting the amount of retries a service can perform
+/// over a period of time, or per a certain number of requests attempted.
 pub struct Budget {
     bucket: Bucket,
     deposit_amount: isize,
     withdraw_amount: isize,
 }
 
+/// Indicates that it is not currently allowed to "withdraw" another retry
+/// from the [`Budget`](Budget).
 #[derive(Debug)]
 pub struct Overdrawn {
     _inner: (),
@@ -40,6 +48,21 @@ struct Generation {
 // ===== impl Budget =====
 
 impl Budget {
+    /// Create a `Budget` that allows for a certain percent of the total
+    /// requests to be retried.
+    ///
+    /// - The `ttl` is the duration of how long a single `deposit` should be
+    ///   considered. Must be between 1 and 60 seconds.
+    /// - The `min_per_sec` is the minimum rate of retries allowed to accomodate
+    ///   clients that have just started issuing requests, or clients that do
+    ///   not issue many requests per window.
+    /// - The `retry_percent` is the percentage of calls to `deposit` that can
+    ///   be retried. This is in addition to any retries allowed for via
+    ///   `min_per_sec`. Must be between 0 and 1000.
+    ///
+    ///   As an example, if `0.1` is used, then for every 10 calls to `deposit`,
+    ///   1 retry will be allowed. If `2.0` is used, then every `deposit`
+    ///   allows for 2 retries.
     pub fn new(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Self {
         // assertions taken from finagle
         assert!(ttl >= Duration::from_secs(1));
@@ -88,10 +111,16 @@ impl Budget {
         }
     }
 
+    /// Store a "deposit" in the budget, which will be used to permit future
+    /// withdrawals.
     pub fn deposit(&self) {
         self.bucket.put(self.deposit_amount);
     }
 
+    /// Check whether there is enough "balance" in the budget to issue a new
+    /// retry.
+    ///
+    /// If there is not enough, an `Err(Overdrawn)` is returned.
     pub fn withdraw(&self) -> Result<(), Overdrawn> {
         if self.bucket.try_get(self.withdraw_amount) {
             Ok(())
