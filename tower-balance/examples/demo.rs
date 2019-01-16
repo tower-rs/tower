@@ -96,8 +96,9 @@ where
     D: Discover + Send + 'static,
     D::Key: Send,
     D::Service: Service<Req, Response = Rsp> + Send,
-    D::Error: Send,
+    D::Error: Send + Sync,
     <D::Service as Service<Req>>::Future: Send,
+    <D::Service as Service<Req>>::Error: Send + Sync,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     println!("{}", name);
@@ -243,8 +244,9 @@ where
     D::Service: Service<Req>,
     D::Key: Send,
     D::Service: Send,
-    D::Error: Send,
+    D::Error: Send + Sync,
     <D::Service as Service<Req>>::Future: Send,
+    <D::Service as Service<Req>>::Error: Send + Sync,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize) -> Self {

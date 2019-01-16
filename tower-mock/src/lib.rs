@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 pub struct Mock<T, U, E> {
     id: u64,
     tx: Mutex<Tx<T, U, E>>,
-    state: Arc<Mutex<State>>,
+    state: Arc<Mutex<State<E>>>,
     can_send: bool,
 }
 
@@ -26,7 +26,7 @@ pub struct Mock<T, U, E> {
 #[derive(Debug)]
 pub struct Handle<T, U, E> {
     rx: Rx<T, U, E>,
-    state: Arc<Mutex<State>>,
+    state: Arc<Mutex<State<E>>>,
 }
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ pub enum Error<T> {
 }
 
 #[derive(Debug)]
-struct State {
+struct State<E> {
     // Tracks the number of requests that can be sent through
     rem: u64,
 
@@ -69,6 +69,9 @@ struct State {
 
     // Tracks the ID for the next mock clone
     next_clone_id: u64,
+
+    // Tracks the next error to yield (if any)
+    err_with: Option<E>,
 }
 
 type Tx<T, U, E> = mpsc::UnboundedSender<Request<T, U, E>>;
@@ -114,6 +117,10 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
 
         if self.can_send {
             return Ok(().into());
+        }
+
+        if let Some(e) = state.err_with.take() {
+            return Err(Error::Other(e));
         }
 
         if state.rem > 0 {
@@ -236,6 +243,16 @@ impl<T, U, E> Handle<T, U, E> {
             }
         }
     }
+
+    /// Make the next poll_ method error with the given error.
+    pub fn error(&mut self, e: E) {
+        let mut state = self.state.lock().unwrap();
+        state.err_with = Some(e);
+
+        for (_, task) in state.tasks.drain() {
+            task.notify();
+        }
+    }
 }
 
 impl<T, U, E> Drop for Handle<T, U, E> {
@@ -312,13 +329,14 @@ impl<T, E> Future for ResponseFuture<T, E> {
 
 // ===== impl State =====
 
-impl State {
-    fn new() -> State {
+impl<E> State<E> {
+    fn new() -> State<E> {
         State {
             rem: u64::MAX,
             tasks: HashMap::new(),
             is_closed: false,
             next_clone_id: 1,
+            err_with: None,
         }
     }
 }

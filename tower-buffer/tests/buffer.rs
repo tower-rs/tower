@@ -81,8 +81,31 @@ fn when_inner_is_not_ready() {
     assert_eq!(res1.wait().expect("res1.wait"), "world");
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
-type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
+#[test]
+fn when_inner_fails() {
+    let (mut service, mut handle) = new_service();
+
+    // Make the service NotReady
+    handle.allow(0);
+    handle.error("foobar");
+
+    let mut res1 = service.call("hello");
+
+    // Allow the Buffer's executor to do work
+    ::std::thread::sleep(::std::time::Duration::from_millis(100));
+    with_task(|| {
+        let e = res1.poll().unwrap_err();
+        if let Error::Closed(e) = e {
+            assert!(format!("{:?}", e).contains("poll_ready"));
+            assert_eq!(e.error(), &tower_mock::Error::Other("foobar"));
+        } else {
+            panic!("unexpected error type: {:?}", e);
+        }
+    });
+}
+
+type Mock = tower_mock::Mock<&'static str, &'static str, &'static str>;
+type Handle = tower_mock::Handle<&'static str, &'static str, &'static str>;
 
 struct Exec;
 
