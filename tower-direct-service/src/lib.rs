@@ -15,7 +15,7 @@
 
 extern crate futures;
 
-use futures::{Future, Poll};
+use futures::{Async, Future, Poll};
 
 /// An asynchronous function from `Request` to a `Response` that requires polling.
 ///
@@ -45,7 +45,9 @@ pub trait DirectService<Request> {
     ///
     /// Implementors should call `poll_service` as necessary to finish in-flight
     /// requests.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
+    }
 
     /// Returns `Ready` whenever there is no more work to be done until `call`
     /// is invoked again.
@@ -53,7 +55,9 @@ pub trait DirectService<Request> {
     /// Note that this method may return `NotReady` even if there are no
     /// outstanding requests, if the service has to perform non-request-driven
     /// operations (e.g., heartbeats).
-    fn poll_service(&mut self) -> Poll<(), Self::Error>;
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
+    }
 
     /// A method to indicate that no more requests will be sent to this service.
     ///
@@ -108,7 +112,9 @@ pub trait DirectService<Request> {
     ///
     /// * It is called outside the context of a future's task
     /// * It is called and then `call` or `poll_service` is called
-    fn poll_close(&mut self) -> Poll<(), Self::Error>;
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
+    }
 
     /// Process the request and return the response asynchronously.
     ///
