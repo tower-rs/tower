@@ -13,13 +13,15 @@ extern crate futures;
 extern crate tokio_timer;
 extern crate futures_cpupool;
 extern crate tower_service;
+extern crate tower_util;
 
 #[macro_use]
 extern crate log;
 
 extern crate env_logger;
 
-use tower_service::{Service, NewService};
+use tower_service::Service;
+use tower_util::{MakeService, ServiceExt};
 
 use futures::{Future, Stream, IntoFuture, Poll, Async};
 use futures::future::{Executor, FutureResult};
@@ -77,15 +79,16 @@ impl NewChannelService {
     }
 }
 
-impl NewService for NewChannelService {
-    type Request = String;
-    type Response = String;
-    type Error = Error;
-    type InitError = io::Error;
-    type Service = ChannelService;
-    type Future = FutureResult<Self::Service, io::Error>;
+impl Service<()> for NewChannelService {
+    type Response = ChannelService;
+    type Error = io::Error;
+    type Future = FutureResult<Self::Response, Self::Error>;
 
-    fn new_service(&self) -> Self::Future {
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Ok(().into())
+    }
+
+    fn call(&mut self, _target: ()) -> Self::Future {
         let (tx, rx) = mpsc::channel::<(String, oneshot::Sender<String>)>(self.buffer);
         let timer = self.timer.clone();
 
@@ -105,8 +108,7 @@ impl NewService for NewChannelService {
     }
 }
 
-impl Service for ChannelService {
-    type Request = String;
+impl Service<String> for ChannelService {
     type Response = String;
     type Error = Error;
     type Future = ResponseFuture;
@@ -151,10 +153,10 @@ impl Future for ResponseFuture {
 pub fn main() {
     env_logger::init();
 
-    let new_service = NewChannelService::new(5, CpuPool::new(1));
+    let mut new_service = NewChannelService::new(5, CpuPool::new(1));
 
     // Get the service
-    let mut service = new_service.new_service().wait().unwrap();
+    let mut service = new_service.make_service(()).wait().unwrap();
     let mut responses = vec![];
 
     for i in 0..10 {
