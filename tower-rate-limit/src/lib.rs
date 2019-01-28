@@ -156,6 +156,16 @@ where S: Service<Request>
             }
         }
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_service()
+            .map_err(Error::Upstream)
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_close()
+            .map_err(Error::Upstream)
+    }
 }
 
 impl<T> Future for ResponseFuture<T>

@@ -158,6 +158,14 @@ where
     fn call(&mut self, req: Request) -> Self::Future {
         InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_close()
+    }
 }
 
 impl<S, I> Load for PeakEwma<S, I> {

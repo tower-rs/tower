@@ -7,7 +7,6 @@ publish = false
 [dependencies]
 futures = "0.1"
 tower-service = { version = "0.2", path = "../tower-service" }
-tower-direct-service = { version = "0.1", path = "../tower-direct-service" }
 tokio-executor = "0.1"
 lazycell = "1.2"
 tokio-sync = "0.1"

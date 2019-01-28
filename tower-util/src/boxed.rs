@@ -127,6 +127,14 @@ impl<T, U, E> Service<T> for BoxService<T, U, E> {
     fn call(&mut self, request: T) -> BoxFuture<U, E> {
         self.inner.call(request)
     }
+
+    fn poll_service(&mut self) -> Poll<(), E> {
+        self.inner.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), E> {
+        self.inner.poll_close()
+    }
 }
 
 impl<T, U, E> fmt::Debug for BoxService<T, U, E>
@@ -164,6 +172,14 @@ impl<T, U, E> Service<T> for UnsyncBoxService<T, U, E> {
     fn call(&mut self, request: T) -> UnsyncBoxFuture<U, E> {
         self.inner.call(request)
     }
+
+    fn poll_service(&mut self) -> Poll<(), E> {
+        self.inner.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), E> {
+        self.inner.poll_close()
+    }
 }
 
 impl<T, U, E> fmt::Debug for UnsyncBoxService<T, U, E>
@@ -195,6 +211,14 @@ where S: Service<Request> + 'static,
     fn call(&mut self, request: Request) -> Self::Future {
         Box::new(self.inner.call(request))
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_close()
+    }
 }
 
 // ===== impl UnsyncBoxed =====
@@ -214,5 +238,13 @@ where S: Service<Request> + 'static,
 
     fn call(&mut self, request: Request) -> Self::Future {
         Box::new(self.inner.call(request))
+    }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_close()
     }
 }

@@ -150,6 +150,16 @@ where T: Service<Request> + Clone,
             }),
         }
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_service()
+            .map_err(Error::Inner)
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_close()
+            .map_err(Error::Inner)
+    }
 }
 
 // ===== impl Predicate =====

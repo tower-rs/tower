@@ -183,6 +183,14 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
 
         ResponseFuture { rx: Error::Other(rx) }
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        Ok(Async::Ready(()))
+    }
 }
 
 impl<T, U, E> Clone for Mock<T, U, E> {

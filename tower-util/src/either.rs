@@ -43,4 +43,22 @@ where A: Service<Request>,
             B(ref mut service) => Either::B(service.call(request)),
         }
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        use self::EitherService::*;
+
+        match *self {
+            A(ref mut service) => service.poll_service(),
+            B(ref mut service) => service.poll_service(),
+        }
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        use self::EitherService::*;
+
+        match *self {
+            A(ref mut service) => service.poll_close(),
+            B(ref mut service) => service.poll_close(),
+        }
+    }
 }

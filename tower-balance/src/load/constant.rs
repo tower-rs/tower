@@ -45,6 +45,14 @@ where
     fn call(&mut self, req: Request) -> Self::Future {
         self.inner.call(req)
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.inner.poll_close()
+    }
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.

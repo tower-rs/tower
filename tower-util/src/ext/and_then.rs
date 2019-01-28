@@ -43,6 +43,14 @@ where
             fut_b: None,
         }
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        unimplemented!();
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        unimplemented!();
+    }
 }
 
 pub struct AndThenFuture<A, B, Request>
