@@ -55,6 +55,28 @@ where
             fut_b: None,
         }
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        let a = self.a.poll_service()?;
+        let b = self.b.poll_service()?;
+
+        if a.is_ready() && b.is_ready() {
+            Ok(Async::Ready(()))
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        let a = self.a.poll_close()?;
+        let b = self.b.poll_close()?;
+
+        if a.is_ready() && b.is_ready() {
+            Ok(Async::Ready(()))
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
 }
 
 pub struct ThenFuture<A, B, Request>

@@ -61,6 +61,14 @@ where
         let service = self.service.clone();
         (self.f)(req, service).into_future()
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_close()
+    }
 }
 
 #[cfg(test)]

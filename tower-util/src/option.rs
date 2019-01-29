@@ -58,6 +58,23 @@ where T: Service<Request>,
         let inner = self.inner.as_mut().map(|i| i.call(request));
         ResponseFuture { inner }
     }
+
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        match self.inner {
+            Some(ref mut inner) => inner.poll_service().map_err(Error::Inner),
+            // None services are always ready
+            None => Ok(().into()),
+        }
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        match self.inner {
+            Some(ref mut inner) => inner.poll_close().map_err(Error::Inner),
+            // None services are always ready
+            None => Ok(().into()),
+        }
+    }
 }
 
 // ===== impl ResponseFuture =====

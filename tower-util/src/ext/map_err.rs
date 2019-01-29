@@ -53,6 +53,16 @@ where
     fn call(&mut self, req: Request) -> Self::Future {
         MapErrFuture::new(self.service.call(req), self.f.clone())
     }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_service()
+            .map_err(&self.f)
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_close()
+            .map_err(&self.f)
+    }
 }
 
 pub struct MapErrFuture<T, F, E>

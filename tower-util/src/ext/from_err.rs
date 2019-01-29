@@ -55,6 +55,17 @@ where
             f: PhantomData,
         }
     }
+
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        let res = self.service.poll_service()?;
+        Ok(res)
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        let res = self.service.poll_close()?;
+        Ok(res)
+    }
 }
 
 pub struct FromErrFuture<A, E> {

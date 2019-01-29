@@ -1,4 +1,4 @@
-use futures::{Future, Poll};
+use futures::{Future, Async, Poll};
 use tower_service::Service;
 
 /// Service for the `and_then` combinator, chaining a computation onto the end of
@@ -45,11 +45,25 @@ where
     }
 
     fn poll_service(&mut self) -> Poll<(), Self::Error> {
-        unimplemented!();
+        let a = self.a.poll_service()?;
+        let b = self.b.poll_service()?;
+
+        if a.is_ready() && b.is_ready() {
+            Ok(Async::Ready(()))
+        } else {
+            Ok(Async::NotReady)
+        }
     }
 
     fn poll_close(&mut self) -> Poll<(), Self::Error> {
-        unimplemented!();
+        let a = self.a.poll_close()?;
+        let b = self.b.poll_close()?;
+
+        if a.is_ready() && b.is_ready() {
+            Ok(Async::Ready(()))
+        } else {
+            Ok(Async::NotReady)
+        }
     }
 }
 
