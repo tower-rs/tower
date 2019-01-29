@@ -9,10 +9,14 @@ extern crate futures;
 extern crate tokio_timer;
 extern crate tower_service;
 
+use oneshot::Oneshot;
 use futures::{Async, Future, Poll};
 use tower_service::Service;
+use std::fmt;
+use std::mem;
 
 pub mod budget;
+mod oneshot;
 
 /// A "retry policy" to classify if a request should be retried.
 ///
@@ -90,25 +94,28 @@ pub struct Retry<P, S> {
 }
 
 /// The `Future` returned by a `Retry` service.
-#[derive(Debug)]
 pub struct ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error>,
-    S: Service<Request>,
+    P: Policy<Request, S::Response, S::Error> + Clone,
+    S: Service<Request> + Clone,
 {
     request: Option<Request>,
-    retry: Retry<P, S>,
-    state: State<S::Future, P::Future, S::Response, S::Error>,
+    state: State<P, S, Request>,
 }
 
-#[derive(Debug)]
-enum State<F, P, R, E> {
+enum State<P, S, Request>
+where
+    P: Policy<Request, S::Response, S::Error> + Clone,
+    S: Service<Request> + Clone,
+{
     /// Polling the future from `Service::call`
-    Called(F),
+    Called(P, Oneshot<S, Request>),
     /// Polling the future from `Policy::retry`
-    Checking(P, Option<Result<R, E>>),
+    Checking(P::Future, Option<Result<S::Response, S::Error>>, Retry<P, S>),
     /// Polling `Service::poll_ready` after `Checking` was OK.
-    Retrying,
+    Retrying(Retry<P, S>),
+    /// Transient state
+    Invalid,
 }
 
 // ===== impl Retry =====
@@ -143,11 +150,21 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         let cloned = self.policy.clone_request(&request);
         let future = self.service.call(request);
+        let policy = self.policy.clone();
+        let oneshot = Oneshot::new(future, self.service.clone());
+
         ResponseFuture {
             request: cloned,
-            retry: self.clone(),
-            state: State::Called(future),
+            state: State::Called(policy, oneshot),
         }
+    }
+
+    fn poll_service(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_service()
+    }
+
+    fn poll_close(&mut self) -> Poll<(), Self::Error> {
+        self.service.poll_close()
     }
 }
 
@@ -163,8 +180,8 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
-            let next = match self.state {
-                State::Called(ref mut future) => {
+            match self.state {
+                State::Called(ref policy, ref mut future) => {
                     let result = match future.poll() {
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Ok(Async::Ready(res)) => Ok(res),
@@ -172,8 +189,12 @@ where
                     };
 
                     if let Some(ref req) = self.request {
-                        match self.retry.policy.retry(req, result.as_ref()) {
-                            Some(checking) => State::Checking(checking, Some(result)),
+                        match policy.retry(req, result.as_ref()) {
+                            Some(checking) => {
+                                self.state.to_checking(
+                                    checking,
+                                    result);
+                            }
                             None => return result.map(Async::Ready),
                         }
                     } else {
@@ -181,7 +202,7 @@ where
                         return result.map(Async::Ready);
                     }
                 },
-                State::Checking(ref mut future, ref mut result) => {
+                State::Checking(ref mut future, ref mut result, _) => {
                     let policy = match future.poll() {
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Ok(Async::Ready(policy)) => policy,
@@ -194,21 +215,131 @@ where
                                 .map(Async::Ready);
                         }
                     };
-                    self.retry.policy = policy;
-                    State::Retrying
+
+                    let mut svc = self.state.unwrap_checking();
+                    svc.policy = policy;
+
+                    self.state = State::Retrying(svc);
                 },
-                State::Retrying => {
-                    try_ready!(self.retry.poll_ready());
+                State::Retrying(ref mut svc) => {
+                    try_ready!(svc.poll_ready());
+
                     let req = self
                         .request
                         .take()
                         .expect("retrying requires cloned request");
-                    self.request = self.retry.policy.clone_request(&req);
-                    State::Called(self.retry.service.call(req))
+
+                    let mut svc = self.state.unwrap_retrying();
+
+                    // Store the request for future usage
+                    self.request = svc.policy.clone_request(&req);
+
+                    let future = svc.service.call(req);
+                    let oneshot = Oneshot::new(future, svc.service);
+
+                    self.state = State::Called(svc.policy, oneshot)
                 }
-            };
-            self.state = next;
+                _ => panic!(),
+            }
         }
     }
 }
 
+impl<P, S, Request> fmt::Debug for ResponseFuture<P, S, Request>
+where
+    Request: fmt::Debug,
+    P: Policy<Request, S::Response, S::Error> + Clone + fmt::Debug,
+    P::Future: fmt::Debug,
+    S: Service<Request> + Clone + fmt::Debug,
+    S::Response: fmt::Debug,
+    S::Error: fmt::Debug,
+    S::Future: fmt::Debug,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("ResponseFuture")
+            .field("request", &self.request)
+            .field("state", &self.state)
+            .finish()
+    }
+}
+
+impl<P, S, Request> State<P, S, Request>
+where
+    P: Policy<Request, S::Response, S::Error> + Clone,
+    S: Service<Request> + Clone,
+{
+    fn to_checking(
+        &mut self,
+        checking: P::Future,
+        res: Result<S::Response, S::Error>
+    ) {
+        match mem::replace(self, State::Invalid) {
+            State::Called(policy, oneshot) => {
+                let service = oneshot.into_service();
+
+                *self = State::Checking(
+                    checking,
+                    Some(res),
+                    Retry {
+                        policy,
+                        service,
+                    });
+            }
+            _ => panic!(),
+        }
+    }
+
+    fn unwrap_checking(&mut self) -> Retry<P, S> {
+        match mem::replace(self, State::Invalid) {
+            State::Checking(_, _, svc) => svc,
+            _ => panic!(),
+        }
+    }
+
+    fn unwrap_retrying(&mut self) -> Retry<P, S> {
+        match mem::replace(self, State::Invalid) {
+            State::Retrying(svc) => svc,
+            _ => panic!(),
+        }
+    }
+}
+
+impl<P, S, Request> fmt::Debug for State<P, S, Request>
+where
+    Request: fmt::Debug,
+    P: Policy<Request, S::Response, S::Error> + Clone + fmt::Debug,
+    P::Future: fmt::Debug,
+    S: Service<Request> + Clone + fmt::Debug,
+    S::Response: fmt::Debug,
+    S::Error: fmt::Debug,
+    S::Future: fmt::Debug,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        use self::State::*;
+
+        match *self {
+            Called(ref a, ref b) => {
+                fmt.debug_tuple("State::Called")
+                    .field(a)
+                    .field(b)
+                    .finish()
+            }
+            Checking(ref a, ref b, ref c) => {
+                fmt.debug_tuple("State::Checking")
+                    .field(a)
+                    .field(b)
+                    .field(c)
+                    .finish()
+            }
+            Retrying(ref a) => {
+                fmt.debug_tuple("State::Retrying")
+                    .field(a)
+                    .finish()
+            }
+            Invalid => {
+                fmt.debug_tuple("State::Invalid")
+                    .finish()
+            }
+        }
+    }
+}
