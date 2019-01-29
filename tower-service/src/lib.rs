@@ -155,6 +155,10 @@ use futures::{Future, Poll};
 /// `Service` provides a mechanism by which the caller is able to coordinate
 /// readiness. `Service::poll_ready` returns `Ready` if the service expects that
 /// it is able to process a request.
+///
+/// # TODO:
+///
+/// * Service lifecycle, in what order should fns be called.
 pub trait Service<Request> {
 
     /// Responses given by the service.
@@ -177,12 +181,16 @@ pub trait Service<Request> {
     /// call and the next invocation of `call` results in an error.
     fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
-    /// Returns `Ready` whenever there is no more work to be done until `call`
-    /// is invoked again.
+    /// Drives the internal `Service` state.
     ///
-    /// Note that this method may return `NotReady` even if there are no
-    /// outstanding requests, if the service has to perform non-request-driven
-    /// operations (e.g., heartbeats).
+    /// Returns `Ready` when the service has closed and will no longer process
+    /// requests.
+    ///
+    /// TODO:
+    ///
+    /// * Describe managing a TcpStream using `poll_service`.
+    /// * `Ready(())` is best effort.
+    /// * "Fused" implementation
     fn poll_service(&mut self) -> Poll<(), Self::Error>;
 
     /// A method to indicate that no more requests will be sent to this service.
