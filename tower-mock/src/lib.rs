@@ -11,6 +11,7 @@ use futures::task::{self, Task};
 
 use std::{ops, u64};
 use std::collections::HashMap;
+use std::{error::Error, fmt};
 use std::sync::{Arc, Mutex};
 
 /// A mock service
@@ -45,15 +46,44 @@ pub struct Respond<T, E> {
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
     // Slight abuse of the error enum...
-    rx: Error<oneshot::Receiver<Result<T, E>>>,
+    rx: oneshot::Receiver<Result<T, E>>,
 }
 
-/// Enumeration of errors that can be returned by `Mock`.
+#[derive(Debug)]
+enum WrappingError<E> {
+    Closed(ClosedError),
+    NoCapacity(NoCapacityError),
+    Other(E)
+}
+
 #[derive(Debug, PartialEq)]
-pub enum Error<T> {
-    Closed,
-    NoCapacity,
-    Other(T),
+struct ClosedError;
+
+impl Error for ClosedError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for ClosedError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service is at capacity, in-flight limit exceeded")
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct NoCapacityError;
+
+impl Error for NoCapacityError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for NoCapacityError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service is at capacity, in-flight limit exceeded")
+    }
 }
 
 #[derive(Debug)]
@@ -103,16 +133,19 @@ impl<T, U, E> Mock<T, U, E> {
     }
 }
 
-impl<T, U, E> Service<T> for Mock<T, U, E> {
+impl<T, U, E> Service<T> for Mock<T, U, E>
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
     type Response = U;
-    type Error = Error<E>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
     type Future = ResponseFuture<U, E>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         let mut state = self.state.lock().unwrap();
 
         if state.is_closed {
-            return Err(Error::Closed);
+            return Err(ClosedError.into());
         }
 
         if self.can_send {
@@ -120,7 +153,7 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
         }
 
         if let Some(e) = state.err_with.take() {
-            return Err(Error::Other(e));
+            return Err(e.into());
         }
 
         if state.rem > 0 {
@@ -145,14 +178,14 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
 
         if state.is_closed {
             return ResponseFuture {
-                rx: Error::Closed,
+                rx: WrappingError::Closed(ClosedError),
             };
         }
 
         if !self.can_send {
             if state.rem == 0 {
                 return ResponseFuture {
-                    rx: Error::NoCapacity,
+                    rx: WrappingError::NoCapacity(NoCapacityError)
                 }
             }
         }
@@ -176,12 +209,12 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
             Err(_) => {
                 // TODO: Can this be reached
                 return ResponseFuture {
-                    rx: Error::Closed,
+                    rx: WrappingError::Closed(ClosedError),
                 };
             }
         }
 
-        ResponseFuture { rx: Error::Other(rx) }
+        ResponseFuture { rx: WrappingError::Other(rx) }
     }
 }
 
@@ -307,22 +340,25 @@ impl<T, E> Respond<T, E> {
 
 // ===== impl ResponseFuture =====
 
-impl<T, E> Future for ResponseFuture<T, E> {
+impl<T, E> Future for ResponseFuture<T, E>
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
     type Item = T;
-    type Error = Error<E>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.rx {
-            Error::Other(ref mut rx) => {
+            WrappingError::Other(ref mut rx) => {
                 match rx.poll() {
                     Ok(Async::Ready(Ok(v))) => Ok(v.into()),
-                    Ok(Async::Ready(Err(e))) => Err(Error::Other(e)),
+                    Ok(Async::Ready(Err(e))) => Err(e.into()),
                     Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Err(_) => Err(Error::Closed),
+                    Err(e) => Err(e.into()),
                 }
-            }
-            Error::NoCapacity => Err(Error::NoCapacity),
-            Error::Closed => Err(Error::Closed),
+            },
+            WrappingError::NoCapacity(ref e) => Err(e.into()),
+            WrappingError::Closed(ref e) => Err(e.into()),
         }
     }
 }
