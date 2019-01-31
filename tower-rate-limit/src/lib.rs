@@ -12,7 +12,7 @@ use futures::{Future, Poll};
 use tower_service::Service;
 use tokio_timer::Delay;
 
-use std::{error, fmt};
+use std::{error::Error, fmt};
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -32,9 +32,18 @@ pub struct Rate {
 ///
 /// TODO: Consider returning the original request
 #[derive(Debug)]
-pub enum Error<T> {
-    RateLimit,
-    Upstream(T),
+struct RateLimitError;
+
+impl Error for RateLimitError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for RateLimitError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "rate limit exceeded")
+    }
 }
 
 pub struct ResponseFuture<T> {
@@ -100,10 +109,12 @@ impl Rate {
 }
 
 impl<S, Request> Service<Request> for RateLimit<S>
-where S: Service<Request>
+where
+    S: Service<Request>,
+    S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -111,7 +122,7 @@ where S: Service<Request>
             State::Ready { .. } => return Ok(().into()),
             State::Limited(ref mut sleep) => {
                 let res = sleep.poll()
-                    .map_err(|_| Error::RateLimit);
+                    .map_err(|_| RateLimitError);
 
                 try_ready!(res);
             }
@@ -159,53 +170,19 @@ where S: Service<Request>
 }
 
 impl<T> Future for ResponseFuture<T>
-where T: Future,
+where
+    T: Future,
+    T::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Item = T::Item;
-    type Error = Error<T::Error>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
             Some(ref mut f) => {
-                f.poll().map_err(Error::Upstream)
+                f.poll().map_err(|e| e.into())
             }
-            None => Err(Error::RateLimit),
+            None => Err(RateLimitError.into())
         }
     }
-}
-
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-            Error::RateLimit => f.pad("rate limit exceeded"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        if let Error::Upstream(ref why) = *self {
-            Some(why)
-        } else {
-            None
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Upstream(_) => "upstream service error",
-            Error::RateLimit => "rate limit exceeded",
-        }
-    }
-
 }
