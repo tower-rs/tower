@@ -8,7 +8,7 @@ use tower_service::Service;
 
 use futures::{Future, Poll, Async};
 use futures::task::AtomicTask;
-use std::{error, fmt};
+use std::{error::Error, fmt};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
@@ -19,11 +19,19 @@ pub struct InFlightLimit<T> {
     state: State,
 }
 
-/// Error returned when the service has reached its limit.
-#[derive(Debug)]
-pub enum Error<T> {
-    NoCapacity,
-    Upstream(T),
+#[derive(Debug, PartialEq)]
+struct NoCapacityError;
+
+impl Error for NoCapacityError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for NoCapacityError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service is at capacity, in-flight limit exceeded")
+    }
 }
 
 #[derive(Debug)]
@@ -85,15 +93,16 @@ impl<T> InFlightLimit<T> {
 impl<S, Request> Service<Request> for InFlightLimit<S>
 where
     S: Service<Request>,
+    S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if self.state.reserved {
             return self.inner.poll_ready()
-                .map_err(Error::Upstream);
+                .map_err(|e| e.into());
         }
 
         self.state.shared.task.register();
@@ -105,7 +114,7 @@ where
         self.state.reserved = true;
 
         self.inner.poll_ready()
-            .map_err(Error::Upstream)
+            .map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -133,10 +142,12 @@ where
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where T: Future,
+where
+    T: Future,
+    T::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Item = T::Item;
-    type Error = Error<T::Error>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use futures::Async::*;
@@ -153,11 +164,11 @@ where T: Future,
                     }
                     Err(e) => {
                         self.shared.release();
-                        Err(Error::Upstream(e))
+                        Err(e.into())
                     }
                 }
             }
-            None => Err(Error::NoCapacity),
+            None => Err(NoCapacityError.into()),
         };
 
         // Drop the inner future
@@ -230,40 +241,4 @@ impl Shared {
             self.task.notify();
         }
     }
-}
-
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-            Error::NoCapacity => write!(f, "in-flight limit exceeded"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        if let Error::Upstream(ref why) = *self {
-            Some(why)
-        } else {
-            None
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Upstream(_) => "upstream service error",
-            Error::NoCapacity => "in-flight limit exceeded",
-        }
-    }
-
 }
