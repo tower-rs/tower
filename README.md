@@ -27,6 +27,9 @@ crates.
   handle the next request, `tower-buffer` stores the request in an internal
   queue ([docs][tbuf-docs]).
 
+* [`tower-direct-service`]: Similar to the `Service` trait, but allows for the
+  service itself to have pollable state ([docs][tds-docs]).
+
 * [`tower-discover`]: Service discovery abstraction ([docs][td-docs]).
 
 * [`tower-filter`]: Middleware that conditionally dispatch requests to the inner
@@ -44,8 +47,8 @@ crates.
 * [`tower-reconnect`]: Middleware that automatically reconnects the inner
   service when it becomes degraded ([docs][tre-docs]).
 
-* [`tower-router`]: Routes requests to one of many inner services based on 
-  the request ([docs][tro-docs]).
+* [`tower-retry`]: Middleware that retries requests based on a given `Policy`
+  ([docs][tretry-docs]).
 
 * [`tower-timeout`]: Middleware that applies a timeout to requests
   ([docs][tt-docs]).
@@ -77,6 +80,8 @@ terms or conditions.
 [tb-docs]: https://tower-rs.github.io/tower/tower_balance/index.html
 [`tower-buffer`]: tower-buffer
 [tbuf-docs]: https://tower-rs.github.io/tower/tower_buffer/index.html
+[`tower-direct-service`]: tower-direct-service
+[tds-docs]: https://tower-rs.github.io/tower/tower_direct_service/index.html
 [`tower-discover`]: tower-discover
 [td-docs]: https://tower-rs.github.io/tower/tower_discover/index.html
 [`tower-filter`]: tower-filter
@@ -89,8 +94,8 @@ terms or conditions.
 [trl-docs]: https://tower-rs.github.io/tower/tower_rate_limit/index.html
 [`tower-reconnect`]: tower-reconnect
 [tre-docs]: https://tower-rs.github.io/tower/tower_reconnect/index.html
-[`tower-router`]: tower-router
-[tro-docs]: https://tower-rs.github.io/tower/tower_router/index.html
+[`tower-retry`]: tower-retry
+[tretry-docs]: https://tower-rs.github.io/tower/tower_retry/index.html
 [`tower-timeout`]: tower-timeout
 [tt-docs]: https://tower-rs.github.io/tower/tower_timeout/index.html
 [`tower-util`]: tower-util
