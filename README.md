@@ -27,9 +27,6 @@ crates.
   handle the next request, `tower-buffer` stores the request in an internal
   queue ([docs][tbuf-docs]).
 
-* [`tower-direct-service`]: Similar to the `Service` trait, but allows for the
-  service itself to have pollable state ([docs][tds-docs]).
-
 * [`tower-discover`]: Service discovery abstraction ([docs][td-docs]).
 
 * [`tower-filter`]: Middleware that conditionally dispatch requests to the inner
@@ -80,8 +77,6 @@ terms or conditions.
 [tb-docs]: https://tower-rs.github.io/tower/tower_balance/index.html
 [`tower-buffer`]: tower-buffer
 [tbuf-docs]: https://tower-rs.github.io/tower/tower_buffer/index.html
-[`tower-direct-service`]: tower-direct-service
-[tds-docs]: https://tower-rs.github.io/tower/tower_direct_service/index.html
 [`tower-discover`]: tower-discover
 [td-docs]: https://tower-rs.github.io/tower/tower_discover/index.html
 [`tower-filter`]: tower-filter
