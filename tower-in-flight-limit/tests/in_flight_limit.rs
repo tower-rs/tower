@@ -1,21 +1,23 @@
 extern crate futures;
 extern crate tokio_test;
-extern crate tower_mock;
 extern crate tower_in_flight_limit;
+extern crate tower_mock;
 extern crate tower_service;
 
+use std::error::Error as StdError;
 use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 
-use futures::future::{Future, poll_fn};
+use futures::future::{poll_fn, Future};
 use tokio_test::MockTask;
+
+type Error = Box<StdError + Send + Sync>;
 
 #[test]
 fn basic_service_limit_functionality_with_poll_ready() {
     let mut task = MockTask::new();
 
-    let (mut service, mut handle) =
-        new_service(2);
+    let (mut service, mut handle) = new_service(2);
 
     poll_fn(|| service.poll_ready()).wait().unwrap();
     let r1 = service.call("hello 1");
@@ -72,8 +74,7 @@ fn basic_service_limit_functionality_with_poll_ready() {
 fn basic_service_limit_functionality_without_poll_ready() {
     let mut task = MockTask::new();
 
-    let (mut service, mut handle) =
-        new_service(2);
+    let (mut service, mut handle) = new_service(2);
 
     let r1 = service.call("hello 1");
     let r2 = service.call("hello 2");
@@ -117,8 +118,7 @@ fn basic_service_limit_functionality_without_poll_ready() {
 fn request_without_capacity() {
     let mut task = MockTask::new();
 
-    let (mut service, mut handle) =
-        new_service(0);
+    let (mut service, mut handle) = new_service(0);
 
     task.enter(|| {
         assert!(service.poll_ready().unwrap().is_not_ready());
@@ -138,8 +138,7 @@ fn request_without_capacity() {
 fn reserve_capacity_without_sending_request() {
     let mut task = MockTask::new();
 
-    let (mut s1, mut handle) =
-        new_service(1);
+    let (mut s1, mut handle) = new_service(1);
 
     let mut s2 = s1.clone();
 
@@ -173,8 +172,7 @@ fn reserve_capacity_without_sending_request() {
 fn service_drop_frees_capacity() {
     let mut task = MockTask::new();
 
-    let (mut s1, _handle) =
-        new_service(1);
+    let (mut s1, _handle) = new_service(1);
 
     let mut s2 = s1.clone();
 
@@ -199,8 +197,7 @@ fn service_drop_frees_capacity() {
 fn response_error_releases_capacity() {
     let mut task = MockTask::new();
 
-    let (mut s1, mut handle) =
-        new_service(1);
+    let (mut s1, mut handle) = new_service(1);
 
     let mut s2 = s1.clone();
 
@@ -212,7 +209,7 @@ fn response_error_releases_capacity() {
     // s1 sends the request, then s2 is able to get capacity
     let r1 = s1.call("hello");
     let request = handle.next_request().unwrap();
-    request.error(());
+    request.error("".into());
 
     r1.wait().unwrap_err();
 
@@ -225,8 +222,7 @@ fn response_error_releases_capacity() {
 fn response_future_drop_releases_capacity() {
     let mut task = MockTask::new();
 
-    let (mut s1, _handle) =
-        new_service(1);
+    let (mut s1, _handle) = new_service(1);
 
     let mut s2 = s1.clone();
 
@@ -249,8 +245,8 @@ fn response_future_drop_releases_capacity() {
     });
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
-type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
+type Mock = tower_mock::Mock<&'static str, &'static str, Error>;
+type Handle = tower_mock::Handle<&'static str, &'static str, Error>;
 
 fn new_service(max: usize) -> (InFlightLimit<Mock>, Handle) {
     let (service, handle) = Mock::new();
