@@ -14,13 +14,13 @@ extern crate tower_direct_service;
 extern crate tower_service;
 
 use futures::future::Executor;
-use tokio_sync::mpsc;
-use tokio_sync::oneshot;
 use futures::{Async, Future, Poll, Stream};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::{error, fmt};
+use std::{error::Error as StdError, fmt};
 use tokio_executor::DefaultExecutor;
+use tokio_sync::mpsc;
+use tokio_sync::oneshot;
 use tower_direct_service::DirectService;
 use tower_service::Service;
 
@@ -43,6 +43,8 @@ pub struct ResponseFuture<T, E> {
     state: ResponseState<T, E>,
 }
 
+type Error = Box<StdError + Send + Sync>;
+
 /// An error produced by a `Service` wrapped by a `Buffer`
 #[derive(Debug)]
 pub struct ServiceError<E> {
@@ -57,15 +59,51 @@ impl<E> ServiceError<E> {
     }
 }
 
-/// Errors produced by `Buffer`.
+/// The underlying `Service` is currently at capacity; wait for `poll_ready`.
 #[derive(Debug)]
-pub enum Error<E> {
-    /// The `Service` call errored.
-    Inner(E),
-    /// The underlying `Service` failed. All subsequent requests will fail.
-    Closed(Arc<ServiceError<E>>),
-    /// The underlying `Service` is currently at capacity; wait for `poll_ready`.
-    Full,
+pub struct FullError;
+
+impl StdError for FullError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for FullError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service at capacity")
+    }
+}
+
+/// The underlying `Service` failed. All subsequent requests will fail.
+#[derive(Debug)]
+pub struct ClosedError<E: Into<Error>>(Arc<ServiceError<E>>);
+
+impl<E> ClosedError<E>
+where
+    E: Into<Error> + fmt::Display + fmt::Debug + 'static,
+{
+    pub fn error(&self) -> &Arc<ServiceError<E>> {
+        &self.0
+    }
+}
+
+impl<E> StdError for ClosedError<E>
+where
+    E: Into<Error> + fmt::Display + fmt::Debug + 'static,
+{
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self)
+    }
+}
+
+impl<E> fmt::Display for ClosedError<E>
+where
+    E: Into<Error> + fmt::Display + fmt::Debug + 'static,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service::{} failed: {}", self.0.method, self.0.inner)
+    }
 }
 
 /// An adapter that exposes the associated types of a `DirectService` through `Service`.
@@ -270,16 +308,18 @@ where
 impl<T, Request> Service<Request> for Buffer<T, Request>
 where
     T: Service<Request>,
+    <T as Service<Request>>::Error: Into<Error> + Send + Sync + 'static,
+    <T as Service<Request>>::Error: fmt::Display + fmt::Debug,
 {
     type Response = T::Response;
-    type Error = Error<T::Error>;
+    type Error = Error;
     type Future = ResponseFuture<T::Future, T::Error>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
         self.tx
             .poll_ready()
-            .map_err(move |_| Error::Closed(self.get_error_on_closed()))
+            .map_err(move |_| ClosedError(self.get_error_on_closed()).into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -325,9 +365,11 @@ where
 impl<T> Future for ResponseFuture<T, T::Error>
 where
     T: Future,
+    <T as Future>::Error: Into<Error> + Send + Sync + 'static,
+    <T as Future>::Error: fmt::Display + fmt::Debug,
 {
     type Item = T::Item;
-    type Error = Error<T::Error>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use self::ResponseState::*;
@@ -337,21 +379,21 @@ where
 
             match self.state {
                 Full => {
-                    return Err(Error::Full);
+                    return Err(FullError.into());
                 }
                 Failed(ref e) => {
-                    return Err(Error::Closed(e.clone()));
+                    return Err(ClosedError(e.clone()).into());
                 }
                 Rx(ref mut rx) => match rx.poll() {
                     Ok(Async::Ready(Ok(f))) => fut = f,
-                    Ok(Async::Ready(Err(e))) => return Err(Error::Closed(e)),
+                    Ok(Async::Ready(Err(e))) => return Err(ClosedError(e).into()),
                     Ok(Async::NotReady) => return Ok(Async::NotReady),
                     Err(_) => unreachable!(
                         "Worker exited without sending error to all outstanding requests."
                     ),
                 },
                 Poll(ref mut fut) => {
-                    return fut.poll().map_err(Error::Inner);
+                    return fut.poll().map_err(|e| e.into());
                 }
             }
 
@@ -559,42 +601,6 @@ where
     }
 }
 
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Closed(ref e) => write!(f, "Service::{} failed: {}", e.method, e.inner),
-            Error::Full => f.pad("Service at capacity"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Inner(ref why) => Some(why),
-            Error::Closed(ref e) => Some(&e.inner),
-            Error::Full => None,
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Inner(ref e) => e.description(),
-            Error::Closed(ref e) => e.inner.description(),
-            Error::Full => "Service as capacity",
-        }
-    }
-}
-
 // ===== impl SpawnError =====
 
 impl<T> fmt::Display for SpawnError<T>
@@ -606,15 +612,11 @@ where
     }
 }
 
-impl<T> error::Error for SpawnError<T>
+impl<T> StdError for SpawnError<T>
 where
-    T: error::Error,
+    T: StdError + 'static,
 {
-    fn cause(&self) -> Option<&error::Error> {
+    fn source(&self) -> Option<&(StdError + 'static)> {
         Some(&self.inner)
-    }
-
-    fn description(&self) -> &str {
-        "error spawning buffer task"
     }
 }

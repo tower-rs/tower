@@ -48,10 +48,10 @@ pub struct ResponseFuture<T, E> {
     rx: oneshot::Receiver<Result<T, E>>,
 }
 
-type Error = Box<StdError + Send + Sync>;
+pub type Error = Box<StdError + Send + Sync>;
 
 #[derive(Debug, PartialEq)]
-struct ClosedError;
+pub struct ClosedError;
 
 impl StdError for ClosedError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
@@ -66,7 +66,7 @@ impl fmt::Display for ClosedError {
 }
 
 #[derive(Debug, PartialEq)]
-struct NoCapacityError;
+pub struct NoCapacityError;
 
 impl StdError for NoCapacityError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {

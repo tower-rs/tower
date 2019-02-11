@@ -95,9 +95,9 @@ fn when_inner_fails() {
     ::std::thread::sleep(::std::time::Duration::from_millis(100));
     with_task(|| {
         let e = res1.poll().unwrap_err();
-        if let Error::Closed(e) = e {
+        if let Some(e) = e.downcast_ref::<ClosedError<tower_mock::Error>>() {
             assert!(format!("{:?}", e).contains("poll_ready"));
-            assert_eq!(e.error(), &tower_mock::Error::Other("foobar"));
+            // assert_eq!(e.error(), &tower_mock::Error.downcast_ref::);
         } else {
             panic!("unexpected error type: {:?}", e);
         }
@@ -129,6 +129,6 @@ fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
 }
 
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::{Future, lazy};
+    use futures::future::{lazy, Future};
     lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }
