@@ -4,14 +4,14 @@
 extern crate futures;
 extern crate tower_service;
 
-use futures::{Future, IntoFuture, Poll, Async};
 use futures::task::AtomicTask;
+use futures::{Async, Future, IntoFuture, Poll};
 use tower_service::Service;
 
-use std::{fmt, mem};
-use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::Arc;
+use std::{error::Error as StdError, fmt, mem};
 
 #[derive(Debug)]
 pub struct Filter<T, U> {
@@ -39,17 +39,38 @@ where
     counts: Arc<Counts>,
 }
 
-/// Errors produced by `Filter`
+type Error = Box<StdError + Send + Sync>;
+
+/// The predicate rejected the request.
 #[derive(Debug)]
-pub enum Error<T, U> {
-    /// The predicate rejected the request.
-    Rejected(T),
+struct RejectedError(Error);
 
-    /// The inner service produced an error.
-    Inner(U),
+impl StdError for RejectedError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self)
+    }
+}
 
-    /// The service is out of capacity.
-    NoCapacity,
+impl fmt::Display for RejectedError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Predicate rejected the request")
+    }
+}
+
+/// The service is out of capacity.
+#[derive(Debug)]
+struct NoCapacityError;
+
+impl StdError for NoCapacityError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for NoCapacityError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service is at capacity")
+    }
 }
 
 /// Checks a request
@@ -99,11 +120,15 @@ impl<T, U> Filter<T, U> {
 }
 
 impl<T, U, Request> Service<Request> for Filter<T, U>
-where T: Service<Request> + Clone,
-      U: Predicate<Request>,
+where
+    T: Service<Request> + Clone,
+    T::Error: Into<Error>,
+    U: Predicate<Request>,
+    <U as Predicate<Request>>::Error: Into<Error>,
+    <T as Service<Request>>::Error: Into<Error>,
 {
     type Response = T::Response;
-    type Error = Error<U::Error, T::Error>;
+    type Error = Error;
     type Future = ResponseFuture<U::Future, T, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -124,9 +149,7 @@ where T: Service<Request> + Clone,
         let rem = self.counts.rem.load(SeqCst);
 
         if rem == 0 {
-            return ResponseFuture {
-                inner: None,
-            };
+            return ResponseFuture { inner: None };
         }
 
         // Decrement
@@ -155,8 +178,9 @@ where T: Service<Request> + Clone,
 // ===== impl Predicate =====
 
 impl<F, T, U> Predicate<T> for F
-    where F: Fn(&T) -> U,
-          U: IntoFuture<Item = ()>,
+where
+    F: Fn(&T) -> U,
+    U: IntoFuture<Item = ()>,
 {
     type Error = U::Error;
     type Future = U::Future;
@@ -169,25 +193,29 @@ impl<F, T, U> Predicate<T> for F
 // ===== impl ResponseFuture =====
 
 impl<T, S, Request> Future for ResponseFuture<T, S, Request>
-where T: Future,
-      S: Service<Request>,
+where
+    T: Future,
+    T::Error: Into<Error>,
+    S: Service<Request>,
+    <S as Service<Request>>::Error: Into<Error>,
 {
     type Item = S::Response;
-    type Error = Error<T::Error, S::Error>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
             Some(ref mut inner) => inner.poll(),
-            None => Err(Error::NoCapacity),
+            None => Err(NoCapacityError.into()),
         }
     }
 }
 
 impl<T, S, Request> fmt::Debug for ResponseFuture<T, S, Request>
-where T: fmt::Debug,
-      S: Service<Request> + fmt::Debug,
-      S::Future: fmt::Debug,
-      Request: fmt::Debug,
+where
+    T: fmt::Debug,
+    S: Service<Request> + fmt::Debug,
+    S::Future: fmt::Debug,
+    Request: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("ResponseFuture")
@@ -199,8 +227,11 @@ where T: fmt::Debug,
 // ===== impl ResponseInner =====
 
 impl<T, S, Request> ResponseInner<T, S, Request>
-where T: Future,
-      S: Service<Request>,
+where
+    T: Future,
+    T::Error: Into<Error>,
+    S: Service<Request>,
+    <S as Service<Request>>::Error: Into<Error>,
 {
     fn inc_rem(&self) {
         if 0 == self.counts.rem.fetch_add(1, SeqCst) {
@@ -208,7 +239,7 @@ where T: Future,
         }
     }
 
-    fn poll(&mut self) -> Poll<S::Response, Error<T::Error, S::Error>> {
+    fn poll(&mut self) -> Poll<S::Response, Error> {
         use self::State::*;
 
         loop {
@@ -224,7 +255,7 @@ where T: Future,
                             return Ok(Async::NotReady);
                         }
                         Err(e) => {
-                            return Err(Error::Rejected(e));
+                            return Err(RejectedError(e.into()).into());
                         }
                     }
                 }
@@ -244,20 +275,19 @@ where T: Future,
                         Err(e) => {
                             self.inc_rem();
 
-                            return Err(Error::Inner(e));
+                            return Err(e.into());
                         }
                     }
                 }
                 WaitResponse(mut response) => {
-                    let ret = response.poll()
-                        .map_err(Error::Inner);
+                    let ret = response.poll().map_err(|e| e.into());
 
                     self.state = WaitResponse(response);
 
                     return ret;
                 }
                 NoCapacity => {
-                    return Err(Error::NoCapacity);
+                    return Err(NoCapacityError.into());
                 }
             }
         }
