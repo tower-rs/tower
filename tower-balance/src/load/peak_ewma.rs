@@ -73,8 +73,7 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 // ===== impl PeakEwma =====
 
-impl<D, I> WithPeakEwma<D, I>
-{
+impl<D, I> WithPeakEwma<D, I> {
     /// Wraps a `D`-typed `Discover` so that services have a `PeakEwma` load metric.
     ///
     /// The provided `default_rtt` is used as the default RTT estimate for newly
@@ -86,7 +85,7 @@ impl<D, I> WithPeakEwma<D, I>
     where
         D: Discover,
         D::Service: Service<Request>,
-        I: Instrument<Handle, <D::Service as Service<Request>>::Response>
+        I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
     {
         WithPeakEwma {
             discover,
@@ -111,7 +110,12 @@ where
 
         let change = match try_ready!(self.discover.poll()) {
             Insert(k, svc) => {
-                let s = PeakEwma::new(svc, self.default_rtt, self.decay_ns, self.instrument.clone());
+                let s = PeakEwma::new(
+                    svc,
+                    self.default_rtt,
+                    self.decay_ns,
+                    self.instrument.clone(),
+                );
                 Insert(k, s)
             }
             Remove(k) => Remove(k),
@@ -156,7 +160,11 @@ where
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
+        InstrumentFuture::new(
+            self.instrument.clone(),
+            self.handle(),
+            self.service.call(req),
+        )
     }
 }
 
@@ -285,11 +293,11 @@ mod tests {
     extern crate tokio_executor;
     extern crate tokio_timer;
 
-    use futures::{Future, Poll, future};
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
     use self::tokio_executor::enter;
     use self::tokio_timer::clock;
+    use futures::{future, Future, Poll};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
 
     use super::*;
 
@@ -324,8 +332,12 @@ mod tests {
 
         let mut enter = enter().expect("enter");
         clock::with_default(&clock, &mut enter, |_| {
-
-            let svc = PeakEwma::new(Svc, Duration::from_millis(10), NANOS_PER_MILLI * 1_000.0, NoInstrument);
+            let svc = PeakEwma::new(
+                Svc,
+                Duration::from_millis(10),
+                NANOS_PER_MILLI * 1_000.0,
+                NoInstrument,
+            );
             let Cost(load) = svc.load();
             assert_eq!(load, 10.0 * NANOS_PER_MILLI);
 
@@ -348,8 +360,12 @@ mod tests {
 
         let mut enter = enter().expect("enter");
         clock::with_default(&clock, &mut enter, |_| {
-
-            let mut svc = PeakEwma::new(Svc, Duration::from_millis(20), NANOS_PER_MILLI * 1_000.0, NoInstrument);
+            let mut svc = PeakEwma::new(
+                Svc,
+                Duration::from_millis(20),
+                NANOS_PER_MILLI * 1_000.0,
+                NoInstrument,
+            );
             assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 
             *time.lock().unwrap() += Duration::from_millis(100);

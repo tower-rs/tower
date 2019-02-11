@@ -61,13 +61,21 @@ fn main() {
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
-        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(d, DEFAULT_RTT, decay, lb::load::NoInstrument));
+        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(
+            d,
+            DEFAULT_RTT,
+            decay,
+            lb::load::NoInstrument,
+        ));
         run("P2C+PeakEWMA", pe)
     });
 
     let fut = fut.and_then(move |_| {
         let d = gen_disco();
-        let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(d, lb::load::NoInstrument));
+        let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(
+            d,
+            lb::load::NoInstrument,
+        ));
         run("P2C+LeastLoaded", ll)
     });
 

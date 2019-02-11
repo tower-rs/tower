@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-use Load;
 use super::{Instrument, InstrumentFuture, NoInstrument};
+use Load;
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
@@ -72,7 +72,11 @@ where
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        InstrumentFuture::new(self.instrument.clone(), self.handle(), self.service.call(req))
+        InstrumentFuture::new(
+            self.instrument.clone(),
+            self.handle(),
+            self.service.call(req),
+        )
     }
 }
 
@@ -85,7 +89,10 @@ impl<D, I> WithPendingRequests<D, I> {
         D::Service: Service<Request>,
         I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
     {
-        Self { discover, instrument }
+        Self {
+            discover,
+            instrument,
+        }
     }
 }
 
@@ -121,8 +128,8 @@ impl RefCount {
 
 #[cfg(test)]
 mod tests {
-    use futures::{Future, Poll, future};
     use super::*;
+    use futures::{future, Future, Poll};
 
     struct Svc;
     impl Service<()> for Svc {
@@ -163,7 +170,7 @@ mod tests {
         struct IntoHandle;
         impl Instrument<Handle, ()> for IntoHandle {
             type Output = Handle;
-            fn instrument(&self,i: Handle, (): ()) -> Handle {
+            fn instrument(&self, i: Handle, (): ()) -> Handle {
                 i
             }
         }

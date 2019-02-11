@@ -17,8 +17,9 @@ impl<T> ServiceFn<T> {
 }
 
 impl<T, F, Request> Service<Request> for ServiceFn<T>
-where T: Fn(Request) -> F,
-      F: IntoFuture,
+where
+    T: Fn(Request) -> F,
+    F: IntoFuture,
 {
     type Response = F::Item;
     type Error = F::Error;
@@ -34,8 +35,9 @@ where T: Fn(Request) -> F,
 }
 
 impl<T, F, Request> DirectService<Request> for ServiceFn<T>
-where T: Fn(Request) -> F,
-      F: IntoFuture,
+where
+    T: Fn(Request) -> F,
+    F: IntoFuture,
 {
     type Response = F::Item;
     type Error = F::Error;

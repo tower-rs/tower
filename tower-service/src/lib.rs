@@ -156,7 +156,6 @@ use futures::{Future, Poll};
 /// readiness. `Service::poll_ready` returns `Ready` if the service expects that
 /// it is able to process a request.
 pub trait Service<Request> {
-
     /// Responses given by the service.
     type Response;
 
@@ -191,7 +190,7 @@ pub trait Service<Request> {
 
 impl<'a, S, Request> Service<Request> for &'a mut S
 where
-    S: Service<Request> + 'a
+    S: Service<Request> + 'a,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -222,4 +221,3 @@ where
         (**self).call(request)
     }
 }
-

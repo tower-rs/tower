@@ -4,14 +4,14 @@
 extern crate futures;
 extern crate tower_service;
 
-use futures::{Future, IntoFuture, Poll, Async};
 use futures::task::AtomicTask;
+use futures::{Async, Future, IntoFuture, Poll};
 use tower_service::Service;
 
-use std::{fmt, mem};
-use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::Arc;
+use std::{fmt, mem};
 
 #[derive(Debug)]
 pub struct Filter<T, U> {
@@ -99,8 +99,9 @@ impl<T, U> Filter<T, U> {
 }
 
 impl<T, U, Request> Service<Request> for Filter<T, U>
-where T: Service<Request> + Clone,
-      U: Predicate<Request>,
+where
+    T: Service<Request> + Clone,
+    U: Predicate<Request>,
 {
     type Response = T::Response;
     type Error = Error<U::Error, T::Error>;
@@ -124,9 +125,7 @@ where T: Service<Request> + Clone,
         let rem = self.counts.rem.load(SeqCst);
 
         if rem == 0 {
-            return ResponseFuture {
-                inner: None,
-            };
+            return ResponseFuture { inner: None };
         }
 
         // Decrement
@@ -155,8 +154,9 @@ where T: Service<Request> + Clone,
 // ===== impl Predicate =====
 
 impl<F, T, U> Predicate<T> for F
-    where F: Fn(&T) -> U,
-          U: IntoFuture<Item = ()>,
+where
+    F: Fn(&T) -> U,
+    U: IntoFuture<Item = ()>,
 {
     type Error = U::Error;
     type Future = U::Future;
@@ -169,8 +169,9 @@ impl<F, T, U> Predicate<T> for F
 // ===== impl ResponseFuture =====
 
 impl<T, S, Request> Future for ResponseFuture<T, S, Request>
-where T: Future,
-      S: Service<Request>,
+where
+    T: Future,
+    S: Service<Request>,
 {
     type Item = S::Response;
     type Error = Error<T::Error, S::Error>;
@@ -184,10 +185,11 @@ where T: Future,
 }
 
 impl<T, S, Request> fmt::Debug for ResponseFuture<T, S, Request>
-where T: fmt::Debug,
-      S: Service<Request> + fmt::Debug,
-      S::Future: fmt::Debug,
-      Request: fmt::Debug,
+where
+    T: fmt::Debug,
+    S: Service<Request> + fmt::Debug,
+    S::Future: fmt::Debug,
+    Request: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("ResponseFuture")
@@ -199,8 +201,9 @@ where T: fmt::Debug,
 // ===== impl ResponseInner =====
 
 impl<T, S, Request> ResponseInner<T, S, Request>
-where T: Future,
-      S: Service<Request>,
+where
+    T: Future,
+    S: Service<Request>,
 {
     fn inc_rem(&self) {
         if 0 == self.counts.rem.fetch_add(1, SeqCst) {
@@ -249,8 +252,7 @@ where T: Future,
                     }
                 }
                 WaitResponse(mut response) => {
-                    let ret = response.poll()
-                        .map_err(Error::Inner);
+                    let ret = response.poll().map_err(Error::Inner);
 
                     self.state = WaitResponse(response);
 

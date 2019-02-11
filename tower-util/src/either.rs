@@ -2,8 +2,8 @@
 //!
 //! See `EitherService` documentation for more details.
 
-use futures::Poll;
 use futures::future::Either;
+use futures::Poll;
 use tower_service::Service;
 
 /// Combine two different service types into a single type.
@@ -17,10 +17,9 @@ pub enum EitherService<A, B> {
 }
 
 impl<A, B, Request> Service<Request> for EitherService<A, B>
-where A: Service<Request>,
-      B: Service<Request,
-                Response = A::Response,
-                   Error = A::Error>,
+where
+    A: Service<Request>,
+    B: Service<Request, Response = A::Response, Error = A::Error>,
 {
     type Response = A::Response;
     type Error = A::Error;

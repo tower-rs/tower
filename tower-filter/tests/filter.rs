@@ -1,6 +1,6 @@
 extern crate futures;
-extern crate tower_mock;
 extern crate tower_filter;
+extern crate tower_mock;
 extern crate tower_service;
 extern crate tower_util;
 
@@ -9,13 +9,12 @@ use tower_filter::*;
 use tower_service::*;
 use tower_util::ServiceExt;
 
-use std::thread;
 use std::sync::mpsc;
+use std::thread;
 
 #[test]
 fn passthrough_sync() {
-    let (mut service, mut handle) =
-        new_service(10, |_| Ok::<_, ()>(()));
+    let (mut service, mut handle) = new_service(10, |_| Ok::<_, ()>(()));
 
     let th = thread::spawn(move || {
         // Receive the requests and respond
@@ -33,13 +32,12 @@ fn passthrough_sync() {
 
     for i in 0..10 {
         let request = format!("ping-{}", i);
-        let exchange = service.call(request)
-            .and_then(move |response| {
-                let expect = format!("pong-{}", i);
-                assert_eq!(response.as_str(), expect.as_str());
+        let exchange = service.call(request).and_then(move |response| {
+            let expect = format!("pong-{}", i);
+            assert_eq!(response.as_str(), expect.as_str());
 
-                Ok(())
-            });
+            Ok(())
+        });
 
         responses.push(exchange);
     }
@@ -50,8 +48,7 @@ fn passthrough_sync() {
 
 #[test]
 fn rejected_sync() {
-    let (mut service, _handle) =
-        new_service(10, |_| Err::<(), _>(()));
+    let (mut service, _handle) = new_service(10, |_| Err::<(), _>(()));
 
     let response = service.call("hello".into()).wait();
     assert!(response.is_err());
@@ -61,8 +58,7 @@ fn rejected_sync() {
 fn saturate() {
     use futures::stream::FuturesUnordered;
 
-    let (mut service, mut handle) =
-        new_service(1, |_| Ok::<_, ()>(()));
+    let (mut service, mut handle) = new_service(1, |_| Ok::<_, ()>(()));
 
     with_task(|| {
         // First request is ready
@@ -96,12 +92,10 @@ fn saturate() {
     rx.recv().unwrap();
 
     // The service should be ready
-    let mut service = with_task(|| {
-        match futs.poll().unwrap() {
-            Async::Ready(Some(s)) => s,
-            Async::Ready(None) => panic!("None"),
-            Async::NotReady => panic!("NotReady"),
-        }
+    let mut service = with_task(|| match futs.poll().unwrap() {
+        Async::Ready(Some(s)) => s,
+        Async::Ready(None) => panic!("None"),
+        Async::NotReady => panic!("NotReady"),
     });
 
     let r2 = service.call("two".into());
@@ -127,8 +121,9 @@ type Mock = tower_mock::Mock<String, String, ()>;
 type Handle = tower_mock::Handle<String, String, ()>;
 
 fn new_service<F, U>(max: usize, f: F) -> (Filter<Mock, F>, Handle)
-where F: Fn(&String) -> U,
-      U: IntoFuture<Item = ()>
+where
+    F: Fn(&String) -> U,
+    U: IntoFuture<Item = ()>,
 {
     let (service, handle) = Mock::new();
     let service = Filter::new(service, f, max);
@@ -136,6 +131,6 @@ where F: Fn(&String) -> U,
 }
 
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::{Future, lazy};
+    use futures::future::{lazy, Future};
     lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }

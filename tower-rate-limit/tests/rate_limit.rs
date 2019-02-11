@@ -1,9 +1,9 @@
 extern crate futures;
+extern crate tokio;
+extern crate tokio_timer;
 extern crate tower_mock;
 extern crate tower_rate_limit;
 extern crate tower_service;
-extern crate tokio_timer;
-extern crate tokio;
 
 use futures::future;
 use tower_rate_limit::*;
@@ -13,10 +13,8 @@ use std::time::{Duration, Instant};
 
 #[test]
 fn reaching_capacity() {
-    let mut rt = tokio::runtime::current_thread::Runtime::new()
-        .unwrap();
-    let (mut service, mut handle) =
-        new_service(Rate::new(1, from_millis(100)));
+    let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
+    let (mut service, mut handle) = new_service(Rate::new(1, from_millis(100)));
 
     let response = service.call("hello");
 
@@ -40,8 +38,10 @@ fn reaching_capacity() {
     assert!(poll_request.unwrap().is_not_ready());
 
     // Unlike `thread::sleep`, this advances the timer.
-    rt.block_on(tokio_timer::Delay::new(Instant::now() + Duration::from_millis(100)))
-        .unwrap();
+    rt.block_on(tokio_timer::Delay::new(
+        Instant::now() + Duration::from_millis(100),
+    ))
+    .unwrap();
 
     let poll_ready = rt.block_on(future::lazy(|| service.poll_ready()));
     assert!(poll_ready.unwrap().is_ready());

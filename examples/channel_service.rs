@@ -10,8 +10,8 @@
 #![deny(warnings)]
 
 extern crate futures;
-extern crate tokio_timer;
 extern crate futures_cpupool;
+extern crate tokio_timer;
 extern crate tower_service;
 extern crate tower_util;
 
@@ -23,9 +23,9 @@ extern crate env_logger;
 use tower_service::Service;
 use tower_util::{MakeService, ServiceExt};
 
-use futures::{Future, Stream, IntoFuture, Poll, Async};
 use futures::future::{Executor, FutureResult};
 use futures::sync::{mpsc, oneshot};
+use futures::{Async, Future, IntoFuture, Poll, Stream};
 use futures_cpupool::CpuPool;
 use tokio_timer::Timer;
 
@@ -95,12 +95,11 @@ impl Service<()> for NewChannelService {
         // Create the task that proceses the request
         self.pool
             .execute(rx.for_each(move |(msg, tx)| {
-                timer.sleep(Duration::from_millis(500))
-                    .then(move |res| {
-                        res.unwrap();
-                        let _ = tx.send(msg);
-                        Ok(())
-                    })
+                timer.sleep(Duration::from_millis(500)).then(move |res| {
+                    res.unwrap();
+                    let _ = tx.send(msg);
+                    Ok(())
+                })
             }))
             .map(|_| ChannelService { tx })
             .map_err(|_| io::ErrorKind::Other.into())
@@ -114,8 +113,7 @@ impl Service<String> for ChannelService {
     type Future = ResponseFuture;
 
     fn poll_ready(&mut self) -> Poll<(), Error> {
-        self.tx.poll_ready()
-            .map_err(|_| Error::Failed)
+        self.tx.poll_ready().map_err(|_| Error::Failed)
     }
 
     fn call(&mut self, request: String) -> ResponseFuture {
@@ -138,13 +136,11 @@ impl Future for ResponseFuture {
 
     fn poll(&mut self) -> Poll<String, Error> {
         match self.rx {
-            Some(ref mut rx) => {
-                match rx.poll() {
-                    Ok(Async::Ready(v)) => Ok(v.into()),
-                    Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Err(_) => Err(Error::Failed),
-                }
-            }
+            Some(ref mut rx) => match rx.poll() {
+                Ok(Async::Ready(v)) => Ok(v.into()),
+                Ok(Async::NotReady) => Ok(Async::NotReady),
+                Err(_) => Err(Error::Failed),
+            },
             None => Err(Error::AtCapacity),
         }
     }

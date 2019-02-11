@@ -40,7 +40,8 @@ impl<T> OptionService<T> {
 }
 
 impl<T, Request> Service<Request> for OptionService<T>
-where T: Service<Request>,
+where
+    T: Service<Request>,
 {
     type Response = T::Response;
     type Error = Error<T::Error>;
@@ -63,7 +64,8 @@ where T: Service<Request>,
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where T: Future,
+where
+    T: Future,
 {
     type Item = T::Item;
     type Error = Error<T::Error>;

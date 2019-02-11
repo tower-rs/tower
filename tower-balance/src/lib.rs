@@ -7,18 +7,18 @@ extern crate indexmap;
 extern crate quickcheck;
 extern crate rand;
 extern crate tokio_timer;
+extern crate tower_direct_service;
 extern crate tower_discover;
 extern crate tower_service;
-extern crate tower_direct_service;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
 use rand::{rngs::SmallRng, SeedableRng};
-use std::{fmt, error};
 use std::marker::PhantomData;
+use std::{error, fmt};
+use tower_direct_service::DirectService;
 use tower_discover::Discover;
 use tower_service::Service;
-use tower_direct_service::DirectService;
 
 pub mod choose;
 pub mod load;
@@ -90,10 +90,7 @@ where
     /// Initializes a P2C load balancer from the provided randomization source.
     ///
     /// This may be preferable when an application instantiates many balancers.
-    pub fn p2c_with_rng<R: rand::Rng>(
-        discover: D,
-        rng: &mut R,
-    ) -> Result<Self, rand::Error> {
+    pub fn p2c_with_rng<R: rand::Rng>(discover: D, rng: &mut R) -> Result<Self, rand::Error> {
         let rng = SmallRng::from_rng(rng)?;
         Ok(Self::new(discover, choose::PowerOfTwoChoices::new(rng)))
     }
@@ -205,7 +202,8 @@ where
         // from reordering services in a way that could prevent a service from being polled.
         for idx in (0..n).rev() {
             let is_ready = {
-                let (_, svc) = self.not_ready
+                let (_, svc) = self
+                    .not_ready
                     .get_index_mut(idx)
                     .expect("invalid not_ready index");;
                 poll_ready(svc).map_err(Error::Inner)?.is_ready()
@@ -213,7 +211,8 @@ where
             trace!("not_ready[{:?}]: is_ready={:?};", idx, is_ready);
             if is_ready {
                 debug!("not_ready[{:?}]: promoting to ready", idx);
-                let (key, svc) = self.not_ready
+                let (key, svc) = self
+                    .not_ready
                     .swap_remove_index(idx)
                     .expect("invalid not_ready index");
                 self.ready.insert(key, svc);
@@ -241,16 +240,17 @@ where
     {
         match self.ready.get_index_mut(idx) {
             None => return None,
-            Some((_, svc)) => {
-                match poll_ready(svc) {
-                    Ok(Async::Ready(())) => return Some(Ok(Async::Ready(()))),
-                    Err(e) => return Some(Err(Error::Inner(e))),
-                    Ok(Async::NotReady) => {}
-                }
-            }
+            Some((_, svc)) => match poll_ready(svc) {
+                Ok(Async::Ready(())) => return Some(Ok(Async::Ready(()))),
+                Err(e) => return Some(Err(Error::Inner(e))),
+                Ok(Async::NotReady) => {}
+            },
         }
 
-        let (key, svc) = self.ready.swap_remove_index(idx).expect("invalid ready index");
+        let (key, svc) = self
+            .ready
+            .swap_remove_index(idx)
+            .expect("invalid ready index");
         self.not_ready.insert(key, svc);
         Some(Ok(Async::NotReady))
     }
@@ -315,7 +315,10 @@ where
         FF: Future,
     {
         let idx = self.chosen_ready_index.take().expect("not ready");
-        let (_, svc) = self.ready.get_index_mut(idx).expect("invalid chosen ready index");
+        let (_, svc) = self
+            .ready
+            .get_index_mut(idx)
+            .expect("invalid chosen ready index");
         self.dispatched_ready_index = Some(idx);
 
         let rsp = call(svc, request);
@@ -430,7 +433,6 @@ impl<F: Future, E> Future for ResponseFuture<F, E> {
     }
 }
 
-
 // ===== impl Error =====
 
 impl<T, U> fmt::Display for Error<T, U>
@@ -441,8 +443,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Balance(ref why) =>
-                write!(f, "load balancing failed: {}", why),
+            Error::Balance(ref why) => write!(f, "load balancing failed: {}", why),
             Error::NotReady => f.pad("not ready"),
         }
     }
@@ -491,7 +492,11 @@ mod tests {
         type Error = ();
 
         fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-            let r = self.0.pop_front().map(Async::Ready).unwrap_or(Async::NotReady);
+            let r = self
+                .0
+                .pop_front()
+                .map(Async::Ready)
+                .unwrap_or(Async::NotReady);
             debug!("polling disco: {:?}", r.is_ready());
             Ok(r)
         }

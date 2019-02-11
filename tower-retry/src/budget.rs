@@ -1,7 +1,10 @@
 //! A retry "budget" for allowing only a certain amount of retries over time.
 
 use std::fmt;
-use std::sync::{Mutex, atomic::{AtomicIsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicIsize, Ordering},
+    Mutex,
+};
 use std::time::{Duration, Instant};
 
 use tokio_timer::clock;
@@ -71,7 +74,6 @@ impl Budget {
         assert!(retry_percent <= 1000.0);
         assert!(min_per_sec < ::std::i32::MAX as u32);
 
-
         let (deposit_amount, withdraw_amount) = if retry_percent == 0.0 {
             // If there is no percent, then you gain nothing from deposits.
             // Withdrawals can only be made against the reserve, over time.
@@ -125,9 +127,7 @@ impl Budget {
         if self.bucket.try_get(self.withdraw_amount) {
             Ok(())
         } else {
-            Err(Overdrawn {
-                _inner: (),
-            })
+            Err(Overdrawn { _inner: () })
         }
     }
 }
@@ -171,10 +171,7 @@ impl Bucket {
     }
 
     fn expire(&self) {
-        let mut gen = self
-            .generation
-            .lock()
-            .expect("generation lock");
+        let mut gen = self.generation.lock().expect("generation lock");
 
         let now = clock::now();
         let diff = now - gen.time;
@@ -217,10 +214,10 @@ impl Bucket {
 mod tests {
     extern crate tokio_executor;
 
+    use self::tokio_executor::enter;
+    use super::*;
     use std::sync::{Arc, Mutex, MutexGuard};
     use std::time::Instant;
-    use super::*;
-    use self::tokio_executor::enter;
 
     #[test]
     fn empty() {

@@ -68,9 +68,7 @@ use std::fmt;
 ///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
-    inner: Box<Service<T, Response = U,
-                             Error = E,
-                            Future = BoxFuture<U, E>> + Send>,
+    inner: Box<Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>,
 }
 
 /// A boxed `Future + Send` trait object.
@@ -81,9 +79,7 @@ pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send>;
 
 /// A boxed `Service` trait object.
 pub struct UnsyncBoxService<T, U, E> {
-    inner: Box<Service<T, Response = U,
-                             Error = E,
-                            Future = UnsyncBoxFuture<U, E>>>,
+    inner: Box<Service<T, Response = U, Error = E, Future = UnsyncBoxFuture<U, E>>>,
 }
 
 /// A boxed `Future` trait object.
@@ -104,11 +100,11 @@ struct UnsyncBoxed<S> {
 
 // ===== impl BoxService =====
 
-impl<T, U, E> BoxService<T, U, E>
-{
+impl<T, U, E> BoxService<T, U, E> {
     pub fn new<S>(inner: S) -> Self
-        where S: Service<T, Response = U, Error = E> + Send + 'static,
-              S::Future: Send + 'static,
+    where
+        S: Service<T, Response = U, Error = E> + Send + 'static,
+        S::Future: Send + 'static,
     {
         let inner = Box::new(Boxed { inner });
         BoxService { inner }
@@ -130,13 +126,13 @@ impl<T, U, E> Service<T> for BoxService<T, U, E> {
 }
 
 impl<T, U, E> fmt::Debug for BoxService<T, U, E>
-where T: fmt::Debug,
-      U: fmt::Debug,
-      E: fmt::Debug,
+where
+    T: fmt::Debug,
+    U: fmt::Debug,
+    E: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("BoxService")
-            .finish()
+        fmt.debug_struct("BoxService").finish()
     }
 }
 
@@ -144,8 +140,9 @@ where T: fmt::Debug,
 
 impl<T, U, E> UnsyncBoxService<T, U, E> {
     pub fn new<S>(inner: S) -> Self
-        where S: Service<T, Response = U, Error = E> + 'static,
-              S::Future: 'static,
+    where
+        S: Service<T, Response = U, Error = E> + 'static,
+        S::Future: 'static,
     {
         let inner = Box::new(UnsyncBoxed { inner });
         UnsyncBoxService { inner }
@@ -167,26 +164,26 @@ impl<T, U, E> Service<T> for UnsyncBoxService<T, U, E> {
 }
 
 impl<T, U, E> fmt::Debug for UnsyncBoxService<T, U, E>
-where T: fmt::Debug,
-      U: fmt::Debug,
-      E: fmt::Debug,
+where
+    T: fmt::Debug,
+    U: fmt::Debug,
+    E: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("UnsyncBoxService")
-            .finish()
+        fmt.debug_struct("UnsyncBoxService").finish()
     }
 }
 
 // ===== impl Boxed =====
 
 impl<S, Request> Service<Request> for Boxed<S>
-where S: Service<Request> + 'static,
-      S::Future: Send + 'static,
+where
+    S: Service<Request> + 'static,
+    S::Future: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Box<Future<Item = S::Response,
-                            Error = S::Error> + Send>;
+    type Future = Box<Future<Item = S::Response, Error = S::Error> + Send>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.inner.poll_ready()
@@ -200,13 +197,13 @@ where S: Service<Request> + 'static,
 // ===== impl UnsyncBoxed =====
 
 impl<S, Request> Service<Request> for UnsyncBoxed<S>
-where S: Service<Request> + 'static,
-      S::Future: 'static,
+where
+    S: Service<Request> + 'static,
+    S::Future: 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Box<Future<Item = S::Response,
-                            Error = S::Error>>;
+    type Future = Box<Future<Item = S::Response, Error = S::Error>>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.inner.poll_ready()

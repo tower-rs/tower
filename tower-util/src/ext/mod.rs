@@ -19,10 +19,7 @@ pub use self::map_err::MapErr;
 pub use self::ready::Ready;
 pub use self::then::Then;
 
-impl<T: ?Sized, Request> ServiceExt<Request> for T
-where
-    T: Service<Request>
-{}
+impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}
 
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters

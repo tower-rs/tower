@@ -8,15 +8,15 @@
 #![cfg_attr(test, deny(warnings))]
 
 extern crate futures;
-extern crate tower_service;
 extern crate tokio_timer;
+extern crate tower_service;
 
-use futures::{Future, Poll, Async};
-use tower_service::Service;
+use futures::{Async, Future, Poll};
 use tokio_timer::{clock, Delay, Error as TimerError};
+use tower_service::Service;
 
-use std::{error, fmt};
 use std::time::Duration;
+use std::{error, fmt};
 
 /// Applies a timeout to requests.
 #[derive(Debug)]
@@ -54,10 +54,7 @@ pub struct ResponseFuture<T> {
 impl<T> Timeout<T> {
     /// Creates a new Timeout
     pub fn new(inner: T, timeout: Duration) -> Self {
-        Timeout {
-            inner,
-            timeout,
-        }
+        Timeout { inner, timeout }
     }
 }
 
@@ -70,10 +67,7 @@ where
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
-            .map_err(|e| {
-                Error(Kind::Inner(e))
-            })
+        self.inner.poll_ready().map_err(|e| Error(Kind::Inner(e)))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -87,7 +81,8 @@ where
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where T: Future,
+where
+    T: Future,
 {
     type Item = T::Item;
     type Error = Error<T::Error>;
