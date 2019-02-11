@@ -97,7 +97,7 @@ fn when_inner_fails() {
         let e = res1.poll().unwrap_err();
         if let Some(e) = e.downcast_ref::<ClosedError<tower_mock::Error>>() {
             assert!(format!("{:?}", e).contains("poll_ready"));
-            // assert_eq!(e.error(), &tower_mock::Error.downcast_ref::);
+            assert_eq!(format!("{}", e.error().error()), "foobar".to_owned());
         } else {
             panic!("unexpected error type: {:?}", e);
         }
