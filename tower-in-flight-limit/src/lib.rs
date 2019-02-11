@@ -6,12 +6,12 @@ extern crate tower_service;
 
 use tower_service::Service;
 
-use futures::{Future, Poll, Async};
 use futures::task::AtomicTask;
-use std::{error::Error, fmt};
-use std::sync::Arc;
+use futures::{Async, Future, Poll};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::Arc;
+use std::{error::Error as StdError, fmt};
 
 #[derive(Debug, Clone)]
 pub struct InFlightLimit<T> {
@@ -19,11 +19,13 @@ pub struct InFlightLimit<T> {
     state: State,
 }
 
+type Error = Box<StdError + Send + Sync>;
+
 #[derive(Debug, PartialEq)]
 struct NoCapacityError;
 
-impl Error for NoCapacityError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for NoCapacityError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self)
     }
 }
@@ -93,16 +95,15 @@ impl<T> InFlightLimit<T> {
 impl<S, Request> Service<Request> for InFlightLimit<S>
 where
     S: Service<Request>,
-    S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if self.state.reserved {
-            return self.inner.poll_ready()
-                .map_err(|e| e.into());
+            return self.inner.poll_ready().map_err(|e| e.into());
         }
 
         self.state.shared.task.register();
@@ -113,8 +114,7 @@ where
 
         self.state.reserved = true;
 
-        self.inner.poll_ready()
-            .map_err(|e| e.into())
+        self.inner.poll_ready().map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -144,30 +144,28 @@ where
 impl<T> Future for ResponseFuture<T>
 where
     T: Future,
-    T::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    T::Error: Into<Error>,
 {
     type Item = T::Item;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use futures::Async::*;
 
         let res = match self.inner {
-            Some(ref mut f) => {
-                match f.poll() {
-                    Ok(Ready(v)) => {
-                        self.shared.release();
-                        Ok(Ready(v))
-                    }
-                    Ok(NotReady) => {
-                        return Ok(NotReady);
-                    }
-                    Err(e) => {
-                        self.shared.release();
-                        Err(e.into())
-                    }
+            Some(ref mut f) => match f.poll() {
+                Ok(Ready(v)) => {
+                    self.shared.release();
+                    Ok(Ready(v))
                 }
-            }
+                Ok(NotReady) => {
+                    return Ok(NotReady);
+                }
+                Err(e) => {
+                    self.shared.release();
+                    Err(e.into())
+                }
+            },
             None => Err(NoCapacityError.into()),
         };
 
