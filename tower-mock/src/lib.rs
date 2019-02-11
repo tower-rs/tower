@@ -1,18 +1,18 @@
 //! Mock `Service` that can be used in tests.
 
-extern crate tower_service;
 extern crate futures;
+extern crate tower_service;
 
 use tower_service::Service;
 
-use futures::{Future, Stream, Poll, Async};
-use futures::sync::{oneshot, mpsc};
+use futures::sync::{mpsc, oneshot};
 use futures::task::{self, Task};
+use futures::{Async, Future, Poll, Stream};
 
-use std::{ops, u64};
 use std::collections::HashMap;
-use std::{error::Error, fmt};
 use std::sync::{Arc, Mutex};
+use std::{error::Error as StdError, fmt};
+use std::{ops, u64};
 
 /// A mock service
 #[derive(Debug)]
@@ -45,22 +45,16 @@ pub struct Respond<T, E> {
 /// Future of the `Mock` response.
 #[derive(Debug)]
 pub struct ResponseFuture<T, E> {
-    // Slight abuse of the error enum...
     rx: oneshot::Receiver<Result<T, E>>,
 }
 
-#[derive(Debug)]
-enum WrappingError<E> {
-    Closed(ClosedError),
-    NoCapacity(NoCapacityError),
-    Other(E)
-}
+type Error = Box<StdError + Send + Sync>;
 
 #[derive(Debug, PartialEq)]
 struct ClosedError;
 
-impl Error for ClosedError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for ClosedError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self)
     }
 }
@@ -74,8 +68,8 @@ impl fmt::Display for ClosedError {
 #[derive(Debug, PartialEq)]
 struct NoCapacityError;
 
-impl Error for NoCapacityError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for NoCapacityError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self)
     }
 }
@@ -109,7 +103,10 @@ type Rx<T, U, E> = mpsc::UnboundedReceiver<Request<T, U, E>>;
 
 // ===== impl Mock =====
 
-impl<T, U, E> Mock<T, U, E> {
+impl<T, U, E> Mock<T, U, E>
+where
+    E: Into<Error>,
+{
     /// Create a new `Mock` and `Handle` pair.
     pub fn new() -> (Self, Handle<T, U, E>) {
         let (tx, rx) = mpsc::unbounded();
@@ -124,10 +121,7 @@ impl<T, U, E> Mock<T, U, E> {
             can_send: false,
         };
 
-        let handle = Handle {
-            rx,
-            state,
-        };
+        let handle = Handle { rx, state };
 
         (mock, handle)
     }
@@ -135,10 +129,10 @@ impl<T, U, E> Mock<T, U, E> {
 
 impl<T, U, E> Service<T> for Mock<T, U, E>
 where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    E: Into<Error>,
 {
     type Response = U;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
     type Future = ResponseFuture<U, E>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -165,7 +159,9 @@ where
             Ok(Async::Ready(()))
         } else {
             // Bit weird... but whatevz
-            *state.tasks.entry(self.id)
+            *state
+                .tasks
+                .entry(self.id)
                 .or_insert_with(|| task::current()) = task::current();
 
             Ok(Async::NotReady)
@@ -175,18 +171,15 @@ where
     fn call(&mut self, request: T) -> Self::Future {
         // Make sure that the service has capacity
         let mut state = self.state.lock().unwrap();
+        let (tx, rx) = oneshot::channel();
 
         if state.is_closed {
-            return ResponseFuture {
-                rx: WrappingError::Closed(ClosedError),
-            };
+            return ResponseFuture { rx };
         }
 
         if !self.can_send {
             if state.rem == 0 {
-                return ResponseFuture {
-                    rx: WrappingError::NoCapacity(NoCapacityError)
-                }
+                return ResponseFuture { rx };
             }
         }
 
@@ -197,8 +190,6 @@ where
             state.rem -= 1;
         }
 
-        let (tx, rx) = oneshot::channel();
-
         let request = Request {
             request,
             respond: Respond { tx },
@@ -208,13 +199,11 @@ where
             Ok(_) => {}
             Err(_) => {
                 // TODO: Can this be reached
-                return ResponseFuture {
-                    rx: WrappingError::Closed(ClosedError),
-                };
+                return ResponseFuture { rx };
             }
         }
 
-        ResponseFuture { rx: WrappingError::Other(rx) }
+        ResponseFuture { rx }
     }
 }
 
@@ -251,9 +240,7 @@ impl<T, U, E> Drop for Mock<T, U, E> {
 
 impl<T, U, E> Handle<T, U, E> {
     /// Asynchronously gets the next request
-    pub fn poll_request(&mut self)
-        -> Poll<Option<Request<T, U, E>>, ()>
-    {
+    pub fn poll_request(&mut self) -> Poll<Option<Request<T, U, E>>, ()> {
         self.rx.poll()
     }
 
@@ -342,23 +329,17 @@ impl<T, E> Respond<T, E> {
 
 impl<T, E> Future for ResponseFuture<T, E>
 where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    E: Into<Error>,
 {
     type Item = T;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.rx {
-            WrappingError::Other(ref mut rx) => {
-                match rx.poll() {
-                    Ok(Async::Ready(Ok(v))) => Ok(v.into()),
-                    Ok(Async::Ready(Err(e))) => Err(e.into()),
-                    Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Err(e) => Err(e.into()),
-                }
-            },
-            WrappingError::NoCapacity(ref e) => Err(e.into()),
-            WrappingError::Closed(ref e) => Err(e.into()),
+        match self.rx.poll() {
+            Ok(Async::Ready(Ok(v))) => Ok(v.into()),
+            Ok(Async::Ready(Err(e))) => Err(e.into()),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(e) => Err(e.into()),
         }
     }
 }

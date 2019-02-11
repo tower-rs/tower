@@ -2,9 +2,11 @@ extern crate futures;
 extern crate tower_mock;
 extern crate tower_service;
 
+use futures::Future;
+use std::error::Error as StdError;
 use tower_service::Service;
 
-use futures::Future;
+type Error = Box<StdError + Send + Sync>;
 
 #[test]
 fn single_request_ready() {
@@ -57,8 +59,8 @@ fn backpressure() {
     assert!(response.wait().is_err());
 }
 
-type Mock = tower_mock::Mock<String, String, ()>;
-type Handle = tower_mock::Handle<String, String, ()>;
+type Mock = tower_mock::Mock<String, String, Error>;
+type Handle = tower_mock::Handle<String, String, Error>;
 
 fn new_mock() -> (Mock, Handle) {
     Mock::new()
@@ -66,6 +68,6 @@ fn new_mock() -> (Mock, Handle) {
 
 // Helper to run some code within context of a task
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::{Future, lazy};
+    use futures::future::{lazy, Future};
     lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }
