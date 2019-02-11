@@ -60,7 +60,7 @@ pub mod budget;
 /// ```
 pub trait Policy<Req, Res, E>: Sized {
     /// The `Future` type returned by `Policy::retry()`.
-    type Future: Future<Item=Self, Error=()>;
+    type Future: Future<Item = Self, Error = ()>;
     /// Check the policy if a certain request should be retried.
     ///
     /// This method is passed a reference to the original request, and either
@@ -120,10 +120,7 @@ impl<P, S> Retry<P, S> {
         P: Policy<Request, S::Response, S::Error> + Clone,
         S: Service<Request> + Clone,
     {
-        Retry {
-            policy,
-            service,
-        }
+        Retry { policy, service }
     }
 }
 
@@ -180,7 +177,7 @@ where
                         // request wasn't cloned, so no way to retry it
                         return result.map(Async::Ready);
                     }
-                },
+                }
                 State::Checking(ref mut future, ref mut result) => {
                     let policy = match future.poll() {
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
@@ -196,7 +193,7 @@ where
                     };
                     self.retry.policy = policy;
                     State::Retrying
-                },
+                }
                 State::Retrying => {
                     try_ready!(self.retry.poll_ready());
                     let req = self
@@ -211,4 +208,3 @@ where
         }
     }
 }
-

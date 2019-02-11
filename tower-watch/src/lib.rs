@@ -3,9 +3,9 @@ extern crate futures;
 extern crate futures_watch;
 extern crate tower_service;
 
-use std::{fmt, error};
 use futures::{Async, Future, Poll, Stream};
 use futures_watch::{Watch, WatchError};
+use std::{error, fmt};
 use tower_service::Service;
 
 /// Binds new instances of a Service with a borrowed reference to the watched value.
@@ -80,7 +80,7 @@ where
 
 impl<E> fmt::Display for Error<E>
 where
-    E: fmt::Display
+    E: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -132,8 +132,8 @@ impl<F: Future> Future for ResponseFuture<F> {
 mod tests {
     extern crate tokio;
 
-    use futures::future;
     use super::*;
+    use futures::future;
 
     #[test]
     fn rebind() {

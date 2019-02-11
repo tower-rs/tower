@@ -42,13 +42,16 @@ pub trait MakeService<Target, Request>: self::sealed::Sealed<Target, Request> {
 }
 
 impl<M, S, Target, Request> self::sealed::Sealed<Target, Request> for M
-    where M: Service<Target, Response=S>,
-          S: Service<Request>,
-{}
+where
+    M: Service<Target, Response = S>,
+    S: Service<Request>,
+{
+}
 
 impl<M, S, Target, Request> MakeService<Target, Request> for M
-    where M: Service<Target, Response=S>,
-          S: Service<Request>,
+where
+    M: Service<Target, Response = S>,
+    S: Service<Request>,
 {
     type Response = S::Response;
     type Error = S::Error;

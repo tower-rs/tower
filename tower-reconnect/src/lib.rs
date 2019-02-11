@@ -4,7 +4,7 @@ extern crate log;
 extern crate tower_service;
 extern crate tower_util;
 
-use futures::{Future, Async, Poll};
+use futures::{Async, Future, Poll};
 use tower_service::Service;
 use tower_util::MakeService;
 
@@ -56,7 +56,7 @@ where
 
 impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
-    M: Service<Target, Response=S>,
+    M: Service<Target, Response = S>,
     S: Service<Request>,
     Target: Clone,
 {
@@ -179,14 +179,11 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
-            Some(ref mut f) => {
-                f.poll().map_err(Error::Service)
-            }
+            Some(ref mut f) => f.poll().map_err(Error::Service),
             None => Err(Error::NotReady),
         }
     }
 }
-
 
 // ===== impl Error =====
 

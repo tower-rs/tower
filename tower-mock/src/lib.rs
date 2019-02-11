@@ -1,17 +1,17 @@
 //! Mock `Service` that can be used in tests.
 
-extern crate tower_service;
 extern crate futures;
+extern crate tower_service;
 
 use tower_service::Service;
 
-use futures::{Future, Stream, Poll, Async};
-use futures::sync::{oneshot, mpsc};
+use futures::sync::{mpsc, oneshot};
 use futures::task::{self, Task};
+use futures::{Async, Future, Poll, Stream};
 
-use std::{ops, u64};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::{ops, u64};
 
 /// A mock service
 #[derive(Debug)]
@@ -94,10 +94,7 @@ impl<T, U, E> Mock<T, U, E> {
             can_send: false,
         };
 
-        let handle = Handle {
-            rx,
-            state,
-        };
+        let handle = Handle { rx, state };
 
         (mock, handle)
     }
@@ -132,7 +129,9 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
             Ok(Async::Ready(()))
         } else {
             // Bit weird... but whatevz
-            *state.tasks.entry(self.id)
+            *state
+                .tasks
+                .entry(self.id)
                 .or_insert_with(|| task::current()) = task::current();
 
             Ok(Async::NotReady)
@@ -144,16 +143,14 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
         let mut state = self.state.lock().unwrap();
 
         if state.is_closed {
-            return ResponseFuture {
-                rx: Error::Closed,
-            };
+            return ResponseFuture { rx: Error::Closed };
         }
 
         if !self.can_send {
             if state.rem == 0 {
                 return ResponseFuture {
                     rx: Error::NoCapacity,
-                }
+                };
             }
         }
 
@@ -175,13 +172,13 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
             Ok(_) => {}
             Err(_) => {
                 // TODO: Can this be reached
-                return ResponseFuture {
-                    rx: Error::Closed,
-                };
+                return ResponseFuture { rx: Error::Closed };
             }
         }
 
-        ResponseFuture { rx: Error::Other(rx) }
+        ResponseFuture {
+            rx: Error::Other(rx),
+        }
     }
 }
 
@@ -218,9 +215,7 @@ impl<T, U, E> Drop for Mock<T, U, E> {
 
 impl<T, U, E> Handle<T, U, E> {
     /// Asynchronously gets the next request
-    pub fn poll_request(&mut self)
-        -> Poll<Option<Request<T, U, E>>, ()>
-    {
+    pub fn poll_request(&mut self) -> Poll<Option<Request<T, U, E>>, ()> {
         self.rx.poll()
     }
 
@@ -313,14 +308,12 @@ impl<T, E> Future for ResponseFuture<T, E> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.rx {
-            Error::Other(ref mut rx) => {
-                match rx.poll() {
-                    Ok(Async::Ready(Ok(v))) => Ok(v.into()),
-                    Ok(Async::Ready(Err(e))) => Err(Error::Other(e)),
-                    Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Err(_) => Err(Error::Closed),
-                }
-            }
+            Error::Other(ref mut rx) => match rx.poll() {
+                Ok(Async::Ready(Ok(v))) => Ok(v.into()),
+                Ok(Async::Ready(Err(e))) => Err(Error::Other(e)),
+                Ok(Async::NotReady) => Ok(Async::NotReady),
+                Err(_) => Err(Error::Closed),
+            },
             Error::NoCapacity => Err(Error::NoCapacity),
             Error::Closed => Err(Error::Closed),
         }

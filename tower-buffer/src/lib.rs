@@ -14,13 +14,13 @@ extern crate tower_direct_service;
 extern crate tower_service;
 
 use futures::future::Executor;
-use tokio_sync::mpsc;
-use tokio_sync::oneshot;
 use futures::{Async, Future, Poll, Stream};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{error, fmt};
 use tokio_executor::DefaultExecutor;
+use tokio_sync::mpsc;
+use tokio_sync::oneshot;
 use tower_direct_service::DirectService;
 use tower_service::Service;
 

@@ -19,7 +19,11 @@ impl<T, F, E> MapErr<T, F, E> {
         T: Service<Request>,
         F: Fn(T::Error) -> E + Clone,
     {
-        MapErr { service, f, _p: PhantomData }
+        MapErr {
+            service,
+            f,
+            _p: PhantomData,
+        }
     }
 }
 

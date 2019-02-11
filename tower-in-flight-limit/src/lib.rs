@@ -6,12 +6,12 @@ extern crate tower_service;
 
 use tower_service::Service;
 
-use futures::{Future, Poll, Async};
 use futures::task::AtomicTask;
-use std::{error, fmt};
-use std::sync::Arc;
+use futures::{Async, Future, Poll};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::Arc;
+use std::{error, fmt};
 
 #[derive(Debug, Clone)]
 pub struct InFlightLimit<T> {
@@ -92,8 +92,7 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if self.state.reserved {
-            return self.inner.poll_ready()
-                .map_err(Error::Upstream);
+            return self.inner.poll_ready().map_err(Error::Upstream);
         }
 
         self.state.shared.task.register();
@@ -104,8 +103,7 @@ where
 
         self.state.reserved = true;
 
-        self.inner.poll_ready()
-            .map_err(Error::Upstream)
+        self.inner.poll_ready().map_err(Error::Upstream)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -133,7 +131,8 @@ where
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where T: Future,
+where
+    T: Future,
 {
     type Item = T::Item;
     type Error = Error<T::Error>;
@@ -142,21 +141,19 @@ where T: Future,
         use futures::Async::*;
 
         let res = match self.inner {
-            Some(ref mut f) => {
-                match f.poll() {
-                    Ok(Ready(v)) => {
-                        self.shared.release();
-                        Ok(Ready(v))
-                    }
-                    Ok(NotReady) => {
-                        return Ok(NotReady);
-                    }
-                    Err(e) => {
-                        self.shared.release();
-                        Err(Error::Upstream(e))
-                    }
+            Some(ref mut f) => match f.poll() {
+                Ok(Ready(v)) => {
+                    self.shared.release();
+                    Ok(Ready(v))
                 }
-            }
+                Ok(NotReady) => {
+                    return Ok(NotReady);
+                }
+                Err(e) => {
+                    self.shared.release();
+                    Err(Error::Upstream(e))
+                }
+            },
             None => Err(Error::NoCapacity),
         };
 
@@ -232,7 +229,6 @@ impl Shared {
     }
 }
 
-
 // ===== impl Error =====
 
 impl<T> fmt::Display for Error<T>
@@ -265,5 +261,4 @@ where
             Error::NoCapacity => "in-flight limit exceeded",
         }
     }
-
 }

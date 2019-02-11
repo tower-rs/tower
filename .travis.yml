@@ -1,6 +1,8 @@
 ---
 language: rust
 sudo: false
+before_script:
+- rustup component add rustfmt
 
 matrix:
   include:
@@ -11,6 +13,7 @@ matrix:
     - rust: nightly
 
 script:
+- cargo fmt --all -- --check
 - cargo test --all
 
 deploy:

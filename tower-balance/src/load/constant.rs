@@ -14,10 +14,7 @@ pub struct Constant<T, M> {
 
 impl<T, M: Copy> Constant<T, M> {
     pub fn new(inner: T, load: M) -> Self {
-        Self {
-            inner,
-            load,
-        }
+        Self { inner, load }
     }
 }
 

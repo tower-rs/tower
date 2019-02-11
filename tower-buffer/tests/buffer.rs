@@ -129,6 +129,6 @@ fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
 }
 
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::{Future, lazy};
+    use futures::future::{lazy, Future};
     lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }

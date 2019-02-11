@@ -146,16 +146,13 @@ struct UnlessErr(InnerError);
 impl Policy<Req, Res, Error> for UnlessErr {
     type Future = future::FutureResult<Self, ()>;
     fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
-        result
-            .err()
-            .and_then(|err| {
-                if err != &tower_mock::Error::Other(self.0) {
-                    Some(future::ok(self.clone()))
-                } else {
-                    None
-                }
-            })
-
+        result.err().and_then(|err| {
+            if err != &tower_mock::Error::Other(self.0) {
+                Some(future::ok(self.clone()))
+            } else {
+                None
+            }
+        })
     }
 
     fn clone_request(&self, req: &Req) -> Option<Req> {
@@ -177,16 +174,23 @@ impl Policy<Req, Res, Error> for CannotClone {
     }
 }
 
-fn new_service<P: Policy<Req, Res, Error> + Clone>(policy: P) -> (tower_retry::Retry<P, Mock>, Handle) {
+fn new_service<P: Policy<Req, Res, Error> + Clone>(
+    policy: P,
+) -> (tower_retry::Retry<P, Mock>, Handle) {
     let (service, handle) = Mock::new();
     let service = tower_retry::Retry::new(policy, service);
     (service, handle)
 }
 
-fn assert_not_ready<F: Future>(f: &mut F) where F::Error: ::std::fmt::Debug {
+fn assert_not_ready<F: Future>(f: &mut F)
+where
+    F::Error: ::std::fmt::Debug,
+{
     use futures::future;
     future::poll_fn(|| {
         assert!(f.poll().unwrap().is_not_ready());
         Ok::<_, ()>(().into())
-    }).wait().unwrap();
+    })
+    .wait()
+    .unwrap();
 }

@@ -1,10 +1,10 @@
-mod instrument;
 mod constant;
+mod instrument;
 pub mod peak_ewma;
 pub mod pending_requests;
 
-pub use self::instrument::{Instrument, InstrumentFuture, NoInstrument};
 pub use self::constant::Constant;
+pub use self::instrument::{Instrument, InstrumentFuture, NoInstrument};
 pub use self::peak_ewma::{PeakEwma, WithPeakEwma};
 pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 

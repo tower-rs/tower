@@ -5,15 +5,15 @@
 
 #[macro_use]
 extern crate futures;
-extern crate tower_service;
 extern crate tokio_timer;
+extern crate tower_service;
 
 use futures::{Future, Poll};
-use tower_service::Service;
 use tokio_timer::Delay;
+use tower_service::Service;
 
-use std::{error, fmt};
 use std::time::{Duration, Instant};
+use std::{error, fmt};
 
 #[derive(Debug)]
 pub struct RateLimit<T> {
@@ -45,10 +45,7 @@ pub struct ResponseFuture<T> {
 enum State {
     // The service has hit its limit
     Limited(Delay),
-    Ready {
-        until: Instant,
-        rem: u64,
-    },
+    Ready { until: Instant, rem: u64 },
 }
 
 impl<T> RateLimit<T> {
@@ -100,7 +97,8 @@ impl Rate {
 }
 
 impl<S, Request> Service<Request> for RateLimit<S>
-where S: Service<Request>
+where
+    S: Service<Request>,
 {
     type Response = S::Response;
     type Error = Error<S::Error>;
@@ -110,8 +108,7 @@ where S: Service<Request>
         match self.state {
             State::Ready { .. } => return Ok(().into()),
             State::Limited(ref mut sleep) => {
-                let res = sleep.poll()
-                    .map_err(|_| Error::RateLimit);
+                let res = sleep.poll().map_err(|_| Error::RateLimit);
 
                 try_ready!(res);
             }
@@ -151,29 +148,25 @@ where S: Service<Request>
                 let inner = Some(self.inner.call(request));
                 ResponseFuture { inner }
             }
-            State::Limited(..) => {
-                ResponseFuture { inner: None }
-            }
+            State::Limited(..) => ResponseFuture { inner: None },
         }
     }
 }
 
 impl<T> Future for ResponseFuture<T>
-where T: Future,
+where
+    T: Future,
 {
     type Item = T::Item;
     type Error = Error<T::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
-            Some(ref mut f) => {
-                f.poll().map_err(Error::Upstream)
-            }
+            Some(ref mut f) => f.poll().map_err(Error::Upstream),
             None => Err(Error::RateLimit),
         }
     }
 }
-
 
 // ===== impl Error =====
 
@@ -207,5 +200,4 @@ where
             Error::RateLimit => "rate limit exceeded",
         }
     }
-
 }
