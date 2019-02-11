@@ -4,11 +4,11 @@ extern crate log;
 extern crate tower_service;
 extern crate tower_util;
 
-use futures::{Future, Async, Poll};
+use futures::{Async, Future, Poll};
 use tower_service::Service;
 use tower_util::MakeService;
 
-use std::{error, fmt, marker::PhantomData};
+use std::{error::Error as StdError, fmt};
 
 pub struct Reconnect<M, Target>
 where
@@ -20,15 +20,24 @@ where
 }
 
 #[derive(Debug)]
-pub enum Error<T, U> {
-    Service(T),
-    Connect(U),
-    NotReady,
+pub struct NotReadyError;
+
+impl StdError for NotReadyError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self)
+    }
 }
 
-pub struct ResponseFuture<F, E> {
+impl fmt::Display for NotReadyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Service not ready")
+    }
+}
+
+type Error = Box<StdError + Send + Sync>;
+
+pub struct ResponseFuture<F> {
     inner: Option<F>,
-    _connect_error_marker: PhantomData<fn() -> E>,
 }
 
 #[derive(Debug)]
@@ -56,13 +65,15 @@ where
 
 impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
-    M: Service<Target, Response=S>,
+    M: Service<Target, Response = S>,
+    M::Error: Into<Error>,
     S: Service<Request>,
+    S::Error: Into<Error>,
     Target: Clone,
 {
     type Response = S::Response;
-    type Error = Error<S::Error, M::Error>;
-    type Future = ResponseFuture<S::Future, M::Error>;
+    type Error = Error;
+    type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         let ret;
@@ -80,7 +91,7 @@ where
                         }
                         Err(e) => {
                             trace!("poll_ready; MakeService error");
-                            return Err(Error::Connect(e));
+                            return Err(e.into());
                         }
                     }
 
@@ -101,7 +112,7 @@ where
                         Err(e) => {
                             trace!("poll_ready; error");
                             state = State::Idle;
-                            ret = Err(Error::Connect(e));
+                            ret = Err(e.into());
                             break;
                         }
                     }
@@ -161,67 +172,24 @@ where
 
 // ===== impl ResponseFuture =====
 
-impl<F, E> ResponseFuture<F, E> {
+impl<F> ResponseFuture<F> {
     fn new(inner: Option<F>) -> Self {
-        ResponseFuture {
-            inner,
-            _connect_error_marker: PhantomData,
-        }
+        ResponseFuture { inner }
     }
 }
 
-impl<F, E> Future for ResponseFuture<F, E>
+impl<F> Future for ResponseFuture<F>
 where
     F: Future,
+    F::Error: Into<Error>,
 {
     type Item = F::Item;
-    type Error = Error<F::Error, E>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
-            Some(ref mut f) => {
-                f.poll().map_err(Error::Service)
-            }
-            None => Err(Error::NotReady),
-        }
-    }
-}
-
-
-// ===== impl Error =====
-
-impl<T, U> fmt::Display for Error<T, U>
-where
-    T: fmt::Display,
-    U: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Service(ref why) => fmt::Display::fmt(why, f),
-            Error::Connect(ref why) => write!(f, "connection failed: {}", why),
-            Error::NotReady => f.pad("not ready"),
-        }
-    }
-}
-
-impl<T, U> error::Error for Error<T, U>
-where
-    T: error::Error,
-    U: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Service(ref why) => Some(why),
-            Error::Connect(ref why) => Some(why),
-            Error::NotReady => None,
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Service(_) => "inner service error",
-            Error::Connect(_) => "connection failed",
-            Error::NotReady => "not ready",
+            Some(ref mut f) => f.poll().map_err(|e| e.into()),
+            None => Err(NotReadyError.into()),
         }
     }
 }
