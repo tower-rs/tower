@@ -3,9 +3,9 @@ extern crate futures;
 extern crate futures_watch;
 extern crate tower_service;
 
-use std::{fmt, error};
 use futures::{Async, Future, Poll, Stream};
-use futures_watch::{Watch, WatchError};
+use futures_watch::{Watch, WatchError as ExternalWatchError};
+use std::{error::Error as StdError, fmt};
 use tower_service::Service;
 
 /// Binds new instances of a Service with a borrowed reference to the watched value.
@@ -26,10 +26,21 @@ pub struct WatchService<T, B: Bind<T>> {
     inner: B::Service,
 }
 
+type Error = Box<StdError + Send + Sync>;
+
 #[derive(Debug)]
-pub enum Error<E> {
-    Inner(E),
-    WatchError(WatchError),
+struct WatchError(ExternalWatchError);
+
+impl StdError for WatchError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self)
+    }
+}
+
+impl fmt::Display for WatchError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Watch error")
+    }
 }
 
 #[derive(Debug)]
@@ -46,7 +57,7 @@ impl<T, B: Bind<T>> WatchService<T, B> {
 
     /// Checks to see if the watch has been updated and, if so, bind the service.
     fn poll_rebind(&mut self) -> Poll<(), WatchError> {
-        if try_ready!(self.watch.poll()).is_some() {
+        if try_ready!(self.watch.poll().map_err(WatchError)).is_some() {
             let t = self.watch.borrow();
             self.inner = self.bind.bind(&*t);
             Ok(().into())
@@ -60,45 +71,20 @@ impl<T, B: Bind<T>> WatchService<T, B> {
 impl<T, B, Request> Service<Request> for WatchService<T, B>
 where
     B: Bind<T>,
+    <<B as Bind<T>>::Service as Service<Request>>::Error: Into<Error>,
     B::Service: Service<Request>,
 {
     type Response = <B::Service as Service<Request>>::Response;
-    type Error = Error<<B::Service as Service<Request>>::Error>;
+    type Error = Error;
     type Future = ResponseFuture<<B::Service as Service<Request>>::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        let _ = self.poll_rebind().map_err(Error::WatchError)?;
-        self.inner.poll_ready().map_err(Error::Inner)
+        let _ = self.poll_rebind().map_err(|e: WatchError| Box::new(e))?;
+        self.inner.poll_ready().map_err(|e| e.into())
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
         ResponseFuture(self.inner.call(req))
-    }
-}
-
-// ==== impl Error ====
-
-impl<E> fmt::Display for Error<E>
-where
-    E: fmt::Display
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::WatchError(_) => f.pad("watch error"),
-            Error::Inner(e) => fmt::Display::fmt(e, f),
-        }
-    }
-}
-
-impl<E> error::Error for Error<E>
-where
-    E: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match self {
-            Error::WatchError(_) => None,
-            Error::Inner(e) => e.cause(),
-        }
     }
 }
 
@@ -117,12 +103,16 @@ where
 
 // ==== impl ResponseFuture ====
 
-impl<F: Future> Future for ResponseFuture<F> {
+impl<F> Future for ResponseFuture<F>
+where
+    F: Future,
+    F::Error: Into<Error>,
+{
     type Item = F::Item;
-    type Error = Error<F::Error>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(Error::Inner)
+        self.0.poll().map_err(|e| e.into())
     }
 }
 
@@ -132,16 +122,17 @@ impl<F: Future> Future for ResponseFuture<F> {
 mod tests {
     extern crate tokio;
 
-    use futures::future;
     use super::*;
+    use futures::future;
 
     #[test]
     fn rebind() {
+        use tower_service::Service;
         struct Svc(usize);
         impl Service<()> for Svc {
             type Response = usize;
-            type Error = ();
-            type Future = future::FutureResult<usize, ()>;
+            type Error = Error;
+            type Future = future::FutureResult<usize, Self::Error>;
             fn poll_ready(&mut self) -> Poll<(), Self::Error> {
                 Ok(().into())
             }
