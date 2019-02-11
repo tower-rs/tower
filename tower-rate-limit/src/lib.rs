@@ -5,15 +5,15 @@
 
 #[macro_use]
 extern crate futures;
-extern crate tower_service;
 extern crate tokio_timer;
+extern crate tower_service;
 
 use futures::{Future, Poll};
-use tower_service::Service;
 use tokio_timer::Delay;
+use tower_service::Service;
 
-use std::{error::Error, fmt};
 use std::time::{Duration, Instant};
+use std::{error::Error as StdError, fmt};
 
 #[derive(Debug)]
 pub struct RateLimit<T> {
@@ -28,14 +28,16 @@ pub struct Rate {
     per: Duration,
 }
 
+type Error = Box<StdError + Send + Sync>;
+
 /// The request has been rate limited
 ///
 /// TODO: Consider returning the original request
 #[derive(Debug)]
 struct RateLimitError;
 
-impl Error for RateLimitError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for RateLimitError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self)
     }
 }
@@ -54,10 +56,7 @@ pub struct ResponseFuture<T> {
 enum State {
     // The service has hit its limit
     Limited(Delay),
-    Ready {
-        until: Instant,
-        rem: u64,
-    },
+    Ready { until: Instant, rem: u64 },
 }
 
 impl<T> RateLimit<T> {
@@ -111,18 +110,17 @@ impl Rate {
 impl<S, Request> Service<Request> for RateLimit<S>
 where
     S: Service<Request>,
-    S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         match self.state {
             State::Ready { .. } => return Ok(().into()),
             State::Limited(ref mut sleep) => {
-                let res = sleep.poll()
-                    .map_err(|_| RateLimitError);
+                let res = sleep.poll().map_err(|_| RateLimitError);
 
                 try_ready!(res);
             }
@@ -162,9 +160,7 @@ where
                 let inner = Some(self.inner.call(request));
                 ResponseFuture { inner }
             }
-            State::Limited(..) => {
-                ResponseFuture { inner: None }
-            }
+            State::Limited(..) => ResponseFuture { inner: None },
         }
     }
 }
@@ -172,17 +168,15 @@ where
 impl<T> Future for ResponseFuture<T>
 where
     T: Future,
-    T::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    T::Error: Into<Error>,
 {
     type Item = T::Item;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
-            Some(ref mut f) => {
-                f.poll().map_err(|e| e.into())
-            }
-            None => Err(RateLimitError.into())
+            Some(ref mut f) => f.poll().map_err(|e| e.into()),
+            None => Err(RateLimitError.into()),
         }
     }
 }

@@ -8,15 +8,15 @@
 #![cfg_attr(test, deny(warnings))]
 
 extern crate futures;
-extern crate tower_service;
 extern crate tokio_timer;
+extern crate tower_service;
 
-use futures::{Future, Poll, Async};
-use tower_service::Service;
+use futures::{Async, Future, Poll};
 use tokio_timer::{clock, Delay};
+use tower_service::Service;
 
-use std::{error::Error, fmt};
 use std::time::Duration;
+use std::{error::Error as StdError, fmt};
 
 /// Applies a timeout to requests.
 #[derive(Debug)]
@@ -25,11 +25,13 @@ pub struct Timeout<T> {
     timeout: Duration,
 }
 
+type Error = Box<StdError + Send + Sync>;
+
 #[derive(Debug)]
 struct ElapsedTimer;
 
-impl Error for ElapsedTimer {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for ElapsedTimer {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self)
     }
 }
@@ -52,27 +54,21 @@ pub struct ResponseFuture<T> {
 impl<T> Timeout<T> {
     /// Creates a new Timeout
     pub fn new(inner: T, timeout: Duration) -> Self {
-        Timeout {
-            inner,
-            timeout,
-        }
+        Timeout { inner, timeout }
     }
 }
 
 impl<S, Request> Service<Request> for Timeout<S>
 where
     S: Service<Request>,
-    S::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
-            .map_err(|e| {
-                e.into()
-            })
+        self.inner.poll_ready().map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -86,12 +82,12 @@ where
 // ===== impl ResponseFuture =====
 
 impl<T> Future for ResponseFuture<T>
-where 
+where
     T: Future,
-    T::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    T::Error: Into<Error>,
 {
     type Item = T::Item;
-    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // First, try polling the future
