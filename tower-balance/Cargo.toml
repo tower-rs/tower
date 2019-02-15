@@ -10,7 +10,6 @@ log = "0.4.1"
 rand = "0.6"
 tokio-timer = "0.2.4"
 tower-service = { version = "0.2", path = "../tower-service" }
-tower-direct-service = { version = "0.1", path = "../tower-direct-service" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
 indexmap = "1"
 
