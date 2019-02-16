@@ -28,7 +28,6 @@ members = [
   "./",
   "tower-balance",
   "tower-buffer",
-  "tower-direct-service",
   "tower-discover",
   "tower-filter",
   "tower-in-flight-limit",

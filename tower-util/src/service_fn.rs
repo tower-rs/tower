@@ -1,5 +1,4 @@
 use futures::{IntoFuture, Poll};
-use tower_direct_service::DirectService;
 use tower_service::Service;
 
 /// A `Service` implemented by a closure.
@@ -26,32 +25,6 @@ where
     type Future = F::Future;
 
     fn poll_ready(&mut self) -> Poll<(), F::Error> {
-        Ok(().into())
-    }
-
-    fn call(&mut self, req: Request) -> Self::Future {
-        (self.f)(req).into_future()
-    }
-}
-
-impl<T, F, Request> DirectService<Request> for ServiceFn<T>
-where
-    T: Fn(Request) -> F,
-    F: IntoFuture,
-{
-    type Response = F::Item;
-    type Error = F::Error;
-    type Future = F::Future;
-
-    fn poll_ready(&mut self) -> Poll<(), F::Error> {
-        Ok(().into())
-    }
-
-    fn poll_service(&mut self) -> Poll<(), F::Error> {
-        Ok(().into())
-    }
-
-    fn poll_close(&mut self) -> Poll<(), F::Error> {
         Ok(().into())
     }
 
