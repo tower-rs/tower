@@ -23,11 +23,10 @@ where
 pub enum Error<T, U> {
     Service(T),
     Connect(U),
-    NotReady,
 }
 
 pub struct ResponseFuture<F, E> {
-    inner: Option<F>,
+    inner: F,
     _connect_error_marker: PhantomData<fn() -> E>,
 }
 
@@ -135,11 +134,11 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         let service = match self.state {
             State::Connected(ref mut service) => service,
-            _ => return ResponseFuture::new(None),
+            _ => panic!("service not ready; poll_ready must be called first"),
         };
 
         let fut = service.call(request);
-        ResponseFuture::new(Some(fut))
+        ResponseFuture::new(fut)
     }
 }
 
@@ -162,7 +161,7 @@ where
 // ===== impl ResponseFuture =====
 
 impl<F, E> ResponseFuture<F, E> {
-    fn new(inner: Option<F>) -> Self {
+    fn new(inner: F) -> Self {
         ResponseFuture {
             inner,
             _connect_error_marker: PhantomData,
@@ -178,10 +177,7 @@ where
     type Error = Error<F::Error, E>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner {
-            Some(ref mut f) => f.poll().map_err(Error::Service),
-            None => Err(Error::NotReady),
-        }
+        self.inner.poll().map_err(Error::Service)
     }
 }
 
@@ -196,7 +192,6 @@ where
         match *self {
             Error::Service(ref why) => fmt::Display::fmt(why, f),
             Error::Connect(ref why) => write!(f, "connection failed: {}", why),
-            Error::NotReady => f.pad("not ready"),
         }
     }
 }
@@ -210,7 +205,6 @@ where
         match *self {
             Error::Service(ref why) => Some(why),
             Error::Connect(ref why) => Some(why),
-            Error::NotReady => None,
         }
     }
 
@@ -218,7 +212,6 @@ where
         match *self {
             Error::Service(_) => "inner service error",
             Error::Connect(_) => "connection failed",
-            Error::NotReady => "not ready",
         }
     }
 }

@@ -53,7 +53,6 @@ pub struct Balance<D: Discover, C> {
 pub enum Error<T, U> {
     Inner(T),
     Balance(U),
-    NotReady,
 }
 
 pub struct ResponseFuture<F: Future, E>(F, PhantomData<E>);
@@ -357,7 +356,6 @@ where
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
             Error::Balance(ref why) => write!(f, "load balancing failed: {}", why),
-            Error::NotReady => f.pad("not ready"),
         }
     }
 }
@@ -371,7 +369,6 @@ where
         match *self {
             Error::Inner(ref why) => Some(why),
             Error::Balance(ref why) => Some(why),
-            _ => None,
         }
     }
 
@@ -379,7 +376,6 @@ where
         match *self {
             Error::Inner(_) => "inner service error",
             Error::Balance(_) => "load balancing failed",
-            Error::NotReady => "not ready",
         }
     }
 }

@@ -58,8 +58,6 @@ pub enum Error<E> {
     Inner(E),
     /// The underlying `Service` failed. All subsequent requests will fail.
     Closed(Arc<ServiceError<E>>),
-    /// The underlying `Service` is currently at capacity; wait for `poll_ready`.
-    Full,
 }
 
 mod sealed {
@@ -113,7 +111,6 @@ struct State<E> {
 }
 
 enum ResponseState<T, E> {
-    Full,
     Failed(Arc<ServiceError<E>>),
     Rx(oneshot::Receiver<Result<T, Arc<ServiceError<E>>>>),
     Poll(T),
@@ -202,9 +199,7 @@ where
                         state: ResponseState::Failed(self.get_error_on_closed()),
                     }
                 } else {
-                    ResponseFuture {
-                        state: ResponseState::Full,
-                    }
+                    panic!("buffer full; poll_ready must be called first");
                 }
             }
             Ok(_) => ResponseFuture {
@@ -242,9 +237,6 @@ where
             let fut;
 
             match self.state {
-                Full => {
-                    return Err(Error::Full);
-                }
                 Failed(ref e) => {
                     return Err(Error::Closed(e.clone()));
                 }
@@ -433,7 +425,6 @@ where
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
             Error::Closed(ref e) => write!(f, "Service::{} failed: {}", e.method, e.inner),
-            Error::Full => f.pad("Service at capacity"),
         }
     }
 }
@@ -446,7 +437,6 @@ where
         match *self {
             Error::Inner(ref why) => Some(why),
             Error::Closed(ref e) => Some(&e.inner),
-            Error::Full => None,
         }
     }
 
@@ -454,7 +444,6 @@ where
         match *self {
             Error::Inner(ref e) => e.description(),
             Error::Closed(ref e) => e.inner.description(),
-            Error::Full => "Service as capacity",
         }
     }
 }

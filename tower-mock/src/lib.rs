@@ -52,7 +52,6 @@ pub struct ResponseFuture<T, E> {
 #[derive(Debug, PartialEq)]
 pub enum Error<T> {
     Closed,
-    NoCapacity,
     Other(T),
 }
 
@@ -148,9 +147,7 @@ impl<T, U, E> Service<T> for Mock<T, U, E> {
 
         if !self.can_send {
             if state.rem == 0 {
-                return ResponseFuture {
-                    rx: Error::NoCapacity,
-                };
+                panic!("service not ready; poll_ready must be called first");
             }
         }
 
@@ -206,7 +203,17 @@ impl<T, U, E> Clone for Mock<T, U, E> {
 
 impl<T, U, E> Drop for Mock<T, U, E> {
     fn drop(&mut self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = match self.state.lock() {
+            Ok(v) => v,
+            Err(e) => {
+                if ::std::thread::panicking() {
+                    return;
+                }
+
+                panic!("{:?}", e);
+            }
+        };
+
         state.tasks.remove(&self.id);
     }
 }
@@ -252,7 +259,17 @@ impl<T, U, E> Handle<T, U, E> {
 
 impl<T, U, E> Drop for Handle<T, U, E> {
     fn drop(&mut self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = match self.state.lock() {
+            Ok(v) => v,
+            Err(e) => {
+                if ::std::thread::panicking() {
+                    return;
+                }
+
+                panic!("{:?}", e);
+            }
+        };
+
         state.is_closed = true;
 
         for (_, task) in state.tasks.drain() {
@@ -314,7 +331,6 @@ impl<T, E> Future for ResponseFuture<T, E> {
                 Ok(Async::NotReady) => Ok(Async::NotReady),
                 Err(_) => Err(Error::Closed),
             },
-            Error::NoCapacity => Err(Error::NoCapacity),
             Error::Closed => Err(Error::Closed),
         }
     }

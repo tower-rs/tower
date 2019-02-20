@@ -171,20 +171,26 @@ pub trait Service<Request> {
     /// is notified when the service becomes ready again. This function is
     /// expected to be called while on a task.
     ///
-    /// This is a **best effort** implementation. False positives are permitted.
-    /// It is permitted for the service to return `Ready` from a `poll_ready`
-    /// call and the next invocation of `call` results in an error.
+    /// If `Err` is returned, the service is no longer able to service requests
+    /// and the caller should discard the service instance.
+    ///
+    /// Once `poll_ready` returns `Ready`, a request may be dispatched to the
+    /// service using `call`. Until a request is dispatched, repeated calls to
+    /// `poll_ready` must return either `Ready` or `Err`.
     fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
     /// Process the request and return the response asynchronously.
     ///
     /// This function is expected to be callable off task. As such,
-    /// implementations should take care to not call `poll_ready`. If the
-    /// service is at capacity and the request is unable to be handled, the
-    /// returned `Future` should resolve to an error.
+    /// implementations should take care to not call `poll_ready`.
     ///
-    /// Calling `call` without calling `poll_ready` is permitted. The
-    /// implementation must be resilient to this fact.
+    /// Before dispatching a request, `poll_ready` must be called and return
+    /// `Ready`.
+    ///
+    /// # Panics
+    ///
+    /// Implementations are permitted to panic if `call` is invoked without
+    /// obtaining `Ready` from `poll_ready`.
     fn call(&mut self, req: Request) -> Self::Future;
 }
 
