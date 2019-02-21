@@ -137,15 +137,11 @@ where
         use futures::Async::*;
 
         match self.inner.poll() {
-            Ok(Ready(v)) => {
-                Ok(Ready(v))
-            }
+            Ok(Ready(v)) => Ok(Ready(v)),
             Ok(NotReady) => {
                 return Ok(NotReady);
             }
-            Err(e) => {
-                Err(Error::Upstream(e))
-            }
+            Err(e) => Err(Error::Upstream(e)),
         }
     }
 }
