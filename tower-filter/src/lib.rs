@@ -25,7 +25,7 @@ pub struct ResponseFuture<T, S, Request>
 where
     S: Service<Request>,
 {
-    inner: Option<ResponseInner<T, S, Request>>,
+    inner: ResponseInner<T, S, Request>,
 }
 
 #[derive(Debug)]
@@ -47,9 +47,6 @@ pub enum Error<T, U> {
 
     /// The inner service produced an error.
     Inner(U),
-
-    /// The service is out of capacity.
-    NoCapacity,
 }
 
 /// Checks a request
@@ -74,7 +71,7 @@ enum State<Request, U> {
     Check(Request),
     WaitReady(Request),
     WaitResponse(U),
-    NoCapacity,
+    Invalid,
 }
 
 // ===== impl Filter =====
@@ -125,7 +122,7 @@ where
         let rem = self.counts.rem.load(SeqCst);
 
         if rem == 0 {
-            return ResponseFuture { inner: None };
+            panic!("service not ready; poll_ready must be called first");
         }
 
         // Decrement
@@ -141,12 +138,12 @@ where
         let counts = self.counts.clone();
 
         ResponseFuture {
-            inner: Some(ResponseInner {
+            inner: ResponseInner {
                 state: State::Check(request),
                 check,
                 service,
                 counts,
-            }),
+            },
         }
     }
 }
@@ -177,10 +174,7 @@ where
     type Error = Error<T::Error, S::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner {
-            Some(ref mut inner) => inner.poll(),
-            None => Err(Error::NoCapacity),
-        }
+        self.inner.poll()
     }
 }
 
@@ -215,7 +209,7 @@ where
         use self::State::*;
 
         loop {
-            match mem::replace(&mut self.state, NoCapacity) {
+            match mem::replace(&mut self.state, Invalid) {
                 Check(request) => {
                     // Poll predicate
                     match self.check.poll() {
@@ -258,8 +252,8 @@ where
 
                     return ret;
                 }
-                NoCapacity => {
-                    return Err(Error::NoCapacity);
+                Invalid => {
+                    panic!("invalid state");
                 }
             }
         }

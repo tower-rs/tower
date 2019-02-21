@@ -68,6 +68,7 @@ fn basic_service_limit_functionality_with_poll_ready() {
 }
 
 #[test]
+#[should_panic]
 fn basic_service_limit_functionality_without_poll_ready() {
     let mut task = MockTask::new();
 
@@ -112,6 +113,7 @@ fn basic_service_limit_functionality_without_poll_ready() {
 }
 
 #[test]
+#[should_panic]
 fn request_without_capacity() {
     let mut task = MockTask::new();
 

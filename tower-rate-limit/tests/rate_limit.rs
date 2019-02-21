@@ -25,14 +25,11 @@ fn reaching_capacity() {
     let response = rt.block_on(response);
     assert_eq!(response.unwrap(), "world");
 
-    // Sending another request is rejected
-    let response = service.call("no");
-
-    let poll_request = rt.block_on(future::lazy(|| handle.poll_request()));
-    assert!(poll_request.unwrap().is_not_ready());
-
-    let response = rt.block_on(response);
-    assert!(response.is_err());
+    rt.block_on(future::lazy(|| {
+        assert!(service.poll_ready().unwrap().is_not_ready());
+        Ok::<_, ()>(())
+    }))
+    .unwrap();
 
     let poll_request = rt.block_on(future::lazy(|| handle.poll_request()));
     assert!(poll_request.unwrap().is_not_ready());

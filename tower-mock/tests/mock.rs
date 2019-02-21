@@ -35,6 +35,7 @@ fn single_request_ready() {
 }
 
 #[test]
+#[should_panic]
 fn backpressure() {
     let (mut mock, mut handle) = new_mock();
 
@@ -46,15 +47,7 @@ fn backpressure() {
     });
 
     // Try to send a request
-    let response = mock.call("hello?".into());
-
-    // Did not send
-    with_task(|| {
-        assert!(handle.poll_request().unwrap().is_not_ready());
-    });
-
-    // Response is an error
-    assert!(response.wait().is_err());
+    mock.call("hello?".into());
 }
 
 type Mock = tower_mock::Mock<String, String, ()>;

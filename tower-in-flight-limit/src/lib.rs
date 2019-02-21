@@ -22,13 +22,12 @@ pub struct InFlightLimit<T> {
 /// Error returned when the service has reached its limit.
 #[derive(Debug)]
 pub enum Error<T> {
-    NoCapacity,
     Upstream(T),
 }
 
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
-    inner: Option<T>,
+    inner: T,
     shared: Arc<Shared>,
 }
 
@@ -114,15 +113,12 @@ where
         } else {
             // Try to reserve
             if !self.state.shared.reserve() {
-                return ResponseFuture {
-                    inner: None,
-                    shared: self.state.shared.clone(),
-                };
+                panic!("service not ready; call poll_ready first");
             }
         }
 
         ResponseFuture {
-            inner: Some(self.inner.call(request)),
+            inner: self.inner.call(request),
             shared: self.state.shared.clone(),
         }
     }
@@ -140,35 +136,19 @@ where
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use futures::Async::*;
 
-        let res = match self.inner {
-            Some(ref mut f) => match f.poll() {
-                Ok(Ready(v)) => {
-                    self.shared.release();
-                    Ok(Ready(v))
-                }
-                Ok(NotReady) => {
-                    return Ok(NotReady);
-                }
-                Err(e) => {
-                    self.shared.release();
-                    Err(Error::Upstream(e))
-                }
-            },
-            None => Err(Error::NoCapacity),
-        };
-
-        // Drop the inner future
-        self.inner = None;
-
-        res
+        match self.inner.poll() {
+            Ok(Ready(v)) => Ok(Ready(v)),
+            Ok(NotReady) => {
+                return Ok(NotReady);
+            }
+            Err(e) => Err(Error::Upstream(e)),
+        }
     }
 }
 
 impl<T> Drop for ResponseFuture<T> {
     fn drop(&mut self) {
-        if self.inner.is_some() {
-            self.shared.release();
-        }
+        self.shared.release();
     }
 }
 
@@ -238,7 +218,6 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-            Error::NoCapacity => write!(f, "in-flight limit exceeded"),
         }
     }
 }
@@ -248,17 +227,14 @@ where
     T: error::Error,
 {
     fn cause(&self) -> Option<&error::Error> {
-        if let Error::Upstream(ref why) = *self {
-            Some(why)
-        } else {
-            None
+        match *self {
+            Error::Upstream(ref why) => Some(why),
         }
     }
 
     fn description(&self) -> &str {
         match *self {
             Error::Upstream(_) => "upstream service error",
-            Error::NoCapacity => "in-flight limit exceeded",
         }
     }
 }
