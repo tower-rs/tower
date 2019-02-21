@@ -39,24 +39,20 @@ use tower_service::Service;
 /// ```rust
 /// # extern crate futures;
 /// # extern crate tower_service;
-/// # extern crate tower_web;
-/// # #[macro_use] extern crate log;
-/// use tower_service::Service;
-/// use tower_web::middleware::Middleware;
-/// use futures::{Future, Poll};
-///
-/// use std::fmt;
+/// # use tower_service::Service;
+/// # use futures::{Poll, Async};
+/// # use tower_middleware::Middleware;
+/// # use std::fmt;
 ///
 /// pub struct LogMiddleware {
 ///     target: &'static str,
 /// }
 ///
-/// impl<S> Middleware<S> for LogMiddleware
+/// impl<S, Request> Middleware<S, Request> for LogMiddleware
 /// where
-///     S: Service,
-///     S::Request: fmt::Debug,
+///     S: Service<Request>,
+///     Request: fmt::Debug,
 /// {
-///     type Request = S::Request;
 ///     type Response = S::Response;
 ///     type Error = S::Error;
 ///     type Service = LogService<S>;
@@ -75,12 +71,11 @@ use tower_service::Service;
 ///     service: S,
 /// }
 ///
-/// impl<S> Service for LogService<S>
+/// impl<S, Request> Service<Request> for LogService<S>
 /// where
-///     S: Service,
-///     S::Request: fmt::Debug,
+///     S: Service<Request>,
+///     Request: fmt::Debug,
 /// {
-///     type Request = S::Request;
 ///     type Response = S::Response;
 ///     type Error = S::Error;
 ///     type Future = S::Future;
@@ -89,8 +84,9 @@ use tower_service::Service;
 ///         self.service.poll_ready()
 ///     }
 ///
-///     fn call(&mut self, request: Self::Request) -> Self::Future {
-///         info!(target: self.target, "request = {:?}", request);
+///     fn call(&mut self, request: Request) -> Self::Future {
+///         // Insert log statement here or other functionality
+///         println!("request = {:?}, target = {:?}", request, self.target);
 ///         self.service.call(request)
 ///     }
 /// }
@@ -99,10 +95,7 @@ use tower_service::Service;
 /// The above log implementation is decoupled from the underlying protocol and
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
-pub trait Middleware<S> {
-    /// The wrapped service request type
-    type Request;
-
+pub trait Middleware<S, Request> {
     /// The wrapped service response type
     type Response;
 
@@ -110,7 +103,7 @@ pub trait Middleware<S> {
     type Error;
 
     /// The wrapped service
-    type Service: Service<Self::Request, Response = Self::Response, Error = Self::Error>;
+    type Service: Service<Request, Response = Self::Response, Error = Self::Error>;
 
     /// Wrap the given service with the middleware, returning a new service
     /// that has been decorated with the middleware.
