@@ -2,8 +2,10 @@
 //! service.
 
 extern crate futures;
+extern crate tower_middleware;
 extern crate tower_service;
 
+use tower_middleware::Middleware;
 use tower_service::Service;
 
 use futures::task::AtomicTask;
@@ -17,6 +19,11 @@ use std::{error, fmt};
 pub struct InFlightLimit<T> {
     inner: T,
     state: State,
+}
+
+#[derive(Debug, Clone)]
+pub struct InFlightLimitMiddleware {
+    max: usize,
 }
 
 /// Error returned when the service has reached its limit.
@@ -121,6 +128,27 @@ where
             inner: self.inner.call(request),
             shared: self.state.shared.clone(),
         }
+    }
+}
+
+// ===== impl InFlightLimitMiddleware =====
+
+impl InFlightLimitMiddleware {
+    pub fn new(max: usize) -> Self {
+        InFlightLimitMiddleware { max }
+    }
+}
+
+impl<S, Request> Middleware<S, Request> for InFlightLimitMiddleware
+where
+    S: Service<Request>,
+{
+    type Response = S::Response;
+    type Error = Error<S::Error>;
+    type Service = InFlightLimit<S>;
+
+    fn wrap(&self, service: S) -> Self::Service {
+        InFlightLimit::new(service, self.max)
     }
 }
 
