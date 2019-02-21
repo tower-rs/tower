@@ -32,6 +32,7 @@ members = [
   "tower-filter",
   "tower-in-flight-limit",
   "tower-mock",
+  "tower-middleware",
   "tower-rate-limit",
   "tower-reconnect",
   "tower-retry",

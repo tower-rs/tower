@@ -1,0 +1,25 @@
+[package]
+name = "tower-middleware"
+# When releasing to crates.io:
+# - Update html_root_url.
+# - Update documentation URL
+# - Create "v0.x.y" git tag.
+version = "0.1.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tower-rs/tower"
+homepage = "https://github.com/tower-rs/tower"
+documentation = "https://docs.rs/tokio-middleware/0.2.0"
+description = """
+Decorates a `Service`, transforming either the request or the response.
+"""
+categories = ["asynchronous", "network-programming"]
+
+[dependencies]
+futures = "0.1"
+tower-service = { version = "0.2", path = "../tower-service" }
+
+[features]
+default = ["ext"]
+ext = []
