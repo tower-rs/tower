@@ -199,6 +199,13 @@ where
                         state: ResponseState::Failed(self.get_error_on_closed()),
                     }
                 } else {
+                    // When `mpsc::Sender::poll_ready` returns `Ready`, a slot
+                    // in the channel is reserved for the handle. Other `Sender`
+                    // handles may not send a message using that slot. This
+                    // guarantees capacity for `request`.
+                    //
+                    // Given this, the only way to hit this code path is if
+                    // `poll_ready` has not been called & `Ready` returned.
                     panic!("buffer full; poll_ready must be called first");
                 }
             }
