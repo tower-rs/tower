@@ -8,6 +8,7 @@ mod apply;
 mod from_err;
 mod map;
 mod map_err;
+mod oneshot;
 mod ready;
 mod then;
 
@@ -16,6 +17,7 @@ pub use self::apply::Apply;
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;
+pub use self::oneshot::Oneshot;
 pub use self::ready::Ready;
 pub use self::then::Then;
 
@@ -115,5 +117,13 @@ pub trait ServiceExt<Request>: Service<Request> {
         F: Fn(Self::Error) -> E + Clone,
     {
         MapErr::new(self, f)
+    }
+
+    /// Consume this `Service`, calling with the providing request once it is ready.
+    fn oneshot(self, req: Request) -> Oneshot<Self, Request>
+    where
+        Self: Sized,
+    {
+        Oneshot::new(self, req)
     }
 }
