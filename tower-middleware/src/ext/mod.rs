@@ -19,3 +19,5 @@ pub trait MiddlewareExt<S, Request>: Middleware<S, Request> {
         Chain::new(self, middleware)
     }
 }
+
+impl<T, S, Request> MiddlewareExt<S, Request> for T where T: Middleware<S, Request> {}
