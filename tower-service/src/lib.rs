@@ -80,7 +80,7 @@ use futures::{Future, Poll};
 /// println!("Redis response: {:?}", await(resp));
 /// ```
 ///
-/// # Middleware
+/// # Middleware / Layer
 ///
 /// More often than not, all the pieces needed for writing robust, scalable
 /// network applications are the same no matter the underlying protocol. By
@@ -92,6 +92,7 @@ use futures::{Future, Poll};
 ///
 /// ```rust,ignore
 /// use tower_service::Service;
+/// use tower_layer::Layer;
 /// use futures::Future;
 /// use std::time::Duration;
 ///
@@ -102,6 +103,8 @@ use futures::{Future, Poll};
 ///     delay: Duration,
 ///     timer: Timer,
 /// }
+///
+/// pub struct TimeoutLayer(Duration);
 ///
 /// pub struct Expired;
 ///
@@ -137,6 +140,25 @@ use futures::{Future, Poll};
 ///             .map(|(v, _)| v)
 ///             .map_err(|(e, _)| e)
 ///             .boxed()
+///     }
+/// }
+///
+/// impl TimeoutLayer {
+///     pub fn new(delay: Duration) -> Self {
+///         TimeoutLayer(delay)
+///     }
+/// }
+///
+/// impl<S, Request> Layer<S, Request> for TimeoutLayer
+/// where
+///     S: Service<Request>,
+/// {
+///     type Response = S::Response;
+///     type Error = S::Error;
+///     type Service = Timeout<S>;
+///
+///     fn layer(&self, service: S) -> Timeout<S> {
+///         Timeout::new(service, self.0)
 ///     }
 /// }
 ///

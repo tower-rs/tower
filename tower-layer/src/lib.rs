@@ -1,17 +1,12 @@
-//! Layer traits and implementations.
+//! Layer traits and extensions.
 //!
-//! A middleware decorates an service and provides additional functionality.
-//! This additional functionality may include, but is not limited to:
+//! A layer decorates an service and provides additional functionality. It
+//! allows other services to be composed with the service that implements layer.
 //!
-//! * Rejecting the request.
-//! * Taking an action based on the request.
-//! * Mutating the request before passing it along to the application.
-//! * Mutating the response returned by the application.
-//!
-//! A middleware implements the [`Layer`] trait.
+//! A middleware implements the [`Layer`] and [`Service`] trait.
 
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tower-middleware/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
 
 extern crate futures;
 extern crate tower_service;
