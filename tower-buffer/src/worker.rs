@@ -1,4 +1,4 @@
-use error::ServiceError;
+use error::{Error, ServiceError};
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use message::Message;
@@ -16,18 +16,19 @@ use tower_service::Service;
 pub struct Worker<T, Request>
 where
     T: Service<Request>,
+    T::Error: Into<Error>,
 {
-    current_message: Option<Message<Request, T::Future, T::Error>>,
-    rx: mpsc::Receiver<Message<Request, T::Future, T::Error>>,
+    current_message: Option<Message<Request, T::Future>>,
+    rx: mpsc::Receiver<Message<Request, T::Future>>,
     service: T,
     finish: bool,
-    failed: Option<Arc<ServiceError<T::Error>>>,
-    handle: Handle<T::Error>,
+    failed: Option<ServiceError>,
+    handle: Handle,
 }
 
 /// Get the error out
-pub(crate) struct Handle<E> {
-    inner: Arc<Mutex<Option<Arc<ServiceError<E>>>>>,
+pub(crate) struct Handle {
+    inner: Arc<Mutex<Option<ServiceError>>>,
 }
 
 /// This trait allows you to use either Tokio's threaded runtime's executor or the `current_thread`
@@ -35,23 +36,26 @@ pub(crate) struct Handle<E> {
 pub trait WorkerExecutor<T, Request>: Executor<Worker<T, Request>>
 where
     T: Service<Request>,
+    T::Error: Into<Error>,
 {
 }
 
 impl<T, Request, E: Executor<Worker<T, Request>>> WorkerExecutor<T, Request> for E where
-    T: Service<Request>
+    T: Service<Request>,
+    T::Error: Into<Error>,
 {
 }
 
 impl<T, Request> Worker<T, Request>
 where
     T: Service<Request>,
+    T::Error: Into<Error>,
 {
     pub(crate) fn spawn<E>(
         service: T,
-        rx: mpsc::Receiver<Message<Request, T::Future, T::Error>>,
+        rx: mpsc::Receiver<Message<Request, T::Future>>,
         executor: &E,
-    ) -> Result<Handle<T::Error>, T>
+    ) -> Result<Handle, T>
     where
         E: WorkerExecutor<T, Request>,
     {
@@ -75,7 +79,7 @@ where
     }
 
     /// Return the next queued Message that hasn't been canceled.
-    fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future, T::Error>>, ()> {
+    fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future>>, ()> {
         if self.finish {
             // We've already received None and are shutting down
             return Ok(Async::Ready(None));
@@ -114,7 +118,7 @@ where
         // request. We do this by *first* exposing the error, *then* closing the channel used to
         // send more requests (so the client will see the error when the send fails), and *then*
         // sending the error to all outstanding requests.
-        let error = Arc::new(ServiceError::new(method, error));
+        let error = ServiceError::new(method, error.into());
 
         let mut inner = self.handle.inner.lock().unwrap();
 
@@ -138,6 +142,7 @@ where
 impl<T, Request> Future for Worker<T, Request>
 where
     T: Service<Request>,
+    T::Error: Into<Error>,
 {
     type Item = ();
     type Error = ();
@@ -176,8 +181,9 @@ where
                             self.failed("poll_ready", e);
                             let _ = msg.tx.send(Err(self
                                 .failed
-                                .clone()
-                                .expect("Worker::failed did not set self.failed?")));
+                                .as_ref()
+                                .expect("Worker::failed did not set self.failed?")
+                                .clone()));
                         }
                     }
                 }
@@ -200,8 +206,8 @@ where
     }
 }
 
-impl<E> Handle<E> {
-    pub(crate) fn get_error_on_closed(&self) -> Arc<ServiceError<E>> {
+impl Handle {
+    pub(crate) fn get_error_on_closed(&self) -> ServiceError {
         self.inner
             .lock()
             .unwrap()
@@ -211,8 +217,8 @@ impl<E> Handle<E> {
     }
 }
 
-impl<E> Clone for Handle<E> {
-    fn clone(&self) -> Handle<E> {
+impl Clone for Handle {
+    fn clone(&self) -> Handle {
         Handle {
             inner: self.inner.clone(),
         }

@@ -7,6 +7,7 @@ use futures::prelude::*;
 use tower_buffer::*;
 use tower_service::*;
 
+use std::fmt;
 use std::thread;
 
 #[test]
@@ -83,11 +84,13 @@ fn when_inner_is_not_ready() {
 
 #[test]
 fn when_inner_fails() {
+    use std::error::Error as StdError;
+
     let (mut service, mut handle) = new_service();
 
     // Make the service NotReady
     handle.allow(0);
-    handle.error("foobar");
+    handle.error(Error("foobar"));
 
     let mut res1 = service.call("hello");
 
@@ -95,17 +98,41 @@ fn when_inner_fails() {
     ::std::thread::sleep(::std::time::Duration::from_millis(100));
     with_task(|| {
         let e = res1.poll().unwrap_err();
-        if let error::Error::Closed(e) = e {
-            assert!(format!("{:?}", e).contains("poll_ready"));
-            assert_eq!(e.error(), &tower_mock::Error::Other("foobar"));
+        if let Some(e) = e.downcast_ref::<error::ServiceError>() {
+            assert!(format!("{}", e).contains("poll_ready"));
+
+            let e = e.source()
+                .expect("nope 1")
+                .downcast_ref::<tower_mock::Error<Error>>()
+                .expect("nope 1_2");
+
+            match e {
+                tower_mock::Error::Other(e) => assert_eq!(e.0, "foobar"),
+                _ => panic!("unexpected mock error"),
+            }
         } else {
             panic!("unexpected error type: {:?}", e);
         }
     });
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str, &'static str>;
-type Handle = tower_mock::Handle<&'static str, &'static str, &'static str>;
+#[derive(Debug)]
+struct Error(&'static str);
+
+impl fmt::Display for Error {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(fmt)
+    }
+}
+
+impl ::std::error::Error for Error {
+    fn source(&self) -> Option<&(::std::error::Error + 'static)> {
+        None
+    }
+}
+
+type Mock = tower_mock::Mock<&'static str, &'static str, Error>;
+type Handle = tower_mock::Handle<&'static str, &'static str, Error>;
 
 struct Exec;
 

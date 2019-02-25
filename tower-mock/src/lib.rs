@@ -10,6 +10,7 @@ use futures::task::{self, Task};
 use futures::{Async, Future, Poll, Stream};
 
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::{ops, u64};
 
@@ -332,6 +333,32 @@ impl<T, E> Future for ResponseFuture<T, E> {
                 Err(_) => Err(Error::Closed),
             },
             Error::Closed => Err(Error::Closed),
+        }
+    }
+}
+
+// ===== impl Error =====
+
+impl<T> fmt::Display for Error<T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Closed => write!(fmt, "mock service is closed"),
+            Error::Other(e) => e.fmt(fmt),
+        }
+    }
+}
+
+impl<T> std::error::Error for Error<T>
+where
+    T: std::error::Error + 'static,
+{
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Closed => None,
+            Error::Other(e) => Some(e),
         }
     }
 }

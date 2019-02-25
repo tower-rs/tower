@@ -36,13 +36,14 @@ pub struct Buffer<T, Request>
 where
     T: Service<Request>,
 {
-    tx: mpsc::Sender<Message<Request, T::Future, T::Error>>,
-    worker: worker::Handle<T::Error>,
+    tx: mpsc::Sender<Message<Request, T::Future>>,
+    worker: worker::Handle,
 }
 
 impl<T, Request> Buffer<T, Request>
 where
     T: Service<Request>,
+    T::Error: Into<Error>,
 {
     /// Creates a new `Buffer` wrapping `service`.
     ///
@@ -85,16 +86,17 @@ where
 impl<T, Request> Service<Request> for Buffer<T, Request>
 where
     T: Service<Request>,
+    T::Error: Into<Error>,
 {
     type Response = T::Response;
-    type Error = Error<T::Error>;
-    type Future = ResponseFuture<T::Future, T::Error>;
+    type Error = Error;
+    type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
         self.tx
             .poll_ready()
-            .map_err(move |_| Error::Closed(self.worker.get_error_on_closed()))
+            .map_err(move |_| self.worker.get_error_on_closed().into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
