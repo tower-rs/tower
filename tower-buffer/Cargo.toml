@@ -8,7 +8,6 @@ publish = false
 futures = "0.1"
 tower-service = { version = "0.2", path = "../tower-service" }
 tokio-executor = "0.1"
-lazycell = "1.2"
 tokio-sync = "0.1"
 
 [dev-dependencies]

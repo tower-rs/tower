@@ -95,7 +95,7 @@ fn when_inner_fails() {
     ::std::thread::sleep(::std::time::Duration::from_millis(100));
     with_task(|| {
         let e = res1.poll().unwrap_err();
-        if let Error::Closed(e) = e {
+        if let error::Error::Closed(e) = e {
             assert!(format!("{:?}", e).contains("poll_ready"));
             assert_eq!(e.error(), &tower_mock::Error::Other("foobar"));
         } else {
