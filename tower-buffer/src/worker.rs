@@ -8,6 +8,11 @@ use tower_service::Service;
 
 /// Task that handles processing the buffer. This type should not be used
 /// directly, instead `Buffer` requires an `Executor` that can accept this task.
+///
+/// The struct is `pub` in the private module and the type is *not* re-exported
+/// as part of the public API. This is the "sealed" pattern to include "private"
+/// types in public traits that are not meant for consumers of the library to
+/// implement (only call).
 pub struct Worker<T, Request>
 where
     T: Service<Request>,
