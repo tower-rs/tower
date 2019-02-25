@@ -11,7 +11,6 @@ pub struct ResponseFuture<T, E> {
 }
 
 enum ResponseState<T, E> {
-    Full,
     Failed(Arc<ServiceError<E>>),
     Rx(message::Rx<T, E>),
     Poll(T),
@@ -32,12 +31,6 @@ where
             state: ResponseState::Failed(err),
         }
     }
-
-    pub(crate) fn full() -> Self {
-        ResponseFuture {
-            state: ResponseState::Full,
-        }
-    }
 }
 
 impl<T> Future for ResponseFuture<T, T::Error>
@@ -54,9 +47,6 @@ where
             let fut;
 
             match self.state {
-                Full => {
-                    return Err(Error::Full);
-                }
                 Failed(ref e) => {
                     return Err(Error::Closed(e.clone()));
                 }

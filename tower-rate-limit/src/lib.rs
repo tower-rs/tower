@@ -1,7 +1,5 @@
-//! Tower middleware that applies a timeout to requests.
-//!
-//! If the response does not complete within the specified timeout, the response
-//! will be aborted.
+//! A Tower middleware that rate limits the requests that are passed to the
+//! inner service.
 
 #[macro_use]
 extern crate futures;
@@ -38,7 +36,7 @@ pub enum Error<T> {
 }
 
 pub struct ResponseFuture<T> {
-    inner: Option<T>,
+    inner: T,
 }
 
 #[derive(Debug)]
@@ -145,10 +143,10 @@ where
                 }
 
                 // Call the inner future
-                let inner = Some(self.inner.call(request));
+                let inner = self.inner.call(request);
                 ResponseFuture { inner }
             }
-            State::Limited(..) => ResponseFuture { inner: None },
+            State::Limited(..) => panic!("service not ready; poll_ready must be called first"),
         }
     }
 }
@@ -161,10 +159,7 @@ where
     type Error = Error<T::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner {
-            Some(ref mut f) => f.poll().map_err(Error::Upstream),
-            None => Err(Error::RateLimit),
-        }
+        self.inner.poll().map_err(Error::Upstream)
     }
 }
 

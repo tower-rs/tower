@@ -18,10 +18,10 @@ Tower consists of a number of components, each of which live in their own sub
 crates.
 
 * [`tower-service`]: The foundational traits upon which Tower is built
-  ([docs][ts-docs])
+  ([docs][ts-docs]).
 
 * [`tower-balance`]: A load balancer. Load is balanced across a number of
-  services ([docs][tb-docs].
+  services ([docs][tb-docs]).
 
 * [`tower-buffer`]: A buffering middleware. If the inner service is not ready to
   handle the next request, `tower-buffer` stores the request in an internal

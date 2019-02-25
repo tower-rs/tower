@@ -23,8 +23,6 @@ pub enum Error<E> {
     Inner(E),
     /// The underlying `Service` failed. All subsequent requests will fail.
     Closed(Arc<ServiceError<E>>),
-    /// The underlying `Service` is currently at capacity; wait for `poll_ready`.
-    Full,
 }
 
 // ===== impl Error =====
@@ -37,7 +35,6 @@ where
         match *self {
             Error::Inner(ref why) => fmt::Display::fmt(why, f),
             Error::Closed(ref e) => write!(f, "Service::{} failed: {}", e.method, e.inner),
-            Error::Full => f.pad("Service at capacity"),
         }
     }
 }
@@ -50,7 +47,6 @@ where
         match *self {
             Error::Inner(ref why) => Some(why),
             Error::Closed(ref e) => Some(&e.inner),
-            Error::Full => None,
         }
     }
 }
