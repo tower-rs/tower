@@ -12,10 +12,12 @@ extern crate tokio_executor;
 extern crate tokio_sync;
 extern crate tower_service;
 
+pub mod error;
+
+use error::{Error, ServiceError, SpawnError};
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use std::sync::Arc;
-use std::{error, fmt};
 use tokio_executor::DefaultExecutor;
 use tokio_sync::mpsc;
 use tokio_sync::oneshot;
@@ -35,31 +37,6 @@ where
 /// Future eventually completed with the response to the original request.
 pub struct ResponseFuture<T, E> {
     state: ResponseState<T, E>,
-}
-
-/// An error produced by a `Service` wrapped by a `Buffer`
-#[derive(Debug)]
-pub struct ServiceError<E> {
-    method: &'static str,
-    inner: E,
-}
-
-impl<E> ServiceError<E> {
-    /// The error produced by the `Service` when `method` was called.
-    pub fn error(&self) -> &E {
-        &self.inner
-    }
-}
-
-/// Errors produced by `Buffer`.
-#[derive(Debug)]
-pub enum Error<E> {
-    /// The `Service` call errored.
-    Inner(E),
-    /// The underlying `Service` failed. All subsequent requests will fail.
-    Closed(Arc<ServiceError<E>>),
-    /// The underlying `Service` is currently at capacity; wait for `poll_ready`.
-    Full,
 }
 
 mod sealed {
@@ -92,12 +69,6 @@ where
 impl<T, Request, E: Executor<sealed::Worker<T, Request>>> WorkerExecutor<T, Request> for E where
     T: Service<Request>
 {
-}
-
-/// Error produced when spawning the worker fails
-#[derive(Debug)]
-pub struct SpawnError<T> {
-    inner: T,
 }
 
 /// Message sent over buffer
@@ -160,7 +131,7 @@ where
 
         match Worker::spawn(service, rx, state.clone(), executor) {
             Ok(()) => Ok(Buffer { tx, state: state }),
-            Err(service) => Err(SpawnError { inner: service }),
+            Err(service) => Err(SpawnError::new(service)),
         }
     }
 
@@ -341,10 +312,8 @@ where
         // request. We do this by *first* exposing the error, *then* closing the channel used to
         // send more requests (so the client will see the error when the send fails), and *then*
         // sending the error to all outstanding requests.
-        let error = Arc::new(ServiceError {
-            method,
-            inner: error,
-        });
+        let error = Arc::new(ServiceError::new(method, error));
+
         if let Err(_) = self.state.err.fill(error.clone()) {
             // Future::poll was called after we've already errored out!
             return;
@@ -420,65 +389,5 @@ where
                 }
             }
         }
-    }
-}
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Inner(ref why) => fmt::Display::fmt(why, f),
-            Error::Closed(ref e) => write!(f, "Service::{} failed: {}", e.method, e.inner),
-            Error::Full => f.pad("Service at capacity"),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Inner(ref why) => Some(why),
-            Error::Closed(ref e) => Some(&e.inner),
-            Error::Full => None,
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Inner(ref e) => e.description(),
-            Error::Closed(ref e) => e.inner.description(),
-            Error::Full => "Service as capacity",
-        }
-    }
-}
-
-// ===== impl SpawnError =====
-
-impl<T> fmt::Display for SpawnError<T>
-where
-    T: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "error spawning buffer task: {:?}", self.inner)
-    }
-}
-
-impl<T> error::Error for SpawnError<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        Some(&self.inner)
-    }
-
-    fn description(&self) -> &str {
-        "error spawning buffer task"
     }
 }
