@@ -2,10 +2,12 @@
 //! a predicate.
 
 extern crate futures;
+extern crate tower_layer;
 extern crate tower_service;
 
 use futures::task::AtomicTask;
 use futures::{Async, Future, IntoFuture, Poll};
+use tower_layer::Layer;
 use tower_service::Service;
 
 use std::sync::atomic::AtomicUsize;
@@ -19,6 +21,11 @@ pub struct Filter<T, U> {
     predicate: U,
     // Tracks the number of in-flight requests
     counts: Arc<Counts>,
+}
+
+pub struct FilterLayer<U> {
+    predicate: U,
+    buffer: usize,
 }
 
 pub struct ResponseFuture<T, S, Request>
@@ -72,6 +79,29 @@ enum State<Request, U> {
     WaitReady(Request),
     WaitResponse(U),
     Invalid,
+}
+
+// ===== impl Filter =====
+
+impl<U> FilterLayer<U> {
+    pub fn new(predicate: U, buffer: usize) -> Self {
+        FilterLayer { predicate, buffer }
+    }
+}
+
+impl<U, S, Request> Layer<S, Request> for FilterLayer<U>
+where
+    U: Predicate<Request> + Clone,
+    S: Service<Request> + Clone,
+{
+    type Response = S::Response;
+    type Error = Error<U::Error, S::Error>;
+    type Service = Filter<S, U>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        let predicate = self.predicate.clone();
+        Filter::new(service, predicate, self.buffer)
+    }
 }
 
 // ===== impl Filter =====
