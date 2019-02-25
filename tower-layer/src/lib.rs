@@ -41,7 +41,7 @@ use tower_service::Service;
 /// # extern crate tower_service;
 /// # use tower_service::Service;
 /// # use futures::{Poll, Async};
-/// # use tower_middleware::Layer;
+/// # use tower_layer::Layer;
 /// # use std::fmt;
 ///
 /// pub struct LogLayer {
