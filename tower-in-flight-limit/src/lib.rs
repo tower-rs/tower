@@ -2,10 +2,10 @@
 //! service.
 
 extern crate futures;
-extern crate tower_middleware;
+extern crate tower_layer;
 extern crate tower_service;
 
-use tower_middleware::Layer;
+use tower_layer::Layer;
 use tower_service::Service;
 
 use futures::task::AtomicTask;

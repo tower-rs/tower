@@ -1,5 +1,5 @@
 [package]
-name = "tower-middleware"
+name = "tower-layer"
 # When releasing to crates.io:
 # - Update html_root_url.
 # - Update documentation URL
@@ -10,9 +10,9 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tokio-middleware/0.1.0"
+documentation = "https://docs.rs/tokio-layer/0.1.0"
 description = """
-Decorates a `Service`, transforming either the request or the response.
+Decorates a `Service` to allow easy composition between `Service`s.
 """
 categories = ["asynchronous", "network-programming"]
 
