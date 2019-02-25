@@ -243,8 +243,7 @@ impl fmt::Display for DiscoError {
     }
 }
 
-impl std::error::Error for DiscoError {
-}
+impl std::error::Error for DiscoError {}
 
 type DemoService<D, C> = InFlightLimit<Buffer<lb::Balance<D, C>, Req>>;
 
@@ -327,7 +326,10 @@ where
 
 pub struct Errify<T>(T);
 
-impl<T, Request> Service<Request> for Errify<T> where T: Service<Request> {
+impl<T, Request> Service<Request> for Errify<T>
+where
+    T: Service<Request>,
+{
     type Response = T::Response;
     type Error = DiscoError;
     type Future = Errify<T::Future>;
