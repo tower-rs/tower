@@ -1,7 +1,7 @@
 use error::ServiceError;
-use message::Message;
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
+use message::Message;
 use std::sync::{Arc, Mutex};
 use tokio_sync::mpsc;
 use tower_service::Service;
@@ -50,7 +50,9 @@ where
     where
         E: WorkerExecutor<T, Request>,
     {
-        let handle = Handle { inner: Arc::new(Mutex::new(None)) };
+        let handle = Handle {
+            inner: Arc::new(Mutex::new(None)),
+        };
 
         let worker = Worker {
             current_message: None,
@@ -195,7 +197,9 @@ where
 
 impl<E> Handle<E> {
     pub(crate) fn get_error_on_closed(&self) -> Arc<ServiceError<E>> {
-        self.inner.lock().unwrap()
+        self.inner
+            .lock()
+            .unwrap()
             .as_ref()
             .expect("Worker exited, but did not set error.")
             .clone()
@@ -204,6 +208,8 @@ impl<E> Handle<E> {
 
 impl<E> Clone for Handle<E> {
     fn clone(&self) -> Handle<E> {
-        Handle { inner: self.inner.clone() }
+        Handle {
+            inner: self.inner.clone(),
+        }
     }
 }

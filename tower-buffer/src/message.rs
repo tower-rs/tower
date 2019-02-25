@@ -1,6 +1,6 @@
 use error::ServiceError;
-use tokio_sync::oneshot;
 use std::sync::Arc;
+use tokio_sync::oneshot;
 
 /// Message sent over buffer
 #[derive(Debug)]

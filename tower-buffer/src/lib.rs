@@ -19,8 +19,8 @@ mod worker;
 pub use worker::WorkerExecutor;
 
 use error::{Error, SpawnError};
-use message::Message;
 use future::ResponseFuture;
+use message::Message;
 use worker::Worker;
 
 use futures::Poll;
