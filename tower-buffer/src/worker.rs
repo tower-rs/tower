@@ -2,10 +2,9 @@ use error::ServiceError;
 use message::Message;
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio_sync::mpsc;
 use tower_service::Service;
-use State;
 
 /// Task that handles processing the buffer. This type should not be used
 /// directly, instead `Buffer` requires an `Executor` that can accept this task.
@@ -18,7 +17,12 @@ where
     service: T,
     finish: bool,
     failed: Option<Arc<ServiceError<T::Error>>>,
-    state: Arc<State<T::Error>>,
+    handle: Handle<T::Error>,
+}
+
+/// Get the error out
+pub(crate) struct Handle<E> {
+    inner: Arc<Mutex<Option<Arc<ServiceError<E>>>>>,
 }
 
 /// This trait allows you to use either Tokio's threaded runtime's executor or the `current_thread`
@@ -41,23 +45,24 @@ where
     pub(crate) fn spawn<E>(
         service: T,
         rx: mpsc::Receiver<Message<Request, T::Future, T::Error>>,
-        state: Arc<State<T::Error>>,
         executor: &E,
-    ) -> Result<(), T>
+    ) -> Result<Handle<T::Error>, T>
     where
         E: WorkerExecutor<T, Request>,
     {
+        let handle = Handle { inner: Arc::new(Mutex::new(None)) };
+
         let worker = Worker {
             current_message: None,
             finish: false,
             failed: None,
             rx,
             service,
-            state,
+            handle: handle.clone(),
         };
 
         match executor.execute(worker) {
-            Ok(()) => Ok(()),
+            Ok(()) => Ok(handle),
             Err(err) => Err(err.into_future().service),
         }
     }
@@ -104,10 +109,16 @@ where
         // sending the error to all outstanding requests.
         let error = Arc::new(ServiceError::new(method, error));
 
-        if let Err(_) = self.state.err.fill(error.clone()) {
+        let mut inner = self.handle.inner.lock().unwrap();
+
+        if inner.is_some() {
             // Future::poll was called after we've already errored out!
             return;
         }
+
+        *inner = Some(error.clone());
+        drop(inner);
+
         self.rx.close();
 
         // By closing the mpsc::Receiver, we know that poll_next_msg will soon return Ready(None),
@@ -179,5 +190,20 @@ where
                 }
             }
         }
+    }
+}
+
+impl<E> Handle<E> {
+    pub(crate) fn get_error_on_closed(&self) -> Arc<ServiceError<E>> {
+        self.inner.lock().unwrap()
+            .as_ref()
+            .expect("Worker exited, but did not set error.")
+            .clone()
+    }
+}
+
+impl<E> Clone for Handle<E> {
+    fn clone(&self) -> Handle<E> {
+        Handle { inner: self.inner.clone() }
     }
 }

@@ -7,7 +7,6 @@
 
 #[macro_use]
 extern crate futures;
-extern crate lazycell;
 extern crate tokio_executor;
 extern crate tokio_sync;
 extern crate tower_service;
@@ -19,13 +18,12 @@ mod worker;
 
 pub use worker::WorkerExecutor;
 
-use error::{Error, ServiceError, SpawnError};
+use error::{Error, SpawnError};
 use message::Message;
 use future::ResponseFuture;
 use worker::Worker;
 
 use futures::Poll;
-use std::sync::Arc;
 use tokio_executor::DefaultExecutor;
 use tokio_sync::mpsc;
 use tokio_sync::oneshot;
@@ -39,12 +37,7 @@ where
     T: Service<Request>,
 {
     tx: mpsc::Sender<Message<Request, T::Future, T::Error>>,
-    state: Arc<State<T::Error>>,
-}
-
-/// State shared between `Buffer` and `Worker`
-struct State<E> {
-    err: lazycell::AtomicLazyCell<Arc<ServiceError<E>>>,
+    worker: worker::Handle<T::Error>,
 }
 
 impl<T, Request> Buffer<T, Request>
@@ -82,22 +75,10 @@ where
     {
         let (tx, rx) = mpsc::channel(bound);
 
-        let state = Arc::new(State {
-            err: lazycell::AtomicLazyCell::new(),
-        });
-
-        match Worker::spawn(service, rx, state.clone(), executor) {
-            Ok(()) => Ok(Buffer { tx, state: state }),
+        match Worker::spawn(service, rx, executor) {
+            Ok(worker) => Ok(Buffer { tx, worker }),
             Err(service) => Err(SpawnError::new(service)),
         }
-    }
-
-    fn get_error_on_closed(&self) -> Arc<ServiceError<T::Error>> {
-        self.state
-            .err
-            .borrow()
-            .cloned()
-            .expect("Worker exited, but did not set error.")
     }
 }
 
@@ -113,7 +94,7 @@ where
         // If the inner service has errored, then we error here.
         self.tx
             .poll_ready()
-            .map_err(move |_| Error::Closed(self.get_error_on_closed()))
+            .map_err(move |_| Error::Closed(self.worker.get_error_on_closed()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -126,7 +107,7 @@ where
         match self.tx.try_send(Message { request, tx }) {
             Err(e) => {
                 if e.is_closed() {
-                    ResponseFuture::failed(self.get_error_on_closed())
+                    ResponseFuture::failed(self.worker.get_error_on_closed())
                 } else {
                     ResponseFuture::full()
                 }
@@ -143,7 +124,7 @@ where
     fn clone(&self) -> Self {
         Self {
             tx: self.tx.clone(),
-            state: self.state.clone(),
+            worker: self.worker.clone(),
         }
     }
 }
