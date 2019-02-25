@@ -68,7 +68,7 @@ where
     type Error = Error<S::Error>;
     type Service = RateLimit<S>;
 
-    fn wrap(&self, service: S) -> Self::Service {
+    fn layer(&self, service: S) -> Self::Service {
         RateLimit::new(service, self.rate)
     }
 }

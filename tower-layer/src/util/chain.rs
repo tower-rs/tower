@@ -27,7 +27,7 @@ where
     type Error = Outer::Error;
     type Service = Outer::Service;
 
-    fn wrap(&self, service: S) -> Self::Service {
+    fn layer(&self, service: S) -> Self::Service {
         self.outer.wrap(self.inner.wrap(service))
     }
 }

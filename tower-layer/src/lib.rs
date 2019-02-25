@@ -57,7 +57,7 @@ use tower_service::Service;
 ///     type Error = S::Error;
 ///     type Service = LogService<S>;
 ///
-///     fn wrap(&self, service: S) -> LogService<S> {
+///     fn layer(&self, service: S) -> LogService<S> {
 ///         LogService {
 ///             target: self.target,
 ///             service
@@ -107,5 +107,5 @@ pub trait Layer<S, Request> {
 
     /// Wrap the given service with the middleware, returning a new service
     /// that has been decorated with the middleware.
-    fn wrap(&self, inner: S) -> Self::Service;
+    fn layer(&self, inner: S) -> Self::Service;
 }

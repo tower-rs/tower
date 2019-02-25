@@ -147,7 +147,7 @@ where
     type Error = Error<S::Error>;
     type Service = InFlightLimit<S>;
 
-    fn wrap(&self, service: S) -> Self::Service {
+    fn layer(&self, service: S) -> Self::Service {
         InFlightLimit::new(service, self.max)
     }
 }
