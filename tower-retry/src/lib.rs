@@ -7,9 +7,11 @@
 #[macro_use]
 extern crate futures;
 extern crate tokio_timer;
+extern crate tower_layer;
 extern crate tower_service;
 
 use futures::{Async, Future, Poll};
+use tower_layer::Layer;
 use tower_service::Service;
 
 pub mod budget;
@@ -89,6 +91,12 @@ pub struct Retry<P, S> {
     service: S,
 }
 
+/// Retry requests based on a policy
+#[derive(Debug)]
+pub struct RetryLayer<P> {
+    policy: P,
+}
+
 /// The `Future` returned by a `Retry` service.
 #[derive(Debug)]
 pub struct ResponseFuture<P, S, Request>
@@ -109,6 +117,30 @@ enum State<F, P, R, E> {
     Checking(P, Option<Result<R, E>>),
     /// Polling `Service::poll_ready` after `Checking` was OK.
     Retrying,
+}
+
+// ===== impl RetryLayer =====
+
+impl<P> RetryLayer<P> {
+    /// Create a new `RetryLayer` from a retry policy
+    pub fn new(policy: P) -> Self {
+        RetryLayer { policy }
+    }
+}
+
+impl<P, S, Request> Layer<S, Request> for RetryLayer<P>
+where
+    S: Service<Request> + Clone,
+    P: Policy<Request, S::Response, S::Error> + Clone,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Service = Retry<P, S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        let policy = self.policy.clone();
+        Retry::new(policy, service)
+    }
 }
 
 // ===== impl Retry =====
