@@ -1,11 +1,11 @@
-# Tower Middleware
+# Tower Layer
 
 Decorates a `Service`, transforming either the request or the response.
 
 ## Overview
 
 Often, many of the pieces needed for writing network applications can be
-reused across multiple services. The `Middleware` trait can be used to write
+reused across multiple services. The `Layer` trait can be used to write
 reusable components that can be applied to very different kinds of services;
 for example, it can be applied to services operating on different protocols,
 and to both the client and server side of a network transaction.

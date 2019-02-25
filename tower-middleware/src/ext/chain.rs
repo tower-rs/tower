@@ -1,9 +1,9 @@
 use tower_service::Service;
-use Middleware;
+use Layer;
 
 /// Two middlewares chained together.
 ///
-/// This type is produced by `Middleware::chain`.
+/// This type is produced by `Layer::chain`.
 #[derive(Debug)]
 pub struct Chain<Inner, Outer> {
     inner: Inner,
@@ -17,11 +17,11 @@ impl<Inner, Outer> Chain<Inner, Outer> {
     }
 }
 
-impl<S, Request, Inner, Outer> Middleware<S, Request> for Chain<Inner, Outer>
+impl<S, Request, Inner, Outer> Layer<S, Request> for Chain<Inner, Outer>
 where
     S: Service<Request>,
-    Inner: Middleware<S, Request>,
-    Outer: Middleware<Inner::Service, Request>,
+    Inner: Layer<S, Request>,
+    Outer: Layer<Inner::Service, Request>,
 {
     type Response = Outer::Response;
     type Error = Outer::Error;

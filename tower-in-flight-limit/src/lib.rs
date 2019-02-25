@@ -5,7 +5,7 @@ extern crate futures;
 extern crate tower_middleware;
 extern crate tower_service;
 
-use tower_middleware::Middleware;
+use tower_middleware::Layer;
 use tower_service::Service;
 
 use futures::task::AtomicTask;
@@ -22,7 +22,7 @@ pub struct InFlightLimit<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct InFlightLimitMiddleware {
+pub struct InFlightLimitLayer {
     max: usize,
 }
 
@@ -131,15 +131,15 @@ where
     }
 }
 
-// ===== impl InFlightLimitMiddleware =====
+// ===== impl InFlightLimitLayer =====
 
-impl InFlightLimitMiddleware {
+impl InFlightLimitLayer {
     pub fn new(max: usize) -> Self {
-        InFlightLimitMiddleware { max }
+        InFlightLimitLayer { max }
     }
 }
 
-impl<S, Request> Middleware<S, Request> for InFlightLimitMiddleware
+impl<S, Request> Layer<S, Request> for InFlightLimitLayer
 where
     S: Service<Request>,
 {

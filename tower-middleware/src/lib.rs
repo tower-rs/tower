@@ -1,4 +1,4 @@
-//! Middleware traits and implementations.
+//! Layer traits and implementations.
 //!
 //! A middleware decorates an service and provides additional functionality.
 //! This additional functionality may include, but is not limited to:
@@ -8,7 +8,7 @@
 //! * Mutating the request before passing it along to the application.
 //! * Mutating the response returned by the application.
 //!
-//! A middleware implements the [`Middleware`] trait.
+//! A middleware implements the [`Layer`] trait.
 
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/tower-middleware/0.1.0")]
@@ -20,14 +20,14 @@ extern crate tower_service;
 mod ext;
 
 #[cfg(feature = "ext")]
-pub use ext::{Chain, MiddlewareExt};
+pub use ext::{Chain, LayerExt};
 
 use tower_service::Service;
 
 /// Decorates a `Service`, transforming either the request or the response.
 ///
 /// Often, many of the pieces needed for writing network applications can be
-/// reused across multiple services. The `Middleware` trait can be used to write
+/// reused across multiple services. The `Layer` trait can be used to write
 /// reusable components that can be applied to very different kinds of services;
 /// for example, it can be applied to services operating on different protocols,
 /// and to both the client and server side of a network transaction.
@@ -41,14 +41,14 @@ use tower_service::Service;
 /// # extern crate tower_service;
 /// # use tower_service::Service;
 /// # use futures::{Poll, Async};
-/// # use tower_middleware::Middleware;
+/// # use tower_middleware::Layer;
 /// # use std::fmt;
 ///
-/// pub struct LogMiddleware {
+/// pub struct LogLayer {
 ///     target: &'static str,
 /// }
 ///
-/// impl<S, Request> Middleware<S, Request> for LogMiddleware
+/// impl<S, Request> Layer<S, Request> for LogLayer
 /// where
 ///     S: Service<Request>,
 ///     Request: fmt::Debug,
@@ -95,7 +95,7 @@ use tower_service::Service;
 /// The above log implementation is decoupled from the underlying protocol and
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
-pub trait Middleware<S, Request> {
+pub trait Layer<S, Request> {
     /// The wrapped service response type
     type Response;
 
