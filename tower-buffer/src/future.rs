@@ -1,7 +1,9 @@
+//! Future types
+
 use error::{Error, ServiceError};
 use futures::{Async, Future, Poll};
+use message;
 use std::sync::Arc;
-use tokio_sync::oneshot;
 
 /// Future eventually completed with the response to the original request.
 pub struct ResponseFuture<T, E> {
@@ -11,7 +13,7 @@ pub struct ResponseFuture<T, E> {
 enum ResponseState<T, E> {
     Full,
     Failed(Arc<ServiceError<E>>),
-    Rx(oneshot::Receiver<Result<T, Arc<ServiceError<E>>>>),
+    Rx(message::Rx<T, E>),
     Poll(T),
 }
 
@@ -19,7 +21,7 @@ impl<T> ResponseFuture<T, T::Error>
 where
     T: Future,
 {
-    pub(crate) fn new(rx: oneshot::Receiver<Result<T, Arc<ServiceError<T::Error>>>>) -> Self {
+    pub(crate) fn new(rx: message::Rx<T, T::Error>) -> Self {
         ResponseFuture {
             state: ResponseState::Rx(rx),
         }

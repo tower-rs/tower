@@ -1,10 +1,11 @@
 use error::ServiceError;
+use message::Message;
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use std::sync::Arc;
 use tokio_sync::mpsc;
 use tower_service::Service;
-use {Message, State};
+use State;
 
 /// Task that handles processing the buffer. This type should not be used
 /// directly, instead `Buffer` requires an `Executor` that can accept this task.

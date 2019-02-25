@@ -14,11 +14,13 @@ extern crate tower_service;
 
 pub mod error;
 pub mod future;
+mod message;
 mod worker;
 
 pub use worker::WorkerExecutor;
 
 use error::{Error, ServiceError, SpawnError};
+use message::Message;
 use future::ResponseFuture;
 use worker::Worker;
 
@@ -38,13 +40,6 @@ where
 {
     tx: mpsc::Sender<Message<Request, T::Future, T::Error>>,
     state: Arc<State<T::Error>>,
-}
-
-/// Message sent over buffer
-#[derive(Debug)]
-struct Message<Request, Fut, E> {
-    request: Request,
-    tx: oneshot::Sender<Result<Fut, Arc<ServiceError<E>>>>,
 }
 
 /// State shared between `Buffer` and `Worker`
