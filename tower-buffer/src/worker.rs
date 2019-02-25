@@ -40,7 +40,8 @@ where
 {
 }
 
-impl<T, Request, E: Executor<Worker<T, Request>>> WorkerExecutor<T, Request> for E where
+impl<T, Request, E: Executor<Worker<T, Request>>> WorkerExecutor<T, Request> for E
+where
     T: Service<Request>,
     T::Error: Into<Error>,
 {

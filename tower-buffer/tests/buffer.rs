@@ -101,7 +101,8 @@ fn when_inner_fails() {
         if let Some(e) = e.downcast_ref::<error::ServiceError>() {
             assert!(format!("{}", e).contains("poll_ready"));
 
-            let e = e.source()
+            let e = e
+                .source()
                 .expect("nope 1")
                 .downcast_ref::<tower_mock::Error<Error>>()
                 .expect("nope 1_2");
