@@ -25,6 +25,7 @@ use message::Message;
 use worker::Worker;
 
 use futures::Poll;
+use std::marker::PhantomData;
 use tokio_executor::DefaultExecutor;
 use tokio_sync::mpsc;
 use tokio_sync::oneshot;
@@ -43,29 +44,50 @@ where
 }
 
 /// Buffer requests with a bounded buffer
-pub struct BufferLayer {
+pub struct BufferLayer<E, S, Request> {
     bound: usize,
+    executor: E,
+    _pd: PhantomData<(S, Request)>,
 }
 
-impl BufferLayer {
+impl<S, Request> BufferLayer<DefaultExecutor, S, Request> {
     pub fn new(bound: usize) -> Self {
-        BufferLayer { bound }
+        BufferLayer {
+            bound,
+            executor: DefaultExecutor::current(),
+            _pd: PhantomData,
+        }
     }
 }
 
-impl<S, Request> Layer<S, Request> for BufferLayer
+impl<E, S, Request> BufferLayer<E, S, Request>
+where
+    S: Service<Request>,
+    E: WorkerExecutor<S, Request>,
+{
+    pub fn with_executor(bound: usize, executor: E) -> Self {
+        BufferLayer {
+            bound,
+            executor,
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<E, S, Request> Layer<S, Request> for BufferLayer<E, S, Request>
 where
     Request: Send + 'static,
     S: Service<Request> + Send + 'static,
     S::Future: Send,
     S::Error: Send + Sync,
+    E: WorkerExecutor<S, Request>,
 {
     type Response = S::Response;
     type Error = Error<S::Error>;
     type Service = Buffer<S, Request>;
 
     fn layer(&self, service: S) -> Self::Service {
-        match Buffer::new(service, self.bound) {
+        match Buffer::with_executor(service, self.bound, &self.executor) {
             Ok(b) => b,
             Err(_) => panic!("Unable to spawn task on the default executor"),
         }
