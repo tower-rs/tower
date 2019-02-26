@@ -44,13 +44,13 @@ where
 }
 
 /// Buffer requests with a bounded buffer
-pub struct BufferLayer<E, S, Request> {
+pub struct BufferLayer<S, Request, E = DefaultExecutor> {
     bound: usize,
     executor: E,
     _pd: PhantomData<(S, Request)>,
 }
 
-impl<S, Request> BufferLayer<DefaultExecutor, S, Request> {
+impl<S, Request> BufferLayer<S, Request, DefaultExecutor> {
     pub fn new(bound: usize) -> Self {
         BufferLayer {
             bound,
@@ -60,7 +60,7 @@ impl<S, Request> BufferLayer<DefaultExecutor, S, Request> {
     }
 }
 
-impl<E, S, Request> BufferLayer<E, S, Request>
+impl<E, S, Request> BufferLayer<S, Request, E>
 where
     S: Service<Request>,
     E: WorkerExecutor<S, Request>,
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<E, S, Request> Layer<S, Request> for BufferLayer<E, S, Request>
+impl<E, S, Request> Layer<S, Request> for BufferLayer<S, Request, E>
 where
     S: Service<Request>,
     E: WorkerExecutor<S, Request>,
