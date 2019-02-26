@@ -18,6 +18,7 @@ use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrsample::Histogram;
 use rand::Rng;
 use std::collections::VecDeque;
+use std::fmt;
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
 use tower_balance as lb;
@@ -104,9 +105,9 @@ where
     D: Discover + Send + 'static,
     D::Key: Send,
     D::Service: Service<Req, Response = Rsp> + Send,
-    D::Error: Send + Sync,
+    D::Error: ::std::error::Error + Send + Sync + 'static,
     <D::Service as Service<Req>>::Future: Send,
-    <D::Service as Service<Req>>::Error: Send + Sync,
+    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     println!("{}", name);
@@ -217,14 +218,14 @@ impl Future for Delay {
 
 impl Discover for Disco {
     type Key = usize;
-    type Error = ();
-    type Service = InFlightLimit<Buffer<DelayService, Req>>;
+    type Error = DiscoError;
+    type Service = Errify<InFlightLimit<Buffer<DelayService, Req>>>;
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.changes.pop_front() {
             Some(Change::Insert(k, svc)) => {
                 let svc = Buffer::new(svc, 0).unwrap();
-                let svc = InFlightLimit::new(svc, ENDPOINT_CAPACITY);
+                let svc = Errify(InFlightLimit::new(svc, ENDPOINT_CAPACITY));
                 Ok(Async::Ready(Change::Insert(k, svc)))
             }
             Some(Change::Remove(k)) => Ok(Async::Ready(Change::Remove(k))),
@@ -233,12 +234,25 @@ impl Discover for Disco {
     }
 }
 
+#[derive(Debug)]
+pub struct DiscoError;
+
+impl fmt::Display for DiscoError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "discovery error")
+    }
+}
+
+impl std::error::Error for DiscoError {}
+
 type DemoService<D, C> = InFlightLimit<Buffer<lb::Balance<D, C>, Req>>;
 
 struct SendRequests<D, C>
 where
     D: Discover,
+    D::Error: ::std::error::Error + Send + Sync + 'static,
     D::Service: Service<Req>,
+    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
     C: lb::Choose<D::Key, D::Service>,
 {
     send_remaining: usize,
@@ -249,7 +263,9 @@ where
 impl<D, C> SendRequests<D, C>
 where
     D: Discover + Send + 'static,
+    D::Error: ::std::error::Error + Send + Sync + 'static,
     D::Service: Service<Req>,
+    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
     D::Key: Send,
     D::Service: Send,
     D::Error: Send + Sync,
@@ -269,7 +285,9 @@ where
 impl<D, C> Stream for SendRequests<D, C>
 where
     D: Discover,
+    D::Error: ::std::error::Error + Send + Sync + 'static,
     D::Service: Service<Req>,
+    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
     C: lb::Choose<D::Key, D::Service>,
 {
     type Item = <DemoService<D, C> as Service<Req>>::Response;
@@ -303,5 +321,33 @@ where
         }
 
         Ok(Async::Ready(None))
+    }
+}
+
+pub struct Errify<T>(T);
+
+impl<T, Request> Service<Request> for Errify<T>
+where
+    T: Service<Request>,
+{
+    type Response = T::Response;
+    type Error = DiscoError;
+    type Future = Errify<T::Future>;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        self.0.poll_ready().map_err(|_| DiscoError)
+    }
+
+    fn call(&mut self, request: Request) -> Self::Future {
+        Errify(self.0.call(request))
+    }
+}
+
+impl<T: Future> Future for Errify<T> {
+    type Item = T::Item;
+    type Error = DiscoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll().map_err(|_| DiscoError)
     }
 }
