@@ -12,10 +12,10 @@ extern crate futures;
 extern crate tower_service;
 
 #[cfg(feature = "util")]
-mod util;
+pub mod util;
 
 #[cfg(feature = "util")]
-pub use util::{Chain, LayerExt};
+pub use util::LayerExt;
 
 use tower_service::Service;
 
