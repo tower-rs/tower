@@ -76,10 +76,7 @@ where
 
 impl<E, S, Request> Layer<S, Request> for BufferLayer<E, S, Request>
 where
-    Request: Send + 'static,
-    S: Service<Request> + Send + 'static,
-    S::Future: Send,
-    S::Error: Send + Sync,
+    S: Service<Request>,
     E: WorkerExecutor<S, Request>,
 {
     type Response = S::Response;
@@ -89,7 +86,7 @@ where
     fn layer(&self, service: S) -> Self::Service {
         match Buffer::with_executor(service, self.bound, &self.executor) {
             Ok(b) => b,
-            Err(_) => panic!("Unable to spawn task on the default executor"),
+            Err(_) => panic!("Unable to spawn task on the provided executor"),
         }
     }
 }
