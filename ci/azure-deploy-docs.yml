@@ -10,7 +10,7 @@ jobs:
       rust_version: stable
   - script: |
       cargo doc --all --no-deps
-      cp -R * target/doc/'$(Build.BinariesDirectory)'
+      cp -R target/doc '$(Build.BinariesDirectory)'
     displayName: 'Generate Documentation'
   - script: |
       set -e
