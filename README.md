@@ -20,6 +20,9 @@ crates.
 * [`tower-service`]: The foundational traits upon which Tower is built
   ([docs][ts-docs]).
 
+* [`tower-layer`]: The foundational trait to compose services together
+  ([docs][tl-docs]).
+
 * [`tower-balance`]: A load balancer. Load is balanced across a number of
   services ([docs][tb-docs]).
 
@@ -73,6 +76,8 @@ terms or conditions.
 
 [`tower-service`]: tower-service
 [ts-docs]: https://docs.rs/tower-service/
+[`tower-layer`]: tower-layer
+[tl-docs]: https://docs.rs/tower-layer/
 [`tower-balance`]: tower-balance
 [tb-docs]: https://tower-rs.github.io/tower/tower_balance/index.html
 [`tower-buffer`]: tower-buffer

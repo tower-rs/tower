@@ -4,10 +4,12 @@
 #[macro_use]
 extern crate futures;
 extern crate tokio_timer;
+extern crate tower_layer;
 extern crate tower_service;
 
 use futures::{Future, Poll};
 use tokio_timer::Delay;
+use tower_layer::Layer;
 use tower_service::Service;
 
 use std::time::{Duration, Instant};
@@ -18,6 +20,11 @@ pub struct RateLimit<T> {
     inner: T,
     rate: Rate,
     state: State,
+}
+
+#[derive(Debug)]
+pub struct RateLimitLayer {
+    rate: Rate,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -44,6 +51,27 @@ enum State {
     // The service has hit its limit
     Limited(Delay),
     Ready { until: Instant, rem: u64 },
+}
+
+impl RateLimitLayer {
+    pub fn new(num: u64, per: Duration) -> Self {
+        let rate = Rate { num, per };
+        RateLimitLayer { rate }
+    }
+}
+
+impl<S, Request> Layer<S, Request> for RateLimitLayer
+where
+    S: Service<Request>,
+{
+    type Response = S::Response;
+    type Error = Error<S::Error>;
+    type LayerError = ();
+    type Service = RateLimit<S>;
+
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        Ok(RateLimit::new(service, self.rate))
+    }
 }
 
 impl<T> RateLimit<T> {

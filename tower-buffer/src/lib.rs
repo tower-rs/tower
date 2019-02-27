@@ -9,6 +9,7 @@
 extern crate futures;
 extern crate tokio_executor;
 extern crate tokio_sync;
+extern crate tower_layer;
 extern crate tower_service;
 
 pub mod error;
@@ -27,6 +28,7 @@ use futures::Poll;
 use tokio_executor::DefaultExecutor;
 use tokio_sync::mpsc;
 use tokio_sync::oneshot;
+use tower_layer::Layer;
 use tower_service::Service;
 
 /// Adds a buffer in front of an inner service.
@@ -38,6 +40,48 @@ where
 {
     tx: mpsc::Sender<Message<Request, T::Future>>,
     worker: worker::Handle,
+}
+
+/// Buffer requests with a bounded buffer
+pub struct BufferLayer<E = DefaultExecutor> {
+    bound: usize,
+    executor: E,
+}
+
+impl BufferLayer<DefaultExecutor> {
+    pub fn new(bound: usize) -> Self {
+        BufferLayer {
+            bound,
+            executor: DefaultExecutor::current(),
+        }
+    }
+}
+
+impl<E> BufferLayer<E> {
+    pub fn with_executor<S, Request>(bound: usize, executor: E) -> Self
+    where
+        S: Service<Request>,
+        S::Error: Into<Error>,
+        E: WorkerExecutor<S, Request>,
+    {
+        BufferLayer { bound, executor }
+    }
+}
+
+impl<E, S, Request> Layer<S, Request> for BufferLayer<E>
+where
+    S: Service<Request>,
+    S::Error: Into<Error>,
+    E: WorkerExecutor<S, Request>,
+{
+    type Response = S::Response;
+    type Error = Error;
+    type LayerError = SpawnError<S>;
+    type Service = Buffer<S, Request>;
+
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        Buffer::with_executor(service, self.bound, &self.executor)
+    }
 }
 
 impl<T, Request> Buffer<T, Request>

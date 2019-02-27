@@ -9,10 +9,12 @@
 
 extern crate futures;
 extern crate tokio_timer;
+extern crate tower_layer;
 extern crate tower_service;
 
 use futures::{Async, Future, Poll};
 use tokio_timer::{clock, Delay};
+use tower_layer::Layer;
 use tower_service::Service;
 
 use std::time::Duration;
@@ -28,11 +30,41 @@ pub struct Timeout<T> {
     timeout: Duration,
 }
 
+/// Applies a timeout to requests via the supplied inner service.
+#[derive(Debug)]
+pub struct TimeoutLayer {
+    timeout: Duration,
+}
+
 /// `Timeout` response future
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
     response: T,
     sleep: Delay,
+}
+
+// ===== impl TimeoutLayer =====
+
+impl TimeoutLayer {
+    /// Create a timeout from a duration
+    pub fn new(timeout: Duration) -> Self {
+        TimeoutLayer { timeout }
+    }
+}
+
+impl<S, Request> Layer<S, Request> for TimeoutLayer
+where
+    S: Service<Request>,
+    S::Error: Into<Error>,
+{
+    type Response = S::Response;
+    type Error = Error;
+    type LayerError = ();
+    type Service = Timeout<S>;
+
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        Ok(Timeout::new(service, self.timeout))
+    }
 }
 
 // ===== impl Timeout =====
