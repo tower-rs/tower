@@ -19,7 +19,7 @@ use std::time::Duration;
 use std::{error, fmt};
 
 /// Applies a timeout to requests.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Timeout<T> {
     inner: T,
     timeout: Duration,
