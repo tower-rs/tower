@@ -5,7 +5,7 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   steps:
-    - template: ci/azure-install-rust.yml
+    - template: azure-install-rust.yml
       parameters:
         platform: Linux
         # Pin the version of Rust in case rustfmt changes.
