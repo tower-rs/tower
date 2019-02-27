@@ -81,13 +81,11 @@ where
 {
     type Response = S::Response;
     type Error = Error<S::Error>;
+    type LayerError = SpawnError<S>;
     type Service = Buffer<S, Request>;
 
-    fn layer(&self, service: S) -> Self::Service {
-        match Buffer::with_executor(service, self.bound, &self.executor) {
-            Ok(b) => b,
-            Err(_) => panic!("Unable to spawn task on the provided executor"),
-        }
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        Buffer::with_executor(service, self.bound, &self.executor)
     }
 }
 

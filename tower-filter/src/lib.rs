@@ -96,11 +96,12 @@ where
 {
     type Response = S::Response;
     type Error = Error<U::Error, S::Error>;
+    type LayerError = ();
     type Service = Filter<S, U>;
 
-    fn layer(&self, service: S) -> Self::Service {
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
         let predicate = self.predicate.clone();
-        Filter::new(service, predicate, self.buffer)
+        Ok(Filter::new(service, predicate, self.buffer))
     }
 }
 

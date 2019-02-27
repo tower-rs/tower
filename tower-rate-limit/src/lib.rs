@@ -66,10 +66,11 @@ where
 {
     type Response = S::Response;
     type Error = Error<S::Error>;
+    type LayerError = ();
     type Service = RateLimit<S>;
 
-    fn layer(&self, service: S) -> Self::Service {
-        RateLimit::new(service, self.rate)
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        Ok(RateLimit::new(service, self.rate))
     }
 }
 

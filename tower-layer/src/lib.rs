@@ -50,13 +50,14 @@ use tower_service::Service;
 /// {
 ///     type Response = S::Response;
 ///     type Error = S::Error;
+///     type LayerError = ();
 ///     type Service = LogService<S>;
 ///
-///     fn layer(&self, service: S) -> LogService<S> {
-///         LogService {
+///     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+///         Ok(LogService {
 ///             target: self.target,
 ///             service
-///         }
+///         })
 ///     }
 /// }
 ///
@@ -97,10 +98,13 @@ pub trait Layer<S, Request> {
     /// The wrapped service's error type
     type Error;
 
+    /// The error produced when calling `layer`
+    type LayerError;
+
     /// The wrapped service
     type Service: Service<Request, Response = Self::Response, Error = Self::Error>;
 
     /// Wrap the given service with the middleware, returning a new service
     /// that has been decorated with the middleware.
-    fn layer(&self, inner: S) -> Self::Service;
+    fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError>;
 }

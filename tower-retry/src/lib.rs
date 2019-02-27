@@ -135,11 +135,12 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type LayerError = ();
     type Service = Retry<P, S>;
 
-    fn layer(&self, service: S) -> Self::Service {
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
         let policy = self.policy.clone();
-        Retry::new(policy, service)
+        Ok(Retry::new(policy, service))
     }
 }
 

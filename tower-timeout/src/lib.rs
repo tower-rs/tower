@@ -72,10 +72,11 @@ where
 {
     type Response = S::Response;
     type Error = Error<S::Error>;
+    type LayerError = ();
     type Service = Timeout<S>;
 
-    fn layer(&self, service: S) -> Self::Service {
-        Timeout::new(service, self.timeout)
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        Ok(Timeout::new(service, self.timeout))
     }
 }
 
