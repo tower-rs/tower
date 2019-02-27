@@ -1,3 +1,4 @@
+jobs:
 - job: documentation
   displayName: 'Deploy API Documentation'
   pool:
