@@ -18,36 +18,16 @@ use tower_layer::Layer;
 use tower_service::Service;
 
 use std::time::Duration;
-use std::{error, fmt};
 
-/// Applies a timeout to requests sent via the inner service.
-#[derive(Debug)]
+use self::error::Elapsed;
+
+type Error = Box<::std::error::Error + Send + Sync>;
+
+/// Applies a timeout to requests.
+#[derive(Debug, Clone)]
 pub struct Timeout<T> {
     inner: T,
     timeout: Duration,
-}
-
-/// Applies a timeout to requests.
-#[derive(Debug)]
-pub struct TimeoutLayer {
-    timeout: Duration,
-}
-
-/// Errors produced by `Timeout`.
-#[derive(Debug)]
-pub struct Error<T>(Kind<T>);
-
-/// Timeout error variants
-#[derive(Debug)]
-enum Kind<T> {
-    /// Inner value returned an error
-    Inner(T),
-
-    /// The timeout elapsed.
-    Elapsed,
-
-    /// Timer returned an error.
-    Timer(TimerError),
 }
 
 /// `Timeout` response future
@@ -92,13 +72,14 @@ impl<T> Timeout<T> {
 impl<S, Request> Service<Request> for Timeout<S>
 where
     S: Service<Request>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
+    type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready().map_err(|e| Error(Kind::Inner(e)))
+        self.inner.poll_ready().map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -114,123 +95,41 @@ where
 impl<T> Future for ResponseFuture<T>
 where
     T: Future,
+    T::Error: Into<Error>,
 {
     type Item = T::Item;
-    type Error = Error<T::Error>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // First, try polling the future
-        match self.response.poll() {
-            Ok(Async::Ready(v)) => return Ok(Async::Ready(v)),
-            Ok(Async::NotReady) => {}
-            Err(e) => return Err(Error(Kind::Inner(e))),
+        match self.response.poll().map_err(Into::into)? {
+            Async::Ready(v) => return Ok(Async::Ready(v)),
+            Async::NotReady => {}
         }
 
         // Now check the sleep
-        match self.sleep.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(_)) => Err(Error(Kind::Elapsed)),
-            Err(e) => Err(Error(Kind::Timer(e))),
+        match self.sleep.poll()? {
+            Async::NotReady => Ok(Async::NotReady),
+            Async::Ready(_) => Err(Elapsed(()).into()),
         }
     }
 }
 
 // ===== impl Error =====
 
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
-            Kind::Inner(ref why) => fmt::Display::fmt(why, f),
-            Kind::Elapsed => f.pad("request timed out"),
-            Kind::Timer(ref why) => fmt::Display::fmt(why, f),
-        }
-    }
-}
+/// Timeout error types
+pub mod error {
+    use std::{error::Error, fmt};
 
-impl<T> error::Error for Error<T>
-where
-    T: error::Error + 'static,
-{
-    fn description(&self) -> &str {
-        match self.0 {
-            Kind::Inner(ref e) => e.description(),
-            Kind::Elapsed => "request timed out",
-            Kind::Timer(ref e) => e.description(),
+    /// The timeout elapsed.
+    #[derive(Debug)]
+    pub struct Elapsed(pub(super) ());
+
+    impl fmt::Display for Elapsed {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.pad("request timed out")
         }
     }
 
-    fn source(&self) -> Option<&(error::Error + 'static)> {
-        let kind = &self.0;
-        if let Kind::Inner(ref why) = kind {
-            Some(why)
-        } else {
-            None
-        }
-    }
-}
-
-// ===== impl Error =====
-
-impl<T> Error<T> {
-    /// Create a new `Error` representing the inner value completing with `Err`.
-    pub fn inner(err: T) -> Error<T> {
-        Error(Kind::Inner(err))
-    }
-
-    /// Returns `true` if the error was caused by the inner value completing
-    /// with `Err`.
-    pub fn is_inner(&self) -> bool {
-        match self.0 {
-            Kind::Inner(_) => true,
-            _ => false,
-        }
-    }
-
-    /// Consumes `self`, returning the inner future error.
-    pub fn into_inner(self) -> Option<T> {
-        match self.0 {
-            Kind::Inner(err) => Some(err),
-            _ => None,
-        }
-    }
-
-    /// Create a new `Error` representing the inner value not completing before
-    /// the deadline is reached.
-    pub fn elapsed() -> Error<T> {
-        Error(Kind::Elapsed)
-    }
-
-    /// Returns `true` if the error was caused by the inner value not completing
-    /// before the deadline is reached.
-    pub fn is_elapsed(&self) -> bool {
-        match self.0 {
-            Kind::Elapsed => true,
-            _ => false,
-        }
-    }
-
-    /// Creates a new `Error` representing an error encountered by the timer
-    /// implementation
-    pub fn timer(err: TimerError) -> Error<T> {
-        Error(Kind::Timer(err))
-    }
-
-    /// Returns `true` if the error was caused by the timer.
-    pub fn is_timer(&self) -> bool {
-        match self.0 {
-            Kind::Timer(_) => true,
-            _ => false,
-        }
-    }
-
-    /// Consumes `self`, returning the error raised by the timer implementation.
-    pub fn into_timer(self) -> Option<TimerError> {
-        match self.0 {
-            Kind::Timer(err) => Some(err),
-            _ => None,
-        }
-    }
+    impl Error for Elapsed {}
 }
