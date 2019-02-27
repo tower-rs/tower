@@ -22,9 +22,6 @@ steps:
   # All platforms.
   - bash: rustup install nightly
     displayName: Install nightly
-  - bash: rustup toolchain install ${{parameters.rust_minimum_version}}
-    condition: ${{or(parameters.rust_minimum_version, false)}}
-    displayName: Install minimum version
   - bash: |
         rustc -Vv
         cargo -V
