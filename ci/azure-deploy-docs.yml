@@ -19,6 +19,8 @@ jobs:
       git init
       git config user.name 'Deployment Bot (from Azure Pipelines)'
       git config user.email 'deploy@tower-rs.com'
+      git remote add origin https://github.com/tower-rs/tower
+      git fetch origin
       git branch gh-pages origin/gh-pages
       git checkout gh-pages
       git add .
