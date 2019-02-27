@@ -13,7 +13,7 @@ extern crate tower_layer;
 extern crate tower_service;
 
 use futures::{Async, Future, Poll};
-use tokio_timer::{clock, Delay, Error as TimerError};
+use tokio_timer::{clock, Delay};
 use tower_layer::Layer;
 use tower_service::Service;
 
@@ -27,6 +27,12 @@ type Error = Box<::std::error::Error + Send + Sync>;
 #[derive(Debug, Clone)]
 pub struct Timeout<T> {
     inner: T,
+    timeout: Duration,
+}
+
+/// Applies a timeout to requests via the supplied inner service.
+#[derive(Debug)]
+pub struct TimeoutLayer {
     timeout: Duration,
 }
 
@@ -49,9 +55,10 @@ impl TimeoutLayer {
 impl<S, Request> Layer<S, Request> for TimeoutLayer
 where
     S: Service<Request>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
+    type Error = Error;
     type LayerError = ();
     type Service = Timeout<S>;
 
