@@ -1,14 +1,21 @@
 trigger: ["master"]
 pr: ["master"]
 
-pool:
-  vmImage: 'Ubuntu-16.04'
-
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+jobs:
+# Check formatting
+- job: rustfmt
+  displayName: Check rustfmt
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+    - template: ci/azure-install-rust.yml
+      parameters:
+        platform: Linux
+        # Pin the version of Rust in case rustfmt changes.
+        rust_version: 1.32.0
+    - bash: |
+        rustup component add rustfmt
+      displayName: Install rustfmt
+    - bash: |
+        cargo fmt --all -- --check
+      displayName: Check formatting
