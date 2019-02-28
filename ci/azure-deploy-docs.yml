@@ -28,7 +28,7 @@ jobs:
       git config user.email 'deploy@tower-rs.com'
       echo 'machine github.com' > ~/.netrc
       echo 'login carllerche' >> ~/.netrc
-      echo 'password $(GITHUB_TOKEN)' >> ~/.netrc
+      echo 'password $GITHUB_TOKEN' >> ~/.netrc
       echo "~~~~~~~~~~~~~~~~~~~~"
       cat ~/.netrc
       echo "~~~~~~~~~~~~~~~~~~~~"
