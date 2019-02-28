@@ -55,3 +55,4 @@ members = [
 
 [patch.'https://github.com/tower-rs/tower']
 tower-service = { path = "tower-service" }
+tower-layer = { path = "tower-layer" }
