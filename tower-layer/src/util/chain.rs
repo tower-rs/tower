@@ -10,6 +10,14 @@ pub struct Chain<Inner, Outer> {
     outer: Outer,
 }
 
+/// Error's produced when chaining two layers together
+pub enum ChainError<I, O> {
+    /// Error produced from the inner layer call
+    Inner(I),
+    /// Error produced from the outer layer call
+    Outer(O),
+}
+
 impl<Inner, Outer> Chain<Inner, Outer> {
     /// Create a new `Chain`.
     pub fn new(inner: Inner, outer: Outer) -> Self {
@@ -25,9 +33,15 @@ where
 {
     type Response = Outer::Response;
     type Error = Outer::Error;
+    type LayerError = ChainError<Inner::LayerError, Outer::LayerError>;
     type Service = Outer::Service;
 
-    fn layer(&self, service: S) -> Self::Service {
-        self.outer.wrap(self.inner.wrap(service))
+    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+        let inner = self
+            .inner
+            .layer(service)
+            .map_err(|e| ChainError::Inner(e))?;
+
+        self.outer.layer(inner).map_err(|e| ChainError::Outer(e))
     }
 }
