@@ -1,8 +1,14 @@
+parameters:
+  dependsOn: []
+
 jobs:
 - job: documentation
   displayName: 'Deploy API Documentation'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
   pool:
     vmImage: 'Ubuntu 16.04'
+  dependsOn:
+    - ${{ parameters.dependsOn }}
   steps:
   - template: azure-install-rust.yml
     parameters:
@@ -19,31 +25,16 @@ jobs:
       git init
       git config user.name 'Deployment Bot (from Azure Pipelines)'
       git config user.email 'deploy@tower-rs.com'
+      echo 'machine github.com' > ~/.netrc
+      echo 'login carllerche' >> ~/.netrc
+      echo 'password $(GITHUB_TOKEN)' >> ~/.netrc
       git remote add origin https://github.com/tower-rs/tower
-      git fetch origin
       git branch gh-pages origin/gh-pages
       git checkout gh-pages
       git add .
       git commit -m 'Deploy Tower API documentation'
+      git push origin gh-pages
+    env:
+      GITHUB_TOKEN: $(githubPersonalToken)
     workingDirectory: '$(Build.BinariesDirectory)'
     displayName: 'Deploy Documentation'
-
-    #   - task: archivefiles@2
-    #     displayName: 'Archive Documentation'
-    #     inputs:
-    #       rootFolderOrFile: '$(Build.BinariesDirectory)'
-    #       includeRootFolder: false
-    #       archiveFile: '$(Build.ArtifactStagingDirectory)/api-documentation.zip'
-    #   - task: publishbuildartifacts@1
-    #     displayName: 'Upload Documentation Artifact'
-    #     inputs:
-    #       pathToPublish: '$(Build.ArtifactStagingDirectory)'
-    #       artifactName: 'docs'
-    #   - script: |
-    #       git remote -v
-    #       echo 'machine github.com' > ~/.netrc
-    #       echo 'login $(GITHUB_USERNAME)' >> ~/.netrc
-    #       echo 'password $(GITHUB_PAT)' >> ~/.netrc
-    #       git push origin gh-pages
-    #     displayName: 'Publish Documentation'
-    #     condition: eq(variables['Build.Reason'], 'IndividualCI')
