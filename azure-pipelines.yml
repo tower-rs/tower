@@ -10,7 +10,7 @@ jobs:
 - template: ci/azure-test-stable.yml
   parameters:
     name: Linux_Stable
-    displayName: Linux + Stable Rust
+    displayName: Test
     vmImage: ubuntu-16.04
     crates:
       - balance

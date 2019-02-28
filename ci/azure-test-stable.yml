@@ -3,14 +3,14 @@ parameters:
 
 jobs:
 - job: ${{ parameters.name }}
-  displayName: ${{ parameters.displayName }} | tower-
+  displayName: ${{ parameters.displayName }} |
   pool:
     vmImage: ${{ parameters.vmImage }}
   strategy:
     matrix:
       ${{ each crate in parameters.crates }}:
-        ${{ crate }}:
-          crate: ${{ crate }}
+        tower-${{ crate }}:
+          crate: tower-${{ crate }}
   steps:
   - template: azure-install-rust.yml
     parameters:
@@ -18,7 +18,7 @@ jobs:
       rust_version: stable
 
   - bash: |
-      cargo test -p tower-$(crate)
+      cargo test -p $(crate)
     env:
       CI: 'True'
-    displayName: cargo test -p tower-$(crate)
+    displayName: cargo test -p $(crate)
