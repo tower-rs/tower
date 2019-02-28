@@ -3,8 +3,13 @@
 Tower is a library of modular and reusable components for building robust
 networking clients and servers.
 
-[![Build Status](https://travis-ci.org/tower-rs/tower.svg?branch=master)](https://travis-ci.org/tower-rs/tower)
-[![Gitter](https://badges.gitter.im/tower-rs/tower.svg)](https://gitter.im/tower-rs/tower)
+[![Build Status][azure-badge]][azure-url]
+[![Gitter][gitter-badge]][gitter-url]
+
+[azure-badge]: https://dev.azure.com/tower-rs/tower/_apis/build/repos/github/badge?branchName=azure-pipelines&repoId=tower-rs/tower
+[azure-url]: https://dev.azure.com/tower-rs/Tower/_build
+[gitter-badge]: https://badges.gitter.im/tower-rs/tower.svg
+[gitter-url]: https://gitter.im/tower-rs/tower
 
 ## Overview
 
