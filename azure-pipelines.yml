@@ -12,6 +12,21 @@ jobs:
     name: Linux_Stable
     displayName: Linux + Stable Rust
     vmImage: ubuntu-16.04
+    crates:
+      - balance
+      - buffer
+      - discover
+      - filter
+      - in-flight-limit
+      - layer
+      - mock
+      - rate-limit
+      - reconnect
+      - retry
+      - service
+      - timeout
+      - util
+      - watch
 
 - template: ci/azure-deploy-docs.yml
   parameters:

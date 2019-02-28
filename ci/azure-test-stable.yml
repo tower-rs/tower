@@ -1,8 +1,16 @@
+parameters:
+  crates: []
+
 jobs:
 - job: ${{ parameters.name }}
   displayName: ${{ parameters.displayName }}
   pool:
     vmImage: ${{ parameters.vmImage }}
+  strategy:
+    matrix:
+      - ${{ each crate in parameters.crates }}:
+        ${{ crate }}:
+          crate: ${{ crate }}
   steps:
   - template: azure-install-rust.yml
     parameters:
@@ -10,7 +18,7 @@ jobs:
       rust_version: stable
 
   - bash: |
-      cargo test --all
+      cargo test -p ${{ crate }}
     env:
       CI: 'True'
     displayName: cargo test --all
