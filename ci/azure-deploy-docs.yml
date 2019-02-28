@@ -28,6 +28,9 @@ jobs:
       git config user.email 'deploy@tower-rs.com'
       git config --global credential.helper 'store --file ~/.my-credentials'
       printf "protocol=https\nhost=github.com\nusername=carllerche\npassword=%s\n\n" "$GITHUB_TOKEN" | git credential-store --file ~/.my-credentials store
+      echo "~~~~~~~~~~~~~~~~~~~~~~~~~~"
+      cat ~/.my-credentials
+      echo "~~~~~~~~~~~~~~~~~~~~~~~~~~"
       git remote add origin https://carllerchegithub.com/tower-rs/tower
       git checkout -b gh-pages
       git add .
