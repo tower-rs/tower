@@ -18,7 +18,7 @@ jobs:
       rust_version: stable
 
   - bash: |
-      cargo test -p ${{ crate }}
+      cargo test -p $(crate)
     env:
       CI: 'True'
     displayName: cargo test --all
