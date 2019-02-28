@@ -1,0 +1,17 @@
+parameters:
+  crates: []
+
+jobs:
+- job: ${{ parameters.name }}
+  displayName: ${{ parameters.displayName }}
+  pool:
+    vmImage: ${{ parameters.vmImage }}
+  steps:
+  - template: azure-install-rust.yml
+    parameters:
+      platform: ${{parameters.name}}
+      rust_version: stable
+
+  - ${{ each crate in parameters.crates }}:
+    - script: cargo test -p tower-${{ crate }}
+      displayName: cargo test -p tower-${{ crate }}
