@@ -26,6 +26,7 @@ tower-retry = { version = "0.1", path = "tower-retry" }
 tower-buffer = { version = "0.1", path = "tower-buffer" }
 tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-util = { version = "0.1", path = "tower-util" }
+tokio-tcp = "0.1"
 hyper = "0.12"
 log = "0.4.1"
 env_logger = { version = "0.5.3", default-features = false }
