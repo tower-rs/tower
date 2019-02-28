@@ -31,7 +31,7 @@ jobs:
       echo "~~~~~~~~~~~~~~~~~~~~~~~~~~"
       cat ~/.my-credentials
       echo "~~~~~~~~~~~~~~~~~~~~~~~~~~"
-      git remote add origin https://carllerchegithub.com/tower-rs/tower
+      git remote add origin https://github.com/tower-rs/tower
       git checkout -b gh-pages
       git add .
       git commit -m 'Deploy Tower API documentation'
