@@ -7,7 +7,7 @@ networking clients and servers.
 [![Gitter][gitter-badge]][gitter-url]
 
 [azure-badge]: https://dev.azure.com/tower-rs/Tower/_apis/build/status/tower-rs.tower?branchName=master
-[azure-url]: https://dev.azure.com/tower-rs/Tower/_build
+[azure-url]: https://dev.azure.com/tower-rs/Tower/_build/latest?definitionId=1&branchName=master
 [gitter-badge]: https://badges.gitter.im/tower-rs/tower.svg
 [gitter-url]: https://gitter.im/tower-rs/tower
 
