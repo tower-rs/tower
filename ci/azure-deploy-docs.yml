@@ -29,11 +29,10 @@ jobs:
       echo 'login carllerche' >> ~/.netrc
       echo 'password $(GITHUB_TOKEN)' >> ~/.netrc
       git remote add origin https://github.com/tower-rs/tower
-      git branch gh-pages origin/gh-pages
-      git checkout gh-pages
+      git checkout -b gh-pages
       git add .
       git commit -m 'Deploy Tower API documentation'
-      git push origin gh-pages
+      git push -f origin gh-pages
     env:
       GITHUB_TOKEN: $(githubPersonalToken)
     workingDirectory: '$(Build.BinariesDirectory)'
