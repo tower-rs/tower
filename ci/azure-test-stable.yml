@@ -8,7 +8,7 @@ jobs:
     vmImage: ${{ parameters.vmImage }}
   strategy:
     matrix:
-      - ${{ each crate in parameters.crates }}:
+      ${{ each crate in parameters.crates }}:
         ${{ crate }}:
           crate: ${{ crate }}
   steps:
