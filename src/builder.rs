@@ -1,4 +1,7 @@
+//! Builder types to compose layers and services
+
 use futures::{Future, Poll};
+use std::fmt;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tower_layer::{util::Chain, Layer, LayerExt};
@@ -37,7 +40,7 @@ where
     pub fn new(maker: S) -> Self {
         ServiceBuilder {
             maker,
-            middleware: Identity::new(),
+            layer: Identity::new(),
             _pd: PhantomData,
         }
     }
@@ -51,13 +54,13 @@ where
     Target: Clone,
 {
     /// Add a layer to the `ServiceBuilder`.
-    pub fn add<T>(self, layer: T) -> ServiceBuilder<S, Chain<M, T>, Target, Request>
+    pub fn add<T>(self, layer: T) -> ServiceBuilder<S, Chain<L, T>, Target, Request>
     where
-        T: Layer<L::Service, Request>,
+        T: Layer<S::Response, Request>,
     {
         ServiceBuilder {
             maker: self.maker,
-            middleware: self.layer.chain(layer),
+            layer: self.layer.chain(layer),
             _pd: PhantomData,
         }
     }
@@ -80,9 +83,10 @@ where
     S::Future: Send + 'static,
     L: Layer<S::Response, Request> + Sync + Send + 'static,
     L::Service: Send + 'static,
+    L::LayerError: fmt::Debug,
     Target: Clone,
 {
-    type Response = M::Service;
+    type Response = L::Service;
     type Error = S::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send + 'static>;
 
@@ -96,7 +100,7 @@ where
         let fut = self
             .maker
             .call(target)
-            .and_then(move |conn| Ok(middleware.wrap(conn)));
+            .and_then(move |conn| Ok(middleware.layer(conn).unwrap()));
 
         // TODO(lucio): replace this with a concrete future type
         Box::new(fut)

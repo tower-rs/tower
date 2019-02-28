@@ -19,8 +19,14 @@ tower-layer = { version = "0.1", path = "tower-layer" }
 tower-service = { version = "0.2", path = "tower-service" }
 
 [dev-dependencies]
+tower-in-flight-limit = { version = "0.1", path = "tower-in-flight-limit" }
+tower-rate-limit = { version = "0.1", path = "tower-rate-limit" }
+tower-reconnect = { version = "0.1", path = "tower-reconnect" }
+tower-retry = { version = "0.1", path = "tower-retry" }
+tower-buffer = { version = "0.1", path = "tower-buffer" }
+tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
 tower-util = { version = "0.1", path = "tower-util" }
-futures = "0.1"
+hyper = "0.12"
 log = "0.4.1"
 env_logger = { version = "0.5.3", default-features = false }
 tokio-timer = "0.1"
@@ -45,3 +51,6 @@ members = [
   "tower-util",
   "tower-watch",
 ]
+
+[patch.'https://github.com/tower-rs/tower']
+tower-service = { path = "tower-service" }

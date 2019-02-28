@@ -11,6 +11,7 @@ pub struct Chain<Inner, Outer> {
 }
 
 /// Error's produced when chaining two layers together
+#[derive(Debug)]
 pub enum ChainError<I, O> {
     /// Error produced from the inner layer call
     Inner(I),
