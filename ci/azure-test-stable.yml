@@ -3,7 +3,7 @@ parameters:
 
 jobs:
 - job: ${{ parameters.name }}
-  displayName: ${{ parameters.displayName }}
+  displayName: ${{ parameters.displayName }} | tower-
   pool:
     vmImage: ${{ parameters.vmImage }}
   strategy:
@@ -18,7 +18,7 @@ jobs:
       rust_version: stable
 
   - bash: |
-      cargo test -p $(crate)
+      cargo test -p tower-$(crate)
     env:
       CI: 'True'
-    displayName: cargo test --all
+    displayName: cargo test -p tower-$(crate)
