@@ -4,7 +4,7 @@ parameters:
 jobs:
 - job: documentation
   displayName: 'Deploy API Documentation'
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
   pool:
     vmImage: 'Ubuntu 16.04'
   dependsOn:
@@ -21,6 +21,7 @@ jobs:
   - script: |
       set -e
 
+      git --version
       ls -la
       git init
       git config user.name 'Deployment Bot (from Azure Pipelines)'
