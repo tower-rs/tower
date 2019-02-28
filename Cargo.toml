@@ -13,8 +13,12 @@ clients and servers.
 categories = ["asynchronous", "network-programming"]
 keywords = ["io", "async", "non-blocking", "futures", "service"]
 
-[dev-dependencies]
+[dependencies]
+futures = "0.1"
+tower-layer = { version = "0.1", path = "tower-layer" }
 tower-service = { version = "0.2", path = "tower-service" }
+
+[dev-dependencies]
 tower-util = { version = "0.1", path = "tower-util" }
 futures = "0.1"
 log = "0.4.1"
