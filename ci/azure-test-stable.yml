@@ -3,7 +3,7 @@ parameters:
 
 jobs:
 - job: ${{ parameters.name }}
-  displayName: ${{ parameters.displayName }} |
+  displayName: ${{ parameters.displayName }}
   pool:
     vmImage: ${{ parameters.vmImage }}
   steps:
@@ -14,3 +14,4 @@ jobs:
 
   - ${{ each crate in parameters.crates }}:
     - script: cargo test -p tower-${{ crate }}
+      displayName: cargo test -p tower-${{ crate }}
