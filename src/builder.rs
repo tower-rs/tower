@@ -115,18 +115,9 @@ where
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
-        // let middleware = Arc::clone(&self.middleware);
-
-        // let fut = self
-        //     .maker
-        //     .call(target)
-        //     .and_then(move |conn| Ok(middleware.layer(conn).unwrap()));
-
-        // // TODO(lucio): replace this with a concrete future type
-        // Box::new(fut);
-
         let inner = self.maker.call(target);
         let layer = Arc::clone(&self.layer);
+
         MakerFuture {
             inner,
             layer,
