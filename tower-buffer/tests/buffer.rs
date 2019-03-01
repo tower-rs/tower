@@ -100,9 +100,7 @@ fn when_inner_fails() {
         if let Some(e) = e.downcast_ref::<error::ServiceError>() {
             assert!(format!("{}", e).contains("poll_ready"));
 
-            let e = e
-                .source()
-                .unwrap();
+            let e = e.source().unwrap();
 
             assert_eq!(e.to_string(), "foobar");
         } else {
