@@ -117,8 +117,8 @@ fn saturate() {
     th2.join().unwrap();
 }
 
-type Mock = tower_mock::Mock<String, String, ()>;
-type Handle = tower_mock::Handle<String, String, ()>;
+type Mock = tower_mock::Mock<String, String>;
+type Handle = tower_mock::Handle<String, String>;
 
 fn new_service<F, U>(max: usize, f: F) -> (Filter<Mock, F>, Handle)
 where
