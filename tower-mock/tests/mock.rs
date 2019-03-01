@@ -50,8 +50,8 @@ fn backpressure() {
     mock.call("hello?".into());
 }
 
-type Mock = tower_mock::Mock<String, String, ()>;
-type Handle = tower_mock::Handle<String, String, ()>;
+type Mock = tower_mock::Mock<String, String>;
+type Handle = tower_mock::Handle<String, String>;
 
 fn new_mock() -> (Mock, Handle) {
     Mock::new()

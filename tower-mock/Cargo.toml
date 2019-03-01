@@ -6,4 +6,5 @@ publish = false
 
 [dependencies]
 futures = "0.1"
+tokio-sync = "0.1.3"
 tower-service = { version = "0.2", path = "../tower-service" }
