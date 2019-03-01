@@ -20,13 +20,10 @@ pub(crate) type Source = Box<dyn error::Error + Send + Sync>;
 
 impl Error {
     /// Create a new `Error` representing a rejected request.
-    pub fn rejected<E>(source: Option<E>) -> Error
-    where
-        E: Into<Source>,
-    {
+    pub fn rejected() -> Error {
         Error {
             reason: Reason::Rejected,
-            source: source.map(Into::into),
+            source: None,
         }
     }
 
