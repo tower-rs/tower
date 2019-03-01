@@ -30,8 +30,8 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(source) = &self.source {
-            source.fmt(fmt)
+        if self.source.is_some() {
+            write!(fmt, "inner service errored")
         } else {
             write!(fmt, "rejected")
         }
