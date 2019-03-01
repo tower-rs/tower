@@ -5,6 +5,10 @@ extern crate futures;
 extern crate tower_layer;
 extern crate tower_service;
 
+pub mod error;
+pub mod future;
+
+use error::Error;
 use futures::task::AtomicTask;
 use futures::{Async, Future, IntoFuture, Poll};
 use tower_layer::Layer;
@@ -46,20 +50,9 @@ where
     counts: Arc<Counts>,
 }
 
-/// Errors produced by `Filter`
-#[derive(Debug)]
-pub enum Error<T, U> {
-    /// The predicate rejected the request.
-    Rejected(T),
-
-    /// The inner service produced an error.
-    Inner(U),
-}
-
 /// Checks a request
 pub trait Predicate<Request> {
-    type Error;
-    type Future: Future<Item = (), Error = Self::Error>;
+    type Future: Future<Item = (), Error = error::Error>;
 
     fn check(&mut self, request: &Request) -> Self::Future;
 }
@@ -93,10 +86,11 @@ impl<U, S, Request> Layer<S, Request> for FilterLayer<U>
 where
     U: Predicate<Request> + Clone,
     S: Service<Request> + Clone,
+    S::Error: Into<error::Source>,
 {
     type Response = S::Response;
-    type Error = Error<U::Error, S::Error>;
-    type LayerError = ();
+    type Error = Error;
+    type LayerError = error::never::Never;
     type Service = Filter<S, U>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
@@ -111,6 +105,7 @@ impl<T, U> Filter<T, U> {
     pub fn new<Request>(inner: T, predicate: U, buffer: usize) -> Self
     where
         T: Service<Request> + Clone,
+        T::Error: Into<error::Source>,
         U: Predicate<Request>,
     {
         let counts = Counts {
@@ -129,10 +124,11 @@ impl<T, U> Filter<T, U> {
 impl<T, U, Request> Service<Request> for Filter<T, U>
 where
     T: Service<Request> + Clone,
+    T::Error: Into<error::Source>,
     U: Predicate<Request>,
 {
     type Response = T::Response;
-    type Error = Error<U::Error, T::Error>;
+    type Error = Error;
     type Future = ResponseFuture<U::Future, T, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -184,9 +180,8 @@ where
 impl<F, T, U> Predicate<T> for F
 where
     F: Fn(&T) -> U,
-    U: IntoFuture<Item = ()>,
+    U: IntoFuture<Item = (), Error = Error>,
 {
-    type Error = U::Error;
     type Future = U::Future;
 
     fn check(&mut self, request: &T) -> Self::Future {
@@ -198,11 +193,12 @@ where
 
 impl<T, S, Request> Future for ResponseFuture<T, S, Request>
 where
-    T: Future,
+    T: Future<Error = error::Error>,
     S: Service<Request>,
+    S::Error: Into<error::Source>,
 {
     type Item = S::Response;
-    type Error = Error<T::Error, S::Error>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.inner.poll()
@@ -227,8 +223,9 @@ where
 
 impl<T, S, Request> ResponseInner<T, S, Request>
 where
-    T: Future,
+    T: Future<Error = error::Error>,
     S: Service<Request>,
+    S::Error: Into<error::Source>,
 {
     fn inc_rem(&self) {
         if 0 == self.counts.rem.fetch_add(1, SeqCst) {
@@ -236,23 +233,20 @@ where
         }
     }
 
-    fn poll(&mut self) -> Poll<S::Response, Error<T::Error, S::Error>> {
+    fn poll(&mut self) -> Poll<S::Response, Error> {
         use self::State::*;
 
         loop {
             match mem::replace(&mut self.state, Invalid) {
                 Check(request) => {
                     // Poll predicate
-                    match self.check.poll() {
-                        Ok(Async::Ready(_)) => {
+                    match self.check.poll()? {
+                        Async::Ready(_) => {
                             self.state = WaitReady(request);
                         }
-                        Ok(Async::NotReady) => {
+                        Async::NotReady => {
                             self.state = Check(request);
                             return Ok(Async::NotReady);
-                        }
-                        Err(e) => {
-                            return Err(Error::Rejected(e));
                         }
                     }
                 }
@@ -272,12 +266,13 @@ where
                         Err(e) => {
                             self.inc_rem();
 
-                            return Err(Error::Inner(e));
+                            return Err(Error::inner(e));
                         }
                     }
                 }
                 WaitResponse(mut response) => {
-                    let ret = response.poll().map_err(Error::Inner);
+                    let ret = response.poll()
+                        .map_err(Error::inner);
 
                     self.state = WaitResponse(response);
 
