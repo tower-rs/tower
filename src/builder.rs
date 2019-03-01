@@ -1,6 +1,6 @@
 //! Builder types to compose layers and services
 
-use futures::{Future, Poll};
+use futures::{Async, Future, Poll};
 use std::fmt;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -27,8 +27,28 @@ where
 #[derive(Debug)]
 pub struct ServiceBuilderMaker<S, L, Target, Request> {
     maker: S,
-    middleware: Arc<L>,
+    layer: Arc<L>,
     _pd: PhantomData<(Target, Request)>,
+}
+
+/// Async resolve the MakeService and wrap it with the layers
+#[derive(Debug)]
+pub struct MakerFuture<S, L, Target, Request>
+where
+    S: Service<Target>,
+{
+    inner: S::Future,
+    layer: Arc<L>,
+    _pd: PhantomData<(Target, Request)>,
+}
+
+/// Errors produced from building a service stack
+#[derive(Debug)]
+pub enum Error<M, L> {
+    /// Error produced from the MakeService
+    Make(M),
+    /// Error produced from building the layers
+    Layer(L),
 }
 
 impl<S, Target, Request> ServiceBuilder<S, Identity, Target, Request>
@@ -56,7 +76,7 @@ where
     /// Add a layer to the `ServiceBuilder`.
     pub fn add<T>(self, layer: T) -> ServiceBuilder<S, Chain<L, T>, Target, Request>
     where
-        T: Layer<S::Response, Request>,
+        T: Layer<L::Service, Request>,
     {
         ServiceBuilder {
             maker: self.maker,
@@ -69,7 +89,7 @@ where
     pub fn build(self) -> ServiceBuilderMaker<S, L, Target, Request> {
         ServiceBuilderMaker {
             maker: self.maker,
-            middleware: Arc::new(self.layer),
+            layer: Arc::new(self.layer),
             _pd: PhantomData,
         }
     }
@@ -87,23 +107,50 @@ where
     Target: Clone,
 {
     type Response = L::Service;
-    type Error = S::Error;
-    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send + 'static>;
+    type Error = Error<S::Error, L::LayerError>;
+    type Future = MakerFuture<S, L, Target, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.maker.poll_ready()
+        self.maker.poll_ready().map_err(|e| Error::Make(e))
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
-        let middleware = Arc::clone(&self.middleware);
+        // let middleware = Arc::clone(&self.middleware);
 
-        let fut = self
-            .maker
-            .call(target)
-            .and_then(move |conn| Ok(middleware.layer(conn).unwrap()));
+        // let fut = self
+        //     .maker
+        //     .call(target)
+        //     .and_then(move |conn| Ok(middleware.layer(conn).unwrap()));
 
-        // TODO(lucio): replace this with a concrete future type
-        Box::new(fut)
+        // // TODO(lucio): replace this with a concrete future type
+        // Box::new(fut);
+
+        let inner = self.maker.call(target);
+        let layer = Arc::clone(&self.layer);
+        MakerFuture {
+            inner,
+            layer,
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<S, L, Target, Request> Future for MakerFuture<S, L, Target, Request>
+where
+    S: Service<Target>,
+    S::Response: Service<Request>,
+    L: Layer<S::Response, Request>,
+{
+    type Item = L::Service;
+    type Error = Error<S::Error, L::LayerError>;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let service = try_ready!(self.inner.poll().map_err(|e| Error::Make(e)));
+
+        match self.layer.layer(service) {
+            Ok(service) => Ok(Async::Ready(service)),
+            Err(e) => Err(Error::Layer(e)),
+        }
     }
 }
 

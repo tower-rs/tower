@@ -15,7 +15,7 @@ pub trait LayerExt<S, Request>: Layer<S, Request> {
     /// This defines a middleware stack.
     fn chain<T>(self, middleware: T) -> Chain<Self, T>
     where
-        T: Layer<S, Request>,
+        T: Layer<Self::Service, Request>,
         Self: Sized,
     {
         Chain::new(self, middleware)

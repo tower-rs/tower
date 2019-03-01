@@ -5,6 +5,7 @@
 //!
 //! This main crate is still a WIP.
 
+#[macro_use]
 extern crate futures;
 extern crate tower_layer;
 extern crate tower_service;
