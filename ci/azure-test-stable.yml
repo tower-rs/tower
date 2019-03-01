@@ -9,9 +9,9 @@ jobs:
   steps:
   - template: azure-install-rust.yml
     parameters:
-      platform: ${{parameters.name}}
       rust_version: stable
 
   - ${{ each crate in parameters.crates }}:
-    - script: cargo test -p tower-${{ crate }}
+    - script: cargo test
       displayName: cargo test -p tower-${{ crate }}
+      workingDirectory: $(Build.SourcesDirectory)/tower-${{ crate }}
