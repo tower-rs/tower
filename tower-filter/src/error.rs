@@ -6,14 +6,7 @@ use std::fmt;
 /// Error produced by `Filter`
 #[derive(Debug)]
 pub struct Error {
-    reason: Reason,
     source: Option<Source>,
-}
-
-#[derive(Debug)]
-enum Reason {
-    Rejected,
-    Inner,
 }
 
 pub(crate) type Source = Box<dyn error::Error + Send + Sync>;
@@ -21,10 +14,7 @@ pub(crate) type Source = Box<dyn error::Error + Send + Sync>;
 impl Error {
     /// Create a new `Error` representing a rejected request.
     pub fn rejected() -> Error {
-        Error {
-            reason: Reason::Rejected,
-            source: None,
-        }
+        Error { source: None }
     }
 
     /// Create a new `Error` representing an inner service error.
@@ -33,7 +23,6 @@ impl Error {
         E: Into<Source>,
     {
         Error {
-            reason: Reason::Inner,
             source: Some(source.into()),
         }
     }
@@ -41,21 +30,10 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match self.reason {
-            Reason::Rejected => {
-                if let Some(source) = &self.source {
-                    write!(fmt, "rejected: {}", source)
-                } else {
-                    write!(fmt, "rejected")
-                }
-            }
-            Reason::Inner => {
-                if let Some(source) = &self.source {
-                    source.fmt(fmt)
-                } else {
-                    write!(fmt, "inner service error")
-                }
-            }
+        if let Some(source) = &self.source {
+            source.fmt(fmt)
+        } else {
+            write!(fmt, "rejected")
         }
     }
 }
