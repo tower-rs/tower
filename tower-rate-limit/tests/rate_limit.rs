@@ -54,8 +54,8 @@ fn reaching_capacity() {
     assert_eq!(response.unwrap(), "done");
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
-type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
+type Mock = tower_mock::Mock<&'static str, &'static str>;
+type Handle = tower_mock::Handle<&'static str, &'static str>;
 
 fn new_service(rate: Rate) -> (RateLimit<Mock>, Handle) {
     let (service, handle) = Mock::new();
