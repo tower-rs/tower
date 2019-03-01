@@ -5,7 +5,7 @@ extern crate tower_service;
 extern crate tower_util;
 
 use futures::*;
-use tower_filter::*;
+use tower_filter::{Filter};
 use tower_service::*;
 use tower_util::ServiceExt;
 
