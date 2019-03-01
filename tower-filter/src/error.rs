@@ -22,7 +22,7 @@ impl Error {
     /// Create a new `Error` representing a rejected request.
     pub fn rejected<E>(source: Option<E>) -> Error
     where
-        E: Into<Source>
+        E: Into<Source>,
     {
         Error {
             reason: Reason::Rejected,
@@ -33,7 +33,7 @@ impl Error {
     /// Create a new `Error` representing an inner service error.
     pub fn inner<E>(source: E) -> Error
     where
-        E: Into<Source>
+        E: Into<Source>,
     {
         Error {
             reason: Reason::Inner,
@@ -67,8 +67,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         if let Some(ref err) = self.source {
             Some(&**err)
-        }
-        else {
+        } else {
             None
         }
     }
