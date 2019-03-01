@@ -1,7 +1,7 @@
 //! Error types
 
-use std::fmt;
 use std::error;
+use std::fmt;
 
 pub(crate) type Error = Box<error::Error + Send + Sync>;
 
@@ -20,5 +20,4 @@ impl fmt::Display for Closed {
     }
 }
 
-impl error::Error for Closed {
-}
+impl error::Error for Closed {}

@@ -9,10 +9,10 @@ pub mod future;
 
 use error::Error;
 use future::ResponseFuture;
-use tokio_sync::{mpsc, oneshot};
-use tower_service::Service;
 use futures::task::{self, Task};
 use futures::{Async, Future, Poll, Stream};
+use tokio_sync::{mpsc, oneshot};
+use tower_service::Service;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -212,8 +212,7 @@ impl<T, U> Drop for Mock<T, U> {
 impl<T, U> Handle<T, U> {
     /// Asynchronously gets the next request
     pub fn poll_request(&mut self) -> Poll<Option<Request<T, U>>, Error> {
-        self.rx.poll()
-            .map_err(Into::into)
+        self.rx.poll().map_err(Into::into)
     }
 
     /// Synchronously gets the next request.
