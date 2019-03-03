@@ -11,11 +11,14 @@ pub trait MakeConnection<Request> {
     /// The transport provided by this service
     type Response: AsyncRead + AsyncWrite;
 
+    /// The extra data
+    type Extra;
+
     /// Errors produced by the connecting service
     type Error;
 
     /// The future that eventually produces the transport
-    type Future: Future<Item = Self::Response, Error = Self::Error>;
+    type Future: Future<Item = (Self::Response, Self::Extra), Error = Self::Error>;
 
     /// Connect and return a transport asynchronously
     fn make_connection(&mut self, target: Request) -> Self::Future;
@@ -23,12 +26,13 @@ pub trait MakeConnection<Request> {
 
 impl<S, Request> self::sealed::Sealed<Request> for S where S: Service<Request> {}
 
-impl<C, Request> MakeConnection<Request> for C
+impl<C, Request, Response, Extra> MakeConnection<Request> for C
 where
-    C: Service<Request>,
-    C::Response: AsyncRead + AsyncWrite,
+    C: Service<Request, Response = (Response, Extra)>,
+    Response: AsyncRead + AsyncWrite
 {
-    type Response = C::Response;
+    type Response = Response;
+    type Extra = Extra;
     type Error = C::Error;
     type Future = C::Future;
 
