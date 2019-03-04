@@ -29,7 +29,7 @@ impl<S, Request> self::sealed::Sealed<Request> for S where S: Service<Request> {
 impl<C, Request, Response, Extra> MakeConnection<Request> for C
 where
     C: Service<Request, Response = (Response, Extra)>,
-    Response: AsyncRead + AsyncWrite
+    Response: AsyncRead + AsyncWrite,
 {
     type Response = Response;
     type Extra = Extra;
