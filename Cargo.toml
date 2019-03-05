@@ -1,31 +1,7 @@
-[package]
-name = "tower"
-version = "0.1.0"
-authors = ["Carl Lerche <me@carllerche.com>"]
-license = "MIT"
-readme = "README.md"
-repository = "https://github.com/tower-rs/tower"
-publish = false
-description = """
-Tower is a library of modular and reusable components for building robust
-clients and servers.
-"""
-categories = ["asynchronous", "network-programming"]
-keywords = ["io", "async", "non-blocking", "futures", "service"]
-
-[dev-dependencies]
-tower-service = { version = "0.2", path = "tower-service" }
-tower-util = { version = "0.1", path = "tower-util" }
-futures = "0.1"
-log = "0.4.1"
-env_logger = { version = "0.5.3", default-features = false }
-tokio-timer = "0.1"
-futures-cpupool = "0.1"
-
 [workspace]
 
 members = [
-  "./",
+  "tower",
   "tower-balance",
   "tower-buffer",
   "tower-discover",
