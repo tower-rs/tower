@@ -5,35 +5,24 @@ extern crate futures;
 extern crate tower_layer;
 extern crate tower_service;
 
+pub mod future;
 mod layer;
 
 pub use layer::InFlightLimitLayer;
+use future::ResponseFuture;
 
 use tower_service::Service;
 
 use futures::task::AtomicTask;
-use futures::{Async, Future, Poll};
+use futures::{Async, Poll};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::Arc;
-use std::{error, fmt};
 
 #[derive(Debug, Clone)]
 pub struct InFlightLimit<T> {
     inner: T,
     state: State,
-}
-
-/// Error returned when the service has reached its limit.
-#[derive(Debug)]
-pub enum Error<T> {
-    Upstream(T),
-}
-
-#[derive(Debug)]
-pub struct ResponseFuture<T> {
-    inner: T,
-    shared: Arc<Shared>,
 }
 
 #[derive(Debug)]
@@ -91,12 +80,12 @@ where
     S: Service<Request>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
-    type Future = ResponseFuture<S::Future>;
+    type Error = S::Error;
+    type Future = future::ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if self.state.reserved {
-            return self.inner.poll_ready().map_err(Error::Upstream);
+            return self.inner.poll_ready();
         }
 
         self.state.shared.task.register();
@@ -107,7 +96,7 @@ where
 
         self.state.reserved = true;
 
-        self.inner.poll_ready().map_err(Error::Upstream)
+        self.inner.poll_ready()
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -122,38 +111,7 @@ where
             }
         }
 
-        ResponseFuture {
-            inner: self.inner.call(request),
-            shared: self.state.shared.clone(),
-        }
-    }
-}
-
-// ===== impl ResponseFuture =====
-
-impl<T> Future for ResponseFuture<T>
-where
-    T: Future,
-{
-    type Item = T::Item;
-    type Error = Error<T::Error>;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use futures::Async::*;
-
-        match self.inner.poll() {
-            Ok(Ready(v)) => Ok(Ready(v)),
-            Ok(NotReady) => {
-                return Ok(NotReady);
-            }
-            Err(e) => Err(Error::Upstream(e)),
-        }
-    }
-}
-
-impl<T> Drop for ResponseFuture<T> {
-    fn drop(&mut self) {
-        self.shared.release();
+        ResponseFuture::new(self.inner.call(request), self.state.shared.clone())
     }
 }
 
@@ -210,36 +168,6 @@ impl Shared {
 
         if prev == self.max {
             self.task.notify();
-        }
-    }
-}
-
-// ===== impl Error =====
-
-impl<T> fmt::Display for Error<T>
-where
-    T: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Upstream(ref why) => fmt::Display::fmt(why, f),
-        }
-    }
-}
-
-impl<T> error::Error for Error<T>
-where
-    T: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Upstream(ref why) => Some(why),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Upstream(_) => "upstream service error",
         }
     }
 }

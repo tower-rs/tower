@@ -1,4 +1,3 @@
-use Error;
 use InFlightLimit;
 use tower_layer::Layer;
 use tower_service::Service;
@@ -19,7 +18,7 @@ where
     S: Service<Request>,
 {
     type Response = S::Response;
-    type Error = Error<S::Error>;
+    type Error = S::Error;
     type LayerError = ();
     type Service = InFlightLimit<S>;
 
