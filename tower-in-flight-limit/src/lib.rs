@@ -5,7 +5,10 @@ extern crate futures;
 extern crate tower_layer;
 extern crate tower_service;
 
-use tower_layer::Layer;
+mod layer;
+
+pub use layer::InFlightLimitLayer;
+
 use tower_service::Service;
 
 use futures::task::AtomicTask;
@@ -19,11 +22,6 @@ use std::{error, fmt};
 pub struct InFlightLimit<T> {
     inner: T,
     state: State,
-}
-
-#[derive(Debug, Clone)]
-pub struct InFlightLimitLayer {
-    max: usize,
 }
 
 /// Error returned when the service has reached its limit.
@@ -128,28 +126,6 @@ where
             inner: self.inner.call(request),
             shared: self.state.shared.clone(),
         }
-    }
-}
-
-// ===== impl InFlightLimitLayer =====
-
-impl InFlightLimitLayer {
-    pub fn new(max: usize) -> Self {
-        InFlightLimitLayer { max }
-    }
-}
-
-impl<S, Request> Layer<S, Request> for InFlightLimitLayer
-where
-    S: Service<Request>,
-{
-    type Response = S::Response;
-    type Error = Error<S::Error>;
-    type LayerError = ();
-    type Service = InFlightLimit<S>;
-
-    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        Ok(InFlightLimit::new(service, self.max))
     }
 }
 
