@@ -14,7 +14,7 @@ categories = ["asynchronous", "network-programming"]
 keywords = ["io", "async", "non-blocking", "futures", "service"]
 
 [dev-dependencies]
-tower-service = { version = "0.2", path = "../tower-service" }
+tower-service = "0.2.0"
 tower-util = { version = "0.1", path = "../tower-util" }
 futures = "0.1"
 log = "0.4.1"
