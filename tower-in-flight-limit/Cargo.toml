@@ -5,10 +5,11 @@ authors = ["Carl Lerche <me@carllerche.com>"]
 publish = false
 
 [dependencies]
-futures = "0.1"
-tower-service = { version = "0.2", path = "../tower-service" }
-tower-layer = { version = "0.1", path = "../tower-layer" }
+futures = "0.1.25"
+tokio-sync = "0.1.3"
+tower-service = { version = "0.2.0", path = "../tower-service" }
+tower-layer = { version = "0.1.0", path = "../tower-layer" }
 
 [dev-dependencies]
-tokio-test = { git = "https://github.com/carllerche/tokio-test" }
+tokio-mock-task = "0.1.1"
 tower-mock = { version = "0.1", path = "../tower-mock" }

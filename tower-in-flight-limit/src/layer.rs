@@ -1,4 +1,4 @@
-use InFlightLimit;
+use {Error, InFlightLimit};
 use tower_layer::Layer;
 use tower_service::Service;
 
@@ -16,9 +16,10 @@ impl InFlightLimitLayer {
 impl<S, Request> Layer<S, Request> for InFlightLimitLayer
 where
     S: Service<Request>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = S::Error;
+    type Error = Error;
     type LayerError = ();
     type Service = InFlightLimit<S>;
 

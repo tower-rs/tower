@@ -1,7 +1,9 @@
 //! Tower middleware that limits the maximum number of in-flight requests for a
 //! service.
 
+#[macro_use]
 extern crate futures;
+extern crate tokio_sync;
 extern crate tower_layer;
 extern crate tower_service;
 
@@ -13,30 +15,23 @@ use future::ResponseFuture;
 
 use tower_service::Service;
 
-use futures::task::AtomicTask;
-use futures::{Async, Poll};
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::SeqCst;
+use futures::Poll;
+use tokio_sync::semaphore::{self, Semaphore};
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct InFlightLimit<T> {
     inner: T,
-    state: State,
+    limit: Limit,
 }
 
 #[derive(Debug)]
-struct State {
-    shared: Arc<Shared>,
-    reserved: bool,
+struct Limit {
+    semaphore: Arc<Semaphore>,
+    permit: semaphore::Permit,
 }
 
-#[derive(Debug)]
-struct Shared {
-    max: usize,
-    curr: AtomicUsize,
-    task: AtomicTask,
-}
+type Error = Box<::std::error::Error + Send + Sync>;
 
 // ===== impl InFlightLimit =====
 
@@ -48,14 +43,10 @@ impl<T> InFlightLimit<T> {
     {
         InFlightLimit {
             inner,
-            state: State {
-                shared: Arc::new(Shared {
-                    max,
-                    curr: AtomicUsize::new(0),
-                    task: AtomicTask::new(),
-                }),
-                reserved: false,
-            },
+            limit: Limit {
+                semaphore: Arc::new(Semaphore::new(max)),
+                permit: semaphore::Permit::new(),
+            }
         }
     }
 
@@ -78,96 +69,54 @@ impl<T> InFlightLimit<T> {
 impl<S, Request> Service<Request> for InFlightLimit<S>
 where
     S: Service<Request>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = S::Error;
+    type Error = Error;
     type Future = future::ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        if self.state.reserved {
-            return self.inner.poll_ready();
-        }
-
-        self.state.shared.task.register();
-
-        if !self.state.shared.reserve() {
-            return Ok(Async::NotReady);
-        }
-
-        self.state.reserved = true;
+        try_ready!(self.limit.permit.poll_acquire(&self.limit.semaphore)
+                   .map_err(Error::from));
 
         self.inner.poll_ready()
+            .map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        // In this implementation, `poll_ready` is not expected to be called
-        // first (though, it might have been).
-        if self.state.reserved {
-            self.state.reserved = false;
-        } else {
-            // Try to reserve
-            if !self.state.shared.reserve() {
-                panic!("service not ready; call poll_ready first");
-            }
+        // Make sure a permit has been acquired
+        if self.limit.permit.try_acquire(&self.limit.semaphore).is_err() {
+            panic!("max requests in-flight; poll_ready must be called first");
         }
 
-        ResponseFuture::new(self.inner.call(request), self.state.shared.clone())
+        // Call the inner service
+        let future = self.inner.call(request);
+
+        // Forget the permit, the permit will be returned when
+        // `future::ResponseFuture` is dropped.
+        self.limit.permit.forget();
+
+        ResponseFuture::new(future, self.limit.semaphore.clone())
     }
 }
 
-// ===== impl State =====
-
-impl Clone for State {
-    fn clone(&self) -> Self {
-        State {
-            shared: self.shared.clone(),
-            reserved: false,
+impl<S> Clone for InFlightLimit<S>
+where
+    S: Clone,
+{
+    fn clone(&self) -> InFlightLimit<S> {
+        InFlightLimit {
+            inner: self.inner.clone(),
+            limit: Limit {
+                semaphore: self.limit.semaphore.clone(),
+                permit: semaphore::Permit::new(),
+            },
         }
     }
 }
 
-impl Drop for State {
+impl Drop for Limit {
     fn drop(&mut self) {
-        if self.reserved {
-            self.shared.release();
-        }
-    }
-}
-
-// ===== impl Shared =====
-
-impl Shared {
-    /// Attempts to reserve capacity for a request. Returns `true` if the
-    /// reservation is successful.
-    fn reserve(&self) -> bool {
-        let mut curr = self.curr.load(SeqCst);
-
-        loop {
-            if curr == self.max {
-                return false;
-            }
-
-            let actual = self.curr.compare_and_swap(curr, curr + 1, SeqCst);
-
-            if actual == curr {
-                return true;
-            }
-
-            curr = actual;
-        }
-    }
-
-    /// Release a reserved in-flight request. This is called when either the
-    /// request has completed OR the service that made the reservation has
-    /// dropped.
-    pub fn release(&self) {
-        let prev = self.curr.fetch_sub(1, SeqCst);
-
-        // Cannot go above the max number of in-flight
-        debug_assert!(prev <= self.max);
-
-        if prev == self.max {
-            self.task.notify();
-        }
+        self.permit.release(&self.semaphore);
     }
 }

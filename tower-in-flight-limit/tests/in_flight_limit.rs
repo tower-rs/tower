@@ -1,5 +1,5 @@
 extern crate futures;
-extern crate tokio_test;
+extern crate tokio_mock_task;
 extern crate tower_in_flight_limit;
 extern crate tower_mock;
 extern crate tower_service;
@@ -7,8 +7,8 @@ extern crate tower_service;
 use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 
+use tokio_mock_task::MockTask;
 use futures::future::{poll_fn, Future};
-use tokio_test::MockTask;
 
 #[test]
 fn basic_service_limit_functionality_with_poll_ready() {
