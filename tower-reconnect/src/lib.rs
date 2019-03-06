@@ -4,11 +4,15 @@ extern crate log;
 extern crate tower_service;
 extern crate tower_util;
 
+pub mod future;
+
+use crate::future::ResponseFuture;
+
 use futures::{Async, Future, Poll};
 use tower_service::Service;
 use tower_util::MakeService;
 
-use std::{error, fmt, marker::PhantomData};
+use std::fmt;
 
 pub struct Reconnect<M, Target>
 where
@@ -19,16 +23,7 @@ where
     target: Target,
 }
 
-#[derive(Debug)]
-pub enum Error<T, U> {
-    Service(T),
-    Connect(U),
-}
-
-pub struct ResponseFuture<F, E> {
-    inner: F,
-    _connect_error_marker: PhantomData<fn() -> E>,
-}
+type Error = Box<::std::error::Error + Send + Sync>;
 
 #[derive(Debug)]
 enum State<F, S> {
@@ -37,14 +32,17 @@ enum State<F, S> {
     Connected(S),
 }
 
-// ===== impl Reconnect =====
-
 impl<M, Target> Reconnect<M, Target>
 where
     M: Service<Target>,
-    Target: Clone,
 {
-    pub fn new(mk_service: M, target: Target) -> Self {
+    pub fn new<S, Request>(mk_service: M, target: Target) -> Self
+    where
+        M: Service<Target, Response = S>,
+        S: Service<Request>,
+        Error: From<M::Error> + From<S::Error>,
+        Target: Clone,
+    {
         Reconnect {
             mk_service,
             state: State::Idle,
@@ -57,11 +55,12 @@ impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
     M: Service<Target, Response = S>,
     S: Service<Request>,
+    Error: From<M::Error> + From<S::Error>,
     Target: Clone,
 {
     type Response = S::Response;
-    type Error = Error<S::Error, M::Error>;
-    type Future = ResponseFuture<S::Future, M::Error>;
+    type Error = Error;
+    type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         let ret;
@@ -71,15 +70,11 @@ where
             match self.state {
                 State::Idle => {
                     trace!("poll_ready; idle");
-                    match self.mk_service.poll_ready() {
-                        Ok(Async::Ready(())) => (),
-                        Ok(Async::NotReady) => {
+                    match self.mk_service.poll_ready()? {
+                        Async::Ready(()) => (),
+                        Async::NotReady => {
                             trace!("poll_ready; MakeService not ready");
                             return Ok(Async::NotReady);
-                        }
-                        Err(e) => {
-                            trace!("poll_ready; MakeService error");
-                            return Err(Error::Connect(e));
                         }
                     }
 
@@ -100,7 +95,7 @@ where
                         Err(e) => {
                             trace!("poll_ready; error");
                             state = State::Idle;
-                            ret = Err(Error::Connect(e));
+                            ret = Err(e.into());
                             break;
                         }
                     }
@@ -155,63 +150,5 @@ where
             .field("state", &self.state)
             .field("target", &self.target)
             .finish()
-    }
-}
-
-// ===== impl ResponseFuture =====
-
-impl<F, E> ResponseFuture<F, E> {
-    fn new(inner: F) -> Self {
-        ResponseFuture {
-            inner,
-            _connect_error_marker: PhantomData,
-        }
-    }
-}
-
-impl<F, E> Future for ResponseFuture<F, E>
-where
-    F: Future,
-{
-    type Item = F::Item;
-    type Error = Error<F::Error, E>;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll().map_err(Error::Service)
-    }
-}
-
-// ===== impl Error =====
-
-impl<T, U> fmt::Display for Error<T, U>
-where
-    T: fmt::Display,
-    U: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Service(ref why) => fmt::Display::fmt(why, f),
-            Error::Connect(ref why) => write!(f, "connection failed: {}", why),
-        }
-    }
-}
-
-impl<T, U> error::Error for Error<T, U>
-where
-    T: error::Error,
-    U: error::Error,
-{
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Service(ref why) => Some(why),
-            Error::Connect(ref why) => Some(why),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Service(_) => "inner service error",
-            Error::Connect(_) => "connection failed",
-        }
     }
 }
