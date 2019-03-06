@@ -1,5 +1,5 @@
-use Error;
 use futures::{Future, Poll};
+use Error;
 
 pub struct ResponseFuture<F> {
     inner: F,
@@ -7,9 +7,7 @@ pub struct ResponseFuture<F> {
 
 impl<F> ResponseFuture<F> {
     pub(crate) fn new(inner: F) -> Self {
-        ResponseFuture {
-            inner,
-        }
+        ResponseFuture { inner }
     }
 }
 
@@ -22,7 +20,6 @@ where
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
-            .map_err(Into::into)
+        self.inner.poll().map_err(Into::into)
     }
 }
