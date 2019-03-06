@@ -10,6 +10,26 @@ use tower_service::Service;
 use tokio_mock_task::MockTask;
 use futures::future::{poll_fn, Future};
 
+macro_rules! assert_ready {
+    ($e:expr) => {{
+        match $e {
+            Ok(futures::Async::Ready(v)) => v,
+            Ok(_) => panic!("not ready"),
+            Err(e) => panic!("error = {:?}", e),
+        }
+    }};
+}
+
+macro_rules! assert_not_ready {
+    ($e:expr) => {{
+        match $e {
+            Ok(futures::Async::NotReady) => {}
+            Ok(futures::Async::Ready(v)) => panic!("ready; value = {:?}", v),
+            Err(e) => panic!("error = {:?}", e),
+        }
+    }};
+}
+
 #[test]
 fn basic_service_limit_functionality_with_poll_ready() {
     let mut task = MockTask::new();
@@ -242,6 +262,33 @@ fn response_future_drop_releases_capacity() {
     task.enter(|| {
         assert!(s2.poll_ready().unwrap().is_ready());
     });
+}
+
+#[test]
+fn multi_waiters() {
+    let mut task1 = MockTask::new();
+    let mut task2 = MockTask::new();
+    let mut task3 = MockTask::new();
+
+    let (mut s1, _handle) = new_service(1);
+    let mut s2 = s1.clone();
+    let mut s3 = s1.clone();
+
+    // Reserve capacity in s1
+    task1.enter(|| assert_ready!(s1.poll_ready()));
+
+    // s2 and s3 are not ready
+    task2.enter(|| assert_not_ready!(s2.poll_ready()));
+    task3.enter(|| assert_not_ready!(s3.poll_ready()));
+
+    drop(s1);
+
+    assert!(task2.is_notified());
+    assert!(!task3.is_notified());
+
+    drop(s2);
+
+    assert!(task3.is_notified());
 }
 
 type Mock = tower_mock::Mock<&'static str, &'static str>;
