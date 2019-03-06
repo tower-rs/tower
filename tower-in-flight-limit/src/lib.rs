@@ -10,14 +10,14 @@ extern crate tower_service;
 pub mod future;
 mod layer;
 
-pub use layer::InFlightLimitLayer;
 use future::ResponseFuture;
+pub use layer::InFlightLimitLayer;
 
 use tower_service::Service;
 
 use futures::Poll;
-use tokio_sync::semaphore::{self, Semaphore};
 use std::sync::Arc;
+use tokio_sync::semaphore::{self, Semaphore};
 
 #[derive(Debug)]
 pub struct InFlightLimit<T> {
@@ -46,7 +46,7 @@ impl<T> InFlightLimit<T> {
             limit: Limit {
                 semaphore: Arc::new(Semaphore::new(max)),
                 permit: semaphore::Permit::new(),
-            }
+            },
         }
     }
 
@@ -76,16 +76,23 @@ where
     type Future = future::ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        try_ready!(self.limit.permit.poll_acquire(&self.limit.semaphore)
-                   .map_err(Error::from));
+        try_ready!(self
+            .limit
+            .permit
+            .poll_acquire(&self.limit.semaphore)
+            .map_err(Error::from));
 
-        self.inner.poll_ready()
-            .map_err(Into::into)
+        self.inner.poll_ready().map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         // Make sure a permit has been acquired
-        if self.limit.permit.try_acquire(&self.limit.semaphore).is_err() {
+        if self
+            .limit
+            .permit
+            .try_acquire(&self.limit.semaphore)
+            .is_err()
+        {
             panic!("max requests in-flight; poll_ready must be called first");
         }
 

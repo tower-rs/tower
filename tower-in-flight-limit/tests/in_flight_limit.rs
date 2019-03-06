@@ -7,8 +7,8 @@ extern crate tower_service;
 use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 
-use tokio_mock_task::MockTask;
 use futures::future::{poll_fn, Future};
+use tokio_mock_task::MockTask;
 
 macro_rules! assert_ready {
     ($e:expr) => {{

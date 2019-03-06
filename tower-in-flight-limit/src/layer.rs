@@ -1,6 +1,6 @@
-use {Error, InFlightLimit};
 use tower_layer::Layer;
 use tower_service::Service;
+use {Error, InFlightLimit};
 
 #[derive(Debug, Clone)]
 pub struct InFlightLimitLayer {

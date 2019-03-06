@@ -1,7 +1,7 @@
-use Error;
 use futures::{Future, Poll};
-use tokio_sync::semaphore::Semaphore;
 use std::sync::Arc;
+use tokio_sync::semaphore::Semaphore;
+use Error;
 
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
@@ -24,8 +24,7 @@ where
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
-            .map_err(Into::into)
+        self.inner.poll().map_err(Into::into)
     }
 }
 
