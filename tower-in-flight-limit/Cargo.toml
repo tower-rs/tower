@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 futures = "0.1.25"
 tokio-sync = "0.1.3"
-tower-service = { version = "0.2.0", path = "../tower-service" }
+tower-service = "0.2.0"
 tower-layer = { version = "0.1.0", path = "../tower-layer" }
 
 [dev-dependencies]

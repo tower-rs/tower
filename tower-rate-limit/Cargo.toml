@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 futures = "0.1"
-tower-service = { version = "0.2", path = "../tower-service" }
+tower-service = "0.2.0"
 tower-layer = { version = "0.1", path = "../tower-layer"}
 tokio-timer = "0.2.6"
 
