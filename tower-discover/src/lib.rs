@@ -12,6 +12,7 @@ extern crate tower_service;
 use futures::{Async, Poll, Stream};
 use tower_service::Service;
 
+use std::fmt;
 use std::hash::Hash;
 use std::iter::{Enumerate, IntoIterator};
 use std::marker::PhantomData;
@@ -51,7 +52,6 @@ where
 {
     inner: Enumerate<T::IntoIter>,
 }
-
 // ===== impl List =====
 
 impl<T, U> List<T>
@@ -74,7 +74,7 @@ where
 {
     type Key = usize;
     type Service = U;
-    type Error = ();
+    type Error = Never;
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         match self.inner.next() {
@@ -128,6 +128,18 @@ where
         }
     }
 }
+
+#[doc(hidden)]
+#[derive(Debug)]
+pub enum Never {}
+
+impl fmt::Display for Never {
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        match *self {}
+    }
+}
+
+impl std::error::Error for Never {}
 
 // check that List can be directly over collections
 #[cfg(test)]
