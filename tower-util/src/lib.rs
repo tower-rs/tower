@@ -3,6 +3,8 @@
 #[macro_use]
 extern crate futures;
 extern crate tokio_io;
+#[cfg(test)]
+extern crate tokio_mock_task;
 extern crate tower_service;
 
 pub mod boxed;

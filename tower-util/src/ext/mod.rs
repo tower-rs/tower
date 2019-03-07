@@ -1,10 +1,11 @@
 //! Combinators for working with `Service`s
 
-use futures::IntoFuture;
+use futures::{IntoFuture, Stream};
 use tower_service::Service;
 
 mod and_then;
 mod apply;
+mod call_all;
 mod from_err;
 mod map;
 mod map_err;
@@ -14,6 +15,7 @@ mod then;
 
 pub use self::and_then::AndThen;
 pub use self::apply::Apply;
+pub use self::call_all::{CallAll, StateStreamItem};
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;
@@ -125,5 +127,17 @@ pub trait ServiceExt<Request>: Service<Request> {
         Self: Sized,
     {
         Oneshot::new(self, req)
+    }
+
+    /// Process all requests from the given `Stream`, and produce a `Stream` of their responses.
+    ///
+    /// This is essentially `Stream<Item = Request>` + `Self` => `Stream<Item = Response>`. See the
+    /// documentation for [`CallAll`](struct.CallAll.html) for details.
+    fn call_all<S, E>(self, reqs: S) -> CallAll<Self, S, E>
+    where
+        Self: Sized,
+        S: Stream<Item = Request>,
+    {
+        CallAll::new(self, reqs)
     }
 }
