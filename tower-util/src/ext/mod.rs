@@ -15,7 +15,7 @@ mod then;
 
 pub use self::and_then::AndThen;
 pub use self::apply::Apply;
-pub use self::call_all::{CallAll, StateStreamItem};
+pub use self::call_all::CallAll;
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;

@@ -5,15 +5,6 @@ use futures::{try_ready, Async, Poll, Stream};
 use std::marker::PhantomData;
 use tower_service::Service;
 
-/// Items yielded by `CallAll`'s implementation of `Stream`.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum StateStreamItem<S, Response> {
-    /// For every submitted request, `CallAll` yields an `Item` with the corresponding response.
-    Item(Response),
-    /// When the incoming request `Stream` has ended, `CallAll` yields the wrapped service in this.
-    Service(S),
-}
-
 /// This is a `futures::Stream` of responses resulting from calling the wrapped `tower::Service`
 /// for each request received on the wrapped `Stream`.
 ///
@@ -30,7 +21,6 @@ pub enum StateStreamItem<S, Response> {
 /// use futures::Stream;
 /// use tower_service::Service;
 /// use tower_util::ServiceExt;
-/// use tower_util::ext::StateStreamItem;
 ///
 /// // First, we need to have a Service to process our requests.
 /// #[derive(Debug, Eq, PartialEq)]
@@ -66,25 +56,24 @@ pub enum StateStreamItem<S, Response> {
 /// // We then loop over the response Strem that we get back from call_all.
 /// # // a little bit of trickery here since we don't have an executor
 /// # /*
-/// for (i, rsp) in rsps.wait().enumerate() {
+/// let mut iter = rsps.wait();
 /// # */
-/// # for (i, rsp) in mock.enter(|| rsps.wait()).enumerate() {
+/// # let mut iter = mock.enter(|| rsps.wait());
+/// # for (i, rsp) in (&mut iter).enumerate() {
 ///     // Since we used .wait(), each response is a Result.
 ///     match (i + 1, rsp.unwrap()) {
-///         // We either get an Item if this is a response to a request.
-///         (1, StateStreamItem::Item("o")) |
-///         (2, StateStreamItem::Item("t")) |
-///         (3, StateStreamItem::Item("t")) => {}
-///         (n, StateStreamItem::Item(i)) => {
+///         (1, "o") |
+///         (2, "t") |
+///         (3, "t") => {}
+///         (n, i) => {
 ///             unreachable!("{}. response was '{}'", n, i);
-///         }
-///         // Or we get the Service back when there are no more requests.
-///         (n, StateStreamItem::Service(s)) => {
-///             assert_eq!(n, 4);
-///             assert_eq!(s, FirstLetter);
 ///         }
 ///     }
 /// }
+///
+/// // And at the end, we can get the Service back when there are no more requests.
+/// let rsps = iter.into_inner();
+/// assert_eq!(rsps.into_inner(), FirstLetter);
 /// # }
 /// ```
 #[derive(Debug)]
@@ -93,8 +82,7 @@ where
     Svc: Service<S::Item>,
     S: Stream,
 {
-    // Will be Some until S is exhausten, then it will be yielded.
-    svc: Option<Svc>,
+    svc: Svc,
     stream: S,
     responses: FuturesOrdered<Svc::Future>,
     eof: bool,
@@ -112,12 +100,17 @@ where
     /// yielded in the same order by the implementation of `Stream` for `CallAll`.
     pub fn new(svc: Svc, stream: S) -> CallAll<Svc, S, E> {
         CallAll {
-            svc: Some(svc),
+            svc: svc,
             stream,
             responses: FuturesOrdered::new(),
             eof: false,
             error: PhantomData,
         }
+    }
+
+    /// Extract the wrapped `Service`.
+    pub fn into_inner(self) -> Svc {
+        self.svc
     }
 }
 
@@ -128,39 +121,31 @@ where
     E: From<Svc::Error>,
     E: From<S::Error>,
 {
-    type Item = StateStreamItem<Svc, Svc::Response>;
+    type Item = Svc::Response;
     type Error = E;
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            // If the service has been taken, we know we're done.
-            if self.svc.is_none() {
-                return Ok(Async::Ready(None));
-            }
-
             // First, see if we have any responses to yield
             if let Async::Ready(Some(rsp)) = self.responses.poll()? {
-                return Ok(Async::Ready(Some(StateStreamItem::Item(rsp))));
+                return Ok(Async::Ready(Some(rsp)));
             }
 
             // If there are no more requests coming, check if we're done
             if self.eof {
                 if self.responses.is_empty() {
-                    return Ok(Async::Ready(self.svc.take().map(StateStreamItem::Service)));
+                    return Ok(Async::Ready(None));
                 } else {
                     return Ok(Async::NotReady);
                 }
             }
 
-            // We check for svc.is_none() above.
-            let svc = self.svc.as_mut().unwrap();
-
             // Then, see that the service is ready for another request
-            try_ready!(svc.poll_ready());
+            try_ready!(self.svc.poll_ready());
 
             // If it is, gather the next request (if there is one)
             match self.stream.poll()? {
                 Async::Ready(Some(req)) => {
-                    self.responses.push(svc.call(req));
+                    self.responses.push(self.svc.call(req));
                 }
                 Async::Ready(None) => {
                     // We're all done once any outstanding requests have completed
@@ -227,51 +212,39 @@ mod tests {
         mock.is_notified();
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady)); // service not admitting
         admit.set(true);
-        assert_eq!(
-            mock.enter(|| ca.poll()),
-            Ok(Async::Ready(Some(StateStreamItem::Item("one"))))
-        );
+        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("one"))));
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady));
         admit.set(true);
         tx.unbounded_send("two").unwrap();
         mock.is_notified();
         tx.unbounded_send("three").unwrap();
-        assert_eq!(
-            mock.enter(|| ca.poll()),
-            Ok(Async::Ready(Some(StateStreamItem::Item("two"))))
-        );
+        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("two"))));
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady)); // not yet admitted
         admit.set(true);
-        assert_eq!(
-            mock.enter(|| ca.poll()),
-            Ok(Async::Ready(Some(StateStreamItem::Item("three"))))
-        );
+        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("three"))));
         admit.set(true);
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady)); // allowed to admit, but nothing there
         admit.set(true);
         tx.unbounded_send("four").unwrap();
         mock.is_notified();
-        assert_eq!(
-            mock.enter(|| ca.poll()),
-            Ok(Async::Ready(Some(StateStreamItem::Item("four"))))
-        );
+        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("four"))));
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady));
         admit.set(true); // need to be ready since impl doesn't know it'll get EOF
 
-        // When we drop the request stream, CallAll should return the wrapped Service.
+        // When we drop the request stream, CallAll should return None.
         drop(tx);
         mock.is_notified();
-        assert_eq!(
-            mock.enter(|| ca.poll()),
-            Ok(Async::Ready(Some(StateStreamItem::Service(Srv {
-                count: count.clone(),
-                admit
-            }))))
-        );
-
-        // And from that point onwards it should return None.
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(None)));
         assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(None)));
         assert_eq!(count.get(), 4);
+
+        // We should also be able to recover the wrapped Service.
+        assert_eq!(
+            ca.into_inner(),
+            Srv {
+                count: count.clone(),
+                admit
+            }
+        );
     }
 }
