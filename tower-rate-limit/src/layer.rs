@@ -1,8 +1,8 @@
+use crate::error::{never::Never, Error};
 use crate::{Rate, RateLimit};
-use crate::error::{Error, never::Never};
+use std::time::Duration;
 use tower_layer::Layer;
 use tower_service::Service;
-use std::time::Duration;
 
 #[derive(Debug)]
 pub struct RateLimitLayer {
