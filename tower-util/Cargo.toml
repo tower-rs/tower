@@ -8,3 +8,6 @@ publish = false
 futures = "0.1"
 tower-service = "0.2.0"
 tokio-io = "0.1"
+
+[dev-dependencies]
+tokio-mock-task = "0.1"
