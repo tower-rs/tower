@@ -9,6 +9,7 @@ extern crate rand;
 extern crate tokio_timer;
 extern crate tower_discover;
 extern crate tower_service;
+extern crate tower_util;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;
@@ -20,9 +21,11 @@ use tower_service::Service;
 pub mod choose;
 pub mod error;
 pub mod load;
+pub mod pool;
 
 pub use self::choose::Choose;
 pub use self::load::Load;
+pub use self::pool::Pool;
 
 use self::error::Error;
 
