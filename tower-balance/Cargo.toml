@@ -11,6 +11,7 @@ rand = "0.6"
 tokio-timer = "0.2.4"
 tower-service = "0.2.0"
 tower-discover = { version = "0.1", path = "../tower-discover" }
+tower-util = { version = "0.1", path = "../tower-util" }
 indexmap = "1"
 
 [dev-dependencies]
