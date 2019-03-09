@@ -1,6 +1,6 @@
 //! Future types
 
-use error::{Error, ServiceError};
+use error::{Closed, Error};
 use futures::{Async, Future, Poll};
 use message;
 
@@ -10,7 +10,7 @@ pub struct ResponseFuture<T> {
 }
 
 enum ResponseState<T> {
-    Failed(ServiceError),
+    Failed(Option<Error>),
     Rx(message::Rx<T>),
     Poll(T),
 }
@@ -26,9 +26,9 @@ where
         }
     }
 
-    pub(crate) fn failed(err: ServiceError) -> Self {
+    pub(crate) fn failed(err: Error) -> Self {
         ResponseFuture {
-            state: ResponseState::Failed(err),
+            state: ResponseState::Failed(Some(err)),
         }
     }
 }
@@ -48,16 +48,14 @@ where
             let fut;
 
             match self.state {
-                Failed(ref e) => {
-                    return Err(e.clone().into());
+                Failed(ref mut e) => {
+                    return Err(e.take().expect("polled after error"));
                 }
                 Rx(ref mut rx) => match rx.poll() {
                     Ok(Async::Ready(Ok(f))) => fut = f,
                     Ok(Async::Ready(Err(e))) => return Err(e.into()),
                     Ok(Async::NotReady) => return Ok(Async::NotReady),
-                    Err(_) => unreachable!(
-                        "Worker exited without sending error to all outstanding requests."
-                    ),
+                    Err(_) => return Err(Closed::new().into()),
                 },
                 Poll(ref mut fut) => {
                     return fut.poll().map_err(Into::into);

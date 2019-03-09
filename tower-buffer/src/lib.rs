@@ -140,7 +140,7 @@ where
         // If the inner service has errored, then we error here.
         self.tx
             .poll_ready()
-            .map_err(move |_| self.worker.get_error_on_closed().into())
+            .map_err(|_| self.worker.get_error_on_closed())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

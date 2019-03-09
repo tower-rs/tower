@@ -7,6 +7,7 @@ use futures::prelude::*;
 use tower_buffer::*;
 use tower_service::*;
 
+use std::cell::RefCell;
 use std::thread;
 
 #[test]
@@ -98,8 +99,6 @@ fn when_inner_fails() {
     with_task(|| {
         let e = res1.poll().unwrap_err();
         if let Some(e) = e.downcast_ref::<error::ServiceError>() {
-            assert!(format!("{}", e).contains("poll_ready"));
-
             let e = e.source().unwrap();
 
             assert_eq!(e.to_string(), "foobar");
@@ -107,6 +106,42 @@ fn when_inner_fails() {
             panic!("unexpected error type: {:?}", e);
         }
     });
+}
+
+#[test]
+fn poll_ready_when_worker_is_dropped_early() {
+    let (service, _handle) = Mock::new();
+
+    // drop that worker right on the floor!
+    let exec = ExecFn(drop);
+
+    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+
+    with_task(|| {
+        service
+            .poll_ready()
+            .expect_err("buffer poll_ready should error");
+    });
+}
+
+#[test]
+fn response_future_when_worker_is_dropped_early() {
+    let (service, mut handle) = Mock::new();
+
+    // hold the worker in a cell until we want to drop it later
+    let cell = RefCell::new(None);
+    let exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
+
+    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+
+    // keep the request in the worker
+    handle.allow(0);
+    let response = service.call("hello");
+
+    // drop the worker (like an executor closing up)
+    cell.borrow_mut().take();
+
+    response.wait().expect_err("res.wait");
 }
 
 type Mock = tower_mock::Mock<&'static str, &'static str>;
@@ -122,6 +157,19 @@ where
         thread::spawn(move || {
             fut.wait().unwrap();
         });
+        Ok(())
+    }
+}
+
+struct ExecFn<Func>(Func);
+
+impl<Func, F> futures::future::Executor<F> for ExecFn<Func>
+where
+    Func: Fn(F),
+    F: Future<Item = (), Error = ()> + Send + 'static,
+{
+    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
+        (self.0)(fut);
         Ok(())
     }
 }
