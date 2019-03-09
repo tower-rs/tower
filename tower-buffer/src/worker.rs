@@ -1,4 +1,4 @@
-use error::{Error, ServiceError};
+use error::{Closed, Error, ServiceError};
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use message::Message;
@@ -106,8 +106,8 @@ where
         Ok(Async::Ready(None))
     }
 
-    fn failed(&mut self, method: &'static str, error: T::Error) {
-        // The underlying service failed when we called `method` on it with the given `error`. We
+    fn failed(&mut self, error: T::Error) {
+        // The underlying service failed when we called `poll_ready` on it with the given `error`. We
         // need to communicate this to all the `Buffer` handles. To do so, we wrap up the error in
         // an `Arc`, send that `Arc<E>` to all pending requests, and store it so that subsequent
         // requests will also fail with the same error.
@@ -119,7 +119,7 @@ where
         // request. We do this by *first* exposing the error, *then* closing the channel used to
         // send more requests (so the client will see the error when the send fails), and *then*
         // sending the error to all outstanding requests.
-        let error = ServiceError::new(method, error.into());
+        let error = ServiceError::new(error.into());
 
         let mut inner = self.handle.inner.lock().unwrap();
 
@@ -154,8 +154,8 @@ where
         }
 
         loop {
-            match self.poll_next_msg()? {
-                Async::Ready(Some(msg)) => {
+            match try_ready!(self.poll_next_msg()) {
+                Some(msg) => {
                     if let Some(ref failed) = self.failed {
                         let _ = msg.tx.send(Err(failed.clone()));
                         continue;
@@ -171,7 +171,6 @@ where
                             // An error means the request had been canceled in-between
                             // our calls, the response future will just be dropped.
                             let _ = msg.tx.send(Ok(response));
-                            continue;
                         }
                         Ok(Async::NotReady) => {
                             // Put out current message back in its slot.
@@ -179,7 +178,7 @@ where
                             return Ok(Async::NotReady);
                         }
                         Err(e) => {
-                            self.failed("poll_ready", e);
+                            self.failed(e);
                             let _ = msg.tx.send(Err(self
                                 .failed
                                 .as_ref()
@@ -188,19 +187,10 @@ where
                         }
                     }
                 }
-                Async::Ready(None) => {
+                None => {
                     // No more more requests _ever_.
                     self.finish = true;
                     return Ok(Async::Ready(()));
-                }
-                Async::NotReady if self.failed.is_some() => {
-                    // No need to poll the service as it has already failed.
-                    return Ok(Async::NotReady);
-                }
-                Async::NotReady => {
-                    // We don't have any new requests to enqueue.
-                    // So we yield.
-                    return Ok(Async::NotReady);
                 }
             }
         }
@@ -208,13 +198,13 @@ where
 }
 
 impl Handle {
-    pub(crate) fn get_error_on_closed(&self) -> ServiceError {
+    pub(crate) fn get_error_on_closed(&self) -> Error {
         self.inner
             .lock()
             .unwrap()
             .as_ref()
-            .expect("Worker exited, but did not set error.")
-            .clone()
+            .map(|svc_err| svc_err.clone().into())
+            .unwrap_or_else(|| Closed::new().into())
     }
 }
 
