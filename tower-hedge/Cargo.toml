@@ -1,0 +1,18 @@
+[package]
+name = "tower-hedge"
+version = "0.1.0"
+authors = ["Alex Leong <adlleong@gmail.com>"]
+publish = false
+
+[dependencies]
+futures = "0.1"
+hdrhistogram = "6.0"
+log = "0.4.1"
+tower-service = "0.2.0"
+tower-retry = { version = "0.1", path = "../tower-retry" }
+tokio-mock-task = { git = "https://github.com/carllerche/tokio-mock-task" }
+tokio-timer = "0.2.6"
+
+[dev-dependencies]
+tower-mock = { version = "0.1", path = "../tower-mock" }
+tokio-executor = "0.1.2"

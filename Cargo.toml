@@ -6,6 +6,7 @@ members = [
   "tower-buffer",
   "tower-discover",
   "tower-filter",
+  "tower-hedge",
   "tower-in-flight-limit",
   "tower-mock",
   "tower-layer",
