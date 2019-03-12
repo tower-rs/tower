@@ -76,9 +76,8 @@ impl<P, S> Hedge<P, S> {
         P: Policy<Request> + Clone,
         S: Service<Request>,
     {
-        let new: fn() -> Histogram<u64> = || {
-            Histogram::<u64>::new_with_bounds(1, 10_000, 3).expect("Invalid histogram params")
-        };
+        let new: fn() -> Histogram<u64> =
+            || Histogram::<u64>::new_with_bounds(1, 10_000, 3).expect("Invalid histogram params");
         let latency_histogram = Arc::new(Mutex::new(Rotating::new(rotation_period, new)));
         Hedge {
             policy,
@@ -93,9 +92,12 @@ impl<P, S> Hedge<P, S> {
     fn record(&self, start: Instant) {
         let duration = clock::now() - start;
         let mut locked = self.latency_histogram.lock().unwrap();
-        locked.write().record(Self::as_millis(duration)).unwrap_or_else(|e| {
-            error!("Failed to write to hedge histogram: {:?}", e);
-        });
+        locked
+            .write()
+            .record(Self::as_millis(duration))
+            .unwrap_or_else(|e| {
+                error!("Failed to write to hedge histogram: {:?}", e);
+            });
     }
 
     // TODO: Remove when Duration::as_millis() becomes stable.
@@ -133,7 +135,8 @@ where
         // distribution.
         let read = histo.read();
         let delay = if read.len() < self.min_data_points {
-            trace!("Not enough data points to determine hedge timeout.  Have {}, need {}", 
+            trace!(
+                "Not enough data points to determine hedge timeout.  Have {}, need {}",
                 read.len(),
                 self.min_data_points
             );
@@ -185,7 +188,10 @@ where
                 let p = hedge_fut.poll();
                 if let Ok(ref a) = p {
                     if a.is_ready() {
-                        trace!("Hedge request complete after {:?}", clock::now() - self.start);
+                        trace!(
+                            "Hedge request complete after {:?}",
+                            clock::now() - self.start
+                        );
                         self.hedge.record(self.start);
                     }
                 }
@@ -204,19 +210,24 @@ where
                     if let Some(req) = self.request.take() {
                         if self.hedge.policy.can_retry(&req) {
                             // Start the hedge request.
-                            trace!("Issuing hedge request after {:?}", clock::now() - self.start);
+                            trace!(
+                                "Issuing hedge request after {:?}",
+                                clock::now() - self.start
+                            );
                             self.request = self.hedge.policy.clone_request(&req);
                             self.hedge_fut = Some(self.hedge.service.call(req));
                         } else {
                             // Policy says we can't retry.
                             // Put the taken request back.
-                            trace!("Hedge timeout reached, but unable to retry due to policy");
+                            trace!("Hedge timeout reached, unable to retry due to policy");
                             self.request = Some(req);
                             return Ok(Async::NotReady);
                         }
                     } else {
                         // No cloned request, can't retry.
-                        trace!("Hedge timeout reached, but unable to retry because request is not clonable");
+                        trace!(
+                            "Hedge timeout reached, unable to retry because request not clonable"
+                        );
                         return Ok(Async::NotReady);
                     }
                 }
@@ -225,7 +236,7 @@ where
                     // Timer error, don't retry.
                     error!("Timer error: {:?}", e);
                     return Ok(Async::NotReady);
-                },
+                }
             }
         }
     }

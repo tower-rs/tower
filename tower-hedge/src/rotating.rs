@@ -17,7 +17,6 @@ pub struct Rotating<T> {
 }
 
 impl<T: Clear + Size> Rotating<T> {
-
     pub fn new(period: Duration, new: fn() -> T) -> Rotating<T> {
         Rotating {
             read: new(),
@@ -40,7 +39,8 @@ impl<T: Clear + Size> Rotating<T> {
     fn maybe_rotate(&mut self) {
         let delta = clock::now() - self.last_rotation;
         // TODO: replace with delta.duration_div when it becomes stable.
-        let rotations = (Self::duration_as_nanos(&delta) / Self::duration_as_nanos(&self.period)) as u32;
+        let rotations = (Self::duration_as_nanos(&delta) /
+                             Self::duration_as_nanos(&self.period)) as u32;
         if rotations >= 2 {
             trace!("Time since last rotation is {:?}.  clearing!", delta);
             self.clear();
@@ -65,7 +65,6 @@ impl<T: Clear + Size> Rotating<T> {
     fn duration_as_nanos(d: &Duration) -> u64 {
         d.as_secs() * 1_000_000_000 + (d.subsec_nanos() as u64)
     }
-
 }
 
 pub trait Clear {
