@@ -13,6 +13,7 @@ members = [
   "tower-reconnect",
   "tower-retry",
   "tower-service",
+  "tower-service-util",
   "tower-timeout",
   "tower-util",
   "tower-watch",

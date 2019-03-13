@@ -2,23 +2,21 @@
 
 #[macro_use]
 extern crate futures;
-extern crate tokio_io;
 #[cfg(test)]
 extern crate tokio_mock_task;
 extern crate tower_service;
+extern crate tower_service_util;
 
-pub mod boxed;
+pub use tower_service_util::boxed;
 pub mod either;
 pub mod ext;
-mod make_connection;
-mod make_service;
-pub mod option;
+pub use tower_service_util::option;
 mod service_fn;
 
-pub use boxed::BoxService;
+pub use tower_service_util::boxed::BoxService;
 pub use either::EitherService;
 pub use ext::ServiceExt;
-pub use make_connection::MakeConnection;
-pub use make_service::MakeService;
-pub use option::OptionService;
+pub use tower_service_util::MakeConnection;
+pub use tower_service_util::MakeService;
+pub use tower_service_util::option::OptionService;
 pub use service_fn::ServiceFn;
