@@ -39,8 +39,8 @@ impl<T: Clear + Size> Rotating<T> {
     fn maybe_rotate(&mut self) {
         let delta = clock::now() - self.last_rotation;
         // TODO: replace with delta.duration_div when it becomes stable.
-        let rotations = (Self::duration_as_nanos(&delta) /
-                             Self::duration_as_nanos(&self.period)) as u32;
+        let rotations =
+            (Self::duration_as_nanos(&delta) / Self::duration_as_nanos(&self.period)) as u32;
         if rotations >= 2 {
             trace!("Time since last rotation is {:?}.  clearing!", delta);
             self.clear();
