@@ -14,7 +14,6 @@ pub struct UnsyncBoxService<T, U, E> {
 /// remain on the current thread.
 type UnsyncBoxFuture<T, E> = Box<Future<Item = T, Error = E>>;
 
-
 #[derive(Debug)]
 struct UnsyncBoxed<S> {
     inner: S,

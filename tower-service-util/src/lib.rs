@@ -1,9 +1,9 @@
 //! Various utility types and functions that are generally with Tower.
 
 extern crate futures;
-extern crate tower_service;
 #[cfg(feature = "io")]
 extern crate tokio_io;
+extern crate tower_service;
 
 pub mod boxed;
 pub mod option;

@@ -18,5 +18,4 @@ impl fmt::Display for None {
     }
 }
 
-impl error::Error for None {
-}
+impl error::Error for None {}

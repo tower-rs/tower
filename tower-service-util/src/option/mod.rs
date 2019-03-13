@@ -42,9 +42,7 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         match self.inner {
-            Some(ref mut inner) => {
-                inner.poll_ready().map_err(Into::into)
-            }
+            Some(ref mut inner) => inner.poll_ready().map_err(Into::into),
             // None services are always ready
             None => Ok(().into()),
         }

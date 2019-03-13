@@ -22,9 +22,7 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.inner {
-            Some(ref mut inner) => {
-                inner.poll().map_err(Into::into)
-            }
+            Some(ref mut inner) => inner.poll().map_err(Into::into),
             None => Err(error::None::new().into()),
         }
     }
