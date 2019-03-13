@@ -199,7 +199,7 @@ where
             }
             // Original future is pending, but hedge hasn't started.  Check
             // the delay.
-            let delay = match self.delay.as_mut() {
+            let mut delay = match self.delay.take() {
                 Some(d) => d,
                 // No delay, can't retry.
                 None => return Ok(Async::NotReady),
@@ -214,13 +214,10 @@ where
                                 "Issuing hedge request after {:?}",
                                 clock::now() - self.start
                             );
-                            self.request = self.hedge.policy.clone_request(&req);
                             self.hedge_fut = Some(self.hedge.service.call(req));
                         } else {
                             // Policy says we can't retry.
-                            // Put the taken request back.
                             trace!("Hedge timeout reached, unable to retry due to policy");
-                            self.request = Some(req);
                             return Ok(Async::NotReady);
                         }
                     } else {
@@ -231,7 +228,11 @@ where
                         return Ok(Async::NotReady);
                     }
                 }
-                Ok(Async::NotReady) => return Ok(Async::NotReady), // Not time to retry yet.
+                Ok(Async::NotReady) => {
+                    // Not time to retry yet.
+                    self.delay = Some(delay);
+                    return Ok(Async::NotReady);
+                }
                 Err(e) => {
                     // Timer error, don't retry.
                     error!("Timer error: {:?}", e);
