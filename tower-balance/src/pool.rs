@@ -18,7 +18,7 @@ use super::{Balance, Choose};
 use futures::{Async, Future, Poll};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
-use tower_util::MakeService;
+use tower_service_util::MakeService;
 
 enum Load {
     /// Load is low -- remove a service instance.

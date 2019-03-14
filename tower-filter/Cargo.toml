@@ -11,4 +11,3 @@ tower-layer = { version = "0.1", path = "../tower-layer" }
 
 [dev-dependencies]
 tower-mock = { version = "0.1", path = "../tower-mock" }
-tower-util = { version = "0.1", path = "../tower-util" }
