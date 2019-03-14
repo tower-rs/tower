@@ -9,11 +9,15 @@ pub struct ResponseFuture<A, B> {
 
 impl<A, B> ResponseFuture<A, B> {
     pub(crate) fn new_left(left: A) -> ResponseFuture<A, B> {
-        ResponseFuture { inner: Either::Left(left) }
+        ResponseFuture {
+            inner: Either::Left(left),
+        }
     }
 
     pub(crate) fn new_right(right: B) -> ResponseFuture<A, B> {
-        ResponseFuture { inner: Either::Right(right) }
+        ResponseFuture {
+            inner: Either::Right(right),
+        }
     }
 }
 
