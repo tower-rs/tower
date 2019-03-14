@@ -1,8 +1,8 @@
-use crate::{Change, Discover};
 use crate::error::Never;
+use crate::{Change, Discover};
 use futures::{Async, Poll};
-use tower_service::Service;
 use std::iter::{Enumerate, IntoIterator};
+use tower_service::Service;
 
 /// Static service discovery based on a predetermined list of services.
 ///

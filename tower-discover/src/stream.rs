@@ -1,7 +1,7 @@
 use crate::{Change, Discover};
-use futures::{Async, Stream, Poll};
-use tower_service::Service;
+use futures::{Async, Poll, Stream};
 use std::hash::Hash;
+use tower_service::Service;
 
 /// Dynamic service discovery based on a stream of service changes.
 pub struct ServiceStream<S> {
