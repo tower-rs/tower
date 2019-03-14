@@ -16,9 +16,11 @@ pub mod option;
 mod make_connection;
 mod make_service;
 mod sealed;
+mod service_fn;
 
 #[cfg(feature = "io")]
 pub use crate::make_connection::MakeConnection;
 pub use crate::make_service::MakeService;
+pub use crate::service_fn::ServiceFn;
 
 pub use tower_service::Service;

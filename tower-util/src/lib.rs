@@ -11,11 +11,10 @@ pub use tower_service_util::boxed;
 pub use tower_service_util::either;
 pub mod ext;
 pub use tower_service_util::option;
-mod service_fn;
 
 pub use either::EitherService;
 pub use ext::ServiceExt;
-pub use service_fn::ServiceFn;
+pub use tower_service_util::ServiceFn;
 pub use tower_service_util::boxed::BoxService;
 pub use tower_service_util::option::OptionService;
 pub use tower_service_util::MakeConnection;
