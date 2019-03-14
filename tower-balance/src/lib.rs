@@ -9,7 +9,7 @@ extern crate rand;
 extern crate tokio_timer;
 extern crate tower_discover;
 extern crate tower_service;
-extern crate tower_util;
+extern crate tower_service_util;
 
 use futures::{Async, Future, Poll};
 use indexmap::IndexMap;

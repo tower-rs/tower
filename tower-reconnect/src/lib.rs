@@ -2,7 +2,7 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate tower_service;
-extern crate tower_util;
+extern crate tower_service_util;
 
 pub mod future;
 
@@ -10,7 +10,7 @@ use crate::future::ResponseFuture;
 
 use futures::{Async, Future, Poll};
 use tower_service::Service;
-use tower_util::MakeService;
+use tower_service_util::MakeService;
 
 use std::fmt;
 
