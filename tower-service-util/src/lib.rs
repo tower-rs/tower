@@ -7,20 +7,35 @@ extern crate futures;
 extern crate tokio_io;
 extern crate tower_service;
 
-pub mod boxed;
+mod boxed;
 #[cfg(feature = "either")]
-pub mod either;
-pub mod option;
-
+mod either;
 #[cfg(feature = "io")]
 mod make_connection;
 mod make_service;
+mod option;
 mod sealed;
 mod service_fn;
 
+pub use crate::boxed::{BoxService, UnsyncBoxService};
+#[cfg(feature = "either")]
+pub use crate::either::EitherService;
 #[cfg(feature = "io")]
 pub use crate::make_connection::MakeConnection;
 pub use crate::make_service::MakeService;
+pub use crate::option::OptionService;
 pub use crate::service_fn::ServiceFn;
 
-pub use tower_service::Service;
+pub mod error {
+    //! Error types
+
+    pub use crate::option::error as option;
+}
+
+pub mod future {
+    //! Future types
+
+    #[cfg(feature = "either")]
+    pub use crate::either::future as either;
+    pub use crate::option::future as option;
+}
