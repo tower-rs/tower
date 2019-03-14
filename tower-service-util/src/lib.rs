@@ -1,11 +1,15 @@
 //! Various utility types and functions that are generally with Tower.
 
+#[cfg(feature = "either")]
+extern crate either as _either;
 extern crate futures;
 #[cfg(feature = "io")]
 extern crate tokio_io;
 extern crate tower_service;
 
 pub mod boxed;
+#[cfg(feature = "either")]
+pub mod either;
 pub mod option;
 
 #[cfg(feature = "io")]

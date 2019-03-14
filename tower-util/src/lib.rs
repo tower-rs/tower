@@ -8,7 +8,7 @@ extern crate tower_service;
 extern crate tower_service_util;
 
 pub use tower_service_util::boxed;
-pub mod either;
+pub use tower_service_util::either;
 pub mod ext;
 pub use tower_service_util::option;
 mod service_fn;
