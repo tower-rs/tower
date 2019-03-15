@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use tower_layer::{util::Chain, Layer, LayerExt};
 use tower_service::Service;
+use tower_util::MakeService;
 
 /// Configure and build a `MakeService`
 ///
@@ -13,33 +14,27 @@ use tower_service::Service;
 /// and produces a new `MakeService` that is wrapped by the composed
 /// layer.
 #[derive(Debug)]
-pub struct ServiceBuilder<S, L, Target, Request>
-where
-    S: Service<Target>,
-    S::Response: Service<Request>,
-{
+pub struct ServiceBuilder<S, L> {
     maker: S,
     layer: L,
-    _pd: PhantomData<(Target, Request)>,
 }
 
 /// Composed `MakeService` produced from `ServiceBuilder`
 #[derive(Debug)]
-pub struct ServiceBuilderMaker<S, L, Target, Request> {
+pub struct ServiceBuilderMaker<S, L, Request> {
     maker: S,
     layer: Arc<L>,
-    _pd: PhantomData<(Target, Request)>,
+    _pd: PhantomData<Request>,
 }
 
 /// Async resolve the MakeService and wrap it with the layers
 #[derive(Debug)]
 pub struct MakerFuture<S, L, Target, Request>
 where
-    S: Service<Target>,
+    S: MakeService<Target, Request>,
 {
     inner: S::Future,
     layer: Arc<L>,
-    _pd: PhantomData<(Target, Request)>,
 }
 
 /// Errors produced from building a service stack
@@ -51,42 +46,33 @@ pub enum Error<M, L> {
     Layer(L),
 }
 
-impl<S, Target, Request> ServiceBuilder<S, Identity, Target, Request>
-where
-    S: Service<Target>,
-    S::Response: Service<Request>,
-{
+impl<S> ServiceBuilder<S, Identity> {
     /// Create a new `ServiceBuilder` from a `MakeService`.
     pub fn new(maker: S) -> Self {
         ServiceBuilder {
             maker,
             layer: Identity::new(),
-            _pd: PhantomData,
         }
     }
 }
 
-impl<S, L, Target, Request> ServiceBuilder<S, L, Target, Request>
-where
-    S: Service<Target>,
-    S::Response: Service<Request>,
-    L: Layer<S::Response, Request>,
-    Target: Clone,
-{
-    /// Add a layer to the `ServiceBuilder`.
-    pub fn add<T>(self, layer: T) -> ServiceBuilder<S, Chain<L, T>, Target, Request>
+impl<S, L> ServiceBuilder<S, L> {
+    /// Add a layer `T` to the `ServiceBuilder`.
+    pub fn add<T, Target, Request>(self, layer: T) -> ServiceBuilder<S, Chain<L, T>>
     where
+        S: MakeService<Target, Request>,
         T: Layer<L::Service, Request>,
+        L: Layer<S::Service, Request>,
+        Target: Clone,
     {
         ServiceBuilder {
             maker: self.maker,
             layer: self.layer.chain(layer),
-            _pd: PhantomData,
         }
     }
 
     /// Create a `ServiceBuilderMaker` from the composed middleware and transport.
-    pub fn build(self) -> ServiceBuilderMaker<S, L, Target, Request> {
+    pub fn build<Request>(self) -> ServiceBuilderMaker<S, L, Request> {
         ServiceBuilderMaker {
             maker: self.maker,
             layer: Arc::new(self.layer),
@@ -95,19 +81,15 @@ where
     }
 }
 
-impl<S, L, Target, Request> Service<Target> for ServiceBuilderMaker<S, L, Target, Request>
+impl<S, L, Target, Request> Service<Target> for ServiceBuilderMaker<S, L, Request>
 where
-    S: Service<Target> + Send + 'static,
-    S::Response: Service<Request> + Send + 'static,
-    S::Error: Send + 'static,
-    S::Future: Send + 'static,
-    L: Layer<S::Response, Request> + Sync + Send + 'static,
-    L::Service: Send + 'static,
+    S: MakeService<Target, Request>,
+    L: Layer<S::Service, Request> + Sync + Send + 'static,
     L::LayerError: fmt::Debug,
     Target: Clone,
 {
     type Response = L::Service;
-    type Error = Error<S::Error, L::LayerError>;
+    type Error = Error<S::MakeError, L::LayerError>;
     type Future = MakerFuture<S, L, Target, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -115,25 +97,20 @@ where
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
-        let inner = self.maker.call(target);
+        let inner = self.maker.make_service(target);
         let layer = Arc::clone(&self.layer);
 
-        MakerFuture {
-            inner,
-            layer,
-            _pd: PhantomData,
-        }
+        MakerFuture { inner, layer }
     }
 }
 
 impl<S, L, Target, Request> Future for MakerFuture<S, L, Target, Request>
 where
-    S: Service<Target>,
-    S::Response: Service<Request>,
-    L: Layer<S::Response, Request>,
+    S: MakeService<Target, Request>,
+    L: Layer<S::Service, Request>,
 {
     type Item = L::Service;
-    type Error = Error<S::Error, L::LayerError>;
+    type Error = Error<S::MakeError, L::LayerError>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let service = try_ready!(self.inner.poll().map_err(|e| Error::Make(e)));

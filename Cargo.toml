@@ -17,6 +17,7 @@ keywords = ["io", "async", "non-blocking", "futures", "service"]
 futures = "0.1"
 tower-layer = { version = "0.1", path = "tower-layer" }
 tower-service = { version = "0.2", path = "tower-service" }
+tower-util = { version = "0.1", path = "tower-util" }
 
 [dev-dependencies]
 tower-in-flight-limit = { version = "0.1", path = "tower-in-flight-limit" }
@@ -25,7 +26,6 @@ tower-reconnect = { version = "0.1", path = "tower-reconnect" }
 tower-retry = { version = "0.1", path = "tower-retry" }
 tower-buffer = { version = "0.1", path = "tower-buffer" }
 tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
-tower-util = { version = "0.1", path = "tower-util" }
 tokio-tcp = "0.1"
 hyper = "0.12"
 log = "0.4.1"

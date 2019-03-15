@@ -9,5 +9,6 @@
 extern crate futures;
 extern crate tower_layer;
 extern crate tower_service;
+extern crate tower_util;
 
 pub mod builder;
