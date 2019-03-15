@@ -12,7 +12,7 @@ use tower_service::Service;
 /// # extern crate futures;
 /// # extern crate tower_service;
 /// # extern crate tokio_mock_task;
-/// # extern crate tower_util;
+/// # extern crate tower;
 /// # use futures::future::{ok, FutureResult};
 /// # use futures::{Async, Poll};
 /// # use std::cell::Cell;
@@ -20,7 +20,7 @@ use tower_service::Service;
 /// #
 /// use futures::Stream;
 /// use tower_service::Service;
-/// use tower_util::ServiceExt;
+/// use tower::ServiceExt;
 ///
 /// // First, we need to have a Service to process our requests.
 /// #[derive(Debug, Eq, PartialEq)]
