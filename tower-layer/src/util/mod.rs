@@ -23,3 +23,34 @@ pub trait LayerExt<S, Request>: Layer<S, Request> {
 }
 
 impl<T, S, Request> LayerExt<S, Request> for T where T: Layer<S, Request> {}
+
+/// A no-op middleware.
+///
+/// When wrapping a `Service`, the `Identity` layer returns the provided
+/// service without modifying it.
+#[derive(Debug, Default, Clone)]
+pub struct Identity {
+    _p: (),
+}
+
+impl Identity {
+    /// Create a new `Identity` value
+    pub fn new() -> Identity {
+        Identity { _p: () }
+    }
+}
+
+/// Decorates a `Service`, transforming either the request or the response.
+impl<S, Request> Layer<S, Request> for Identity
+where
+    S: Service<Request>,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type LayerError = ();
+    type Service = S;
+
+    fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError> {
+        Ok(inner)
+    }
+}
