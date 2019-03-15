@@ -58,7 +58,7 @@ crates.
 * [`tower-timeout`]: Middleware that applies a timeout to requests
   ([docs][tt-docs]).
 
-* [`tower-util`]: Miscellaneous additional utilities for Tower
+* [`tower-service-util`]: Miscellaneous additional utilities for Tower
   ([docs][tu-docs]).
 
 * [`tower-watch`]: A middleware that rebinds the inner service each time a watch
@@ -103,7 +103,7 @@ terms or conditions.
 [tretry-docs]: https://tower-rs.github.io/tower/tower_retry/index.html
 [`tower-timeout`]: tower-timeout
 [tt-docs]: https://tower-rs.github.io/tower/tower_timeout/index.html
-[`tower-util`]: tower-util
+[`tower-service-util`]: tower-service-util
 [tu-docs]: https://tower-rs.github.io/tower/tower_util/index.html
 [`tower-watch`]: tower-watch
 [tw-docs]: https://tower-rs.github.io/tower/tower_watch/index.html
