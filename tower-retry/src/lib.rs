@@ -11,7 +11,7 @@ extern crate tower_layer;
 extern crate tower_service;
 
 use futures::{Async, Future, Poll};
-use tower_layer::Layer;
+use tower_layer::{util::Never, Layer};
 use tower_service::Service;
 
 pub mod budget;
@@ -135,7 +135,7 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type LayerError = ();
+    type LayerError = Never;
     type Service = Retry<P, S>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

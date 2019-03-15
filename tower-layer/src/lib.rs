@@ -37,6 +37,7 @@ use tower_service::Service;
 /// # use tower_service::Service;
 /// # use futures::{Poll, Async};
 /// # use tower_layer::Layer;
+/// # use tower_layer::util::Never;
 /// # use std::fmt;
 ///
 /// pub struct LogLayer {
@@ -50,7 +51,7 @@ use tower_service::Service;
 /// {
 ///     type Response = S::Response;
 ///     type Error = S::Error;
-///     type LayerError = ();
+///     type LayerError = Never;
 ///     type Service = LogService<S>;
 ///
 ///     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

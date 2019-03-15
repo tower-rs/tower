@@ -10,6 +10,7 @@ use futures::{future, Future, Poll, Stream};
 use hyper::{Body, Request, Response};
 use tokio_tcp::TcpListener;
 use tower::builder::ServiceBuilder;
+use tower_hyper::body::LiftBody;
 use tower_hyper::server::Server;
 use tower_in_flight_limit::InFlightLimitLayer;
 use tower_service::Service;
@@ -48,7 +49,7 @@ fn main() {
 
 struct Svc;
 impl Service<Request<Body>> for Svc {
-    type Response = Response<Body>;
+    type Response = Response<LiftBody<Body>>;
     type Error = hyper::Error;
     type Future = future::FutureResult<Self::Response, Self::Error>;
 
@@ -57,7 +58,7 @@ impl Service<Request<Body>> for Svc {
     }
 
     fn call(&mut self, _req: Request<Body>) -> Self::Future {
-        let res = Response::new(Body::from("Hello World!"));
+        let res = Response::new(LiftBody::new(Body::from("Hello World!")));
         future::ok(res)
     }
 }

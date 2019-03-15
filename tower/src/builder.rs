@@ -1,10 +1,12 @@
 //! Builder types to compose layers and services
 
 use futures::{Async, Future, Poll};
-use std::fmt;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tower_layer::{util::Chain, Layer, LayerExt};
+use tower_layer::{
+    util::{Chain, Never},
+    Layer, LayerExt,
+};
 use tower_service::Service;
 use tower_util::MakeService;
 
@@ -37,14 +39,7 @@ where
     layer: Arc<L>,
 }
 
-/// Errors produced from building a service stack
-#[derive(Debug)]
-pub enum Error<M, L> {
-    /// Error produced from the MakeService
-    Make(M),
-    /// Error produced from building the layers
-    Layer(L),
-}
+type Error = Box<::std::error::Error + Send + Sync>;
 
 impl<S> ServiceBuilder<S, Identity> {
     /// Create a new `ServiceBuilder` from a `MakeService`.
@@ -84,16 +79,17 @@ impl<S, L> ServiceBuilder<S, L> {
 impl<S, L, Target, Request> Service<Target> for ServiceBuilderMaker<S, L, Request>
 where
     S: MakeService<Target, Request>,
+    S::MakeError: Into<Error>,
     L: Layer<S::Service, Request> + Sync + Send + 'static,
-    L::LayerError: fmt::Debug,
+    L::LayerError: Into<Error>,
     Target: Clone,
 {
     type Response = L::Service;
-    type Error = Error<S::MakeError, L::LayerError>;
+    type Error = Error;
     type Future = MakerFuture<S, L, Target, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.maker.poll_ready().map_err(|e| Error::Make(e))
+        self.maker.poll_ready().map_err(Into::into)
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
@@ -107,17 +103,19 @@ where
 impl<S, L, Target, Request> Future for MakerFuture<S, L, Target, Request>
 where
     S: MakeService<Target, Request>,
+    S::MakeError: Into<Error>,
     L: Layer<S::Service, Request>,
+    L::LayerError: Into<Error>,
 {
     type Item = L::Service;
-    type Error = Error<S::MakeError, L::LayerError>;
+    type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let service = try_ready!(self.inner.poll().map_err(|e| Error::Make(e)));
+        let service = try_ready!(self.inner.poll().map_err(Into::into));
 
         match self.layer.layer(service) {
             Ok(service) => Ok(Async::Ready(service)),
-            Err(e) => Err(Error::Layer(e)),
+            Err(e) => Err(e.into()),
         }
     }
 }
@@ -145,7 +143,7 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type LayerError = ();
+    type LayerError = Never;
     type Service = S;
 
     fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError> {

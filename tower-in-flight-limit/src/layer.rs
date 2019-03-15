@@ -1,4 +1,4 @@
-use tower_layer::Layer;
+use tower_layer::{util::Never, Layer};
 use tower_service::Service;
 use {Error, InFlightLimit};
 
@@ -20,7 +20,7 @@ where
 {
     type Response = S::Response;
     type Error = Error;
-    type LayerError = ();
+    type LayerError = Never;
     type Service = InFlightLimit<S>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

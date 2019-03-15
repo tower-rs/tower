@@ -85,11 +85,12 @@ where
     }
 }
 
-impl<T> std::error::Error for SpawnError<T>
-where
-    T: std::error::Error + 'static,
+impl<T: std::fmt::Debug> std::error::Error for SpawnError<T>
+// where
+//     T: std::error::Error + 'static,
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.inner)
+        // Some(&self.inner)
+        None
     }
 }
