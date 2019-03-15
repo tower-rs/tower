@@ -58,7 +58,6 @@ impl<S, L> ServiceBuilder<S, L> {
         S: MakeService<Target, Request>,
         T: Layer<L::Service, Request>,
         L: Layer<S::Service, Request>,
-        Target: Clone,
     {
         ServiceBuilder {
             maker: self.maker,

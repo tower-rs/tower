@@ -12,7 +12,7 @@ use tokio_tcp::TcpListener;
 use tower::builder::ServiceBuilder;
 use tower_hyper::body::LiftBody;
 use tower_hyper::server::Server;
-use tower_in_flight_limit::InFlightLimitLayer;
+// use tower_in_flight_limit::InFlightLimitLayer;
 use tower_service::Service;
 
 fn main() {
@@ -23,7 +23,8 @@ fn main() {
         println!("Listening on http://{}", addr);
 
         let maker = ServiceBuilder::new(MakeSvc)
-            .add(InFlightLimitLayer::new(5))
+            // TODO(lucio): figure out why this is causing sized issues
+            // .add(InFlightLimitLayer::new(5))
             .build();
 
         let server = Server::new(maker);
