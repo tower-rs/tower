@@ -6,6 +6,9 @@ mod chain;
 
 pub use self::chain::{Chain, ChainError};
 
+use std::error::Error;
+use std::fmt;
+
 /// An extension trait for `Layer`'s that provides a variety of convenient
 /// adapters.
 pub trait LayerExt<S, Request>: Layer<S, Request> {
@@ -47,10 +50,22 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type LayerError = ();
+    type LayerError = Never;
     type Service = S;
 
     fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError> {
         Ok(inner)
     }
 }
+
+#[derive(Debug)]
+/// An error that can never occur.
+pub enum Never {}
+
+impl fmt::Display for Never {
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        match *self {}
+    }
+}
+
+impl ::std::error::Error for Never {}
