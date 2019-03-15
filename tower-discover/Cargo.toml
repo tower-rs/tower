@@ -6,4 +6,4 @@ publish = false
 
 [dependencies]
 futures = "0.1"
-tower-service = { version = "0.2", path = "../tower-service" }
+tower-service = "0.2.0"

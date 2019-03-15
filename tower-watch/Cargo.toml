@@ -6,7 +6,7 @@ authors = ["Oliver Gould <ver@buoyant.io>"]
 [dependencies]
 futures = "0.1.21"
 futures-watch = { git = "https://github.com/carllerche/better-future" }
-tower-service = { version = "0.2", path = "../tower-service" }
+tower-service = "0.2.0"
 
 [dev-dependencies]
 tokio = "0.1.7"

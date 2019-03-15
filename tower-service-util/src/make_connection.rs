@@ -1,3 +1,4 @@
+use crate::sealed::Sealed;
 use futures::Future;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tower_service::Service;
@@ -7,7 +8,7 @@ use tower_service::Service;
 /// The goal of this service is to allow composable methods for creating
 /// `AsyncRead + AsyncWrite` transports. This could mean creating a TLS
 /// based connection or using some other method to authenticate the connection.
-pub trait MakeConnection<Request> {
+pub trait MakeConnection<Request>: Sealed<(Request,)> {
     /// The transport provided by this service
     type Response: AsyncRead + AsyncWrite;
 
@@ -21,7 +22,7 @@ pub trait MakeConnection<Request> {
     fn make_connection(&mut self, target: Request) -> Self::Future;
 }
 
-impl<S, Request> self::sealed::Sealed<Request> for S where S: Service<Request> {}
+impl<S, Request> Sealed<(Request,)> for S where S: Service<Request> {}
 
 impl<C, Request> MakeConnection<Request> for C
 where
@@ -35,8 +36,4 @@ where
     fn make_connection(&mut self, target: Request) -> Self::Future {
         Service::call(self, target)
     }
-}
-
-mod sealed {
-    pub trait Sealed<A> {}
 }

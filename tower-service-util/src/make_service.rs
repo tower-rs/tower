@@ -1,3 +1,4 @@
+use crate::sealed::Sealed;
 use futures::{Future, Poll};
 use tower_service::Service;
 
@@ -10,7 +11,7 @@ use tower_service::Service;
 /// requests on that new TCP stream.
 ///
 /// This is essentially a trait alias for a `Service` of `Service`s.
-pub trait MakeService<Target, Request>: self::sealed::Sealed<Target, Request> {
+pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// Responses given by the service
     type Response;
 
@@ -41,7 +42,7 @@ pub trait MakeService<Target, Request>: self::sealed::Sealed<Target, Request> {
     fn make_service(&mut self, target: Target) -> Self::Future;
 }
 
-impl<M, S, Target, Request> self::sealed::Sealed<Target, Request> for M
+impl<M, S, Target, Request> Sealed<(Target, Request)> for M
 where
     M: Service<Target, Response = S>,
     S: Service<Request>,
@@ -66,8 +67,4 @@ where
     fn make_service(&mut self, target: Target) -> Self::Future {
         Service::call(self, target)
     }
-}
-
-mod sealed {
-    pub trait Sealed<A, B> {}
 }

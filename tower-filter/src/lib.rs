@@ -5,288 +5,59 @@ extern crate futures;
 extern crate tower_layer;
 extern crate tower_service;
 
-use futures::task::AtomicTask;
-use futures::{Async, Future, IntoFuture, Poll};
-use tower_layer::Layer;
-use tower_service::Service;
+pub mod error;
+pub mod future;
+mod layer;
+mod predicate;
 
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::SeqCst;
-use std::sync::Arc;
-use std::{fmt, mem};
+pub use layer::FilterLayer;
+pub use predicate::Predicate;
+
+use error::Error;
+use future::ResponseFuture;
+use futures::Poll;
+use tower_service::Service;
 
 #[derive(Debug)]
 pub struct Filter<T, U> {
     inner: T,
     predicate: U,
-    // Tracks the number of in-flight requests
-    counts: Arc<Counts>,
 }
-
-pub struct FilterLayer<U> {
-    predicate: U,
-    buffer: usize,
-}
-
-pub struct ResponseFuture<T, S, Request>
-where
-    S: Service<Request>,
-{
-    inner: ResponseInner<T, S, Request>,
-}
-
-#[derive(Debug)]
-struct ResponseInner<T, S, Request>
-where
-    S: Service<Request>,
-{
-    state: State<Request, S::Future>,
-    check: T,
-    service: S,
-    counts: Arc<Counts>,
-}
-
-/// Errors produced by `Filter`
-#[derive(Debug)]
-pub enum Error<T, U> {
-    /// The predicate rejected the request.
-    Rejected(T),
-
-    /// The inner service produced an error.
-    Inner(U),
-}
-
-/// Checks a request
-pub trait Predicate<Request> {
-    type Error;
-    type Future: Future<Item = (), Error = Self::Error>;
-
-    fn check(&mut self, request: &Request) -> Self::Future;
-}
-
-#[derive(Debug)]
-struct Counts {
-    /// Filter::poll_ready task
-    task: AtomicTask,
-
-    /// Remaining capacity
-    rem: AtomicUsize,
-}
-
-#[derive(Debug)]
-enum State<Request, U> {
-    Check(Request),
-    WaitReady(Request),
-    WaitResponse(U),
-    Invalid,
-}
-
-// ===== impl Filter =====
-
-impl<U> FilterLayer<U> {
-    pub fn new(predicate: U, buffer: usize) -> Self {
-        FilterLayer { predicate, buffer }
-    }
-}
-
-impl<U, S, Request> Layer<S, Request> for FilterLayer<U>
-where
-    U: Predicate<Request> + Clone,
-    S: Service<Request> + Clone,
-{
-    type Response = S::Response;
-    type Error = Error<U::Error, S::Error>;
-    type LayerError = ();
-    type Service = Filter<S, U>;
-
-    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        let predicate = self.predicate.clone();
-        Ok(Filter::new(service, predicate, self.buffer))
-    }
-}
-
-// ===== impl Filter =====
 
 impl<T, U> Filter<T, U> {
-    pub fn new<Request>(inner: T, predicate: U, buffer: usize) -> Self
+    pub fn new<Request>(inner: T, predicate: U) -> Self
     where
         T: Service<Request> + Clone,
+        T::Error: Into<error::Source>,
         U: Predicate<Request>,
     {
-        let counts = Counts {
-            task: AtomicTask::new(),
-            rem: AtomicUsize::new(buffer),
-        };
-
-        Filter {
-            inner,
-            predicate,
-            counts: Arc::new(counts),
-        }
+        Filter { inner, predicate }
     }
 }
 
 impl<T, U, Request> Service<Request> for Filter<T, U>
 where
     T: Service<Request> + Clone,
+    T::Error: Into<error::Source>,
     U: Predicate<Request>,
 {
     type Response = T::Response;
-    type Error = Error<U::Error, T::Error>;
+    type Error = Error;
     type Future = ResponseFuture<U::Future, T, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.counts.task.register();
-
-        let rem = self.counts.rem.load(SeqCst);
-
-        // TODO: Handle catching upstream closing
-
-        if rem == 0 {
-            Ok(Async::NotReady)
-        } else {
-            Ok(().into())
-        }
+        self.inner.poll_ready().map_err(error::Error::inner)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let rem = self.counts.rem.load(SeqCst);
+        use std::mem;
 
-        if rem == 0 {
-            panic!("service not ready; poll_ready must be called first");
-        }
-
-        // Decrement
-        self.counts.rem.fetch_sub(1, SeqCst);
+        let inner = self.inner.clone();
+        let inner = mem::replace(&mut self.inner, inner);
 
         // Check the request
         let check = self.predicate.check(&request);
 
-        // Clone the service
-        let service = self.inner.clone();
-
-        // Clone counts
-        let counts = self.counts.clone();
-
-        ResponseFuture {
-            inner: ResponseInner {
-                state: State::Check(request),
-                check,
-                service,
-                counts,
-            },
-        }
-    }
-}
-
-// ===== impl Predicate =====
-
-impl<F, T, U> Predicate<T> for F
-where
-    F: Fn(&T) -> U,
-    U: IntoFuture<Item = ()>,
-{
-    type Error = U::Error;
-    type Future = U::Future;
-
-    fn check(&mut self, request: &T) -> Self::Future {
-        self(request).into_future()
-    }
-}
-
-// ===== impl ResponseFuture =====
-
-impl<T, S, Request> Future for ResponseFuture<T, S, Request>
-where
-    T: Future,
-    S: Service<Request>,
-{
-    type Item = S::Response;
-    type Error = Error<T::Error, S::Error>;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll()
-    }
-}
-
-impl<T, S, Request> fmt::Debug for ResponseFuture<T, S, Request>
-where
-    T: fmt::Debug,
-    S: Service<Request> + fmt::Debug,
-    S::Future: fmt::Debug,
-    Request: fmt::Debug,
-{
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("ResponseFuture")
-            .field("inner", &self.inner)
-            .finish()
-    }
-}
-
-// ===== impl ResponseInner =====
-
-impl<T, S, Request> ResponseInner<T, S, Request>
-where
-    T: Future,
-    S: Service<Request>,
-{
-    fn inc_rem(&self) {
-        if 0 == self.counts.rem.fetch_add(1, SeqCst) {
-            self.counts.task.notify();
-        }
-    }
-
-    fn poll(&mut self) -> Poll<S::Response, Error<T::Error, S::Error>> {
-        use self::State::*;
-
-        loop {
-            match mem::replace(&mut self.state, Invalid) {
-                Check(request) => {
-                    // Poll predicate
-                    match self.check.poll() {
-                        Ok(Async::Ready(_)) => {
-                            self.state = WaitReady(request);
-                        }
-                        Ok(Async::NotReady) => {
-                            self.state = Check(request);
-                            return Ok(Async::NotReady);
-                        }
-                        Err(e) => {
-                            return Err(Error::Rejected(e));
-                        }
-                    }
-                }
-                WaitReady(request) => {
-                    // Poll service for readiness
-                    match self.service.poll_ready() {
-                        Ok(Async::Ready(_)) => {
-                            self.inc_rem();
-
-                            let response = self.service.call(request);
-                            self.state = WaitResponse(response);
-                        }
-                        Ok(Async::NotReady) => {
-                            self.state = WaitReady(request);
-                            return Ok(Async::NotReady);
-                        }
-                        Err(e) => {
-                            self.inc_rem();
-
-                            return Err(Error::Inner(e));
-                        }
-                    }
-                }
-                WaitResponse(mut response) => {
-                    let ret = response.poll().map_err(Error::Inner);
-
-                    self.state = WaitResponse(response);
-
-                    return ret;
-                }
-                Invalid => {
-                    panic!("invalid state");
-                }
-            }
-        }
+        ResponseFuture::new(request, check, inner)
     }
 }

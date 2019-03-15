@@ -7,7 +7,7 @@ use futures::prelude::*;
 use tower_buffer::*;
 use tower_service::*;
 
-use std::fmt;
+use std::cell::RefCell;
 use std::thread;
 
 #[test]
@@ -90,7 +90,7 @@ fn when_inner_fails() {
 
     // Make the service NotReady
     handle.allow(0);
-    handle.error(Error("foobar"));
+    handle.error("foobar");
 
     let mut res1 = service.call("hello");
 
@@ -99,41 +99,53 @@ fn when_inner_fails() {
     with_task(|| {
         let e = res1.poll().unwrap_err();
         if let Some(e) = e.downcast_ref::<error::ServiceError>() {
-            assert!(format!("{}", e).contains("poll_ready"));
+            let e = e.source().unwrap();
 
-            let e = e
-                .source()
-                .expect("nope 1")
-                .downcast_ref::<tower_mock::Error<Error>>()
-                .expect("nope 1_2");
-
-            match e {
-                tower_mock::Error::Other(e) => assert_eq!(e.0, "foobar"),
-                _ => panic!("unexpected mock error"),
-            }
+            assert_eq!(e.to_string(), "foobar");
         } else {
             panic!("unexpected error type: {:?}", e);
         }
     });
 }
 
-#[derive(Debug)]
-struct Error(&'static str);
+#[test]
+fn poll_ready_when_worker_is_dropped_early() {
+    let (service, _handle) = Mock::new();
 
-impl fmt::Display for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(fmt)
-    }
+    // drop that worker right on the floor!
+    let exec = ExecFn(drop);
+
+    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+
+    with_task(|| {
+        service
+            .poll_ready()
+            .expect_err("buffer poll_ready should error");
+    });
 }
 
-impl ::std::error::Error for Error {
-    fn source(&self) -> Option<&(::std::error::Error + 'static)> {
-        None
-    }
+#[test]
+fn response_future_when_worker_is_dropped_early() {
+    let (service, mut handle) = Mock::new();
+
+    // hold the worker in a cell until we want to drop it later
+    let cell = RefCell::new(None);
+    let exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
+
+    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+
+    // keep the request in the worker
+    handle.allow(0);
+    let response = service.call("hello");
+
+    // drop the worker (like an executor closing up)
+    cell.borrow_mut().take();
+
+    response.wait().expect_err("res.wait");
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str, Error>;
-type Handle = tower_mock::Handle<&'static str, &'static str, Error>;
+type Mock = tower_mock::Mock<&'static str, &'static str>;
+type Handle = tower_mock::Handle<&'static str, &'static str>;
 
 struct Exec;
 
@@ -145,6 +157,19 @@ where
         thread::spawn(move || {
             fut.wait().unwrap();
         });
+        Ok(())
+    }
+}
+
+struct ExecFn<Func>(Func);
+
+impl<Func, F> futures::future::Executor<F> for ExecFn<Func>
+where
+    Func: Fn(F),
+    F: Future<Item = (), Error = ()> + Send + 'static,
+{
+    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
+        (self.0)(fut);
         Ok(())
     }
 }

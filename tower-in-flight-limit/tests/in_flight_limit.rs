@@ -1,5 +1,5 @@
 extern crate futures;
-extern crate tokio_test;
+extern crate tokio_mock_task;
 extern crate tower_in_flight_limit;
 extern crate tower_mock;
 extern crate tower_service;
@@ -8,7 +8,27 @@ use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 
 use futures::future::{poll_fn, Future};
-use tokio_test::MockTask;
+use tokio_mock_task::MockTask;
+
+macro_rules! assert_ready {
+    ($e:expr) => {{
+        match $e {
+            Ok(futures::Async::Ready(v)) => v,
+            Ok(_) => panic!("not ready"),
+            Err(e) => panic!("error = {:?}", e),
+        }
+    }};
+}
+
+macro_rules! assert_not_ready {
+    ($e:expr) => {{
+        match $e {
+            Ok(futures::Async::NotReady) => {}
+            Ok(futures::Async::Ready(v)) => panic!("ready; value = {:?}", v),
+            Err(e) => panic!("error = {:?}", e),
+        }
+    }};
+}
 
 #[test]
 fn basic_service_limit_functionality_with_poll_ready() {
@@ -208,7 +228,7 @@ fn response_error_releases_capacity() {
     // s1 sends the request, then s2 is able to get capacity
     let r1 = s1.call("hello");
     let request = handle.next_request().unwrap();
-    request.error(());
+    request.error("boom");
 
     r1.wait().unwrap_err();
 
@@ -244,8 +264,35 @@ fn response_future_drop_releases_capacity() {
     });
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str, ()>;
-type Handle = tower_mock::Handle<&'static str, &'static str, ()>;
+#[test]
+fn multi_waiters() {
+    let mut task1 = MockTask::new();
+    let mut task2 = MockTask::new();
+    let mut task3 = MockTask::new();
+
+    let (mut s1, _handle) = new_service(1);
+    let mut s2 = s1.clone();
+    let mut s3 = s1.clone();
+
+    // Reserve capacity in s1
+    task1.enter(|| assert_ready!(s1.poll_ready()));
+
+    // s2 and s3 are not ready
+    task2.enter(|| assert_not_ready!(s2.poll_ready()));
+    task3.enter(|| assert_not_ready!(s3.poll_ready()));
+
+    drop(s1);
+
+    assert!(task2.is_notified());
+    assert!(!task3.is_notified());
+
+    drop(s2);
+
+    assert!(task3.is_notified());
+}
+
+type Mock = tower_mock::Mock<&'static str, &'static str>;
+type Handle = tower_mock::Handle<&'static str, &'static str>;
 
 fn new_service(max: usize) -> (InFlightLimit<Mock>, Handle) {
     let (service, handle) = Mock::new();

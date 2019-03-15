@@ -6,8 +6,6 @@ pub struct ServiceFn<T> {
     f: T,
 }
 
-// ===== impl ServiceFn =====
-
 impl<T> ServiceFn<T> {
     /// Returns a new `NewServiceFn` with the given closure.
     pub fn new(f: T) -> Self {
