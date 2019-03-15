@@ -13,20 +13,20 @@ jobs:
     displayName: Test
     vmImage: ubuntu-16.04
     crates:
-      - balance
-      - buffer
-      - discover
-      - filter
-      - in-flight-limit
-      - layer
-      - mock
-      - rate-limit
-      - reconnect
-      - retry
-      - service
-      - timeout
-      - util
-      - watch
+      - tower-balance
+      - tower-buffer
+      - tower-discover
+      - tower-filter
+      - tower-in-flight-limit
+      - tower-layer
+      - tower-mock
+      - tower-rate-limit
+      - tower-reconnect
+      - tower-retry
+      - tower-service
+      - tower-timeout
+      - tower-watch
+      - tower
 
 - template: ci/azure-deploy-docs.yml
   parameters:

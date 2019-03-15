@@ -12,16 +12,16 @@
 extern crate futures;
 extern crate futures_cpupool;
 extern crate tokio_timer;
-extern crate tower_service;
 extern crate tower;
+extern crate tower_service;
 
 #[macro_use]
 extern crate log;
 
 extern crate env_logger;
 
-use tower_service::Service;
 use tower::{MakeService, ServiceExt};
+use tower_service::Service;
 
 use futures::future::{Executor, FutureResult};
 use futures::sync::{mpsc, oneshot};
