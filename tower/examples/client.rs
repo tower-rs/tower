@@ -8,7 +8,6 @@ extern crate tower_rate_limit;
 extern crate tower_reconnect;
 extern crate tower_retry;
 extern crate tower_service;
-extern crate tower_util;
 
 use futures::Future;
 use hyper::client::connect::Destination;

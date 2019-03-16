@@ -8,7 +8,7 @@ use tower_layer::{
     Layer, LayerExt,
 };
 use tower_service::Service;
-use tower_util::MakeService;
+use tower_service_util::MakeService;
 
 /// Configure and build a `MakeService`
 ///
