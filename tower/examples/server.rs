@@ -23,7 +23,6 @@ fn main() {
         println!("Listening on http://{}", addr);
 
         let maker = ServiceBuilder::new(MakeSvc)
-            // TODO(lucio): figure out why this is causing sized issues
             .add(InFlightLimitLayer::new(5))
             .build();
 
