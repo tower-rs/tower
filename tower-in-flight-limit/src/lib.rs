@@ -31,7 +31,7 @@ struct Limit {
     permit: semaphore::Permit,
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 // ===== impl InFlightLimit =====
 

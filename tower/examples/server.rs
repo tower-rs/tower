@@ -12,7 +12,7 @@ use tokio_tcp::TcpListener;
 use tower::builder::ServiceBuilder;
 use tower_hyper::body::LiftBody;
 use tower_hyper::server::Server;
-// use tower_in_flight_limit::InFlightLimitLayer;
+use tower_in_flight_limit::InFlightLimitLayer;
 use tower_service::Service;
 
 fn main() {
@@ -24,7 +24,7 @@ fn main() {
 
         let maker = ServiceBuilder::new(MakeSvc)
             // TODO(lucio): figure out why this is causing sized issues
-            // .add(InFlightLimitLayer::new(5))
+            .add(InFlightLimitLayer::new(5))
             .build();
 
         let server = Server::new(maker);
@@ -68,7 +68,6 @@ struct MakeSvc;
 impl Service<()> for MakeSvc {
     type Response = Svc;
     type Error = hyper::Error;
-    // type Future = future::FutureResult<Self::Response, Self::Error>;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send + 'static>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {

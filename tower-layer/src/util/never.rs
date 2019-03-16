@@ -11,4 +11,4 @@ impl fmt::Display for Never {
     }
 }
 
-impl ::std::error::Error for Never {}
+impl Error for Never {}
