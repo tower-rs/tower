@@ -10,7 +10,7 @@ pub struct Chain<Inner, Outer> {
     outer: Outer,
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 impl<Inner, Outer> Chain<Inner, Outer> {
     /// Create a new `Chain`.

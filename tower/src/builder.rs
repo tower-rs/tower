@@ -8,7 +8,7 @@ use tower_layer::{
     Layer, LayerExt,
 };
 use tower_service::Service;
-use tower_util::MakeService;
+use tower_service_util::MakeService;
 
 /// Configure and build a `MakeService`
 ///
@@ -139,6 +139,7 @@ impl Identity {
 impl<S, Request> Layer<S, Request> for Identity
 where
     S: Service<Request>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
     type Error = S::Error;
