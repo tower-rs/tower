@@ -2,10 +2,10 @@
 
 use futures::{IntoFuture, Stream};
 use tower_service::Service;
+use tower_service_util::CallAll;
 
 mod and_then;
 mod apply;
-mod call_all;
 mod from_err;
 mod map;
 mod map_err;
@@ -15,7 +15,6 @@ mod then;
 
 pub use self::and_then::AndThen;
 pub use self::apply::Apply;
-pub use self::call_all::CallAll;
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;

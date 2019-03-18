@@ -8,6 +8,7 @@ extern crate tokio_io;
 extern crate tower_service;
 
 mod boxed;
+mod call_all;
 #[cfg(feature = "either")]
 mod either;
 #[cfg(feature = "io")]
@@ -18,6 +19,7 @@ mod sealed;
 mod service_fn;
 
 pub use crate::boxed::{BoxService, UnsyncBoxService};
+pub use crate::call_all::CallAll;
 #[cfg(feature = "either")]
 pub use crate::either::EitherService;
 #[cfg(feature = "io")]
