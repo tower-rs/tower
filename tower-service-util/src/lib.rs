@@ -19,7 +19,7 @@ mod sealed;
 mod service_fn;
 
 pub use crate::boxed::{BoxService, UnsyncBoxService};
-pub use crate::call_all::CallAll;
+pub use crate::call_all::{CallAll, CallAllUnordered};
 #[cfg(feature = "either")]
 pub use crate::either::EitherService;
 #[cfg(feature = "io")]
