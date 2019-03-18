@@ -100,8 +100,11 @@ fn ordered() {
     let v = assert_ready!(mock.enter(|| ca.poll()));
     assert_eq!(v, Some("four"));
     assert_not_ready!(mock.enter(|| ca.poll()));
-    admit.set(true); // need to be ready since impl doesn't know it'll get EOF
-                     // When we drop the request stream, CallAll should return None.
+
+    // need to be ready since impl doesn't know it'll get EOF
+    admit.set(true);
+
+    // When we drop the request stream, CallAll should return None.
     drop(tx);
     mock.is_notified();
     let v = assert_ready!(mock.enter(|| ca.poll()));
