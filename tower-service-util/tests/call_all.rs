@@ -5,14 +5,14 @@ extern crate tower_mock;
 extern crate tower_service;
 extern crate tower_service_util;
 
-use tower_service::*;
-use futures::{Async, Poll, Stream};
 use futures::future::{ok, FutureResult};
 use futures::stream;
+use futures::{Async, Poll, Stream};
 use std::cell::Cell;
 use std::rc::Rc;
 use tower::ServiceExt;
 use tower_mock::*;
+use tower_service::*;
 
 type Error = Box<::std::error::Error + Send + Sync>;
 
@@ -101,7 +101,7 @@ fn ordered() {
     assert_eq!(v, Some("four"));
     assert_not_ready!(mock.enter(|| ca.poll()));
     admit.set(true); // need to be ready since impl doesn't know it'll get EOF
-    // When we drop the request stream, CallAll should return None.
+                     // When we drop the request stream, CallAll should return None.
     drop(tx);
     mock.is_notified();
     let v = assert_ready!(mock.enter(|| ca.poll()));
