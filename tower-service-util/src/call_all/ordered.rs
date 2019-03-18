@@ -107,6 +107,17 @@ where
     pub fn into_inner(self) -> Svc {
         self.inner.into_inner()
     }
+
+    /// Return responses as they are ready, regardless of the initial order.
+    ///
+    /// This function must be called before the stream is polled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `poll` was called.
+    pub fn unordered(self) -> super::CallAllUnordered<Svc, S> {
+        self.inner.unordered()
+    }
 }
 
 impl<Svc, S> Stream for CallAll<Svc, S>

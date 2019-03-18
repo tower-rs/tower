@@ -19,7 +19,14 @@ pub(crate) trait Queue<T: Future> {
     fn poll(&mut self) -> Poll<Option<T::Item>, T::Error>;
 }
 
-impl<Svc, S, Q> CallAll<Svc, S, Q> {
+impl<Svc, S, Q> CallAll<Svc, S, Q>
+where
+    Svc: Service<S::Item>,
+    Svc::Error: Into<Error>,
+    S: Stream,
+    S::Error: Into<Error>,
+    Q: Queue<Svc::Future>,
+{
     pub(crate) fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
         CallAll {
             service,
@@ -30,8 +37,14 @@ impl<Svc, S, Q> CallAll<Svc, S, Q> {
     }
 
     /// Extract the wrapped `Service`.
-    pub fn into_inner(self) -> Svc {
+    pub(crate) fn into_inner(self) -> Svc {
         self.service
+    }
+
+    pub(crate) fn unordered(self) -> super::CallAllUnordered<Svc, S> {
+        assert!(self.queue.is_empty() && !self.eof);
+
+        super::CallAllUnordered::new(self.service, self.stream)
     }
 }
 
