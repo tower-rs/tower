@@ -1,15 +1,18 @@
 extern crate futures;
 extern crate tokio_mock_task;
 extern crate tower;
+extern crate tower_mock;
 extern crate tower_service;
 extern crate tower_service_util;
 
 use tower_service::*;
-use futures::future::{ok, FutureResult};
 use futures::{Async, Poll, Stream};
+use futures::future::{ok, FutureResult};
+use futures::stream;
 use std::cell::Cell;
 use std::rc::Rc;
 use tower::ServiceExt;
+use tower_mock::*;
 
 type Error = Box<::std::error::Error + Send + Sync>;
 
@@ -59,7 +62,7 @@ macro_rules! assert_not_ready {
 }
 
 #[test]
-fn test_in_order() {
+fn ordered() {
     let mut mock = tokio_mock_task::MockTask::new();
 
     let admit = Rc::new(Cell::new(false));
@@ -113,4 +116,34 @@ fn test_in_order() {
             admit
         }
     );
+}
+
+#[test]
+fn unordered() {
+    let (mock, mut handle) = Mock::<_, &'static str>::new();
+    let mut task = tokio_mock_task::MockTask::new();
+    let requests = stream::iter_ok::<_, Error>(&["one", "two"]);
+
+    let mut svc = mock.call_all(requests).unordered();
+    assert_not_ready!(task.enter(|| svc.poll()));
+
+    let (req1, resp1) = handle.next_request().unwrap().into_parts();
+    let (req2, resp2) = handle.next_request().unwrap().into_parts();
+
+    assert_eq!(req1, &"one");
+    assert_eq!(req2, &"two");
+
+    resp2.respond("resp 1");
+
+    let v = assert_ready!(task.enter(|| svc.poll()));
+    assert_eq!(v, Some("resp 1"));
+    assert_not_ready!(task.enter(|| svc.poll()));
+
+    resp1.respond("resp 2");
+
+    let v = assert_ready!(task.enter(|| svc.poll()));
+    assert_eq!(v, Some("resp 2"));
+
+    let v = assert_ready!(task.enter(|| svc.poll()));
+    assert!(v.is_none());
 }
