@@ -16,6 +16,7 @@ use tower_service::Service;
 /// # use futures::future::{ok, FutureResult};
 /// # use futures::{Async, Poll};
 /// # use std::cell::Cell;
+/// # use std::error::Error;
 /// # use std::rc::Rc;
 /// #
 /// use futures::Stream;
@@ -27,8 +28,8 @@ use tower_service::Service;
 /// struct FirstLetter;
 /// impl Service<&'static str> for FirstLetter {
 ///      type Response = &'static str;
-///      type Error = ();
-///      type Future = FutureResult<Self::Response, ()>;
+///      type Error = Box<Error + Send + Sync>;
+///      type Future = FutureResult<Self::Response, Self::Error>;
 ///
 ///      fn poll_ready(&mut self) -> Poll<(), Self::Error> {
 ///          Ok(Async::Ready(()))
@@ -45,7 +46,7 @@ use tower_service::Service;
 /// let (reqs, rx) = futures::unsync::mpsc::unbounded();
 /// // Note that we have to help Rust out here by telling it what error type to use.
 /// // Specifically, it has to be From<Service::Error> + From<Stream::Error>.
-/// let rsps = FirstLetter.call_all::<_, ()>(rx);
+/// let rsps = FirstLetter.call_all(rx.map_err(|_| "boom"));
 ///
 /// // Now, let's send a few requests and then check that we get the corresponding responses.
 /// reqs.unbounded_send("one");
@@ -134,94 +135,5 @@ impl<T: Future> common::Queue<T> for FuturesOrdered<T> {
 
     fn poll(&mut self) -> Poll<Option<T::Item>, T::Error> {
         Stream::poll(self)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use futures::future::{ok, FutureResult};
-    use futures::{Async, Poll, Stream};
-    use std::cell::Cell;
-    use std::rc::Rc;
-    use ServiceExt;
-
-    #[derive(Debug, Eq, PartialEq)]
-    struct Srv {
-        admit: Rc<Cell<bool>>,
-        count: Rc<Cell<usize>>,
-    }
-    impl Service<&'static str> for Srv {
-        type Response = &'static str;
-        type Error = ();
-        type Future = FutureResult<Self::Response, ()>;
-
-        fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-            if !self.admit.get() {
-                return Ok(Async::NotReady);
-            }
-
-            self.admit.set(false);
-            Ok(Async::Ready(()))
-        }
-
-        fn call(&mut self, req: &'static str) -> Self::Future {
-            self.count.set(self.count.get() + 1);
-            ok(req)
-        }
-    }
-
-    #[test]
-    fn test_in_order() {
-        let mut mock = tokio_mock_task::MockTask::new();
-
-        let admit = Rc::new(Cell::new(false));
-        let count = Rc::new(Cell::new(0));
-        let srv = Srv {
-            count: count.clone(),
-            admit: admit.clone(),
-        };
-        let (tx, rx) = futures::unsync::mpsc::unbounded();
-        let mut ca = srv.call_all::<_, ()>(rx);
-
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady));
-        tx.unbounded_send("one").unwrap();
-        mock.is_notified();
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady)); // service not admitting
-        admit.set(true);
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("one"))));
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady));
-        admit.set(true);
-        tx.unbounded_send("two").unwrap();
-        mock.is_notified();
-        tx.unbounded_send("three").unwrap();
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("two"))));
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady)); // not yet admitted
-        admit.set(true);
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("three"))));
-        admit.set(true);
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady)); // allowed to admit, but nothing there
-        admit.set(true);
-        tx.unbounded_send("four").unwrap();
-        mock.is_notified();
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(Some("four"))));
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::NotReady));
-        admit.set(true); // need to be ready since impl doesn't know it'll get EOF
-
-        // When we drop the request stream, CallAll should return None.
-        drop(tx);
-        mock.is_notified();
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(None)));
-        assert_eq!(mock.enter(|| ca.poll()), Ok(Async::Ready(None)));
-        assert_eq!(count.get(), 4);
-
-        // We should also be able to recover the wrapped Service.
-        assert_eq!(
-            ca.into_inner(),
-            Srv {
-                count: count.clone(),
-                admit
-            }
-        );
     }
 }
