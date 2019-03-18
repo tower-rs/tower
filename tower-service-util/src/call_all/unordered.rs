@@ -5,7 +5,10 @@ use futures::stream::FuturesUnordered;
 use futures::{Future, Poll, Stream};
 use tower_service::Service;
 
-/// TODO: Dox
+/// A stream of responses received from the inner service in received order.
+///
+/// Similar to `CallAll` except, instead of yielding responses in request order,
+/// responses are returned as they are available.
 #[derive(Debug)]
 pub struct CallAllUnordered<Svc, S>
 where
