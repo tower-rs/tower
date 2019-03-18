@@ -2,7 +2,6 @@
 
 use futures::stream::FuturesOrdered;
 use futures::{try_ready, Async, Poll, Stream};
-use std::marker::PhantomData;
 use tower_service::Service;
 
 /// This is a `futures::Stream` of responses resulting from calling the wrapped `tower::Service`
@@ -77,7 +76,7 @@ use tower_service::Service;
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct CallAll<Svc, S, E>
+pub struct CallAll<Svc, S>
 where
     Svc: Service<S::Item>,
     S: Stream,
@@ -86,25 +85,27 @@ where
     stream: S,
     responses: FuturesOrdered<Svc::Future>,
     eof: bool,
-    error: PhantomData<E>,
 }
 
-impl<Svc, S, E> CallAll<Svc, S, E>
+type Error = Box<::std::error::Error + Send + Sync>;
+
+impl<Svc, S> CallAll<Svc, S>
 where
     Svc: Service<S::Item>,
+    Svc::Error: Into<Error>,
     S: Stream,
+    S::Error: Into<Error>,
 {
     /// Create new `CallAll` combinator.
     ///
     /// Each request yielded by `stread` is passed to `svc`, and the resulting responses are
     /// yielded in the same order by the implementation of `Stream` for `CallAll`.
-    pub fn new(svc: Svc, stream: S) -> CallAll<Svc, S, E> {
+    pub fn new(svc: Svc, stream: S) -> CallAll<Svc, S> {
         CallAll {
             svc: svc,
             stream,
             responses: FuturesOrdered::new(),
             eof: false,
-            error: PhantomData,
         }
     }
 
@@ -114,19 +115,22 @@ where
     }
 }
 
-impl<Svc, S, E> Stream for CallAll<Svc, S, E>
+impl<Svc, S> Stream for CallAll<Svc, S>
 where
     Svc: Service<S::Item>,
+    Svc::Error: Into<Error>,
     S: Stream,
-    E: From<Svc::Error>,
-    E: From<S::Error>,
+    S::Error: Into<Error>,
 {
     type Item = Svc::Response;
-    type Error = E;
+    type Error = Error;
+
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
+            let res = self.responses.poll().map_err(Into::into);
+
             // First, see if we have any responses to yield
-            if let Async::Ready(Some(rsp)) = self.responses.poll()? {
+            if let Async::Ready(Some(rsp)) = res? {
                 return Ok(Async::Ready(Some(rsp)));
             }
 
@@ -140,10 +144,10 @@ where
             }
 
             // Then, see that the service is ready for another request
-            try_ready!(self.svc.poll_ready());
+            try_ready!(self.svc.poll_ready().map_err(Into::into));
 
             // If it is, gather the next request (if there is one)
-            match self.stream.poll()? {
+            match self.stream.poll().map_err(Into::into)? {
                 Async::Ready(Some(req)) => {
                     self.responses.push(self.svc.call(req));
                 }
