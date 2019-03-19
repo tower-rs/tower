@@ -17,8 +17,8 @@ pub struct Closed {
 
 /// Error produced when spawning the worker fails
 #[derive(Debug)]
-pub struct SpawnError<T> {
-    inner: T,
+pub struct SpawnError {
+    _p: (),
 }
 
 /// Errors produced by `Buffer`.
@@ -70,26 +70,16 @@ impl std::error::Error for Closed {}
 
 // ===== impl SpawnError =====
 
-impl<T> SpawnError<T> {
-    pub(crate) fn new(inner: T) -> SpawnError<T> {
-        SpawnError { inner }
+impl SpawnError {
+    pub(crate) fn new() -> SpawnError {
+        SpawnError { _p: () }
     }
 }
 
-impl<T> fmt::Display for SpawnError<T>
-where
-    T: fmt::Debug,
-{
+impl fmt::Display for SpawnError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "error spawning buffer task: {:?}", self.inner)
+        write!(f, "failed to spawn Buffer worker task")
     }
 }
 
-impl<T> std::error::Error for SpawnError<T>
-where
-    T: std::error::Error + 'static,
-{
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.inner)
-    }
-}
+impl std::error::Error for SpawnError {}

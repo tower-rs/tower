@@ -19,7 +19,7 @@ mod worker;
 
 pub use worker::WorkerExecutor;
 
-use error::{Error, SpawnError};
+use error::Error;
 use future::ResponseFuture;
 use message::Message;
 use worker::Worker;
@@ -76,7 +76,7 @@ where
 {
     type Response = S::Response;
     type Error = Error;
-    type LayerError = SpawnError<S>;
+    type LayerError = Error;
     type Service = Buffer<S, Request>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
@@ -96,7 +96,7 @@ where
     ///
     /// The default Tokio executor is used to run the given service, which means that this method
     /// must be called while on the Tokio runtime.
-    pub fn new(service: T, bound: usize) -> Result<Self, SpawnError<T>>
+    pub fn new(service: T, bound: usize) -> Result<Self, Error>
     where
         T: Send + 'static,
         T::Future: Send,
@@ -114,16 +114,14 @@ where
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
-    pub fn with_executor<E>(service: T, bound: usize, executor: &E) -> Result<Self, SpawnError<T>>
+    pub fn with_executor<E>(service: T, bound: usize, executor: &E) -> Result<Self, Error>
     where
         E: WorkerExecutor<T, Request>,
     {
         let (tx, rx) = mpsc::channel(bound);
 
-        match Worker::spawn(service, rx, executor) {
-            Ok(worker) => Ok(Buffer { tx, worker }),
-            Err(service) => Err(SpawnError::new(service)),
-        }
+        Worker::spawn(service, rx, executor)
+            .map(|worker| Buffer { tx, worker })
     }
 }
 
