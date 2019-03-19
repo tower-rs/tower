@@ -1,4 +1,4 @@
-use error::{Closed, SpawnError, Error, ServiceError};
+use error::{Closed, Error, ServiceError, SpawnError};
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use message::Message;
