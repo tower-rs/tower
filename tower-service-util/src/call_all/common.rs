@@ -11,7 +11,7 @@ pub(crate) struct CallAll<Svc, S, Q> {
     eof: bool,
 }
 
-pub(crate) trait Queue<T: Future> {
+pub(crate) trait Drive<T: Future> {
     fn is_empty(&self) -> bool;
 
     fn push(&mut self, future: T);
@@ -25,7 +25,7 @@ where
     Svc::Error: Into<Error>,
     S: Stream,
     S::Error: Into<Error>,
-    Q: Queue<Svc::Future>,
+    Q: Drive<Svc::Future>,
 {
     pub(crate) fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
         CallAll {
@@ -54,7 +54,7 @@ where
     Svc::Error: Into<Error>,
     S: Stream,
     S::Error: Into<Error>,
-    Q: Queue<Svc::Future>,
+    Q: Drive<Svc::Future>,
 {
     type Item = Svc::Response;
     type Error = Error;

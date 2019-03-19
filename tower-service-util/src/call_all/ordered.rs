@@ -135,7 +135,7 @@ where
     }
 }
 
-impl<T: Future> common::Queue<T> for FuturesOrdered<T> {
+impl<T: Future> common::Drive<T> for FuturesOrdered<T> {
     fn is_empty(&self) -> bool {
         FuturesOrdered::is_empty(self)
     }
