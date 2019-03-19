@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 futures = "0.1"
-lazy_static = "1.3"
 tower-service = "0.2"
 tower-service-util = { version = "0.1", path = "../tower-service-util" }
 tokio = "0.1"
