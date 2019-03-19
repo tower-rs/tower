@@ -61,9 +61,6 @@ crates.
 * [`tower-service-util`]: Miscellaneous additional utilities for Tower
   ([docs][tu-docs]).
 
-* [`tower-watch`]: A middleware that rebinds the inner service each time a watch
-  is notified ([docs][tw-docs]).
-
 ## Status
 
 Currently, only [`tower-service`], the foundational trait, has been released to
@@ -105,5 +102,3 @@ terms or conditions.
 [tt-docs]: https://tower-rs.github.io/tower/tower_timeout/index.html
 [`tower-service-util`]: tower-service-util
 [tu-docs]: https://tower-rs.github.io/tower/tower_util/index.html
-[`tower-watch`]: tower-watch
-[tw-docs]: https://tower-rs.github.io/tower/tower_watch/index.html
