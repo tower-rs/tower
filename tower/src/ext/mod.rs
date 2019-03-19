@@ -2,10 +2,10 @@
 
 use futures::{IntoFuture, Stream};
 use tower_service::Service;
+use tower_service_util::CallAll;
 
 mod and_then;
 mod apply;
-mod call_all;
 mod from_err;
 mod map;
 mod map_err;
@@ -15,7 +15,6 @@ mod then;
 
 pub use self::and_then::AndThen;
 pub use self::apply::Apply;
-pub use self::call_all::CallAll;
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;
@@ -24,6 +23,8 @@ pub use self::ready::Ready;
 pub use self::then::Then;
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}
+
+type Error = Box<::std::error::Error + Send + Sync>;
 
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
@@ -133,10 +134,12 @@ pub trait ServiceExt<Request>: Service<Request> {
     ///
     /// This is essentially `Stream<Item = Request>` + `Self` => `Stream<Item = Response>`. See the
     /// documentation for [`CallAll`](struct.CallAll.html) for details.
-    fn call_all<S, E>(self, reqs: S) -> CallAll<Self, S, E>
+    fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
     where
         Self: Sized,
+        Self::Error: Into<Error>,
         S: Stream<Item = Request>,
+        S::Error: Into<Error>,
     {
         CallAll::new(self, reqs)
     }
