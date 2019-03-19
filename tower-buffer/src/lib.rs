@@ -120,8 +120,7 @@ where
     {
         let (tx, rx) = mpsc::channel(bound);
 
-        Worker::spawn(service, rx, executor)
-            .map(|worker| Buffer { tx, worker })
+        Worker::spawn(service, rx, executor).map(|worker| Buffer { tx, worker })
     }
 }
 
