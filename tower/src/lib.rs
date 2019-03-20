@@ -14,6 +14,7 @@ extern crate tower_layer;
 extern crate tower_service;
 extern crate tower_service_util;
 
+mod never;
 pub mod util;
 
 pub use tower_service::Service;

@@ -3,12 +3,11 @@
 use futures::{Async, Future, Poll};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tower_layer::{
-    util::{Chain, Never},
-    Layer, LayerExt,
-};
+use tower_layer::{util::Chain, Layer, LayerExt};
 use tower_service::Service;
 use tower_service_util::MakeService;
+
+use never::Never;
 
 /// Configure and build a `MakeService`
 ///

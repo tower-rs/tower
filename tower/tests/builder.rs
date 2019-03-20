@@ -7,6 +7,7 @@ extern crate tower_layer;
 extern crate tower_rate_limit;
 extern crate tower_reconnect;
 extern crate tower_service;
+extern crate void;
 
 use futures::future::{self, FutureResult};
 use futures::prelude::*;
@@ -14,16 +15,16 @@ use std::time::Duration;
 use tower::builder::ServiceBuilder;
 use tower_buffer::BufferLayer;
 use tower_in_flight_limit::InFlightLimitLayer;
-use tower_layer::util::Never;
 use tower_rate_limit::RateLimitLayer;
 use tower_reconnect::Reconnect;
 use tower_service::*;
+use void::Void;
 
 #[derive(Debug)]
 struct MockMaker;
 impl Service<()> for MockMaker {
     type Response = MockSvc;
-    type Error = Never;
+    type Error = Void;
     type Future = FutureResult<Self::Response, Self::Error>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
@@ -43,7 +44,7 @@ struct Response;
 struct MockSvc;
 impl Service<Request> for MockSvc {
     type Response = Response;
-    type Error = Never;
+    type Error = Void;
     type Future = FutureResult<Self::Response, Self::Error>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
