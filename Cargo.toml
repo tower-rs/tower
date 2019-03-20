@@ -15,5 +15,4 @@ members = [
   "tower-service",
   "tower-service-util",
   "tower-timeout",
-  "tower-watch",
 ]
