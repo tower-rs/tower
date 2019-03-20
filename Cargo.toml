@@ -3,7 +3,6 @@
 members = [
   "tower",
   "tower-balance",
-  "tower-blocking-service",
   "tower-buffer",
   "tower-discover",
   "tower-filter",

@@ -15,8 +15,10 @@ keywords = ["io", "async", "non-blocking", "futures", "service"]
 
 [dependencies]
 futures = "0.1"
+tokio = "0.1"
 tower-service = "0.2.0"
 tower-service-util = { version = "0.1.0", path = "../tower-service-util", features = ["io", "either"] }
+tower-buffer = { version = "0.1.0", path = "../tower-buffer" }
 
 [dev-dependencies]
 tower-service = "0.2.0"

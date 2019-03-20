@@ -2,8 +2,10 @@
 
 #[macro_use]
 extern crate futures;
+extern crate tokio;
 #[cfg(test)]
 extern crate tokio_mock_task;
+extern crate tower_buffer;
 extern crate tower_service;
 extern crate tower_service_util;
 
