@@ -1,0 +1,14 @@
+[package]
+name = "tower-load-shed"
+version = "0.1.0"
+authors = ["Sean McArthur <sean@seanmonstar.com>"]
+publish = false
+
+[dependencies]
+futures = "0.1.25"
+tower-service = "0.2.0"
+tower-layer = { version = "0.1.0", path = "../tower-layer" }
+
+[dev-dependencies]
+tokio-mock-task = "0.1.1"
+tower-mock = { version = "0.1", path = "../tower-mock" }
