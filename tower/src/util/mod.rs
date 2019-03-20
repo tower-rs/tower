@@ -22,6 +22,12 @@ pub use self::oneshot::Oneshot;
 pub use self::ready::Ready;
 pub use self::then::Then;
 
+// `tower-service-util` re-exports
+pub use tower_service_util::BoxService;
+pub use tower_service_util::EitherService;
+pub use tower_service_util::OptionService;
+pub use tower_service_util::ServiceFn;
+
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}
 
 type Error = Box<::std::error::Error + Send + Sync>;
