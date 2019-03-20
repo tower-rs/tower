@@ -25,7 +25,6 @@ jobs:
       - tower-retry
       - tower-service
       - tower-timeout
-      - tower-watch
       - tower
 
 - template: ci/azure-deploy-docs.yml

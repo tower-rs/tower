@@ -69,7 +69,7 @@ mod tests {
     use futures::{Async, Future, Poll};
     use tower_service::Service;
 
-    use ext::ServiceExt;
+    use crate::ServiceExt;
 
     #[derive(Clone)]
     struct Srv;
