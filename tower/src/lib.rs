@@ -9,8 +9,10 @@ extern crate tower_buffer;
 extern crate tower_service;
 extern crate tower_service_util;
 
+pub mod blocking;
 pub mod util;
 
+pub use blocking::BlockingService;
 pub use tower_service::Service;
 pub use tower_service_util::MakeConnection;
 pub use tower_service_util::MakeService;
