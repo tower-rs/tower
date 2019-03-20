@@ -9,7 +9,7 @@ extern crate tower_service_util;
 
 pub mod util;
 
+pub use tower_service::Service;
 pub use tower_service_util::MakeConnection;
 pub use tower_service_util::MakeService;
-pub use tower_service::Service;
 pub use util::ServiceExt;
