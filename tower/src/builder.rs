@@ -15,9 +15,9 @@ use never::Never;
 /// and produces a new `MakeService` that is wrapped by the composed
 /// layer.
 #[derive(Debug)]
-pub struct ServiceBuilder<S, L> {
-    maker: S,
+pub struct ServiceBuilder<L, S, Request> {
     layer: L,
+    _pd: PhantomData<(S, Request)>,
 }
 
 /// Composed `MakeService` produced from `ServiceBuilder`
@@ -40,37 +40,49 @@ where
 
 type Error = Box<::std::error::Error + Send + Sync>;
 
-impl<S> ServiceBuilder<S, Identity> {
+impl<S, Request> ServiceBuilder<Identity, S, Request> {
     /// Create a new `ServiceBuilder` from a `MakeService`.
-    pub fn new(maker: S) -> Self {
+    pub fn new() -> Self {
         ServiceBuilder {
-            maker,
             layer: Identity::new(),
+            _pd: PhantomData,
         }
     }
 }
 
-impl<S, L> ServiceBuilder<S, L> {
+impl<L, S, Request> ServiceBuilder<L, S, Request> {
     /// Add a layer `T` to the `ServiceBuilder`.
-    pub fn add<T, Target, Request>(self, layer: T) -> ServiceBuilder<S, Chain<L, T>>
+    pub fn add<T>(self, layer: T) -> ServiceBuilder<Chain<L, T>, S, Request>
     where
-        S: MakeService<Target, Request>,
+        L: Layer<S, Request>,
         T: Layer<L::Service, Request>,
-        L: Layer<S::Service, Request>,
     {
         ServiceBuilder {
-            maker: self.maker,
             layer: self.layer.chain(layer),
+            _pd: PhantomData,
         }
     }
 
     /// Create a `ServiceBuilderMaker` from the composed middleware and transport.
-    pub fn build<Request>(self) -> ServiceBuilderMaker<S, L, Request> {
+    pub fn build_maker<M, Target>(self, maker: M) -> ServiceBuilderMaker<M, L, Request>
+    where
+        M: MakeService<Target, Request, Service = S, Response = S::Response, Error = S::Error>,
+        S: Service<Request>,
+    {
         ServiceBuilderMaker {
-            maker: self.maker,
+            maker,
             layer: Arc::new(self.layer),
             _pd: PhantomData,
         }
+    }
+
+    /// Wrap the service `S` with the layers.
+    pub fn build_svc(self, service: S) -> Result<L::Service, L::LayerError>
+    where
+        L: Layer<S, Request>,
+        S: Service<Request>,
+    {
+        self.layer.layer(service)
     }
 }
 

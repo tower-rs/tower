@@ -22,9 +22,9 @@ fn main() {
 
         println!("Listening on http://{}", addr);
 
-        let maker = ServiceBuilder::new(MakeSvc)
+        let maker = ServiceBuilder::new()
             .add(InFlightLimitLayer::new(5))
-            .build();
+            .build_maker(MakeSvc);
 
         let server = Server::new(maker);
 

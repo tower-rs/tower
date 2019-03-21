@@ -57,15 +57,33 @@ impl Service<Request> for MockSvc {
 }
 
 #[test]
-fn builder_basic() {
+fn builder_make_service() {
     tokio::run(future::lazy(|| {
-        let maker = ServiceBuilder::new(MockMaker)
+        let maker = ServiceBuilder::new()
             .add(BufferLayer::new(5))
             .add(InFlightLimitLayer::new(5))
             .add(RateLimitLayer::new(5, Duration::from_secs(1)))
-            .build();
+            .build_maker(MockMaker);
 
         let mut client = Reconnect::new(maker, ());
+
+        client.poll_ready().unwrap();
+        client
+            .call(Request)
+            .map(|_| ())
+            .map_err(|_| panic!("this is bad"))
+    }));
+}
+
+#[test]
+fn builder_service() {
+    tokio::run(future::lazy(|| {
+        let mut client = ServiceBuilder::new()
+            .add(BufferLayer::new(5))
+            .add(InFlightLimitLayer::new(5))
+            .add(RateLimitLayer::new(5, Duration::from_secs(1)))
+            .build_svc(MockSvc)
+            .unwrap();
 
         client.poll_ready().unwrap();
         client

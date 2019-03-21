@@ -36,12 +36,12 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     let policy = RetryPolicy::new(5);
     let dst = Destination::try_from_uri(Uri::from_static("http://127.0.0.1:3000")).unwrap();
 
-    let maker = ServiceBuilder::new(hyper)
+    let maker = ServiceBuilder::new()
         .add(BufferLayer::new(5))
         .add(RetryLayer::new(policy))
         .add(InFlightLimitLayer::new(5))
         .add(RateLimitLayer::new(5, Duration::from_secs(1)))
-        .build();
+        .build_maker(hyper);
 
     let mut client = Reconnect::new(maker, dst);
 
