@@ -1,6 +1,4 @@
-use std::error::Error;
 use std::fmt;
-
 #[derive(Debug)]
 /// An error that can never occur.
 pub enum Never {}
@@ -11,4 +9,4 @@ impl fmt::Display for Never {
     }
 }
 
-impl Error for Never {}
+impl std::error::Error for Never {}

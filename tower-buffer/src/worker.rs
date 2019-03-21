@@ -1,4 +1,4 @@
-use error::{Closed, Error, ServiceError};
+use error::{Closed, Error, ServiceError, SpawnError};
 use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use message::Message;
@@ -56,7 +56,7 @@ where
         service: T,
         rx: mpsc::Receiver<Message<Request, T::Future>>,
         executor: &E,
-    ) -> Result<Handle, T>
+    ) -> Result<Handle, Error>
     where
         E: WorkerExecutor<T, Request>,
     {
@@ -75,7 +75,7 @@ where
 
         match executor.execute(worker) {
             Ok(()) => Ok(handle),
-            Err(err) => Err(err.into_future().service),
+            Err(_) => Err(SpawnError::new().into()),
         }
     }
 

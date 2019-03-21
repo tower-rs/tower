@@ -11,10 +11,13 @@ extern crate tower_layer;
 extern crate tower_service;
 
 use futures::{Async, Future, Poll};
-use tower_layer::{util::Never, Layer};
+use tower_layer::Layer;
 use tower_service::Service;
 
 pub mod budget;
+mod never;
+
+use never::Never;
 
 /// A "retry policy" to classify if a request should be retried.
 ///

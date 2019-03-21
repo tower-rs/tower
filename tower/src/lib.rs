@@ -14,12 +14,10 @@ extern crate tower_layer;
 extern crate tower_service;
 extern crate tower_service_util;
 
-pub mod ext;
+mod never;
+pub mod util;
 
-pub use ext::ServiceExt;
-pub use tower_service_util::BoxService;
-pub use tower_service_util::EitherService;
+pub use tower_service::Service;
 pub use tower_service_util::MakeConnection;
 pub use tower_service_util::MakeService;
-pub use tower_service_util::OptionService;
-pub use tower_service_util::ServiceFn;
+pub use util::ServiceExt;

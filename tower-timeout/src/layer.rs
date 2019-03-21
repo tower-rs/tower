@@ -1,8 +1,8 @@
 use crate::{Error, Timeout};
+use never::Never;
 use std::time::Duration;
-use tower_layer::{util::Never, Layer};
+use tower_layer::Layer;
 use tower_service::Service;
-
 /// Applies a timeout to requests via the supplied inner service.
 #[derive(Debug)]
 pub struct TimeoutLayer {

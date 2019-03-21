@@ -1,6 +1,6 @@
-use tower_layer::{util::Never, Layer};
+use tower_layer::Layer;
 use tower_service::Service;
-use {Error, InFlightLimit};
+use {Error, InFlightLimit, Never};
 
 #[derive(Debug, Clone)]
 pub struct InFlightLimitLayer {
