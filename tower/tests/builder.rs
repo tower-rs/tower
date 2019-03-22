@@ -48,7 +48,7 @@ fn builder_service() {
             .chain(BufferLayer::new(5))
             .chain(InFlightLimitLayer::new(5))
             .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
-            .build_svc(MockSvc)
+            .build_service(MockSvc)
             .unwrap();
 
         client.poll_ready().unwrap();
@@ -66,9 +66,10 @@ fn builder_make_service_retry() {
 
         let maker = ServiceBuilder::new()
             .chain(BufferLayer::new(5))
-            .chain(RetryLayer::new(policy))
-            .chain(InFlightLimitLayer::new(5))
             .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
+            .chain(InFlightLimitLayer::new(5))
+            .chain(RetryLayer::new(policy))
+            .chain(BufferLayer::new(5))
             .build_maker(MockMaker);
 
         let mut client = Reconnect::new(maker, ());

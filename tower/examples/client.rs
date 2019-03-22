@@ -38,9 +38,10 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
 
     let maker = ServiceBuilder::new()
         .chain(BufferLayer::new(5))
-        .chain(RetryLayer::new(policy))
-        .chain(InFlightLimitLayer::new(5))
         .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
+        .chain(InFlightLimitLayer::new(5))
+        .chain(RetryLayer::new(policy))
+        .chain(BufferLayer::new(5))
         .build_maker(hyper);
 
     let mut client = Reconnect::new(maker, dst);

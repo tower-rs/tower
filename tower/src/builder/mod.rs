@@ -1,4 +1,5 @@
-/// Builder types to compose layers and services
+//! Builder types to compose layers and services
+
 mod service;
 
 pub use self::service::{MakerFuture, ServiceBuilderMaker};
@@ -13,7 +14,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 
 /// `ServiceBuilder` provides a [builder-like interface](https://doc.rust-lang.org/1.0.0/style/ownership/builders.html) for composing Layers and a connection, where the latter is modeled by
 ///  a `MakeService`. The builder produces either a new `Service` or `MakeService`,
-///  depending on whether `build_svc` or `build_maker` is called.
+///  depending on whether `build_service` or `build_maker` is called.
 ///
 /// # Services and MakeServices
 ///
@@ -110,7 +111,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # }
 /// ServiceBuilder::new()
 ///     .chain(InFlightLimitLayer::new(5))
-///     .build_svc(MyService);
+///     .build_service(MyService);
 /// ```
 ///
 /// A `Service` stack with _multiple_ layers that contain rate limiting, in-flight request limits,
@@ -168,13 +169,9 @@ impl<S, Request> ServiceBuilder<Identity, S, Request> {
 
 impl<L, S, Request> ServiceBuilder<L, S, Request> {
     /// Chain a layer `T` to the `ServiceBuilder`.
-    pub fn chain<T>(self, layer: T) -> ServiceBuilder<Chain<L, T>, S, Request>
-    where
-        L: Layer<S, Request>,
-        T: Layer<L::Service, Request>,
-    {
+    pub fn chain<T>(self, layer: T) -> ServiceBuilder<Chain<T, L>, S, Request> {
         ServiceBuilder {
-            layer: self.layer.chain(layer),
+            layer: Chain::new(layer, self.layer),
             _pd: PhantomData,
         }
     }
@@ -189,7 +186,7 @@ impl<L, S, Request> ServiceBuilder<L, S, Request> {
     }
 
     /// Wrap the service `S` with the layers.
-    pub fn build_svc(self, service: S) -> Result<L::Service, L::LayerError>
+    pub fn build_service(self, service: S) -> Result<L::Service, L::LayerError>
     where
         L: Layer<S, Request>,
         S: Service<Request>,
