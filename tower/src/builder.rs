@@ -51,8 +51,8 @@ impl<S, Request> ServiceBuilder<Identity, S, Request> {
 }
 
 impl<L, S, Request> ServiceBuilder<L, S, Request> {
-    /// Add a layer `T` to the `ServiceBuilder`.
-    pub fn add<T>(self, layer: T) -> ServiceBuilder<Chain<L, T>, S, Request>
+    /// Chain a layer `T` to the `ServiceBuilder`.
+    pub fn chain<T>(self, layer: T) -> ServiceBuilder<Chain<L, T>, S, Request>
     where
         L: Layer<S, Request>,
         T: Layer<L::Service, Request>,
