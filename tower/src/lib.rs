@@ -1,10 +1,5 @@
 //! Various utility types and functions that are generally with Tower.
 
-//! Tower is a library of modular and reusable components for building robust networking
-//! clients and servers.
-//!
-//! This main crate is still a WIP.
-
 pub mod builder;
 #[macro_use]
 extern crate futures;
