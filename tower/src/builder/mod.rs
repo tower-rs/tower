@@ -1,5 +1,4 @@
-//! Builder types to compose layers and services
-
+/// Builder types to compose layers and services
 mod service;
 
 pub use self::service::{MakerFuture, ServiceBuilderMaker};
@@ -12,15 +11,36 @@ use tower_service_util::MakeService;
 
 pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 
-/// Configure and build a `MakeService`
+/// `ServiceBuilder` provides a [builder-like interface](https://doc.rust-lang.org/1.0.0/style/ownership/builders.html) for composing Layers and a connection, where the latter is modeled by
+///  a `MakeService`. The builder produces either a new `Service` or `MakeService`,
+///  depending on whether `build_svc` or `build_maker` is called.
 ///
-/// `ServiceBuilder` collects layers and a `MakeService` transport
-/// and produces a new `MakeService` that is wrapped by the composed
-/// layer.
+/// # Services and MakeServices
+///
+/// - A [`Service`](tower_service::Service) is a trait representing an asynchronous
+///   function of a request to a response. It is similar to
+///   `async fn(Request) -> Result<Response, Error>`.
+/// - A [`MakeService`](tower_service_util::MakeService) is a trait creating specific
+///   instances of a `Service`
+///
+/// # Service
+///
+/// A `Service` is typically bound to a single transport, such as a TCP connection.
+/// It defines how _all_ inbound or outbound requests are handled by that connection.
+///
+/// # MakeService
+///
+/// Since a `Service` is bound to a single connection, a `MakeService` allows for the
+/// creation of _new_ `Service`s that'll be bound to _different_ different connections.
+/// This is useful for servers, as they require the ability to accept new connections.
+///
+/// Resources that need to be shared by all `Service`s can be put into a
+/// `MakeService`, and then passed to individual `Service`s when `build_maker`
+/// is called.
 ///
 /// # Examples
 ///
-/// Creating a `MakeService` stack with one service `Layer`.
+/// A MakeService stack with a single layer:
 ///
 /// ```rust
 /// # extern crate tower;
@@ -63,7 +83,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///     .build_maker(MyMakeService);
 /// ```
 ///
-/// Creating a `Service` stack with one service `Layer`.
+/// A `Service` stack with a single layer:
 ///
 /// ```
 /// # extern crate tower;
@@ -93,8 +113,8 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///     .build_svc(MyService);
 /// ```
 ///
-/// Creating a `Service` stack that contains rate limiting, in flight limits,
-/// and a channel backed clonable `Service`.
+/// A `Service` stack with _multiple_ layers that contain rate limiting, in-flight request limits,
+/// and a channel-backed, clonable `Service`:
 ///
 /// ```
 /// # extern crate tower;
