@@ -149,7 +149,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///     .chain(BufferLayer::new(5))
 ///     .chain(InFlightLimitLayer::new(5))
 ///     .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
-///     .build_svc(MyService);
+///     .build_service(MyService);
 /// ```
 #[derive(Debug)]
 pub struct ServiceBuilder<L, S, Request> {

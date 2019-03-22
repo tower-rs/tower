@@ -3,7 +3,6 @@ extern crate tokio;
 extern crate tower;
 extern crate tower_buffer;
 extern crate tower_in_flight_limit;
-extern crate tower_layer;
 extern crate tower_rate_limit;
 extern crate tower_reconnect;
 extern crate tower_retry;
