@@ -14,6 +14,119 @@ use never::Never;
 /// `ServiceBuilder` collects layers and a `MakeService` transport
 /// and produces a new `MakeService` that is wrapped by the composed
 /// layer.
+///
+/// # Examples
+///
+/// Creating a `MakeService` stack with one service `Layer`.
+///
+/// ```rust
+/// # extern crate tower;
+/// # extern crate tower_in_flight_limit;
+/// # extern crate futures;
+/// # extern crate void;
+/// # use void::Void;
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// # use tower_in_flight_limit::InFlightLimitLayer;
+/// # use futures::{Poll, future::{self, FutureResult}};
+/// # #[derive(Debug)]
+/// # struct MyMakeService;
+/// # impl Service<()> for MyMakeService {
+/// #    type Response = MyService;
+/// #    type Error = Void;
+/// #    type Future = FutureResult<Self::Response, Self::Error>;
+/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+/// #        Ok(().into())
+/// #    }
+/// #    fn call(&mut self, _: ()) -> Self::Future {
+/// #        future::ok(MyService)
+/// #    }
+/// # }
+/// # #[derive(Debug)]
+/// # struct MyService;
+/// # impl Service<()> for MyService {
+/// #    type Response = ();
+/// #    type Error = Void;
+/// #    type Future = FutureResult<Self::Response, Self::Error>;
+/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+/// #        Ok(().into())
+/// #    }
+/// #    fn call(&mut self, _: ()) -> Self::Future {
+/// #        future::ok(())
+/// #    }
+/// # }
+/// ServiceBuilder::new()
+///     .chain(InFlightLimitLayer::new(5))
+///     .build_maker(MyMakeService);
+/// ```
+///
+/// Creating a `Service` stack with one service `Layer`.
+///
+/// ```
+/// # extern crate tower;
+/// # extern crate tower_in_flight_limit;
+/// # extern crate futures;
+/// # extern crate void;
+/// # use void::Void;
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// # use tower_in_flight_limit::InFlightLimitLayer;
+/// # use futures::{Poll, future::{self, FutureResult}};
+/// # #[derive(Debug)]
+/// # struct MyService;
+/// # impl Service<()> for MyService {
+/// #    type Response = ();
+/// #    type Error = Void;
+/// #    type Future = FutureResult<Self::Response, Self::Error>;
+/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+/// #        Ok(().into())
+/// #    }
+/// #    fn call(&mut self, _: ()) -> Self::Future {
+/// #        future::ok(())
+/// #    }
+/// # }
+/// ServiceBuilder::new()
+///     .chain(InFlightLimitLayer::new(5))
+///     .build_svc(MyService);
+/// ```
+///
+/// Creating a `Service` stack that contains rate limiting, in flight limits,
+/// and a channel backed clonable `Service`.
+///
+/// ```
+/// # extern crate tower;
+/// # extern crate tower_in_flight_limit;
+/// # extern crate tower_buffer;
+/// # extern crate tower_rate_limit;
+/// # extern crate futures;
+/// # extern crate void;
+/// # use void::Void;
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// # use tower_in_flight_limit::InFlightLimitLayer;
+/// # use tower_buffer::BufferLayer;
+/// # use tower_rate_limit::RateLimitLayer;
+/// # use std::time::Duration;
+/// # use futures::{Poll, future::{self, FutureResult}};
+/// # #[derive(Debug)]
+/// # struct MyService;
+/// # impl Service<()> for MyService {
+/// #    type Response = ();
+/// #    type Error = Void;
+/// #    type Future = FutureResult<Self::Response, Self::Error>;
+/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+/// #        Ok(().into())
+/// #    }
+/// #    fn call(&mut self, _: ()) -> Self::Future {
+/// #        future::ok(())
+/// #    }
+/// # }
+/// ServiceBuilder::new()
+///     .chain(BufferLayer::new(5))
+///     .chain(InFlightLimitLayer::new(5))
+///     .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
+///     .build_svc(MyService);
+/// ```
 #[derive(Debug)]
 pub struct ServiceBuilder<L, S, Request> {
     layer: L,
