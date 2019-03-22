@@ -45,16 +45,17 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     // We're calling the tower/examples/server.rs.
     let dst = Destination::try_from_uri(Uri::from_static("http://127.0.0.1:3000")).unwrap();
 
-    // Now, to build the service!
+    // Now, to build the service! We use two BufferLayers in order to:
+    // - provide backpressure for the RateLimitLayer, RateLimitLayer, and InFlightLimitLayer
+    // - meet `RetryLayer`'s requirement that our service implement `Service + Clone`
+    // - ..and to provide cheap clones on the service.
     let maker = ServiceBuilder::new()
-        // We have two buffers: one for the reliability/throttling layers...
         .chain(BufferLayer::new(5))
         .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
         .chain(InFlightLimitLayer::new(5))
-        .chain(RetryLayer::new(policy));
-
-    // ...and one for the client itself.
-    let maker = maker.chain(BufferLayer::new(5)).build_maker(hyper);
+        .chain(RetryLayer::new(policy))
+        .chain(BufferLayer::new(5))
+        .build_maker(hyper);
 
     // `Reconnect` accepts a destination and a MakeService, creating a new service
     // any time the connection encounters an error.
