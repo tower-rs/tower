@@ -37,7 +37,6 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     let dst = Destination::try_from_uri(Uri::from_static("http://127.0.0.1:3000")).unwrap();
 
     let maker = ServiceBuilder::new()
-        .chain(BufferLayer::new(5))
         .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
         .chain(InFlightLimitLayer::new(5))
         .chain(RetryLayer::new(policy))
