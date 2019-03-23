@@ -62,7 +62,7 @@ impl<E> BufferLayer<E> {
     where
         S: Service<Request>,
         S::Error: Into<Error>,
-        E: WorkerExecutor<S, Request>,
+        E: WorkerExecutor<S, Request> + Clone,
     {
         BufferLayer { bound, executor }
     }
@@ -72,7 +72,7 @@ impl<E, S, Request> Layer<S, Request> for BufferLayer<E>
 where
     S: Service<Request>,
     S::Error: Into<Error>,
-    E: WorkerExecutor<S, Request>,
+    E: WorkerExecutor<S, Request> + Clone,
 {
     type Response = S::Response;
     type Error = Error;
@@ -80,7 +80,7 @@ where
     type Service = Buffer<S, Request>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        Buffer::with_executor(service, self.bound, &self.executor)
+        Buffer::with_executor(service, self.bound, &mut self.executor.clone())
     }
 }
 
@@ -103,7 +103,7 @@ where
         T::Error: Send + Sync,
         Request: Send + 'static,
     {
-        Self::with_executor(service, bound, &DefaultExecutor::current())
+        Self::with_executor(service, bound, &mut DefaultExecutor::current())
     }
 
     /// Creates a new `Buffer` wrapping `service`.
@@ -114,7 +114,7 @@ where
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
-    pub fn with_executor<E>(service: T, bound: usize, executor: &E) -> Result<Self, Error>
+    pub fn with_executor<E>(service: T, bound: usize, executor: &mut E) -> Result<Self, Error>
     where
         E: WorkerExecutor<T, Request>,
     {

@@ -1,9 +1,11 @@
 extern crate futures;
+extern crate tokio_executor;
 extern crate tower_buffer;
 extern crate tower_mock;
 extern crate tower_service;
 
 use futures::prelude::*;
+use tokio_executor::{TypedExecutor, SpawnError};
 use tower_buffer::*;
 use tower_service::*;
 
@@ -113,9 +115,9 @@ fn poll_ready_when_worker_is_dropped_early() {
     let (service, _handle) = Mock::new();
 
     // drop that worker right on the floor!
-    let exec = ExecFn(drop);
+    let mut exec = ExecFn(drop);
 
-    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+    let mut service = Buffer::with_executor(service, 1, &mut exec).unwrap();
 
     with_task(|| {
         service
@@ -130,9 +132,9 @@ fn response_future_when_worker_is_dropped_early() {
 
     // hold the worker in a cell until we want to drop it later
     let cell = RefCell::new(None);
-    let exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
+    let mut exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
 
-    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+    let mut service = Buffer::with_executor(service, 1, &mut exec).unwrap();
 
     // keep the request in the worker
     handle.allow(0);
@@ -149,11 +151,11 @@ type Handle = tower_mock::Handle<&'static str, &'static str>;
 
 struct Exec;
 
-impl<F> futures::future::Executor<F> for Exec
+impl<F> TypedExecutor<F> for Exec
 where
     F: Future<Item = (), Error = ()> + Send + 'static,
 {
-    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
+    fn spawn(&mut self, fut: F) -> Result<(), SpawnError> {
         thread::spawn(move || {
             fut.wait().unwrap();
         });
@@ -163,12 +165,12 @@ where
 
 struct ExecFn<Func>(Func);
 
-impl<Func, F> futures::future::Executor<F> for ExecFn<Func>
+impl<Func, F> TypedExecutor<F> for ExecFn<Func>
 where
     Func: Fn(F),
     F: Future<Item = (), Error = ()> + Send + 'static,
 {
-    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
+    fn spawn(&mut self, fut: F) -> Result<(), SpawnError> {
         (self.0)(fut);
         Ok(())
     }
@@ -177,7 +179,7 @@ where
 fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
     let (service, handle) = Mock::new();
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
-    let service = Buffer::with_executor(service, 10, &Exec).unwrap();
+    let service = Buffer::with_executor(service, 10, &mut Exec).unwrap();
     (service, handle)
 }
 

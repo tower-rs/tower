@@ -1,8 +1,8 @@
 use error::{Closed, Error, ServiceError, SpawnError};
-use futures::future::Executor;
 use futures::{Async, Future, Poll, Stream};
 use message::Message;
 use std::sync::{Arc, Mutex};
+use tokio_executor::TypedExecutor;
 use tokio_sync::mpsc;
 use tower_service::Service;
 
@@ -33,14 +33,14 @@ pub(crate) struct Handle {
 
 /// This trait allows you to use either Tokio's threaded runtime's executor or the `current_thread`
 /// runtime's executor depending on if `T` is `Send` or `!Send`.
-pub trait WorkerExecutor<T, Request>: Executor<Worker<T, Request>>
+pub trait WorkerExecutor<T, Request>: TypedExecutor<Worker<T, Request>>
 where
     T: Service<Request>,
     T::Error: Into<Error>,
 {
 }
 
-impl<T, Request, E: Executor<Worker<T, Request>>> WorkerExecutor<T, Request> for E
+impl<T, Request, E: TypedExecutor<Worker<T, Request>>> WorkerExecutor<T, Request> for E
 where
     T: Service<Request>,
     T::Error: Into<Error>,
@@ -55,7 +55,7 @@ where
     pub(crate) fn spawn<E>(
         service: T,
         rx: mpsc::Receiver<Message<Request, T::Future>>,
-        executor: &E,
+        executor: &mut E,
     ) -> Result<Handle, Error>
     where
         E: WorkerExecutor<T, Request>,
@@ -73,7 +73,7 @@ where
             handle: handle.clone(),
         };
 
-        match executor.execute(worker) {
+        match executor.spawn(worker) {
             Ok(()) => Ok(handle),
             Err(_) => Err(SpawnError::new().into()),
         }
