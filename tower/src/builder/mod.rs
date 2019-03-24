@@ -4,9 +4,11 @@ mod service;
 
 pub use self::service::{MakerFuture, ServiceBuilderMaker};
 
-use never::Never;
 use std::marker::PhantomData;
-use tower_layer::{util::Chain, Layer, LayerExt};
+use tower_layer::{
+    util::{Chain, Identity},
+    Layer,
+};
 use tower_service::Service;
 use tower_service_util::MakeService;
 
@@ -192,37 +194,5 @@ impl<L, S, Request> ServiceBuilder<L, S, Request> {
         S: Service<Request>,
     {
         self.layer.layer(service)
-    }
-}
-
-/// A no-op middleware.
-///
-/// When wrapping a `Service`, the `Identity` layer returns the provided
-/// service without modifying it.
-#[derive(Debug, Default, Clone)]
-pub struct Identity {
-    _p: (),
-}
-
-impl Identity {
-    /// Create a new `Identity` value
-    pub fn new() -> Identity {
-        Identity { _p: () }
-    }
-}
-
-/// Decorates a `Service`, transforming either the request or the response.
-impl<S, Request> Layer<S, Request> for Identity
-where
-    S: Service<Request>,
-    S::Error: Into<Error>,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type LayerError = Never;
-    type Service = S;
-
-    fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError> {
-        Ok(inner)
     }
 }
