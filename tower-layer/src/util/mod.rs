@@ -3,8 +3,10 @@
 use Layer;
 
 mod chain;
+mod identity;
 
 pub use self::chain::Chain;
+pub use self::identity::Identity;
 
 /// An extension trait for `Layer`'s that provides a variety of convenient
 /// adapters.
