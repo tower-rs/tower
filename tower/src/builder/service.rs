@@ -8,7 +8,7 @@ use Service;
 
 /// Composed `MakeService` produced from `ServiceBuilder`
 #[derive(Debug)]
-pub struct ServiceBuilderMaker<S, L, Request> {
+pub struct LayeredMakeService<S, L, Request> {
     maker: S,
     layer: Arc<L>,
     _pd: PhantomData<Request>,
@@ -16,7 +16,7 @@ pub struct ServiceBuilderMaker<S, L, Request> {
 
 /// Async resolve the MakeService and wrap it with the layers
 #[derive(Debug)]
-pub struct MakerFuture<S, L, Target, Request>
+pub struct ServiceFuture<S, L, Target, Request>
 where
     S: MakeService<Target, Request>,
 {
@@ -24,9 +24,9 @@ where
     layer: Arc<L>,
 }
 
-impl<S, L, Request> ServiceBuilderMaker<S, L, Request> {
+impl<S, L, Request> LayeredMakeService<S, L, Request> {
     pub(crate) fn new(maker: S, layer: L) -> Self {
-        ServiceBuilderMaker {
+        LayeredMakeService {
             maker,
             layer: Arc::new(layer),
             _pd: PhantomData,
@@ -34,7 +34,7 @@ impl<S, L, Request> ServiceBuilderMaker<S, L, Request> {
     }
 }
 
-impl<S, L, Target, Request> Service<Target> for ServiceBuilderMaker<S, L, Request>
+impl<S, L, Target, Request> Service<Target> for LayeredMakeService<S, L, Request>
 where
     S: MakeService<Target, Request>,
     S::MakeError: Into<Error>,
@@ -44,7 +44,7 @@ where
 {
     type Response = L::Service;
     type Error = Error;
-    type Future = MakerFuture<S, L, Target, Request>;
+    type Future = ServiceFuture<S, L, Target, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.maker.poll_ready().map_err(Into::into)
@@ -54,11 +54,11 @@ where
         let inner = self.maker.make_service(target);
         let layer = Arc::clone(&self.layer);
 
-        MakerFuture { inner, layer }
+        ServiceFuture { inner, layer }
     }
 }
 
-impl<S, L, Target, Request> Future for MakerFuture<S, L, Target, Request>
+impl<S, L, Target, Request> Future for ServiceFuture<S, L, Target, Request>
 where
     S: MakeService<Target, Request>,
     S::MakeError: Into<Error>,

@@ -2,7 +2,7 @@
 
 mod service;
 
-pub use self::service::{MakerFuture, ServiceBuilderMaker};
+pub use self::service::{LayeredMakeService, ServiceFuture};
 
 use tower_layer::{
     util::{Chain, Identity},
@@ -175,12 +175,12 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Create a `ServiceBuilderMaker` from the composed middleware and transport.
-    pub fn build_maker<M, S, Target, Request>(self, maker: M) -> ServiceBuilderMaker<M, L, Request>
+    pub fn build_maker<M, S, Target, Request>(self, maker: M) -> LayeredMakeService<M, L, Request>
     where
         M: MakeService<Target, Request, Service = S, Response = S::Response, Error = S::Error>,
         S: Service<Request>,
     {
-        ServiceBuilderMaker::new(maker, self.layer)
+        LayeredMakeService::new(maker, self.layer)
     }
 
     /// Wrap the service `S` with the layers.
