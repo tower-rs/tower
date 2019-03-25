@@ -4,7 +4,6 @@ mod service;
 
 pub use self::service::{MakerFuture, ServiceBuilderMaker};
 
-use std::marker::PhantomData;
 use tower_layer::{
     util::{Chain, Identity},
     Layer,
@@ -82,7 +81,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .chain(InFlightLimitLayer::new(5))
+///     .layer(InFlightLimitLayer::new(5))
 ///     .build_maker(MyMakeService);
 /// ```
 ///
@@ -112,7 +111,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .chain(InFlightLimitLayer::new(5))
+///     .layer(InFlightLimitLayer::new(5))
 ///     .build_service(MyService);
 /// ```
 ///
@@ -148,38 +147,35 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .chain(BufferLayer::new(5))
-///     .chain(InFlightLimitLayer::new(5))
-///     .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
+///     .layer(BufferLayer::new(5))
+///     .layer(InFlightLimitLayer::new(5))
+///     .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
 ///     .build_service(MyService);
 /// ```
 #[derive(Debug)]
-pub struct ServiceBuilder<L, S, Request> {
+pub struct ServiceBuilder<L> {
     layer: L,
-    _pd: PhantomData<(S, Request)>,
 }
 
-impl<S, Request> ServiceBuilder<Identity, S, Request> {
+impl ServiceBuilder<Identity> {
     /// Create a new `ServiceBuilder` from a `MakeService`.
     pub fn new() -> Self {
         ServiceBuilder {
             layer: Identity::new(),
-            _pd: PhantomData,
         }
     }
 }
 
-impl<L, S, Request> ServiceBuilder<L, S, Request> {
-    /// Chain a layer `T` to the `ServiceBuilder`.
-    pub fn chain<T>(self, layer: T) -> ServiceBuilder<Chain<T, L>, S, Request> {
+impl<L> ServiceBuilder<L> {
+    /// Layer a new layer `T` onto the `ServiceBuilder`.
+    pub fn layer<T>(self, layer: T) -> ServiceBuilder<Chain<T, L>> {
         ServiceBuilder {
             layer: Chain::new(layer, self.layer),
-            _pd: PhantomData,
         }
     }
 
     /// Create a `ServiceBuilderMaker` from the composed middleware and transport.
-    pub fn build_maker<M, Target>(self, maker: M) -> ServiceBuilderMaker<M, L, Request>
+    pub fn build_maker<M, S, Target, Request>(self, maker: M) -> ServiceBuilderMaker<M, L, Request>
     where
         M: MakeService<Target, Request, Service = S, Response = S::Response, Error = S::Error>,
         S: Service<Request>,
@@ -188,7 +184,7 @@ impl<L, S, Request> ServiceBuilder<L, S, Request> {
     }
 
     /// Wrap the service `S` with the layers.
-    pub fn build_service(self, service: S) -> Result<L::Service, L::LayerError>
+    pub fn build_service<S, Request>(self, service: S) -> Result<L::Service, L::LayerError>
     where
         L: Layer<S, Request>,
         S: Service<Request>,

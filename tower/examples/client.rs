@@ -50,11 +50,11 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     // - meet `RetryLayer`'s requirement that our service implement `Service + Clone`
     // - ..and to provide cheap clones on the service.
     let maker = ServiceBuilder::new()
-        .chain(BufferLayer::new(5))
-        .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
-        .chain(InFlightLimitLayer::new(5))
-        .chain(RetryLayer::new(policy))
-        .chain(BufferLayer::new(5))
+        .layer(BufferLayer::new(5))
+        .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
+        .layer(InFlightLimitLayer::new(5))
+        .layer(RetryLayer::new(policy))
+        .layer(BufferLayer::new(5))
         .build_maker(hyper);
 
     // `Reconnect` accepts a destination and a MakeService, creating a new service

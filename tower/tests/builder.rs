@@ -25,9 +25,9 @@ use void::Void;
 fn builder_make_service() {
     tokio::run(future::lazy(|| {
         let maker = ServiceBuilder::new()
-            .chain(BufferLayer::new(5))
-            .chain(InFlightLimitLayer::new(5))
-            .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
+            .layer(BufferLayer::new(5))
+            .layer(InFlightLimitLayer::new(5))
+            .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
             .build_maker(MockMaker);
 
         let mut client = Reconnect::new(maker, ());
@@ -44,9 +44,9 @@ fn builder_make_service() {
 fn builder_service() {
     tokio::run(future::lazy(|| {
         let mut client = ServiceBuilder::new()
-            .chain(BufferLayer::new(5))
-            .chain(InFlightLimitLayer::new(5))
-            .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
+            .layer(BufferLayer::new(5))
+            .layer(InFlightLimitLayer::new(5))
+            .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
             .build_service(MockSvc)
             .unwrap();
 
@@ -64,11 +64,11 @@ fn builder_make_service_retry() {
         let policy = MockPolicy;
 
         let maker = ServiceBuilder::new()
-            .chain(BufferLayer::new(5))
-            .chain(RateLimitLayer::new(5, Duration::from_secs(1)))
-            .chain(InFlightLimitLayer::new(5))
-            .chain(RetryLayer::new(policy))
-            .chain(BufferLayer::new(5))
+            .layer(BufferLayer::new(5))
+            .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
+            .layer(InFlightLimitLayer::new(5))
+            .layer(RetryLayer::new(policy))
+            .layer(BufferLayer::new(5))
             .build_maker(MockMaker);
 
         let mut client = Reconnect::new(maker, ());

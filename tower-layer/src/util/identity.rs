@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 use tower_service::Service;
 use Layer;
