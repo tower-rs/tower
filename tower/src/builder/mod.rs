@@ -82,7 +82,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # }
 /// ServiceBuilder::new()
 ///     .layer(InFlightLimitLayer::new(5))
-///     .build_maker(MyMakeService);
+///     .build_make_service(MyMakeService);
 /// ```
 ///
 /// A `Service` stack with a single layer:
@@ -174,13 +174,12 @@ impl<L> ServiceBuilder<L> {
         }
     }
 
-    /// Create a `ServiceBuilderMaker` from the composed middleware and transport.
-    pub fn build_maker<M, S, Target, Request>(self, maker: M) -> LayeredMakeService<M, L, Request>
+    /// Create a `LayeredMakeService` from the composed layers and transport `MakeService`.
+    pub fn build_make_service<M, Target, Request>(self, mk: M) -> LayeredMakeService<M, L, Request>
     where
-        M: MakeService<Target, Request, Service = S, Response = S::Response, Error = S::Error>,
-        S: Service<Request>,
+        M: MakeService<Target, Request>,
     {
-        LayeredMakeService::new(maker, self.layer)
+        LayeredMakeService::new(mk, self.layer)
     }
 
     /// Wrap the service `S` with the layers.

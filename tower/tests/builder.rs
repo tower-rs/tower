@@ -28,7 +28,7 @@ fn builder_make_service() {
             .layer(BufferLayer::new(5))
             .layer(InFlightLimitLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
-            .build_maker(MockMaker);
+            .build_make_service(MockMaker);
 
         let mut client = Reconnect::new(maker, ());
 
@@ -69,7 +69,7 @@ fn builder_make_service_retry() {
             .layer(InFlightLimitLayer::new(5))
             .layer(RetryLayer::new(policy))
             .layer(BufferLayer::new(5))
-            .build_maker(MockMaker);
+            .build_make_service(MockMaker);
 
         let mut client = Reconnect::new(maker, ());
 

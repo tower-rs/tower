@@ -24,7 +24,7 @@ fn main() {
 
         let maker = ServiceBuilder::new()
             .layer(InFlightLimitLayer::new(5))
-            .build_maker(MakeSvc);
+            .build_make_service(MakeSvc);
 
         let server = Server::new(maker);
 
