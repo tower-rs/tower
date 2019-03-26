@@ -34,10 +34,12 @@ use tower_service::Service;
 /// ```rust
 /// # extern crate futures;
 /// # extern crate tower_service;
+/// # extern crate void;
 /// # use tower_service::Service;
 /// # use futures::{Poll, Async};
 /// # use tower_layer::Layer;
 /// # use std::fmt;
+/// # use void::Void;
 ///
 /// pub struct LogLayer {
 ///     target: &'static str,
@@ -50,7 +52,7 @@ use tower_service::Service;
 /// {
 ///     type Response = S::Response;
 ///     type Error = S::Error;
-///     type LayerError = ();
+///     type LayerError = Void;
 ///     type Service = LogService<S>;
 ///
 ///     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

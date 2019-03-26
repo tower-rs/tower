@@ -10,13 +10,7 @@ pub struct Chain<Inner, Outer> {
     outer: Outer,
 }
 
-/// Error's produced when chaining two layers together
-pub enum ChainError<I, O> {
-    /// Error produced from the inner layer call
-    Inner(I),
-    /// Error produced from the outer layer call
-    Outer(O),
-}
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 impl<Inner, Outer> Chain<Inner, Outer> {
     /// Create a new `Chain`.
@@ -29,19 +23,18 @@ impl<S, Request, Inner, Outer> Layer<S, Request> for Chain<Inner, Outer>
 where
     S: Service<Request>,
     Inner: Layer<S, Request>,
+    Inner::LayerError: Into<Error>,
     Outer: Layer<Inner::Service, Request>,
+    Outer::LayerError: Into<Error>,
 {
     type Response = Outer::Response;
     type Error = Outer::Error;
-    type LayerError = ChainError<Inner::LayerError, Outer::LayerError>;
+    type LayerError = Error;
     type Service = Outer::Service;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        let inner = self
-            .inner
-            .layer(service)
-            .map_err(|e| ChainError::Inner(e))?;
+        let inner = self.inner.layer(service).map_err(Into::into)?;
 
-        self.outer.layer(inner).map_err(|e| ChainError::Outer(e))
+        self.outer.layer(inner).map_err(Into::into)
     }
 }

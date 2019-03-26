@@ -1,6 +1,6 @@
 use tower_layer::Layer;
 use tower_service::Service;
-use {Error, InFlightLimit};
+use {Error, InFlightLimit, Never};
 
 #[derive(Debug, Clone)]
 pub struct InFlightLimitLayer {
@@ -20,7 +20,7 @@ where
 {
     type Response = S::Response;
     type Error = Error;
-    type LayerError = ();
+    type LayerError = Never;
     type Service = InFlightLimit<S>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

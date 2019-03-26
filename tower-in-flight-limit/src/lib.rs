@@ -9,9 +9,11 @@ extern crate tower_service;
 
 pub mod future;
 mod layer;
+mod never;
 
 use future::ResponseFuture;
 pub use layer::InFlightLimitLayer;
+use never::Never;
 
 use tower_service::Service;
 
@@ -31,7 +33,7 @@ struct Limit {
     permit: semaphore::Permit,
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 // ===== impl InFlightLimit =====
 

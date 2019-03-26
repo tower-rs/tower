@@ -16,13 +16,25 @@ keywords = ["io", "async", "non-blocking", "futures", "service"]
 [dependencies]
 futures = "0.1"
 tower-service = "0.2.0"
+tower-layer = { version = "0.1", path = "../tower-layer" }
 tower-service-util = { version = "0.1.0", path = "../tower-service-util", features = ["io", "either"] }
 
 [dev-dependencies]
-tower-service = "0.2.0"
 futures = "0.1"
+tower-service = "0.2"
+tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit" }
+tower-rate-limit = { version = "0.1", path = "../tower-rate-limit" }
+tower-reconnect = { version = "0.1", path = "../tower-reconnect" }
+tower-retry = { version = "0.1", path = "../tower-retry" }
+tower-buffer = { version = "0.1", path = "../tower-buffer" }
+tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
+tower-layer = { version = "0.1", path = "../tower-layer" }
+tokio-tcp = "0.1"
+hyper = "0.12"
 log = "0.4.1"
+tokio = "0.1"
 env_logger = { version = "0.5.3", default-features = false }
 tokio-timer = "0.1"
 futures-cpupool = "0.1"
 tokio-mock-task = "0.1"
+void = "1"
