@@ -22,6 +22,8 @@ pattern. If your protocol is entirely stream based, Tower may not be a good fit.
 Tower consists of a number of components, each of which live in their own sub
 crates.
 
+* [`tower`]: The main user facing crate that provides batteries included tower services ([docs][t-docs]).
+
 * [`tower-service`]: The foundational traits upon which Tower is built
   ([docs][ts-docs]).
 
@@ -75,7 +77,8 @@ This project is licensed under the [MIT license](LICENSE).
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in Tower by you, shall be licensed as MIT, without any additional
 terms or conditions.
-
+[`tower`]: tower
+[t-docs]: https://tower-rs.github.io/tower/doc/tower/index.html
 [`tower-service`]: tower-service
 [ts-docs]: https://docs.rs/tower-service/
 [`tower-layer`]: tower-layer
