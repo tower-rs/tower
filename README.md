@@ -77,6 +77,7 @@ This project is licensed under the [MIT license](LICENSE).
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in Tower by you, shall be licensed as MIT, without any additional
 terms or conditions.
+
 [`tower`]: tower
 [t-docs]: https://tower-rs.github.io/tower/doc/tower/index.html
 [`tower-service`]: tower-service
