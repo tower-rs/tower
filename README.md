@@ -105,4 +105,4 @@ terms or conditions.
 [`tower-timeout`]: tower-timeout
 [tt-docs]: https://tower-rs.github.io/tower/doc/tower_timeout/index.html
 [`tower-service-util`]: tower-service-util
-[tu-docs]: https://tower-rs.github.io/tower/doc/tower_util/index.html
+[tu-docs]: https://tower-rs.github.io/tower/doc/tower_service_util/index.html
