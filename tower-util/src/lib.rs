@@ -14,6 +14,7 @@ mod either;
 #[cfg(feature = "io")]
 mod make_connection;
 mod make_service;
+mod oneshot;
 mod option;
 mod sealed;
 mod service_fn;
@@ -25,6 +26,7 @@ pub use crate::either::EitherService;
 #[cfg(feature = "io")]
 pub use crate::make_connection::MakeConnection;
 pub use crate::make_service::MakeService;
+pub use crate::oneshot::Oneshot;
 pub use crate::option::OptionService;
 pub use crate::service_fn::ServiceFn;
 

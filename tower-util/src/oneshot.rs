@@ -20,7 +20,7 @@ impl<S, Req> Oneshot<S, Req>
 where
     S: Service<Req>,
 {
-    pub(super) fn new(svc: S, req: Req) -> Self {
+    pub fn new(svc: S, req: Req) -> Self {
         Oneshot {
             state: State::NotReady(svc, req),
         }
