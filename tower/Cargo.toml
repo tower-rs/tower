@@ -32,7 +32,7 @@ make_service = [
 [dependencies]
 futures = "0.1"
 tower-service = "0.2"
-tower-service-util = { version = "0.1.0", path = "../tower-service-util", features = ["io", "either"] }
+tower-util = { version = "0.1.0", path = "../tower-util", features = ["io", "either"] }
 tower-layer = { version = "0.1", path = "../tower-layer" }
 tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit", optional = true }
 tower-rate-limit = { version = "0.1", path = "../tower-rate-limit", optional = true }

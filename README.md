@@ -60,7 +60,7 @@ crates.
 * [`tower-timeout`]: Middleware that applies a timeout to requests
   ([docs][tt-docs]).
 
-* [`tower-service-util`]: Miscellaneous additional utilities for Tower
+* [`tower-util`]: Miscellaneous additional utilities for Tower
   ([docs][tu-docs]).
 
 ## Status
@@ -104,5 +104,5 @@ terms or conditions.
 [tretry-docs]: https://tower-rs.github.io/tower/doc/tower_retry/index.html
 [`tower-timeout`]: tower-timeout
 [tt-docs]: https://tower-rs.github.io/tower/doc/tower_timeout/index.html
-[`tower-service-util`]: tower-service-util
-[tu-docs]: https://tower-rs.github.io/tower/doc/tower_service_util/index.html
+[`tower-util`]: tower-util
+[tu-docs]: https://tower-rs.github.io/tower/doc/tower_util/index.html

@@ -9,7 +9,7 @@ use tower_layer::{
     Layer,
 };
 use tower_service::Service;
-use tower_service_util::MakeService;
+use tower_util::MakeService;
 
 pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 
@@ -22,7 +22,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// - A [`Service`](tower_service::Service) is a trait representing an asynchronous
 ///   function of a request to a response. It is similar to
 ///   `async fn(Request) -> Result<Response, Error>`.
-/// - A [`MakeService`](tower_service_util::MakeService) is a trait creating specific
+/// - A [`MakeService`](tower_util::MakeService) is a trait creating specific
 ///   instances of a `Service`
 ///
 /// # Service

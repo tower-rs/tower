@@ -3,7 +3,7 @@ use futures::{Async, Future, Poll};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tower_layer::Layer;
-use tower_service_util::MakeService;
+use tower_util::MakeService;
 use Service;
 
 /// Composed `MakeService` produced from `ServiceBuilder`
