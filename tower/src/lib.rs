@@ -32,7 +32,6 @@ pub mod builder;
 pub mod layer;
 #[cfg(feature = "make_service")]
 pub mod make_service;
-pub mod service_util;
 pub mod util;
 
 pub use builder::ServiceBuilder;

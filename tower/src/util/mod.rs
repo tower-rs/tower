@@ -1,9 +1,5 @@
 //! Combinators for working with `Service`s
 
-use futures::{IntoFuture, Stream};
-use tower_service::Service;
-use tower_service_util::CallAll;
-
 mod and_then;
 mod apply;
 mod from_err;
@@ -24,9 +20,15 @@ pub use self::then::Then;
 
 // `tower-service-util` re-exports
 pub use tower_service_util::BoxService;
+pub use tower_service_util::CallAll;
+pub use tower_service_util::CallAllUnordered;
 pub use tower_service_util::EitherService;
 pub use tower_service_util::OptionService;
 pub use tower_service_util::ServiceFn;
+pub use tower_service_util::UnsyncBoxService;
+
+use futures::{IntoFuture, Stream};
+use tower_service::Service;
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}
 
