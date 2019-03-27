@@ -18,14 +18,14 @@ pub use self::oneshot::Oneshot;
 pub use self::ready::Ready;
 pub use self::then::Then;
 
-// `tower-service-util` re-exports
-pub use tower_service_util::BoxService;
-pub use tower_service_util::CallAll;
-pub use tower_service_util::CallAllUnordered;
-pub use tower_service_util::EitherService;
-pub use tower_service_util::OptionService;
-pub use tower_service_util::ServiceFn;
-pub use tower_service_util::UnsyncBoxService;
+// `tower-util` re-exports
+pub use tower_util::BoxService;
+pub use tower_util::CallAll;
+pub use tower_util::CallAllUnordered;
+pub use tower_util::EitherService;
+pub use tower_util::OptionService;
+pub use tower_util::ServiceFn;
+pub use tower_util::UnsyncBoxService;
 
 use futures::{IntoFuture, Stream};
 use tower_service::Service;

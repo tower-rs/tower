@@ -8,4 +8,4 @@ publish = false
 log = "0.4.1"
 futures = "0.1"
 tower-service = "0.2.0"
-tower-service-util = { version = "0.1", path = "../tower-service-util" }
+tower-util = { version = "0.1", path = "../tower-util" }

@@ -16,11 +16,11 @@
 //! ```
 //! # extern crate futures;
 //! # extern crate tower_service;
-//! # extern crate tower_service_util;
+//! # extern crate tower_util;
 //! # use futures::*;
 //! # use futures::future::FutureResult;
 //! # use tower_service::Service;
-//! # use tower_service_util::BoxService;
+//! # use tower_util::BoxService;
 //! // Respond to requests using a closure. Since closures cannot be named,
 //! // `ServiceFn` cannot be named either
 //! pub struct ServiceFn<F> {

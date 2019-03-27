@@ -3,7 +3,7 @@ extern crate tokio_mock_task;
 extern crate tower;
 extern crate tower_mock;
 extern crate tower_service;
-extern crate tower_service_util;
+extern crate tower_util;
 
 use futures::future::{ok, FutureResult};
 use futures::stream;

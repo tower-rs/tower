@@ -5,7 +5,7 @@ extern crate futures;
 
 extern crate tower_layer;
 extern crate tower_service;
-extern crate tower_service_util;
+extern crate tower_util;
 
 #[cfg(feature = "layers")]
 extern crate tower_buffer;
@@ -36,6 +36,6 @@ pub mod util;
 
 pub use builder::ServiceBuilder;
 pub use tower_service::Service;
-pub use tower_service_util::MakeConnection;
-pub use tower_service_util::MakeService;
+pub use tower_util::MakeConnection;
+pub use tower_util::MakeService;
 pub use util::ServiceExt;
