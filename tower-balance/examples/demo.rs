@@ -19,12 +19,12 @@ use hdrsample::Histogram;
 use rand::Rng;
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
+use tower::ServiceExt;
 use tower_balance as lb;
 use tower_discover::Discover;
 use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 use tower_service_util::ServiceFn;
-use tower::ServiceExt;
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 50;
@@ -93,12 +93,7 @@ type Error = Box<::std::error::Error + Send + Sync>;
 fn gen_disco() -> impl Discover<
     Key = usize,
     Error = impl Into<Error>,
-    Service = impl Service<
-        Req,
-        Response = Rsp,
-        Error = Error,
-        Future = impl Send,
-    > + Send,
+    Service = impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
 > + Send {
     tower_discover::ServiceList::new(MAX_ENDPOINT_LATENCIES.iter().map(|latency| {
         let svc = ServiceFn::new(move |_| {
@@ -108,11 +103,10 @@ fn gen_disco() -> impl Discover<
             let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
             let delay = timer::Delay::new(start + latency);
 
-            delay
-                .map(move |_| {
-                    let latency = Instant::now() - start;
-                    Rsp { latency }
-                })
+            delay.map(move |_| {
+                let latency = Instant::now() - start;
+                Rsp { latency }
+            })
         });
 
         InFlightLimit::new(svc, ENDPOINT_CAPACITY)
