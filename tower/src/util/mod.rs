@@ -5,8 +5,6 @@ mod apply;
 mod from_err;
 mod map;
 mod map_err;
-mod oneshot;
-mod ready;
 mod then;
 
 pub use self::and_then::AndThen;
@@ -14,8 +12,6 @@ pub use self::apply::Apply;
 pub use self::from_err::FromErr;
 pub use self::map::Map;
 pub use self::map_err::MapErr;
-pub use self::oneshot::Oneshot;
-pub use self::ready::Ready;
 pub use self::then::Then;
 
 // `tower-util` re-exports
@@ -23,7 +19,9 @@ pub use tower_util::BoxService;
 pub use tower_util::CallAll;
 pub use tower_util::CallAllUnordered;
 pub use tower_util::EitherService;
+pub use tower_util::Oneshot;
 pub use tower_util::OptionService;
+pub use tower_util::Ready;
 pub use tower_util::ServiceFn;
 pub use tower_util::UnsyncBoxService;
 
