@@ -16,7 +16,7 @@ impl<T, Request> Ready<T, Request>
 where
     T: Service<Request>,
 {
-    pub(super) fn new(service: T) -> Self {
+    pub fn new(service: T) -> Self {
         Ready {
             inner: Some(service),
             _p: PhantomData,
