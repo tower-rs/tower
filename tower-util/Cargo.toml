@@ -24,8 +24,9 @@ io = ["tokio-io"]
 [dependencies]
 either = { version = "1.5.1", optional = true }
 futures = "0.1.23"
-tower-service = "0.2.0"
 tokio-io = { version = "0.1.12", optional = true }
+tower-service = "0.2.0"
+tower-layer = { version = "0.1.0", path = "../tower-layer" }
 
 [dev-dependencies]
 tokio-mock-task = "0.1"

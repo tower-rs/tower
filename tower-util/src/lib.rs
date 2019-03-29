@@ -6,12 +6,14 @@ extern crate either as _either;
 extern crate futures;
 #[cfg(feature = "io")]
 extern crate tokio_io;
+extern crate tower_layer;
 extern crate tower_service;
 
 mod boxed;
 mod call_all;
 #[cfg(feature = "either")]
 mod either;
+pub mod layer;
 #[cfg(feature = "io")]
 mod make_connection;
 mod make_service;
