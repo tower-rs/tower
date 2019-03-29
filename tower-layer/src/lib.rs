@@ -1,3 +1,6 @@
+#![deny(missing_docs)]
+#![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
+
 //! Layer traits and extensions.
 //!
 //! A layer decorates an service and provides additional functionality. It
@@ -5,17 +8,8 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 
-#![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
-
 extern crate futures;
 extern crate tower_service;
-
-#[cfg(feature = "util")]
-pub mod util;
-
-#[cfg(feature = "util")]
-pub use util::LayerExt;
 
 use tower_service::Service;
 

@@ -4,9 +4,9 @@ mod service;
 
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
-use tower_layer::{
-    util::{Chain, Identity},
-    Layer,
+use tower_layer::Layer;
+use tower_util::{
+    layer::{Chain, Identity},
 };
 use tower_service::Service;
 use tower_util::MakeService;

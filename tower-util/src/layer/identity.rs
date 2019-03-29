@@ -1,6 +1,6 @@
 use std::fmt;
 use tower_service::Service;
-use Layer;
+use tower_layer::Layer;
 
 /// A no-op middleware.
 ///

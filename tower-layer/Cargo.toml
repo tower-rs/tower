@@ -22,7 +22,3 @@ tower-service = "0.2.0"
 
 [dev-dependencies]
 void = "1"
-
-[features]
-default = ["util"]
-util = []

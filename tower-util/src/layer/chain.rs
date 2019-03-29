@@ -1,5 +1,5 @@
 use tower_service::Service;
-use Layer;
+use tower_layer::Layer;
 
 /// Two middlewares chained together.
 ///
