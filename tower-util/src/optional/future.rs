@@ -1,7 +1,7 @@
 use super::{error, Error};
 use futures::{Future, Poll};
 
-/// Response future returned by `OptionService`.
+/// Response future returned by `Optional`.
 pub struct ResponseFuture<T> {
     inner: Option<T>,
 }

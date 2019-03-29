@@ -18,7 +18,7 @@ pub mod layer;
 mod make_connection;
 mod make_service;
 mod oneshot;
-mod option;
+mod optional;
 mod ready;
 mod sealed;
 mod service_fn;
@@ -31,14 +31,14 @@ pub use crate::either::EitherService;
 pub use crate::make_connection::MakeConnection;
 pub use crate::make_service::MakeService;
 pub use crate::oneshot::Oneshot;
-pub use crate::option::OptionService;
+pub use crate::optional::Optional;
 pub use crate::ready::Ready;
 pub use crate::service_fn::ServiceFn;
 
 pub mod error {
     //! Error types
 
-    pub use crate::option::error as option;
+    pub use crate::optional::error as optional;
 }
 
 pub mod future {
@@ -46,5 +46,5 @@ pub mod future {
 
     #[cfg(feature = "either")]
     pub use crate::either::future as either;
-    pub use crate::option::future as option;
+    pub use crate::optional::future as optional;
 }
