@@ -12,7 +12,7 @@ extern crate tower_buffer;
 extern crate tower_discover;
 extern crate tower_in_flight_limit;
 extern crate tower_service;
-extern crate tower_service_util;
+extern crate tower_util;
 
 use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;
@@ -24,7 +24,7 @@ use tower_balance as lb;
 use tower_discover::Discover;
 use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
-use tower_service_util::ServiceFn;
+use tower_util::ServiceFn;
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 50;
