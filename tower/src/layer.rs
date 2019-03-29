@@ -6,6 +6,7 @@ pub use tower_in_flight_limit::InFlightLimitLayer;
 pub use tower_load_shed::LoadShedLayer;
 pub use tower_rate_limit::RateLimitLayer;
 pub use tower_retry::RetryLayer;
+pub use tower_timeout::TimeoutLayer;
 
 use tower_layer::Layer;
 use tower_util::layer::Chain;

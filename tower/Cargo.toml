@@ -21,7 +21,8 @@ layers = [
   "tower-load-shed",
   "tower-rate-limit",
   "tower-retry",
-  "tower-filter"
+  "tower-filter",
+  "tower-timeout"
 ]
 make_service = [
   "tower-balance",
@@ -43,6 +44,7 @@ tower-load-shed = { version = "0.1", path = "../tower-load-shed", optional = tru
 tower-balance = { version = "0.1", path = "../tower-balance", optional = true }
 tower-discover = { version = "0.1", path = "../tower-discover", optional = true }
 tower-reconnect = { version = "0.1", path = "../tower-reconnect", optional = true }
+tower-timeout = { version = "0.1", path = "../tower-timeout", optional = true }
 
 [dev-dependencies]
 futures = "0.1"
