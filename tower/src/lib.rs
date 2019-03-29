@@ -19,6 +19,8 @@ extern crate tower_load_shed;
 extern crate tower_rate_limit;
 #[cfg(feature = "layers")]
 extern crate tower_retry;
+#[cfg(feature = "layers")]
+extern crate tower_timeout;
 
 #[cfg(feature = "make_service")]
 extern crate tower_balance;
