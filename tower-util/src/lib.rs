@@ -1,7 +1,5 @@
 //! Various utility types and functions that are generally with Tower.
 
-#[cfg(feature = "either")]
-extern crate either as _either;
 #[macro_use]
 extern crate futures;
 #[cfg(feature = "io")]
@@ -11,7 +9,6 @@ extern crate tower_service;
 
 mod boxed;
 mod call_all;
-#[cfg(feature = "either")]
 mod either;
 pub mod layer;
 #[cfg(feature = "io")]
@@ -25,8 +22,7 @@ mod service_fn;
 
 pub use crate::boxed::{BoxService, UnsyncBoxService};
 pub use crate::call_all::{CallAll, CallAllUnordered};
-#[cfg(feature = "either")]
-pub use crate::either::EitherService;
+pub use crate::either::Either;
 #[cfg(feature = "io")]
 pub use crate::make_connection::MakeConnection;
 pub use crate::make_service::MakeService;

@@ -22,7 +22,6 @@ categories = ["asynchronous", "network-programming"]
 io = ["tokio-io"]
 
 [dependencies]
-either = { version = "1.5.1", optional = true }
 futures = "0.1.23"
 tokio-io = { version = "0.1.12", optional = true }
 tower-service = "0.2.0"
