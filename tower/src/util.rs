@@ -3,7 +3,7 @@
 pub use tower_util::BoxService;
 pub use tower_util::CallAll;
 pub use tower_util::CallAllUnordered;
-pub use tower_util::EitherService;
+pub use tower_util::Either;
 pub use tower_util::Oneshot;
 pub use tower_util::OptionService;
 pub use tower_util::Ready;
