@@ -14,24 +14,22 @@ use tower_service::Service;
 /// Optionally forwards requests to an inner service.
 ///
 /// If the inner service is `None`, `Error::None` is returned as the response.
-pub struct OptionService<T> {
+pub struct Optional<T> {
     inner: Option<T>,
 }
 
-// ===== impl OptionService =====
-
-impl<T> OptionService<T> {
+impl<T> Optional<T> {
     /// Create a new `OptionService`
-    pub fn new<Request>(inner: Option<T>) -> OptionService<T>
+    pub fn new<Request>(inner: Option<T>) -> Optional<T>
     where
         T: Service<Request>,
         T::Error: Into<Error>,
     {
-        OptionService { inner }
+        Optional { inner }
     }
 }
 
-impl<T, Request> Service<Request> for OptionService<T>
+impl<T, Request> Service<Request> for Optional<T>
 where
     T: Service<Request>,
     T::Error: Into<Error>,
