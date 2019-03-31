@@ -14,37 +14,24 @@ categories = ["asynchronous", "network-programming"]
 keywords = ["io", "async", "non-blocking", "futures", "service"]
 
 [features]
-default = ["layers", "make_service"]
-layers = [
-  "tower-buffer",
-  "tower-in-flight-limit",
-  "tower-load-shed",
-  "tower-rate-limit",
-  "tower-retry",
-  "tower-filter",
-  "tower-timeout"
-]
-make_service = [
-  "tower-balance",
-  "tower-discover",
-  "tower-reconnect"
-]
+default = ["full"]
+full = []
 
 [dependencies]
 futures = "0.1"
 tower-service = "0.2"
 tower-util = { version = "0.1.0", path = "../tower-util", features = ["io"] }
 tower-layer = { version = "0.1", path = "../tower-layer" }
-tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit", optional = true }
-tower-rate-limit = { version = "0.1", path = "../tower-rate-limit", optional = true }
-tower-retry = { version = "0.1", path = "../tower-retry", optional = true }
-tower-buffer = { version = "0.1", path = "../tower-buffer", optional = true }
-tower-filter = { version = "0.1", path = "../tower-filter", optional = true }
-tower-load-shed = { version = "0.1", path = "../tower-load-shed", optional = true }
-tower-balance = { version = "0.1", path = "../tower-balance", optional = true }
-tower-discover = { version = "0.1", path = "../tower-discover", optional = true }
-tower-reconnect = { version = "0.1", path = "../tower-reconnect", optional = true }
-tower-timeout = { version = "0.1", path = "../tower-timeout", optional = true }
+tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit" }
+tower-rate-limit = { version = "0.1", path = "../tower-rate-limit" }
+tower-retry = { version = "0.1", path = "../tower-retry" }
+tower-buffer = { version = "0.1", path = "../tower-buffer" }
+tower-filter = { version = "0.1", path = "../tower-filter" }
+tower-load-shed = { version = "0.1", path = "../tower-load-shed" }
+tower-balance = { version = "0.1", path = "../tower-balance" }
+tower-discover = { version = "0.1", path = "../tower-discover" }
+tower-reconnect = { version = "0.1", path = "../tower-reconnect" }
+tower-timeout = { version = "0.1", path = "../tower-timeout" }
 
 [dev-dependencies]
 futures = "0.1"
