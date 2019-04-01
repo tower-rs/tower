@@ -26,23 +26,23 @@ use tower_in_flight_limit::InFlightLimit;
 use tower_service::Service;
 use tower_util::ServiceFn;
 
-const REQUESTS: usize = 100_000;
-const CONCURRENCY: usize = 50;
+const REQUESTS: usize = 50_000;
+const CONCURRENCY: usize = 500;
 const DEFAULT_RTT: Duration = Duration::from_millis(30);
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
 static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(1),
-    Duration::from_millis(10),
+    Duration::from_millis(5),
     Duration::from_millis(10),
     Duration::from_millis(10),
     Duration::from_millis(10),
     Duration::from_millis(100),
     Duration::from_millis(100),
     Duration::from_millis(100),
-    Duration::from_millis(100),
+    Duration::from_millis(500),
     Duration::from_millis(1000),
 ];
-static WEIGHTS: [f64; 10] = [1.0, 0.5, 0.5, 1.5, 1.5, 0.5, 0.5, 1.5, 1.5, 1.0];
+static WEIGHTS: [f64; 10] = [1.0, 1.0, 1.0, 0.5, 1.5, 0.5, 1.5, 1.0, 1.0, 1.0];
 
 struct Summary {
     latencies: Histogram<u64>,
@@ -70,7 +70,32 @@ fn main() {
 
     let mut rt = runtime::Runtime::new().unwrap();
 
+    // Show weighted behavior first...
+
     let fut = future::lazy(move || {
+        let decay = Duration::from_secs(10);
+        let d = gen_disco();
+        let pe = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPeakEwma::new(
+            d,
+            DEFAULT_RTT,
+            decay,
+            lb::load::NoInstrument,
+        )));
+        run("P2C+PeakEWMA w/ weights", pe)
+    });
+
+    let fut = fut.then(move |_| {
+        let d = gen_disco();
+        let ll = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPendingRequests::new(
+            d,
+            lb::load::NoInstrument,
+        )));
+        run("P2C+LeastLoaded w/ weights", ll)
+    });
+
+    // Then run through standard comparisons...
+
+    let fut = fut.then(move |_| {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
         let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(
@@ -82,34 +107,13 @@ fn main() {
         run("P2C+PeakEWMA", pe)
     });
 
-    let fut = fut.and_then(move |_| {
-        let decay = Duration::from_secs(10);
-        let d = gen_disco();
-        let pe = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPeakEwma::new(
-            d,
-            DEFAULT_RTT,
-            decay,
-            lb::load::NoInstrument,
-        )));
-        run("P2C+PeakEWMA weighted", pe)
-    });
-
-    let fut = fut.and_then(move |_| {
+    let fut = fut.then(move |_| {
         let d = gen_disco();
         let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(
             d,
             lb::load::NoInstrument,
         ));
         run("P2C+LeastLoaded", ll)
-    });
-
-    let fut = fut.and_then(move |_| {
-        let d = gen_disco();
-        let ll = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPendingRequests::new(
-            d,
-            lb::load::NoInstrument,
-        )));
-        run("P2C+LeastLoaded weighted", ll)
     });
 
     let fut = fut.and_then(move |_| {
