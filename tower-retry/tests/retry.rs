@@ -11,6 +11,7 @@ use tower_service::Service;
 fn retry_errors() {
     let (mut service, mut handle) = new_service(RetryErrors);
 
+    assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
     let req1 = handle.next_request().unwrap();
@@ -30,6 +31,7 @@ fn retry_errors() {
 fn retry_limit() {
     let (mut service, mut handle) = new_service(Limit(2));
 
+    assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
     let req1 = handle.next_request().unwrap();
@@ -55,6 +57,7 @@ fn retry_limit() {
 fn retry_error_inspection() {
     let (mut service, mut handle) = new_service(UnlessErr("reject"));
 
+    assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
     let req1 = handle.next_request().unwrap();
@@ -73,6 +76,7 @@ fn retry_error_inspection() {
 fn retry_cannot_clone_request() {
     let (mut service, mut handle) = new_service(CannotClone);
 
+    assert!(service.poll_ready().unwrap().is_ready());
     let fut = service.call("hello");
 
     let req1 = handle.next_request().unwrap();
@@ -88,6 +92,7 @@ fn success_with_cannot_clone() {
     // it should succeed overall.
     let (mut service, mut handle) = new_service(CannotClone);
 
+    assert!(service.poll_ready().unwrap().is_ready());
     let fut = service.call("hello");
 
     let req1 = handle.next_request().unwrap();

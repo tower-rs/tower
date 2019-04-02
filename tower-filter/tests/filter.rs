@@ -30,6 +30,7 @@ fn passthrough_sync() {
 
     for i in 0..10 {
         let request = format!("ping-{}", i);
+        assert!(service.poll_ready().unwrap().is_ready());
         let exchange = service.call(request).and_then(move |response| {
             let expect = format!("pong-{}", i);
             assert_eq!(response.as_str(), expect.as_str());

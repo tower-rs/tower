@@ -16,6 +16,7 @@ fn single_request_ready() {
     });
 
     // Issue a request
+    assert!(mock.poll_ready().unwrap().is_ready());
     let mut response = mock.call("hello?".into());
 
     // Get the request from the handle
