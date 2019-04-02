@@ -24,15 +24,14 @@ pub mod error;
 pub mod future;
 pub mod load;
 pub mod pool;
-pub mod weight;
 
 #[cfg(test)]
 mod test;
 
 pub use self::choose::Choose;
+pub use self::load::weight::{HasWeight, Weight, Weighted, WithWeighted};
 pub use self::load::Load;
 pub use self::pool::Pool;
-pub use self::weight::{HasWeight, Weight, Weighted, WithWeighted};
 
 use self::error::Error;
 use self::future::ResponseFuture;

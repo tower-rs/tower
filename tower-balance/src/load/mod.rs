@@ -2,6 +2,7 @@ mod constant;
 mod instrument;
 pub mod peak_ewma;
 pub mod pending_requests;
+pub(crate) mod weight;
 
 pub use self::constant::Constant;
 pub use self::instrument::{Instrument, InstrumentFuture, NoInstrument};
