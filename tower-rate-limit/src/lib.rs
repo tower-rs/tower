@@ -82,7 +82,7 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         match self.state {
-            State::Ready { .. } => return Ok(().into()),
+            State::Ready { .. } => return self.inner.poll_ready().map_err(Into::into),
             State::Limited(ref mut sleep) => {
                 try_ready!(sleep.poll());
             }
@@ -93,7 +93,7 @@ where
             rem: self.rate.num(),
         };
 
-        Ok(().into())
+        self.inner.poll_ready().map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

@@ -137,9 +137,7 @@ impl<T, U> Service<T> for Mock<T, U> {
         }
 
         if !self.can_send {
-            if state.rem == 0 {
-                panic!("service not ready; poll_ready must be called first");
-            }
+            panic!("service not ready; poll_ready must be called first");
         }
 
         self.can_send = false;
