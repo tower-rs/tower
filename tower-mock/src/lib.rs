@@ -96,6 +96,7 @@ impl<T, U> Service<T> for Mock<T, U> {
     type Future = ResponseFuture<U>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        println!("called poll_ready");
         let mut state = self.state.lock().unwrap();
 
         if state.is_closed {
@@ -137,9 +138,7 @@ impl<T, U> Service<T> for Mock<T, U> {
         }
 
         if !self.can_send {
-            if state.rem == 0 {
-                panic!("service not ready; poll_ready must be called first");
-            }
+            panic!("service not ready; poll_ready must be called first");
         }
 
         self.can_send = false;

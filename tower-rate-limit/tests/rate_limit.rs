@@ -16,6 +16,7 @@ fn reaching_capacity() {
     let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
     let (mut service, mut handle) = new_service(Rate::new(1, from_millis(100)));
 
+    assert!(service.poll_ready().unwrap().is_ready());
     let response = service.call("hello");
 
     let request = handle.next_request().unwrap();
