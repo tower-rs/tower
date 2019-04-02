@@ -64,7 +64,7 @@ fn main() {
     println!("]");
     print!("WEIGHTS=[");
     for w in &WEIGHTS {
-        print!("{:2}, ", w);
+        print!("{}, ", w);
     }
     println!("]");
 
