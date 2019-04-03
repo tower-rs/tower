@@ -1,9 +1,19 @@
 //! A collection of `Layer` based tower services
 
 pub use tower_layer::Layer;
-// TODO: Should this be re-exported?
-pub use tower_util::layer::Chain;
-pub use tower_util::layer::Identity;
+
+pub use tower_buffer::BufferLayer;
+pub use tower_filter::FilterLayer;
+pub use tower_in_flight_limit::InFlightLimitLayer;
+pub use tower_load_shed::LoadShedLayer;
+pub use tower_rate_limit::RateLimitLayer;
+pub use tower_retry::RetryLayer;
+pub use tower_timeout::TimeoutLayer;
+
+pub mod util {
+    pub use tower_util::layer::Chain;
+    pub use tower_util::layer::Identity;
+}
 
 /// An extension trait for `Layer`'s that provides a variety of convenient
 /// adapters.
