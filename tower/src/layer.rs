@@ -2,13 +2,13 @@
 
 pub use tower_layer::Layer;
 
-pub use tower_buffer::BufferLayer;
-pub use tower_filter::FilterLayer;
-pub use tower_in_flight_limit::InFlightLimitLayer;
-pub use tower_load_shed::LoadShedLayer;
-pub use tower_rate_limit::RateLimitLayer;
-pub use tower_retry::RetryLayer;
-pub use tower_timeout::TimeoutLayer;
+pub use buffer::BufferLayer;
+pub use filter::FilterLayer;
+pub use in_flight_limit::InFlightLimitLayer;
+pub use load_shed::LoadShedLayer;
+pub use rate_limit::RateLimitLayer;
+pub use retry::RetryLayer;
+pub use timeout::TimeoutLayer;
 
 pub mod util {
     pub use tower_util::layer::Chain;
@@ -22,12 +22,12 @@ pub trait LayerExt<S, Request>: Layer<S, Request> {
     /// `middleware` to services being wrapped.
     ///
     /// This defines a middleware stack.
-    fn chain<T>(self, middleware: T) -> Chain<Self, T>
+    fn chain<T>(self, middleware: T) -> util::Chain<Self, T>
     where
         T: Layer<Self::Service, Request>,
         Self: Sized,
     {
-        Chain::new(self, middleware)
+        util::Chain::new(self, middleware)
     }
 }
 
