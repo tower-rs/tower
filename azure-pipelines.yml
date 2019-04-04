@@ -19,12 +19,14 @@ jobs:
       - tower-filter
       - tower-in-flight-limit
       - tower-layer
+      - tower-load-shed
       - tower-mock
       - tower-rate-limit
       - tower-reconnect
       - tower-retry
       - tower-service
       - tower-timeout
+      - tower-util
       - tower
 
 - template: ci/azure-deploy-docs.yml
