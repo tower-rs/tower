@@ -29,6 +29,7 @@ pub mod pool;
 mod test;
 
 pub use self::choose::Choose;
+pub use self::load::weight::{HasWeight, Weight, Weighted, WithWeighted};
 pub use self::load::Load;
 pub use self::pool::Pool;
 
