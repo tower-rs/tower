@@ -4,7 +4,7 @@ mod service;
 
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
-use buffer::BufferLayer;
+use buffer::{BufferLayer, WorkerExecutor};
 use filter::FilterLayer;
 use in_flight_limit::InFlightLimitLayer;
 use load_shed::LoadShedLayer;
@@ -238,9 +238,31 @@ impl<L> ServiceBuilder<L> {
         }
     }
 
-    /// Buffer requests when when the next layer is out of capacity.
+    /// Buffer requests when the next layer is out of capacity.
     pub fn buffer(self, bound: usize) -> ServiceBuilder<Chain<BufferLayer, L>> {
         self.layer(BufferLayer::new(bound))
+    }
+
+    /// Buffer requests when the next alyer is out of capacity.
+    ///
+    /// This is similar to `buffer` but takes an addtional argument for
+    /// a custom executor.
+    ///
+    /// **Note**: You will need to annotate this function like so
+    /// ```ignore
+    /// ServiceBuilder::new().buffer_with_executor::<_, MySvc, _>(5, MyExecutor)
+    /// ```
+    pub fn buffer_with_executor<E, S, Request>(
+        self,
+        bound: usize,
+        executor: E,
+    ) -> ServiceBuilder<Chain<BufferLayer<E>, L>>
+    where
+        E: WorkerExecutor<S, Request> + Clone,
+        S: Service<Request>,
+        S::Error: Into<Error>,
+    {
+        self.layer(BufferLayer::with_executor(bound, executor))
     }
 
     /// Filter requests using the given `predicate`.

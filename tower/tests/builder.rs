@@ -12,6 +12,7 @@ extern crate void;
 use futures::future::{self, FutureResult};
 use futures::prelude::*;
 use std::time::Duration;
+use tokio::executor::DefaultExecutor;
 use tower::builder::ServiceBuilder;
 use tower_buffer::BufferLayer;
 use tower_in_flight_limit::InFlightLimitLayer;
@@ -45,6 +46,24 @@ fn builder_service() {
     tokio::run(future::lazy(|| {
         let mut client = ServiceBuilder::new()
             .layer(BufferLayer::new(5))
+            .layer(InFlightLimitLayer::new(5))
+            .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
+            .service(MockSvc)
+            .unwrap();
+
+        client.poll_ready().unwrap();
+        client
+            .call(Request)
+            .map(|_| ())
+            .map_err(|_| panic!("this is bad"))
+    }));
+}
+
+#[test]
+fn builder_service_with_executor() {
+    tokio::run(future::lazy(|| {
+        let mut client = ServiceBuilder::new()
+            .buffer_with_executor::<_, MockSvc, _>(5, DefaultExecutor::current())
             .layer(InFlightLimitLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
             .service(MockSvc)
