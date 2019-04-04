@@ -3,7 +3,7 @@ extern crate hyper;
 extern crate tokio_tcp;
 extern crate tower;
 extern crate tower_hyper;
-extern crate tower_in_flight_limit;
+extern crate tower_limit;
 extern crate tower_service;
 
 use futures::{future, Future, Poll, Stream};
@@ -12,7 +12,7 @@ use tokio_tcp::TcpListener;
 use tower::builder::ServiceBuilder;
 use tower_hyper::body::LiftBody;
 use tower_hyper::server::Server;
-use tower_in_flight_limit::InFlightLimitLayer;
+use tower_limit::concurrency::LimitConcurrencyLayer;
 use tower_service::Service;
 
 fn main() {
@@ -23,7 +23,7 @@ fn main() {
         println!("Listening on http://{}", addr);
 
         let maker = ServiceBuilder::new()
-            .layer(InFlightLimitLayer::new(5))
+            .layer(LimitConcurrencyLayer::new(5))
             .make_service(MakeSvc);
 
         let server = Server::new(maker);

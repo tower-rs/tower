@@ -40,16 +40,13 @@ crates.
 * [`tower-discover`]: Service discovery abstraction ([docs][td-docs]).
 
 * [`tower-filter`]: Middleware that conditionally dispatch requests to the inner
-  service based on a predicate ([docs][tf-docs]);
+  service based on a predicate ([docs][tf-docs]).
 
-* [`tower-in-flight-limit`]: Middleware limiting the number of requests that
-  are in-flight for the inner service ([docs][tifl-docs]).
+* [`tower-limit`]: Middleware limiting the number of requests that are
+  processed ([docs][tlim-docs]).
 
 * [`tower-mock`]: Testing utility for mocking a `Service`. This is useful for
   testing middleware implementations ([docs][tm-docs]);
-
-* [`tower-rate-limit`]: Middleware limiting the number of requests to the inner
-  service over a period of time ([docs][trl-docs]).
 
 * [`tower-reconnect`]: Middleware that automatically reconnects the inner
   service when it becomes degraded ([docs][tre-docs]).
@@ -92,12 +89,10 @@ terms or conditions.
 [td-docs]: https://tower-rs.github.io/tower/doc/tower_discover/index.html
 [`tower-filter`]: tower-filter
 [tf-docs]: https://tower-rs.github.io/tower/doc/tower_filter/index.html
-[`tower-in-flight-limit`]: tower-in-flight-limit
-[tifl-docs]: https://tower-rs.github.io/tower/doc/tower_in_flight_limit/index.html
+[`tower-limit`]: tower-limit
+[tlim-docs]: https://tower-rs.github.io/tower/doc/tower_limit/index.html
 [`tower-mock`]: tower-mock
 [tm-docs]: https://tower-rs.github.io/tower/doc/tower_mock/index.html
-[`tower-rate-limit`]: tower-rate-limit
-[trl-docs]: https://tower-rs.github.io/tower/doc/tower_rate_limit/index.html
 [`tower-reconnect`]: tower-reconnect
 [tre-docs]: https://tower-rs.github.io/tower/doc/tower_reconnect/index.html
 [`tower-retry`]: tower-retry

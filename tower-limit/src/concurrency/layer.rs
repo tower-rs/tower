@@ -1,19 +1,20 @@
+use super::{LimitConcurrency, Error};
+use super::never::Never;
 use tower_layer::Layer;
 use tower_service::Service;
-use {Error, InFlightLimit, Never};
 
 #[derive(Debug, Clone)]
-pub struct InFlightLimitLayer {
+pub struct LimitConcurrencyLayer {
     max: usize,
 }
 
-impl InFlightLimitLayer {
+impl LimitConcurrencyLayer {
     pub fn new(max: usize) -> Self {
-        InFlightLimitLayer { max }
+        LimitConcurrencyLayer { max }
     }
 }
 
-impl<S, Request> Layer<S, Request> for InFlightLimitLayer
+impl<S, Request> Layer<S, Request> for LimitConcurrencyLayer
 where
     S: Service<Request>,
     S::Error: Into<Error>,
@@ -21,9 +22,9 @@ where
     type Response = S::Response;
     type Error = Error;
     type LayerError = Never;
-    type Service = InFlightLimit<S>;
+    type Service = LimitConcurrency<S>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        Ok(InFlightLimit::new(service, self.max))
+        Ok(LimitConcurrency::new(service, self.max))
     }
 }

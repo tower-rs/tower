@@ -2,11 +2,11 @@ extern crate futures;
 extern crate tokio;
 extern crate tokio_timer;
 extern crate tower_mock;
-extern crate tower_rate_limit;
+extern crate tower_limit;
 extern crate tower_service;
 
 use futures::future;
-use tower_rate_limit::*;
+use tower_limit::rate::*;
 use tower_service::*;
 
 use std::time::{Duration, Instant};
@@ -58,9 +58,9 @@ fn reaching_capacity() {
 type Mock = tower_mock::Mock<&'static str, &'static str>;
 type Handle = tower_mock::Handle<&'static str, &'static str>;
 
-fn new_service(rate: Rate) -> (RateLimit<Mock>, Handle) {
+fn new_service(rate: Rate) -> (LimitRate<Mock>, Handle) {
     let (service, handle) = Mock::new();
-    let service = RateLimit::new(service, rate);
+    let service = LimitRate::new(service, rate);
     (service, handle)
 }
 

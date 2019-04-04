@@ -1,15 +1,17 @@
 [package]
-name = "tower-in-flight-limit"
+name = "tower-limit"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
 publish = false
 
 [dependencies]
-futures = "0.1.25"
-tokio-sync = "0.1.3"
+futures = "0.1"
 tower-service = "0.2.0"
-tower-layer = { version = "0.1.0", path = "../tower-layer" }
+tower-layer = { version = "0.1", path = "../tower-layer"}
+tokio-sync = "0.1.3"
+tokio-timer = "0.2.6"
 
 [dev-dependencies]
-tokio-mock-task = "0.1.1"
 tower-mock = { version = "0.1", path = "../tower-mock" }
+tokio = "0.1"
+tokio-mock-task = "0.1.1"

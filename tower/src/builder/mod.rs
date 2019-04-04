@@ -6,9 +6,9 @@ pub use self::service::{LayeredMakeService, ServiceFuture};
 
 use buffer::BufferLayer;
 use filter::FilterLayer;
-use in_flight_limit::InFlightLimitLayer;
+use limit::concurrency::LimitConcurrencyLayer;
+use limit::rate::LimitRateLayer;
 use load_shed::LoadShedLayer;
-use rate_limit::RateLimitLayer;
 use retry::RetryLayer;
 use timeout::TimeoutLayer;
 
@@ -72,16 +72,16 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # {
 /// ServiceBuilder::new()
 ///     .buffer(100)
-///     .in_flight_limit(10)
+///     .limit_concurrency(10)
 ///     .service(my_service)
 /// # ;
 /// # }
 /// ```
 ///
 /// In the above example, the buffer layer receives the request first followed
-/// by `in_flight_limit`. `buffer` enables up to 100 request to be in-flight
+/// by `limit_concurrency`. `buffer` enables up to 100 request to be in-flight
 /// **on top of** the requests that have already been forwarded to the next
-/// layer. Combined with `in_flight_limit`, this allows up to 110 requests to be
+/// layer. Combined with `limit_concurrency`, this allows up to 110 requests to be
 /// in-flight.
 ///
 /// ```
@@ -93,7 +93,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
 /// # {
 /// ServiceBuilder::new()
-///     .in_flight_limit(10)
+///     .limit_concurrency(10)
 ///     .buffer(100)
 ///     .service(my_service)
 /// # ;
@@ -101,7 +101,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// ```
 ///
 /// The above example is similar, but the order of layers is reversed. Now,
-/// `in_flight_limit` applies first and only allows 10 requests to be in-flight
+/// `limit_concurrency` applies first and only allows 10 requests to be in-flight
 /// total.
 ///
 /// # Examples
@@ -110,13 +110,13 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///
 /// ```rust
 /// # extern crate tower;
-/// # extern crate tower_in_flight_limit;
+/// # extern crate tower_limit;
 /// # extern crate futures;
 /// # extern crate void;
 /// # use void::Void;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # use tower_in_flight_limit::InFlightLimitLayer;
+/// # use tower_limit::concurrency::LimitConcurrencyLayer;
 /// # use futures::{Poll, future::{self, FutureResult}};
 /// # #[derive(Debug)]
 /// # struct MyMakeService;
@@ -145,7 +145,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .in_flight_limit(5)
+///     .limit_concurrency(5)
 ///     .make_service(MyMakeService);
 /// ```
 ///
@@ -153,13 +153,13 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///
 /// ```
 /// # extern crate tower;
-/// # extern crate tower_in_flight_limit;
+/// # extern crate tower_limit;
 /// # extern crate futures;
 /// # extern crate void;
 /// # use void::Void;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # use tower_in_flight_limit::InFlightLimitLayer;
+/// # use tower_limit::concurrency::LimitConcurrencyLayer;
 /// # use futures::{Poll, future::{self, FutureResult}};
 /// # #[derive(Debug)]
 /// # struct MyService;
@@ -175,7 +175,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .in_flight_limit(5)
+///     .limit_concurrency(5)
 ///     .service(MyService);
 /// ```
 ///
@@ -184,17 +184,11 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///
 /// ```
 /// # extern crate tower;
-/// # extern crate tower_in_flight_limit;
-/// # extern crate tower_buffer;
-/// # extern crate tower_rate_limit;
 /// # extern crate futures;
 /// # extern crate void;
 /// # use void::Void;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # use tower_in_flight_limit::InFlightLimitLayer;
-/// # use tower_buffer::BufferLayer;
-/// # use tower_rate_limit::RateLimitLayer;
 /// # use std::time::Duration;
 /// # use futures::{Poll, future::{self, FutureResult}};
 /// # #[derive(Debug)]
@@ -212,8 +206,8 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # }
 /// ServiceBuilder::new()
 ///     .buffer(5)
-///     .in_flight_limit(5)
-///     .rate_limit(5, Duration::from_secs(1))
+///     .limit_concurrency(5)
+///     .limit_rate(5, Duration::from_secs(1))
 ///     .service(MyService);
 /// ```
 #[derive(Debug)]
@@ -260,8 +254,8 @@ impl<L> ServiceBuilder<L> {
     /// A request is in-flight from the time the request is received until the
     /// response future completes. This includes the time spent in the next
     /// layers.
-    pub fn in_flight_limit(self, max: usize) -> ServiceBuilder<Chain<InFlightLimitLayer, L>> {
-        self.layer(InFlightLimitLayer::new(max))
+    pub fn limit_concurrency(self, max: usize) -> ServiceBuilder<Chain<LimitConcurrencyLayer, L>> {
+        self.layer(LimitConcurrencyLayer::new(max))
     }
 
     /// Drop requests when the next layer is unable to respond to requests.
@@ -277,8 +271,8 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Limit requests to at most `num` per the given duration
-    pub fn rate_limit(self, num: u64, per: Duration) -> ServiceBuilder<Chain<RateLimitLayer, L>> {
-        self.layer(RateLimitLayer::new(num, per))
+    pub fn limit_rate(self, num: u64, per: Duration) -> ServiceBuilder<Chain<LimitRateLayer, L>> {
+        self.layer(LimitRateLayer::new(num, per))
     }
 
     /// Retry failed requests.

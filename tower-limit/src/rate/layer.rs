@@ -1,22 +1,22 @@
-use crate::error::{never::Never, Error};
-use crate::{Rate, RateLimit};
+use super::error::{never::Never, Error};
+use super::{Rate, LimitRate};
 use std::time::Duration;
 use tower_layer::Layer;
 use tower_service::Service;
 
 #[derive(Debug)]
-pub struct RateLimitLayer {
+pub struct LimitRateLayer {
     rate: Rate,
 }
 
-impl RateLimitLayer {
+impl LimitRateLayer {
     pub fn new(num: u64, per: Duration) -> Self {
         let rate = Rate::new(num, per);
-        RateLimitLayer { rate }
+        LimitRateLayer { rate }
     }
 }
 
-impl<S, Request> Layer<S, Request> for RateLimitLayer
+impl<S, Request> Layer<S, Request> for LimitRateLayer
 where
     S: Service<Request>,
     Error: From<S::Error>,
@@ -24,9 +24,9 @@ where
     type Response = S::Response;
     type Error = Error;
     type LayerError = Never;
-    type Service = RateLimit<S>;
+    type Service = LimitRate<S>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        Ok(RateLimit::new(service, self.rate))
+        Ok(LimitRate::new(service, self.rate))
     }
 }
