@@ -18,7 +18,7 @@ impl<T, M: Copy> Constant<T, M> {
     }
 }
 
-impl<T, M: Copy> Load for Constant<T, M> {
+impl<T, M: Copy + PartialOrd> Load for Constant<T, M> {
     type Metric = M;
 
     fn load(&self) -> M {
