@@ -14,7 +14,7 @@ pub use self::pending_requests::{PendingRequests, WithPendingRequests};
 /// Implementors should choose load values so that lesser-loaded instances return lesser
 /// values than higher-load instances.
 pub trait Load {
-    type Metric;
+    type Metric: PartialOrd;
 
     fn load(&self) -> Self::Metric;
 }
