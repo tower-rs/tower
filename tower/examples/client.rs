@@ -55,7 +55,7 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
         .layer(InFlightLimitLayer::new(5))
         .layer(RetryLayer::new(policy))
         .layer(BufferLayer::new(5))
-        .build_make_service(hyper);
+        .make_service(hyper);
 
     // `Reconnect` accepts a destination and a MakeService, creating a new service
     // any time the connection encounters an error.

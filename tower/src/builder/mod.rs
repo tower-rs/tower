@@ -13,7 +13,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 
 /// `ServiceBuilder` provides a [builder-like interface](https://doc.rust-lang.org/1.0.0/style/ownership/builders.html) for composing Layers and a connection, where the latter is modeled by
 ///  a `MakeService`. The builder produces either a new `Service` or `MakeService`,
-///  depending on whether `build_service` or `build_maker` is called.
+///  depending on whether `service` or `make_service` is called.
 ///
 /// # Services and MakeServices
 ///
@@ -35,7 +35,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// This is useful for servers, as they require the ability to accept new connections.
 ///
 /// Resources that need to be shared by all `Service`s can be put into a
-/// `MakeService`, and then passed to individual `Service`s when `build_maker`
+/// `MakeService`, and then passed to individual `Service`s when `make_service`
 /// is called.
 ///
 /// # Examples
@@ -80,7 +80,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # }
 /// ServiceBuilder::new()
 ///     .layer(InFlightLimitLayer::new(5))
-///     .build_make_service(MyMakeService);
+///     .make_service(MyMakeService);
 /// ```
 ///
 /// A `Service` stack with a single layer:
@@ -110,7 +110,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// # }
 /// ServiceBuilder::new()
 ///     .layer(InFlightLimitLayer::new(5))
-///     .build_service(MyService);
+///     .service(MyService);
 /// ```
 ///
 /// A `Service` stack with _multiple_ layers that contain rate limiting, in-flight request limits,
@@ -148,7 +148,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 ///     .layer(BufferLayer::new(5))
 ///     .layer(InFlightLimitLayer::new(5))
 ///     .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
-///     .build_service(MyService);
+///     .service(MyService);
 /// ```
 #[derive(Debug)]
 pub struct ServiceBuilder<L> {
@@ -173,7 +173,7 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Create a `LayeredMakeService` from the composed layers and transport `MakeService`.
-    pub fn build_make_service<M, Target, Request>(self, mk: M) -> LayeredMakeService<M, L, Request>
+    pub fn make_service<M, Target, Request>(self, mk: M) -> LayeredMakeService<M, L, Request>
     where
         M: MakeService<Target, Request>,
     {
@@ -181,7 +181,7 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Wrap the service `S` with the layers.
-    pub fn build_service<S, Request>(self, service: S) -> Result<L::Service, L::LayerError>
+    pub fn service<S, Request>(self, service: S) -> Result<L::Service, L::LayerError>
     where
         L: Layer<S, Request>,
         S: Service<Request>,
