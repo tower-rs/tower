@@ -183,51 +183,37 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Buffer requests
-    pub fn buffer(self, bound: usize)
-        -> ServiceBuilder<Chain<BufferLayer, L>>
-    {
+    pub fn buffer(self, bound: usize) -> ServiceBuilder<Chain<BufferLayer, L>> {
         self.layer(BufferLayer::new(bound))
     }
 
     /// Filter requests
-    pub fn filter<U>(self, predicate: U)
-        -> ServiceBuilder<Chain<FilterLayer<U>, L>>
-    {
+    pub fn filter<U>(self, predicate: U) -> ServiceBuilder<Chain<FilterLayer<U>, L>> {
         self.layer(FilterLayer::new(predicate))
     }
 
     /// Limit the max number of in-flight requests
-    pub fn in_flight_limit(self, max: usize)
-        -> ServiceBuilder<Chain<InFlightLimitLayer, L>>
-    {
+    pub fn in_flight_limit(self, max: usize) -> ServiceBuilder<Chain<InFlightLimitLayer, L>> {
         self.layer(InFlightLimitLayer::new(max))
     }
 
     /// Drop requests when the inner service is unable to respond to requests.
-    pub fn load_shed(self)
-        -> ServiceBuilder<Chain<LoadShedLayer, L>>
-    {
+    pub fn load_shed(self) -> ServiceBuilder<Chain<LoadShedLayer, L>> {
         self.layer(LoadShedLayer::new())
     }
 
     /// Limit requests to at most `num` per the given duration
-    pub fn rate_limit(self, num: u64, per: Duration)
-        -> ServiceBuilder<Chain<RateLimitLayer, L>>
-    {
+    pub fn rate_limit(self, num: u64, per: Duration) -> ServiceBuilder<Chain<RateLimitLayer, L>> {
         self.layer(RateLimitLayer::new(num, per))
     }
 
     /// Retry failed requests.
-    pub fn retry<P>(self, policy: P)
-        -> ServiceBuilder<Chain<RetryLayer<P>, L>>
-    {
+    pub fn retry<P>(self, policy: P) -> ServiceBuilder<Chain<RetryLayer<P>, L>> {
         self.layer(RetryLayer::new(policy))
     }
 
     /// Fail requests that take longer than `timeout`.
-    pub fn timeout(self, timeout: Duration)
-        -> ServiceBuilder<Chain<TimeoutLayer, L>>
-    {
+    pub fn timeout(self, timeout: Duration) -> ServiceBuilder<Chain<TimeoutLayer, L>> {
         self.layer(TimeoutLayer::new(timeout))
     }
 
