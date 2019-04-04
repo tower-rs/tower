@@ -2,14 +2,6 @@
 
 pub use tower_layer::Layer;
 
-pub use buffer::BufferLayer;
-pub use filter::FilterLayer;
-pub use in_flight_limit::InFlightLimitLayer;
-pub use load_shed::LoadShedLayer;
-pub use rate_limit::RateLimitLayer;
-pub use retry::RetryLayer;
-pub use timeout::TimeoutLayer;
-
 pub mod util {
     pub use tower_util::layer::Chain;
     pub use tower_util::layer::Identity;

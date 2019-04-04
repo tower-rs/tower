@@ -4,39 +4,105 @@ mod service;
 
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
+use buffer::BufferLayer;
+use filter::FilterLayer;
+use in_flight_limit::InFlightLimitLayer;
+use load_shed::LoadShedLayer;
+use rate_limit::RateLimitLayer;
+use retry::RetryLayer;
+use timeout::TimeoutLayer;
+
 use tower_layer::Layer;
 use tower_service::Service;
 use tower_util::layer::{Chain, Identity};
 use tower_util::MakeService;
 
+use std::time::Duration;
+
 pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 
-/// `ServiceBuilder` provides a [builder-like interface](https://doc.rust-lang.org/1.0.0/style/ownership/builders.html) for composing Layers and a connection, where the latter is modeled by
-///  a `MakeService`. The builder produces either a new `Service` or `MakeService`,
-///  depending on whether `service` or `make_service` is called.
+/// Declaratively construct Service values.
+///
+/// `ServiceBuilder` provides a [builder-like interface][builder] for composing
+/// layers and a connection, where the latter is modeled by a `MakeService`. The
+/// builder produces either a new `Service` or `MakeService`,
+/// depending on whether `service` or `make_service` is called.
 ///
 /// # Services and MakeServices
 ///
-/// - A [`Service`](tower_service::Service) is a trait representing an asynchronous
-///   function of a request to a response. It is similar to
-///   `async fn(Request) -> Result<Response, Error>`.
+/// - A [`Service`](tower_service::Service) is a trait representing an
+///   asynchronous function of a request to a response. It is similar to `async
+///   fn(Request) -> Result<Response, Error>`.
+///
 /// - A [`MakeService`](tower_util::MakeService) is a trait creating specific
 ///   instances of a `Service`
 ///
 /// # Service
 ///
-/// A `Service` is typically bound to a single transport, such as a TCP connection.
-/// It defines how _all_ inbound or outbound requests are handled by that connection.
+/// A `Service` is typically bound to a single transport, such as a TCP
+/// connection.  It defines how _all_ inbound or outbound requests are handled
+/// by that connection.
 ///
 /// # MakeService
 ///
-/// Since a `Service` is bound to a single connection, a `MakeService` allows for the
-/// creation of _new_ `Service`s that'll be bound to _different_ different connections.
-/// This is useful for servers, as they require the ability to accept new connections.
+/// Since a `Service` is bound to a single connection, a `MakeService` allows
+/// for the creation of _new_ `Service`s that'll be bound to _different_
+/// different connections.  This is useful for servers, as they require the
+/// ability to accept new connections.
 ///
 /// Resources that need to be shared by all `Service`s can be put into a
 /// `MakeService`, and then passed to individual `Service`s when `make_service`
 /// is called.
+///
+/// [builder]: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
+///
+/// # Order
+///
+/// The order in which layers are added impacts how requests are handled. Layers
+/// that are added first will be called with the request first. The argument to
+/// `service` or `make_service` will be last to see the request.
+///
+/// ```
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// # fn dox<T>(my_service: T)
+/// # where T: Service<()> + Send + 'static,
+/// # T::Future: Send,
+/// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
+/// # {
+/// ServiceBuilder::new()
+///     .buffer(100)
+///     .in_flight_limit(10)
+///     .service(my_service)
+/// # ;
+/// # }
+/// ```
+///
+/// In the above example, the buffer layer receives the request first followed
+/// by `in_flight_limit`. `buffer` enables up to 100 request to be in-flight
+/// **on top of** the requests that have already been forwarded to the next
+/// layer. Combined with `in_flight_limit`, this allows up to 110 requests to be
+/// in-flight.
+///
+/// ```
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// # fn dox<T>(my_service: T)
+/// # where T: Service<()> + Send + 'static,
+/// # T::Future: Send,
+/// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
+/// # {
+/// ServiceBuilder::new()
+///     .in_flight_limit(10)
+///     .buffer(100)
+///     .service(my_service)
+/// # ;
+/// # }
+/// ```
+///
+/// The above example is similar, but the order of layers is reversed. Now,
+/// `in_flight_limit` applies first and only allows 10 requests to be in-flight
+/// total.
 ///
 /// # Examples
 ///
@@ -79,7 +145,7 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .layer(InFlightLimitLayer::new(5))
+///     .in_flight_limit(5)
 ///     .make_service(MyMakeService);
 /// ```
 ///
@@ -109,12 +175,12 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .layer(InFlightLimitLayer::new(5))
+///     .in_flight_limit(5)
 ///     .service(MyService);
 /// ```
 ///
-/// A `Service` stack with _multiple_ layers that contain rate limiting, in-flight request limits,
-/// and a channel-backed, clonable `Service`:
+/// A `Service` stack with _multiple_ layers that contain rate limiting,
+/// in-flight request limits, and a channel-backed, clonable `Service`:
 ///
 /// ```
 /// # extern crate tower;
@@ -145,9 +211,9 @@ pub(super) type Error = Box<::std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .layer(BufferLayer::new(5))
-///     .layer(InFlightLimitLayer::new(5))
-///     .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
+///     .buffer(5)
+///     .in_flight_limit(5)
+///     .rate_limit(5, Duration::from_secs(1))
 ///     .service(MyService);
 /// ```
 #[derive(Debug)]
@@ -170,6 +236,66 @@ impl<L> ServiceBuilder<L> {
         ServiceBuilder {
             layer: Chain::new(layer, self.layer),
         }
+    }
+
+    /// Buffer requests when when the next layer is out of capacity.
+    pub fn buffer(self, bound: usize) -> ServiceBuilder<Chain<BufferLayer, L>> {
+        self.layer(BufferLayer::new(bound))
+    }
+
+    /// Filter requests using the given `predicate`.
+    ///
+    /// The `predicate` checks the request and determines if it should be
+    /// forwarded to the next layer or immediately respond with an error.
+    ///
+    /// `predicate` must implement [`Predicate`]
+    ///
+    /// [`Predicate`]: ../filter/trait.Predicate.html
+    pub fn filter<U>(self, predicate: U) -> ServiceBuilder<Chain<FilterLayer<U>, L>> {
+        self.layer(FilterLayer::new(predicate))
+    }
+
+    /// Limit the max number of in-flight requests.
+    ///
+    /// A request is in-flight from the time the request is received until the
+    /// response future completes. This includes the time spent in the next
+    /// layers.
+    pub fn in_flight_limit(self, max: usize) -> ServiceBuilder<Chain<InFlightLimitLayer, L>> {
+        self.layer(InFlightLimitLayer::new(max))
+    }
+
+    /// Drop requests when the next layer is unable to respond to requests.
+    ///
+    /// Usually, when a layer or service does not have capacity to process a
+    /// request (i.e., `poll_ready` returns `NotReady`), the caller waits until
+    /// capacity becomes available.
+    ///
+    /// `load_shed` immediately responds with an error when the next layer is
+    /// out of capacity.
+    pub fn load_shed(self) -> ServiceBuilder<Chain<LoadShedLayer, L>> {
+        self.layer(LoadShedLayer::new())
+    }
+
+    /// Limit requests to at most `num` per the given duration
+    pub fn rate_limit(self, num: u64, per: Duration) -> ServiceBuilder<Chain<RateLimitLayer, L>> {
+        self.layer(RateLimitLayer::new(num, per))
+    }
+
+    /// Retry failed requests.
+    ///
+    /// `policy` must implement [`Policy`].
+    ///
+    /// [`Policy`]: ../retry/trait.Policy.html
+    pub fn retry<P>(self, policy: P) -> ServiceBuilder<Chain<RetryLayer<P>, L>> {
+        self.layer(RetryLayer::new(policy))
+    }
+
+    /// Fail requests that take longer than `timeout`.
+    ///
+    /// If the next layer takes more than `timeout` to respond to a request,
+    /// processing is terminated and an error is returned.
+    pub fn timeout(self, timeout: Duration) -> ServiceBuilder<Chain<TimeoutLayer, L>> {
+        self.layer(TimeoutLayer::new(timeout))
     }
 
     /// Create a `LayeredMakeService` from the composed layers and transport `MakeService`.
