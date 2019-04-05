@@ -45,9 +45,6 @@ crates.
 * [`tower-in-flight-limit`]: Middleware limiting the number of requests that
   are in-flight for the inner service ([docs][tifl-docs]).
 
-* [`tower-mock`]: Testing utility for mocking a `Service`. This is useful for
-  testing middleware implementations ([docs][tm-docs]);
-
 * [`tower-rate-limit`]: Middleware limiting the number of requests to the inner
   service over a period of time ([docs][trl-docs]).
 
@@ -56,6 +53,8 @@ crates.
 
 * [`tower-retry`]: Middleware that retries requests based on a given `Policy`
   ([docs][tretry-docs]).
+
+* [`tower-test`]: Testing utilies ([docs][ttst-docs]).
 
 * [`tower-timeout`]: Middleware that applies a timeout to requests
   ([docs][tt-docs]).
@@ -94,15 +93,15 @@ terms or conditions.
 [tf-docs]: https://tower-rs.github.io/tower/doc/tower_filter/index.html
 [`tower-in-flight-limit`]: tower-in-flight-limit
 [tifl-docs]: https://tower-rs.github.io/tower/doc/tower_in_flight_limit/index.html
-[`tower-mock`]: tower-mock
-[tm-docs]: https://tower-rs.github.io/tower/doc/tower_mock/index.html
-[`tower-rate-limit`]: tower-rate-limit
 [trl-docs]: https://tower-rs.github.io/tower/doc/tower_rate_limit/index.html
 [`tower-reconnect`]: tower-reconnect
 [tre-docs]: https://tower-rs.github.io/tower/doc/tower_reconnect/index.html
 [`tower-retry`]: tower-retry
 [tretry-docs]: https://tower-rs.github.io/tower/doc/tower_retry/index.html
 [`tower-timeout`]: tower-timeout
+[`tower-test`]: tower-test
+[ttst-docs]: https://tower-rs.github.io/tower/doc/tower_test/index.html
+[`tower-rate-limit`]: tower-rate-limit
 [tt-docs]: https://tower-rs.github.io/tower/doc/tower_timeout/index.html
 [`tower-util`]: tower-util
 [tu-docs]: https://tower-rs.github.io/tower/doc/tower_util/index.html

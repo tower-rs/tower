@@ -9,11 +9,11 @@ members = [
   "tower-in-flight-limit",
   "tower-layer",
   "tower-load-shed",
-  "tower-mock",
   "tower-rate-limit",
   "tower-reconnect",
   "tower-retry",
   "tower-service",
+  "tower-test",
   "tower-timeout",
   "tower-util",
 ]

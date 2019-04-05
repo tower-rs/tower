@@ -1,12 +1,14 @@
 extern crate futures;
 extern crate tower_filter;
-extern crate tower_mock;
 extern crate tower_service;
+#[macro_use]
+extern crate tower_test;
 
 use futures::*;
 use tower_filter::error::Error;
 use tower_filter::Filter;
 use tower_service::*;
+use tower_test::mock;
 
 use std::thread;
 
@@ -17,12 +19,8 @@ fn passthrough_sync() {
     let th = thread::spawn(move || {
         // Receive the requests and respond
         for i in 0..10 {
-            let expect = format!("ping-{}", i);
-            let actual = handle.next_request().unwrap();
-
-            assert_eq!(actual.as_str(), expect.as_str());
-
-            actual.respond(format!("pong-{}", i));
+            assert_request_eq!(handle, format!("ping-{}", i))
+                .send_response(format!("pong-{}", i));
         }
     });
 
@@ -53,15 +51,15 @@ fn rejected_sync() {
     assert!(response.is_err());
 }
 
-type Mock = tower_mock::Mock<String, String>;
-type Handle = tower_mock::Handle<String, String>;
+type Mock = mock::Mock<String, String>;
+type Handle = mock::Handle<String, String>;
 
 fn new_service<F, U>(f: F) -> (Filter<Mock, F>, Handle)
 where
     F: Fn(&String) -> U,
     U: IntoFuture<Item = (), Error = Error>,
 {
-    let (service, handle) = Mock::new();
+    let (service, handle) = mock::pair();
     let service = Filter::new(service, f);
     (service, handle)
 }

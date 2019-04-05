@@ -12,4 +12,4 @@ tower-layer = { version = "0.1.0", path = "../tower-layer" }
 
 [dev-dependencies]
 tokio-mock-task = "0.1.1"
-tower-mock = { version = "0.1", path = "../tower-mock" }
+tower-test = { version = "0.1", path = "../tower-test" }

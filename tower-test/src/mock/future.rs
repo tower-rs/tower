@@ -1,6 +1,6 @@
 //! Future types
 
-use error::{self, Error};
+use super::error::{self, Error};
 use futures::{Async, Future, Poll};
 use tokio_sync::oneshot;
 
