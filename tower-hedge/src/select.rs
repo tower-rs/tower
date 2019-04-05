@@ -14,7 +14,7 @@ pub trait Policy<Request> {
 pub struct Select<P, A, B> {
     policy: P,
     a: A,
-    b: B
+    b: B,
 }
 
 pub struct ResponseFuture<AF, BF> {
@@ -22,8 +22,7 @@ pub struct ResponseFuture<AF, BF> {
     b_fut: Option<BF>,
 }
 
-impl<P, A, B> Select<P, A, B>
-{
+impl<P, A, B> Select<P, A, B> {
     pub fn new<Request>(policy: P, a: A, b: B) -> Self
     where
         P: Policy<Request>,
@@ -43,7 +42,6 @@ where
     A::Error: Into<super::Error>,
     B: Service<Request, Response = A::Response>,
     B::Error: Into<super::Error>,
-    
 {
     type Response = A::Response;
     type Error = super::Error;
@@ -72,7 +70,7 @@ where
     }
 }
 
-impl<AF, BF> Future for ResponseFuture<AF, BF> 
+impl<AF, BF> Future for ResponseFuture<AF, BF>
 where
     AF: Future,
     AF::Error: Into<super::Error>,
@@ -84,17 +82,17 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.a_fut.poll() {
-            Ok(Async::NotReady) => {},
+            Ok(Async::NotReady) => {}
             Ok(Async::Ready(a)) => return Ok(Async::Ready(a)),
             Err(e) => return Err(e.into()),
         }
         if let Some(ref mut b_fut) = self.b_fut {
             match b_fut.poll() {
-                Ok(Async::NotReady) => {},
+                Ok(Async::NotReady) => {}
                 Ok(Async::Ready(b)) => return Ok(Async::Ready(b)),
                 Err(e) => return Err(e.into()),
             }
         }
-        return Ok(Async::NotReady)
+        return Ok(Async::NotReady);
     }
 }

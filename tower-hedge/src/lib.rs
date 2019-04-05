@@ -3,35 +3,30 @@ extern crate hdrhistogram;
 #[macro_use]
 extern crate log;
 extern crate tokio_timer;
-extern crate tower_service;
 extern crate tower_filter;
+extern crate tower_service;
 
-use futures::future::FutureResult;
 use futures::future;
-use tower_filter::Filter;
+use futures::future::FutureResult;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tower_filter::Filter;
 
-mod select;
-mod latency;
 mod delay;
+mod latency;
 mod rotating_histogram;
+mod select;
 
 use delay::Delay;
-use select::Select;
 use latency::Latency;
 use rotating_histogram::RotatingHistogram;
+use select::Select;
 
 type Histo = Arc<Mutex<RotatingHistogram>>;
 pub type Service<InnerSvc, P> = select::Select<
     SelectPolicy<P>,
     Latency<Histo, InnerSvc>,
-    Delay<DelayPolicy, 
-        Filter<
-            Latency<Histo, InnerSvc>,
-            PolicyPredicate<P>
-        >
-    >
+    Delay<DelayPolicy, Filter<Latency<Histo, InnerSvc>, PolicyPredicate<P>>>,
 >;
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -118,24 +113,24 @@ where
     // records the latencies in a rotating histogram.
     let recorded_a = Latency::new(histo.clone(), service.clone());
     let recorded_b = Latency::new(histo.clone(), service);
-    
+
     // Check policy to see if the hedge request should be issued.
     let filtered = Filter::new(recorded_b, PolicyPredicate(policy.clone()));
-    
+
     // Delay the second request by a percentile of the recorded request latency
     // histogram.
     let delay_policy = DelayPolicy {
         histo: histo.clone(),
-        latency_percentile
+        latency_percentile,
     };
     let delayed = Delay::new(delay_policy, filtered);
-    
+
     // If the request is retryable, issue two requests -- the second one delayed
     // by a latency percentile.  Use the first result to complete.
     let select_policy = SelectPolicy {
         policy,
         histo,
-        min_data_points
+        min_data_points,
     };
     Select::new(select_policy, recorded_a, delayed)
 }
@@ -148,7 +143,8 @@ fn duration_as_millis(d: Duration) -> u64 {
 impl latency::Record for Histo {
     fn record(&mut self, latency: Duration) {
         let mut locked = self.lock().unwrap();
-        locked.write()
+        locked
+            .write()
             .record(duration_as_millis(latency))
             .unwrap_or_else(|e| {
                 error!("Failed to write to hedge histogram: {:?}", e);
@@ -160,7 +156,10 @@ impl<P, Request> tower_filter::Predicate<Request> for PolicyPredicate<P>
 where
     P: Policy<Request>,
 {
-    type Future = future::Either<FutureResult<(), tower_filter::error::Error>, future::Empty<(), tower_filter::error::Error>>;    //FutureResult<(), tower_filter::error::Error>;
+    type Future = future::Either<
+        FutureResult<(), tower_filter::error::Error>,
+        future::Empty<(), tower_filter::error::Error>,
+    >;
 
     fn check(&mut self, request: &Request) -> Self::Future {
         if self.0.can_retry(request) {
@@ -178,14 +177,16 @@ where
 impl<Request> delay::Policy<Request> for DelayPolicy {
     fn delay(&self, _req: &Request) -> Duration {
         let mut locked = self.histo.lock().unwrap();
-        let millis = locked.read().value_at_quantile(self.latency_percentile.into());
+        let millis = locked
+            .read()
+            .value_at_quantile(self.latency_percentile.into());
         Duration::from_millis(millis)
     }
 }
 
 impl<P, Request> select::Policy<Request> for SelectPolicy<P>
 where
-    P: Policy<Request>
+    P: Policy<Request>,
 {
     fn clone_request(&self, req: &Request) -> Option<Request> {
         self.policy.clone_request(req).filter(|_| {

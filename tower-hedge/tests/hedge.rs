@@ -162,7 +162,7 @@ impl hedge::Policy<Req> for TestPolicy {
 
 fn new_service<P: Policy<Req> + Clone>(policy: P) -> (hedge::Service<Mock, P>, Handle) {
     let (service, handle) = Mock::new();
-    
+
     let mock_latencies: [u64; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 10, 10];
 
     let service = hedge::service_with_mock_latencies(
@@ -171,7 +171,7 @@ fn new_service<P: Policy<Req> + Clone>(policy: P) -> (hedge::Service<Mock, P>, H
         10,
         0.9,
         Duration::from_secs(60),
-        &mock_latencies
+        &mock_latencies,
     );
     (service, handle)
 }

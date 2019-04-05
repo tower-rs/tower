@@ -34,7 +34,7 @@ where
         S: Service<Request>,
         S::Error: Into<super::Error>,
     {
-        Latency{ rec, service }
+        Latency { rec, service }
     }
 }
 
@@ -43,7 +43,6 @@ where
     S: Service<Request>,
     S::Error: Into<super::Error>,
     R: Record + Clone,
-    
 {
     type Response = S::Response;
     type Error = super::Error;
@@ -62,7 +61,7 @@ where
     }
 }
 
-impl<R, F> Future for ResponseFuture<R, F> 
+impl<R, F> Future for ResponseFuture<R, F>
 where
     R: Record,
     F: Future,
@@ -78,7 +77,7 @@ where
                 let duration = clock::now() - self.start;
                 self.rec.record(duration);
                 Ok(Async::Ready(rsp))
-            },
+            }
             Err(e) => Err(e.into()),
         }
     }

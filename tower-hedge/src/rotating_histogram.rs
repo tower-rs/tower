@@ -1,7 +1,7 @@
 extern crate tokio_timer;
 
-use std::time::{Duration, Instant};
 use hdrhistogram::Histogram;
+use std::time::{Duration, Instant};
 
 use tokio_timer::clock;
 
@@ -20,8 +20,10 @@ pub struct RotatingHistogram {
 impl RotatingHistogram {
     pub fn new(period: Duration) -> RotatingHistogram {
         RotatingHistogram {
-            read: Histogram::<u64>::new_with_bounds(1, 10_000, 3).expect("Invalid histogram params"),
-            write: Histogram::<u64>::new_with_bounds(1, 10_000, 3).expect("Invalid histogram params"),
+            read: Histogram::<u64>::new_with_bounds(1, 10_000, 3)
+                .expect("Invalid histogram params"),
+            write: Histogram::<u64>::new_with_bounds(1, 10_000, 3)
+                .expect("Invalid histogram params"),
             last_rotation: clock::now(),
             period,
         }
