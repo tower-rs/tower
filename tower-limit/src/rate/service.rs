@@ -8,7 +8,7 @@ use tower_service::Service;
 use std::time::Instant;
 
 #[derive(Debug)]
-pub struct LimitRate<T> {
+pub struct RateLimit<T> {
     inner: T,
     rate: Rate,
     state: State,
@@ -21,7 +21,7 @@ enum State {
     Ready { until: Instant, rem: u64 },
 }
 
-impl<T> LimitRate<T> {
+impl<T> RateLimit<T> {
     /// Create a new rate limiter
     pub fn new<Request>(inner: T, rate: Rate) -> Self
     where
@@ -32,7 +32,7 @@ impl<T> LimitRate<T> {
             rem: rate.num(),
         };
 
-        LimitRate {
+        RateLimit {
             inner,
             rate,
             state: state,
@@ -55,7 +55,7 @@ impl<T> LimitRate<T> {
     }
 }
 
-impl<S, Request> Service<Request> for LimitRate<S>
+impl<S, Request> Service<Request> for RateLimit<S>
 where
     S: Service<Request>,
     Error: From<S::Error>,

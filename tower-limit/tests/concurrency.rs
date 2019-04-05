@@ -4,7 +4,7 @@ extern crate tower_limit;
 extern crate tower_mock;
 extern crate tower_service;
 
-use tower_limit::concurrency::LimitConcurrency;
+use tower_limit::concurrency::ConcurrencyLimit;
 use tower_service::Service;
 
 use futures::future::{poll_fn, Future};
@@ -294,8 +294,8 @@ fn multi_waiters() {
 type Mock = tower_mock::Mock<&'static str, &'static str>;
 type Handle = tower_mock::Handle<&'static str, &'static str>;
 
-fn new_service(max: usize) -> (LimitConcurrency<Mock>, Handle) {
+fn new_service(max: usize) -> (ConcurrencyLimit<Mock>, Handle) {
     let (service, handle) = Mock::new();
-    let service = LimitConcurrency::new(service, max);
+    let service = ConcurrencyLimit::new(service, max);
     (service, handle)
 }

@@ -6,6 +6,6 @@ mod layer;
 mod rate;
 mod service;
 
-pub use self::layer::LimitRateLayer;
+pub use self::layer::RateLimitLayer;
 pub use self::rate::Rate;
-pub use self::service::LimitRate;
+pub use self::service::RateLimit;

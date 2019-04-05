@@ -58,9 +58,9 @@ fn reaching_capacity() {
 type Mock = tower_mock::Mock<&'static str, &'static str>;
 type Handle = tower_mock::Handle<&'static str, &'static str>;
 
-fn new_service(rate: Rate) -> (LimitRate<Mock>, Handle) {
+fn new_service(rate: Rate) -> (RateLimit<Mock>, Handle) {
     let (service, handle) = Mock::new();
-    let service = LimitRate::new(service, rate);
+    let service = RateLimit::new(service, rate);
     (service, handle)
 }
 

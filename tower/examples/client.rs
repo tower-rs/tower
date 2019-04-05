@@ -19,8 +19,8 @@ use tower_buffer::BufferLayer;
 use tower_hyper::client::{Builder, Connect};
 use tower_hyper::retry::{Body, RetryPolicy};
 use tower_hyper::util::Connector;
-use tower_limit::concurrency::LimitConcurrencyLayer;
-use tower_limit::rate::LimitRateLayer;
+use tower_limit::concurrency::ConcurrencyLimitLayer;
+use tower_limit::rate::RateLimitLayer;
 use tower_reconnect::Reconnect;
 use tower_retry::RetryLayer;
 use tower_service::Service;
@@ -45,13 +45,13 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     let dst = Destination::try_from_uri(Uri::from_static("http://127.0.0.1:3000")).unwrap();
 
     // Now, to build the service! We use two BufferLayers in order to:
-    // - provide backpressure for the LimitRateLayer, and LimitConcurrencyLayer
+    // - provide backpressure for the RateLimitLayer, and ConcurrencyLimitLayer
     // - meet `RetryLayer`'s requirement that our service implement `Service + Clone`
     // - ..and to provide cheap clones on the service.
     let maker = ServiceBuilder::new()
         .layer(BufferLayer::new(5))
-        .layer(LimitRateLayer::new(5, Duration::from_secs(1)))
-        .layer(LimitConcurrencyLayer::new(5))
+        .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
+        .layer(ConcurrencyLimitLayer::new(5))
         .layer(RetryLayer::new(policy))
         .layer(BufferLayer::new(5))
         .make_service(hyper);

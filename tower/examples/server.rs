@@ -12,7 +12,7 @@ use tokio_tcp::TcpListener;
 use tower::builder::ServiceBuilder;
 use tower_hyper::body::LiftBody;
 use tower_hyper::server::Server;
-use tower_limit::concurrency::LimitConcurrencyLayer;
+use tower_limit::concurrency::ConcurrencyLimitLayer;
 use tower_service::Service;
 
 fn main() {
@@ -23,7 +23,7 @@ fn main() {
         println!("Listening on http://{}", addr);
 
         let maker = ServiceBuilder::new()
-            .layer(LimitConcurrencyLayer::new(5))
+            .layer(ConcurrencyLimitLayer::new(5))
             .make_service(MakeSvc);
 
         let server = Server::new(maker);

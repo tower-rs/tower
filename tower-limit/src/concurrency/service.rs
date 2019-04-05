@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio_sync::semaphore::{self, Semaphore};
 
 #[derive(Debug)]
-pub struct LimitConcurrency<T> {
+pub struct ConcurrencyLimit<T> {
     inner: T,
     limit: Limit,
 }
@@ -19,13 +19,13 @@ struct Limit {
     permit: semaphore::Permit,
 }
 
-impl<T> LimitConcurrency<T> {
+impl<T> ConcurrencyLimit<T> {
     /// Create a new rate limiter
     pub fn new<Request>(inner: T, max: usize) -> Self
     where
         T: Service<Request>,
     {
-        LimitConcurrency {
+        ConcurrencyLimit {
             inner,
             limit: Limit {
                 semaphore: Arc::new(Semaphore::new(max)),
@@ -50,7 +50,7 @@ impl<T> LimitConcurrency<T> {
     }
 }
 
-impl<S, Request> Service<Request> for LimitConcurrency<S>
+impl<S, Request> Service<Request> for ConcurrencyLimit<S>
 where
     S: Service<Request>,
     S::Error: Into<Error>,
@@ -91,12 +91,12 @@ where
     }
 }
 
-impl<S> Clone for LimitConcurrency<S>
+impl<S> Clone for ConcurrencyLimit<S>
 where
     S: Clone,
 {
-    fn clone(&self) -> LimitConcurrency<S> {
-        LimitConcurrency {
+    fn clone(&self) -> ConcurrencyLimit<S> {
+        ConcurrencyLimit {
             inner: self.inner.clone(),
             limit: Limit {
                 semaphore: self.limit.semaphore.clone(),

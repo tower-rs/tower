@@ -22,7 +22,7 @@ use tokio::{runtime, timer};
 use tower::ServiceExt;
 use tower_balance as lb;
 use tower_discover::Discover;
-use tower_limit::concurrency::LimitConcurrency;
+use tower_limit::concurrency::ConcurrencyLimit;
 use tower_service::Service;
 use tower_util::ServiceFn;
 
@@ -152,7 +152,7 @@ fn gen_disco() -> impl Discover<
                 })
             });
 
-            let svc = LimitConcurrency::new(svc, ENDPOINT_CAPACITY);
+            let svc = ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY);
             lb::Weighted::new(svc, *weight)
         });
     tower_discover::ServiceList::new(svcs)
@@ -170,7 +170,7 @@ where
     println!("{}", name);
 
     let requests = stream::repeat::<_, Error>(Req).take(REQUESTS as u64);
-    let service = LimitConcurrency::new(lb, CONCURRENCY);
+    let service = ConcurrencyLimit::new(lb, CONCURRENCY);
     let responses = service.call_all(requests).unordered();
 
     compute_histo(responses).map(|s| s.report()).map_err(|_| {})
