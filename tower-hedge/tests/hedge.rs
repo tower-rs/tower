@@ -146,7 +146,7 @@ static NOT_CLONABLE: &'static str = "NOT_CLONABLE";
 #[derive(Clone)]
 struct TestPolicy;
 
-impl Policy<Req> for TestPolicy {
+impl hedge::Policy<Req> for TestPolicy {
     fn can_retry(&self, req: &Req) -> bool {
         *req != NOT_RETRYABLE
     }
@@ -160,23 +160,18 @@ impl Policy<Req> for TestPolicy {
     }
 }
 
-fn new_service<P: Policy<Req> + Clone>(policy: P) -> (hedge::Hedge<P, Mock>, Handle) {
+fn new_service<P: Policy<Req> + Clone>(policy: P) -> (hedge::Service<Mock, P>, Handle) {
     let (service, handle) = Mock::new();
-    let mut service = hedge::Hedge::new(policy, service, 0.9, Duration::from_secs(60), 10);
-    populate_histogram(&mut service);
+    
+    let mock_latencies: [u64; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 10, 10];
+
+    let service = hedge::service_with_mock_latencies(
+        service,
+        policy,
+        10,
+        0.9,
+        Duration::from_secs(60),
+        &mock_latencies
+    );
     (service, handle)
-}
-
-fn populate_histogram<P: Policy<Req> + Clone>(service: &mut hedge::Hedge<P, Mock>) {
-    // Writing directly to the read histogram isn't typical usage but we do it
-    // here to populate the read histogram directly so that we don't have to
-    // wait for a rotation.
-    let mut histo = service.latency_histogram.lock().unwrap();
-
-    for _ in 0..8 {
-        histo.read().record(1).unwrap();
-    }
-    for _ in 8..10 {
-        histo.read().record(10).unwrap();
-    }
 }

@@ -1,37 +1,38 @@
 extern crate tokio_timer;
 
 use std::time::{Duration, Instant};
+use hdrhistogram::Histogram;
 
 use tokio_timer::clock;
 
-/// This represents a "rotating" value which stores two T values, one which
-/// should be read and one which should be written to.  Every period, the
-/// read T is discarded and replaced by the write T.  The idea here is that
-/// the read T should always contain a full period (the previous period) of
-/// write operations.
-pub struct Rotating<T> {
-    read: T,
-    write: T,
+/// This represents a "rotating" histogram which stores two histogram, one which
+/// should be read and one which should be written to.  Every period, the read
+/// histogram is discarded and replaced by the write histogram.  The idea here
+/// is that the read histogram should always contain a full period (the previous
+/// period) of write operations.
+pub struct RotatingHistogram {
+    read: Histogram<u64>,
+    write: Histogram<u64>,
     last_rotation: Instant,
     period: Duration,
 }
 
-impl<T: Clear + Size> Rotating<T> {
-    pub fn new(period: Duration, new: fn() -> T) -> Rotating<T> {
-        Rotating {
-            read: new(),
-            write: new(),
+impl RotatingHistogram {
+    pub fn new(period: Duration) -> RotatingHistogram {
+        RotatingHistogram {
+            read: Histogram::<u64>::new_with_bounds(1, 10_000, 3).expect("Invalid histogram params"),
+            write: Histogram::<u64>::new_with_bounds(1, 10_000, 3).expect("Invalid histogram params"),
             last_rotation: clock::now(),
             period,
         }
     }
 
-    pub fn read(&mut self) -> &mut T {
+    pub fn read(&mut self) -> &mut Histogram<u64> {
         self.maybe_rotate();
         &mut self.read
     }
 
-    pub fn write(&mut self) -> &mut T {
+    pub fn write(&mut self) -> &mut Histogram<u64> {
         self.maybe_rotate();
         &mut self.write
     }
@@ -53,7 +54,7 @@ impl<T: Clear + Size> Rotating<T> {
 
     fn rotate(&mut self) {
         std::mem::swap(&mut self.read, &mut self.write);
-        trace!("Rotated {:?} points into read", self.read.size());
+        trace!("Rotated {:?} points into read", self.read.len());
         self.write.clear();
     }
 
@@ -65,12 +66,4 @@ impl<T: Clear + Size> Rotating<T> {
     fn duration_as_nanos(d: &Duration) -> u64 {
         d.as_secs() * 1_000_000_000 + (d.subsec_nanos() as u64)
     }
-}
-
-pub trait Clear {
-    fn clear(&mut self);
-}
-
-pub trait Size {
-    fn size(&self) -> u64;
 }
