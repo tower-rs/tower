@@ -1,6 +1,6 @@
-use super::Rate;
 use super::error::Error;
 use super::future::ResponseFuture;
+use super::Rate;
 use futures::{Future, Poll};
 use tokio_timer::{clock, Delay};
 use tower_service::Service;

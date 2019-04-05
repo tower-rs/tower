@@ -1,5 +1,5 @@
-use super::{ConcurrencyLimit, Error};
 use super::never::Never;
+use super::{ConcurrencyLimit, Error};
 use tower_layer::Layer;
 use tower_service::Service;
 
