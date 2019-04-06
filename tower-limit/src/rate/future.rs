@@ -1,4 +1,4 @@
-use crate::Error;
+use super::error::Error;
 use futures::{Future, Poll};
 
 #[derive(Debug)]

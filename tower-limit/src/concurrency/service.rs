@@ -1,19 +1,5 @@
-//! Tower middleware that limits the maximum number of in-flight requests for a
-//! service.
-
-#[macro_use]
-extern crate futures;
-extern crate tokio_sync;
-extern crate tower_layer;
-extern crate tower_service;
-
-pub mod future;
-mod layer;
-mod never;
-
-use future::ResponseFuture;
-pub use layer::InFlightLimitLayer;
-use never::Never;
+use super::future::ResponseFuture;
+use super::Error;
 
 use tower_service::Service;
 
@@ -22,7 +8,7 @@ use std::sync::Arc;
 use tokio_sync::semaphore::{self, Semaphore};
 
 #[derive(Debug)]
-pub struct InFlightLimit<T> {
+pub struct ConcurrencyLimit<T> {
     inner: T,
     limit: Limit,
 }
@@ -33,17 +19,13 @@ struct Limit {
     permit: semaphore::Permit,
 }
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
-
-// ===== impl InFlightLimit =====
-
-impl<T> InFlightLimit<T> {
+impl<T> ConcurrencyLimit<T> {
     /// Create a new rate limiter
     pub fn new<Request>(inner: T, max: usize) -> Self
     where
         T: Service<Request>,
     {
-        InFlightLimit {
+        ConcurrencyLimit {
             inner,
             limit: Limit {
                 semaphore: Arc::new(Semaphore::new(max)),
@@ -68,14 +50,14 @@ impl<T> InFlightLimit<T> {
     }
 }
 
-impl<S, Request> Service<Request> for InFlightLimit<S>
+impl<S, Request> Service<Request> for ConcurrencyLimit<S>
 where
     S: Service<Request>,
     S::Error: Into<Error>,
 {
     type Response = S::Response;
     type Error = Error;
-    type Future = future::ResponseFuture<S::Future>;
+    type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         try_ready!(self
@@ -109,12 +91,12 @@ where
     }
 }
 
-impl<S> Clone for InFlightLimit<S>
+impl<S> Clone for ConcurrencyLimit<S>
 where
     S: Clone,
 {
-    fn clone(&self) -> InFlightLimit<S> {
-        InFlightLimit {
+    fn clone(&self) -> ConcurrencyLimit<S> {
+        ConcurrencyLimit {
             inner: self.inner.clone(),
             limit: Limit {
                 semaphore: self.limit.semaphore.clone(),

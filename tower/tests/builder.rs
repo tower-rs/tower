@@ -2,8 +2,7 @@ extern crate futures;
 extern crate tokio;
 extern crate tower;
 extern crate tower_buffer;
-extern crate tower_in_flight_limit;
-extern crate tower_rate_limit;
+extern crate tower_limit;
 extern crate tower_reconnect;
 extern crate tower_retry;
 extern crate tower_service;
@@ -14,8 +13,8 @@ use futures::prelude::*;
 use std::time::Duration;
 use tower::builder::ServiceBuilder;
 use tower_buffer::BufferLayer;
-use tower_in_flight_limit::InFlightLimitLayer;
-use tower_rate_limit::RateLimitLayer;
+use tower_limit::concurrency::ConcurrencyLimitLayer;
+use tower_limit::rate::RateLimitLayer;
 use tower_reconnect::Reconnect;
 use tower_retry::{Policy, RetryLayer};
 use tower_service::*;
@@ -26,7 +25,7 @@ fn builder_make_service() {
     tokio::run(future::lazy(|| {
         let maker = ServiceBuilder::new()
             .layer(BufferLayer::new(5))
-            .layer(InFlightLimitLayer::new(5))
+            .layer(ConcurrencyLimitLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
             .make_service(MockMaker);
 
@@ -45,7 +44,7 @@ fn builder_service() {
     tokio::run(future::lazy(|| {
         let mut client = ServiceBuilder::new()
             .layer(BufferLayer::new(5))
-            .layer(InFlightLimitLayer::new(5))
+            .layer(ConcurrencyLimitLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
             .service(MockSvc)
             .unwrap();
@@ -66,7 +65,7 @@ fn builder_make_service_retry() {
         let maker = ServiceBuilder::new()
             .layer(BufferLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
-            .layer(InFlightLimitLayer::new(5))
+            .layer(ConcurrencyLimitLayer::new(5))
             .layer(RetryLayer::new(policy))
             .layer(BufferLayer::new(5))
             .make_service(MockMaker);

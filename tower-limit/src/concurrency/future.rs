@@ -1,7 +1,7 @@
+use super::Error;
 use futures::{Future, Poll};
 use std::sync::Arc;
 use tokio_sync::semaphore::Semaphore;
-use Error;
 
 #[derive(Debug)]
 pub struct ResponseFuture<T> {

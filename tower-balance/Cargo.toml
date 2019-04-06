@@ -23,4 +23,4 @@ tokio = "0.1.7"
 tokio-executor = "0.1.2"
 tower = { version = "0.1", path = "../tower" }
 tower-buffer = { version = "0.1", path = "../tower-buffer" }
-tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit" }
+tower-limit = { version = "0.1", path = "../tower-limit" }
