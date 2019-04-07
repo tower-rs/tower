@@ -12,6 +12,7 @@ clients and servers.
 """
 categories = ["asynchronous", "network-programming"]
 keywords = ["io", "async", "non-blocking", "futures", "service"]
+edition = "2018"
 
 [features]
 default = ["full"]

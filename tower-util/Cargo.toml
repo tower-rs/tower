@@ -17,6 +17,7 @@ description = """
 Utilities for working with tower-service.
 """
 categories = ["asynchronous", "network-programming"]
+edition = "2018"
 
 [features]
 io = ["tokio-io"]

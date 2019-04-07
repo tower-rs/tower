@@ -3,6 +3,7 @@ name = "tower-retry"
 version = "0.1.0"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 publish = false
+edition = "2018"
 
 [dependencies]
 futures = "0.1"
