@@ -1,5 +1,3 @@
-use tokio;
-
 use futures::{
     future::{self, FutureResult},
     prelude::*,
