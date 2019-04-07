@@ -1,7 +1,6 @@
 use futures::*;
 use std::thread;
 use tower_filter::{error::Error, Filter};
-use tower_mock;
 use tower_service::Service;
 
 #[test]

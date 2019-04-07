@@ -1,5 +1,3 @@
-use tower_mock;
-
 use futures::prelude::*;
 use tokio_executor::{SpawnError, TypedExecutor};
 use tower::{

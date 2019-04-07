@@ -4,7 +4,6 @@ use futures::{
 };
 use tokio_mock_task::MockTask;
 use tower_limit::concurrency::ConcurrencyLimit;
-use tower_mock;
 use tower_service::Service;
 
 macro_rules! assert_ready {

@@ -1,15 +1,14 @@
-use futures::future;
-use tokio;
-use tokio_timer;
+use futures::future::lazy;
+use tokio::runtime::current_thread::Runtime;
+use tokio_timer::Delay;
 use tower_limit::rate::*;
-use tower_mock;
 use tower_service::*;
 
 use std::time::{Duration, Instant};
 
 #[test]
 fn reaching_capacity() {
-    let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
+    let mut rt = Runtime::new().unwrap();
     let (mut service, mut handle) = new_service(Rate::new(1, from_millis(100)));
 
     assert!(service.poll_ready().unwrap().is_ready());
@@ -22,22 +21,20 @@ fn reaching_capacity() {
     let response = rt.block_on(response);
     assert_eq!(response.unwrap(), "world");
 
-    rt.block_on(future::lazy(|| {
+    rt.block_on(lazy(|| {
         assert!(service.poll_ready().unwrap().is_not_ready());
         Ok::<_, ()>(())
     }))
     .unwrap();
 
-    let poll_request = rt.block_on(future::lazy(|| handle.poll_request()));
+    let poll_request = rt.block_on(lazy(|| handle.poll_request()));
     assert!(poll_request.unwrap().is_not_ready());
 
     // Unlike `thread::sleep`, this advances the timer.
-    rt.block_on(tokio_timer::Delay::new(
-        Instant::now() + Duration::from_millis(100),
-    ))
-    .unwrap();
+    rt.block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
+        .unwrap();
 
-    let poll_ready = rt.block_on(future::lazy(|| service.poll_ready()));
+    let poll_ready = rt.block_on(lazy(|| service.poll_ready()));
     assert!(poll_ready.unwrap().is_ready());
 
     // Send a second request

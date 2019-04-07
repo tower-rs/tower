@@ -1,6 +1,5 @@
 use futures::Future;
 use tower_load_shed::{self, LoadShed};
-use tower_mock;
 use tower_service::Service;
 
 #[test]

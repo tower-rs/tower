@@ -310,15 +310,13 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use tokio_executor;
-    use tokio_timer;
-
-    use self::{tokio_executor::enter, tokio_timer::clock};
     use futures::{future, Future, Poll};
     use std::{
         sync::{Arc, Mutex},
         time::{Duration, Instant},
     };
+    use tokio_executor::enter;
+    use tokio_timer::clock;
 
     use super::*;
 
