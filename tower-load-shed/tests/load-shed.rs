@@ -1,7 +1,7 @@
-extern crate futures;
-extern crate tower_load_shed;
-extern crate tower_mock;
-extern crate tower_service;
+
+use tower_load_shed;
+use tower_mock;
+
 
 use futures::Future;
 use tower_load_shed::LoadShed;

@@ -139,7 +139,7 @@ impl Default for Budget {
 }
 
 impl fmt::Debug for Budget {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Budget")
             .field("deposit", &self.deposit_amount)
             .field("withdraw", &self.withdraw_amount)
@@ -212,7 +212,7 @@ impl Bucket {
 
 #[cfg(test)]
 mod tests {
-    extern crate tokio_executor;
+    use tokio_executor;
 
     use self::tokio_executor::enter;
     use super::*;
@@ -286,7 +286,7 @@ mod tests {
     struct MockNow(Arc<Mutex<Instant>>);
 
     impl MockNow {
-        fn as_mut(&self) -> MutexGuard<Instant> {
+        fn as_mut(&self) -> MutexGuard<'_, Instant> {
             self.0.lock().unwrap()
         }
     }

@@ -5,14 +5,14 @@ use std::fmt;
 
 /// A boxed `Service` trait object.
 pub struct UnsyncBoxService<T, U, E> {
-    inner: Box<Service<T, Response = U, Error = E, Future = UnsyncBoxFuture<U, E>>>,
+    inner: Box<dyn Service<T, Response = U, Error = E, Future = UnsyncBoxFuture<U, E>>>,
 }
 
 /// A boxed `Future` trait object.
 ///
 /// This type alias represents a boxed future that is *not* `Send` and must
 /// remain on the current thread.
-type UnsyncBoxFuture<T, E> = Box<Future<Item = T, Error = E>>;
+type UnsyncBoxFuture<T, E> = Box<dyn Future<Item = T, Error = E>>;
 
 #[derive(Debug)]
 struct UnsyncBoxed<S> {
@@ -50,7 +50,7 @@ where
     U: fmt::Debug,
     E: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("UnsyncBoxService").finish()
     }
 }
@@ -62,7 +62,7 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Box<Future<Item = S::Response, Error = S::Error>>;
+    type Future = Box<dyn Future<Item = S::Response, Error = S::Error>>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.inner.poll_ready()

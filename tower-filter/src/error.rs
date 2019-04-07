@@ -29,7 +29,7 @@ impl Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.source.is_some() {
             write!(fmt, "inner service errored")
         } else {

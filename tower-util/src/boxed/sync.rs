@@ -11,14 +11,14 @@ use std::fmt;
 ///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
-    inner: Box<Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>,
+    inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>,
 }
 
 /// A boxed `Future + Send` trait object.
 ///
 /// This type alias represents a boxed future that is `Send` and can be moved
 /// across threads.
-type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send>;
+type BoxFuture<T, E> = Box<dyn Future<Item = T, Error = E> + Send>;
 
 #[derive(Debug)]
 struct Boxed<S> {
@@ -56,7 +56,7 @@ where
     U: fmt::Debug,
     E: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("BoxService").finish()
     }
 }
@@ -68,7 +68,7 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Box<Future<Item = S::Response, Error = S::Error> + Send>;
+    type Future = Box<dyn Future<Item = S::Response, Error = S::Error> + Send>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.inner.poll_ready()

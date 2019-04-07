@@ -1,7 +1,7 @@
-extern crate futures;
-extern crate tower_filter;
-extern crate tower_mock;
-extern crate tower_service;
+
+
+use tower_mock;
+
 
 use futures::*;
 use tower_filter::error::Error;

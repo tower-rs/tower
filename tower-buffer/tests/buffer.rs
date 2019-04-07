@@ -1,8 +1,8 @@
-extern crate futures;
-extern crate tokio_executor;
-extern crate tower_buffer;
-extern crate tower_mock;
-extern crate tower_service;
+
+
+
+use tower_mock;
+
 
 use futures::prelude::*;
 use tokio_executor::{SpawnError, TypedExecutor};

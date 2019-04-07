@@ -8,8 +8,8 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 
-extern crate futures;
-extern crate tower_service;
+
+
 
 use tower_service::Service;
 

@@ -1,9 +1,9 @@
-extern crate futures;
-extern crate tokio_mock_task;
-extern crate tower;
-extern crate tower_mock;
-extern crate tower_service;
-extern crate tower_util;
+use futures;
+use tokio_mock_task;
+
+
+
+
 
 use futures::future::{ok, FutureResult};
 use futures::stream;
@@ -14,7 +14,7 @@ use tower::ServiceExt;
 use tower_mock::*;
 use tower_service::*;
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn ::std::error::Error + Send + Sync>;
 
 #[derive(Debug, Eq, PartialEq)]
 struct Srv {

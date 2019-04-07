@@ -307,8 +307,8 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    extern crate tokio_executor;
-    extern crate tokio_timer;
+    use tokio_executor;
+    use tokio_timer;
 
     use self::tokio_executor::enter;
     use self::tokio_timer::clock;

@@ -15,7 +15,7 @@ pub enum Either<A, B> {
     B(B),
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn ::std::error::Error + Send + Sync>;
 
 impl<A, B, Request> Service<Request> for Either<A, B>
 where

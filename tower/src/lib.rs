@@ -7,19 +7,19 @@
 #[macro_use]
 extern crate futures;
 
-extern crate tower_layer;
-extern crate tower_service;
-extern crate tower_util;
 
-pub extern crate tower_balance as balance;
-pub extern crate tower_buffer as buffer;
-pub extern crate tower_discover as discover;
-pub extern crate tower_filter as filter;
-pub extern crate tower_limit as limit;
-pub extern crate tower_load_shed as load_shed;
-pub extern crate tower_reconnect as reconnect;
-pub extern crate tower_retry as retry;
-pub extern crate tower_timeout as timeout;
+
+
+
+pub use tower_balance as balance;
+pub use tower_buffer as buffer;
+pub use tower_discover as discover;
+pub use tower_filter as filter;
+pub use tower_limit as limit;
+pub use tower_load_shed as load_shed;
+pub use tower_reconnect as reconnect;
+pub use tower_retry as retry;
+pub use tower_timeout as timeout;
 
 pub mod builder;
 pub mod layer;

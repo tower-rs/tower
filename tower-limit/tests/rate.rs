@@ -1,9 +1,9 @@
-extern crate futures;
-extern crate tokio;
-extern crate tokio_timer;
-extern crate tower_limit;
-extern crate tower_mock;
-extern crate tower_service;
+
+use tokio;
+use tokio_timer;
+
+use tower_mock;
+
 
 use futures::future;
 use tower_limit::rate::*;

@@ -1,6 +1,6 @@
-extern crate futures;
-extern crate tower_mock;
-extern crate tower_service;
+
+use tower_mock;
+
 
 use tower_service::Service;
 

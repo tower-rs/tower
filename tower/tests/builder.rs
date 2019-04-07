@@ -1,12 +1,12 @@
-extern crate futures;
-extern crate tokio;
-extern crate tower;
-extern crate tower_buffer;
-extern crate tower_limit;
-extern crate tower_reconnect;
-extern crate tower_retry;
-extern crate tower_service;
-extern crate void;
+
+use tokio;
+
+
+
+
+
+
+
 
 use futures::future::{self, FutureResult};
 use futures::prelude::*;
@@ -121,7 +121,7 @@ struct MockPolicy;
 
 impl<E> Policy<Request, Response, E> for MockPolicy
 where
-    E: Into<Box<std::error::Error + Send + Sync + 'static>>,
+    E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
 {
     type Future = FutureResult<Self, ()>;
 

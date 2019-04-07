@@ -4,7 +4,7 @@ use std::fmt;
 #[derive(Debug)]
 pub struct None(());
 
-pub(crate) type Error = Box<error::Error + Send + Sync>;
+pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 
 impl None {
     pub(crate) fn new() -> None {
@@ -13,7 +13,7 @@ impl None {
 }
 
 impl fmt::Display for None {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "None")
     }
 }

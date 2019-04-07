@@ -10,7 +10,7 @@
 //! * [`Service`](trait.Service.html) is the primary trait and defines the request
 //! / response exchange. See that trait for more details.
 
-extern crate futures;
+
 
 use futures::{Future, Poll};
 

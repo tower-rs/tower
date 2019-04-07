@@ -1,10 +1,10 @@
-extern crate futures;
-extern crate hyper;
-extern crate tokio_tcp;
-extern crate tower;
-extern crate tower_hyper;
-extern crate tower_limit;
-extern crate tower_service;
+
+use hyper;
+
+
+
+
+
 
 use futures::{future, Future, Poll, Stream};
 use hyper::{Body, Request, Response};
@@ -67,7 +67,7 @@ struct MakeSvc;
 impl Service<()> for MakeSvc {
     type Response = Svc;
     type Error = hyper::Error;
-    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send + 'static>;
+    type Future = Box<dyn Future<Item = Self::Response, Error = Self::Error> + Send + 'static>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         Ok(().into())

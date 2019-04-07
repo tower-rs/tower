@@ -1,8 +1,8 @@
-extern crate futures;
-extern crate tokio_mock_task;
-extern crate tower_limit;
-extern crate tower_mock;
-extern crate tower_service;
+use futures;
+
+
+use tower_mock;
+
 
 use tower_limit::concurrency::ConcurrencyLimit;
 use tower_service::Service;

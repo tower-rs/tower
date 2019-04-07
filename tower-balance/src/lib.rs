@@ -2,12 +2,12 @@
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate indexmap;
-extern crate rand;
-extern crate tokio_timer;
-extern crate tower_discover;
-extern crate tower_service;
-extern crate tower_util;
+
+use rand;
+
+
+
+
 
 #[cfg(test)]
 extern crate quickcheck;
@@ -168,7 +168,7 @@ where
             self.discover.poll().map_err(|e| error::Balance(e.into()))?
         {
             match change {
-                Insert(key, mut svc) => {
+                Insert(key, svc) => {
                     // If the `Insert`ed service is a duplicate of a service already
                     // in the ready list, remove the ready service first. The new
                     // service will then be inserted into the not-ready list.

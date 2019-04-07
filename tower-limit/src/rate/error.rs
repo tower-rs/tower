@@ -1,6 +1,6 @@
 use std::error;
 
-pub(crate) type Error = Box<error::Error + Send + Sync>;
+pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 
 pub(crate) mod never {
     use std::{error, fmt};
@@ -9,7 +9,7 @@ pub(crate) mod never {
     pub enum Never {}
 
     impl fmt::Display for Never {
-        fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
             unreachable!();
         }
     }

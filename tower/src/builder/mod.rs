@@ -19,7 +19,7 @@ use tower_util::MakeService;
 
 use std::time::Duration;
 
-pub(super) type Error = Box<::std::error::Error + Send + Sync>;
+pub(super) type Error = Box<dyn ::std::error::Error + Send + Sync>;
 
 /// Declaratively construct Service values.
 ///

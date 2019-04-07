@@ -1,12 +1,12 @@
-extern crate futures;
-extern crate hyper;
-extern crate tower;
-extern crate tower_buffer;
-extern crate tower_hyper;
-extern crate tower_limit;
-extern crate tower_reconnect;
-extern crate tower_retry;
-extern crate tower_service;
+use futures;
+use hyper;
+
+
+
+
+
+
+
 
 use futures::Future;
 use hyper::client::connect::Destination;

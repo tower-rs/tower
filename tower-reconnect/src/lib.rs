@@ -1,8 +1,8 @@
-extern crate futures;
+
 #[macro_use]
 extern crate log;
-extern crate tower_service;
-extern crate tower_util;
+
+
 
 pub mod future;
 
@@ -23,7 +23,7 @@ where
     target: Target,
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn ::std::error::Error + Send + Sync>;
 
 #[derive(Debug)]
 enum State<F, S> {
@@ -144,7 +144,7 @@ where
     M::Response: fmt::Debug,
     Target: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Reconnect")
             .field("mk_service", &self.mk_service)
             .field("state", &self.state)

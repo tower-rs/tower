@@ -1,18 +1,18 @@
 //! Exercises load balancers with mocked services.
 
-extern crate env_logger;
-extern crate futures;
-extern crate hdrsample;
-extern crate log;
-extern crate rand;
-extern crate tokio;
-extern crate tower;
-extern crate tower_balance;
-extern crate tower_buffer;
-extern crate tower_discover;
-extern crate tower_limit;
-extern crate tower_service;
-extern crate tower_util;
+use env_logger;
+
+
+
+use rand;
+
+
+use tower_balance;
+
+use tower_discover;
+
+
+
 
 use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;
@@ -125,7 +125,7 @@ fn main() {
     rt.shutdown_on_idle().wait().unwrap();
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn ::std::error::Error + Send + Sync>;
 
 fn gen_disco() -> impl Discover<
     Key = usize,

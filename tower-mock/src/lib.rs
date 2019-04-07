@@ -1,8 +1,8 @@
 //! Mock `Service` that can be used in tests.
 
-extern crate futures;
-extern crate tokio_sync;
-extern crate tower_service;
+
+
+
 
 pub mod error;
 pub mod future;

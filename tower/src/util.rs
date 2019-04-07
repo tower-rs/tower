@@ -15,7 +15,7 @@ use tower_service::Service;
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn ::std::error::Error + Send + Sync>;
 
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters

@@ -19,13 +19,13 @@ impl Overloaded {
 }
 
 impl fmt::Debug for Overloaded {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Overloaded")
     }
 }
 
 impl fmt::Display for Overloaded {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("service overloaded")
     }
 }
@@ -39,7 +39,7 @@ pub(crate) mod never {
     pub enum Never {}
 
     impl fmt::Display for Never {
-        fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
             match *self {}
         }
     }
