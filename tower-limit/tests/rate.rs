@@ -21,7 +21,7 @@ macro_rules! assert_ready {
             Ok(NotReady) => panic!("not ready"),
             Err(e) => panic!("err = {:?}", e),
         }
-    }}
+    }};
 }
 
 macro_rules! assert_not_ready {
@@ -31,7 +31,7 @@ macro_rules! assert_not_ready {
             Ok(NotReady) => {}
             r => panic!("unexpected poll status = {:?}", r),
         }
-    }}
+    }};
 }
 
 #[test]
@@ -42,8 +42,7 @@ fn reaching_capacity() {
     assert_ready!(service.poll_ready());
     let response = service.call("hello");
 
-    assert_request_eq!(handle, "hello")
-        .send_response("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     let response = rt.block_on(response);
     assert_eq!(response.unwrap(), "world");
@@ -69,8 +68,7 @@ fn reaching_capacity() {
     // Send a second request
     let response = service.call("two");
 
-    assert_request_eq!(handle, "two")
-        .send_response("done");
+    assert_request_eq!(handle, "two").send_response("done");
 
     let response = rt.block_on(response);
     assert_eq!(response.unwrap(), "done");

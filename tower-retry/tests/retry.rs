@@ -16,13 +16,11 @@ fn retry_errors() {
     assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
-    assert_request_eq!(handle, "hello")
-        .send_error("retry me");
+    assert_request_eq!(handle, "hello").send_error("retry me");
 
     assert_not_ready(&mut fut);
 
-    assert_request_eq!(handle, "hello")
-        .send_response("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     assert_eq!(fut.wait().unwrap(), "world");
 }

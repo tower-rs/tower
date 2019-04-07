@@ -20,7 +20,7 @@ macro_rules! assert_ready {
             Ok(NotReady) => panic!("not ready"),
             Err(e) => panic!("err = {:?}", e),
         }
-    }}
+    }};
 }
 
 macro_rules! assert_not_ready {
@@ -30,7 +30,7 @@ macro_rules! assert_not_ready {
             Ok(NotReady) => {}
             r => panic!("unexpected poll status = {:?}", r),
         }
-    }}
+    }};
 }
 
 #[test]
@@ -52,12 +52,10 @@ fn basic_service_limit_functionality_with_poll_ready() {
     assert!(!task.is_notified());
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 1")
-        .send_response("world 1");
+    assert_request_eq!(handle, "hello 1").send_response("world 1");
 
     // The next request gets passed through
-    assert_request_eq!(handle, "hello 2")
-        .send_response("world 2");
+    assert_request_eq!(handle, "hello 2").send_response("world 2");
 
     // There are no more requests
     task.enter(|| {
@@ -81,8 +79,7 @@ fn basic_service_limit_functionality_with_poll_ready() {
     assert_eq!(r2.wait().unwrap(), "world 2");
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 3")
-        .send_response("world 3");
+    assert_request_eq!(handle, "hello 3").send_response("world 3");
 
     assert_eq!(r3.wait().unwrap(), "world 3");
 }
@@ -104,14 +101,12 @@ fn basic_service_limit_functionality_without_poll_ready() {
     });
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 1")
-        .send_response("world 1");
+    assert_request_eq!(handle, "hello 1").send_response("world 1");
 
     assert!(!task.is_notified());
 
     // The next request gets passed through
-    assert_request_eq!(handle, "hello 2")
-        .send_response("world 2");
+    assert_request_eq!(handle, "hello 2").send_response("world 2");
 
     assert!(!task.is_notified());
 
@@ -136,8 +131,7 @@ fn basic_service_limit_functionality_without_poll_ready() {
     assert!(task.is_notified());
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 4")
-        .send_response("world 4");
+    assert_request_eq!(handle, "hello 4").send_response("world 4");
 
     assert_eq!(r4.wait().unwrap(), "world 4");
 }
@@ -174,8 +168,7 @@ fn reserve_capacity_without_sending_request() {
     // s1 sends the request, then s2 is able to get capacity
     let r1 = s1.call("hello");
 
-    assert_request_eq!(handle, "hello")
-        .send_response("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     task.enter(|| {
         assert!(s2.poll_ready().unwrap().is_not_ready());
@@ -226,8 +219,7 @@ fn response_error_releases_capacity() {
     // s1 sends the request, then s2 is able to get capacity
     let r1 = s1.call("hello");
 
-    assert_request_eq!(handle, "hello")
-        .send_error("boom");
+    assert_request_eq!(handle, "hello").send_error("boom");
 
     r1.wait().unwrap_err();
 

@@ -19,8 +19,7 @@ fn passthrough_sync() {
     let th = thread::spawn(move || {
         // Receive the requests and respond
         for i in 0..10 {
-            assert_request_eq!(handle, format!("ping-{}", i))
-                .send_response(format!("pong-{}", i));
+            assert_request_eq!(handle, format!("ping-{}", i)).send_response(format!("pong-{}", i));
         }
     });
 

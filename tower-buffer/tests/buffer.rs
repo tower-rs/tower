@@ -20,8 +20,7 @@ fn req_and_res() {
 
     let response = service.call("hello");
 
-    assert_request_eq!(handle, "hello")
-        .send_response("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     assert_eq!(response.wait().unwrap(), "world");
 }
@@ -53,8 +52,7 @@ fn clears_canceled_requests() {
     // res2 was dropped, so it should have been canceled in the buffer
     handle.allow(1);
 
-    assert_request_eq!(handle, "hello3")
-        .send_response("world3");
+    assert_request_eq!(handle, "hello3").send_response("world3");
 
     assert_eq!(res3.wait().unwrap(), "world3");
 }
@@ -77,8 +75,7 @@ fn when_inner_is_not_ready() {
 
     handle.allow(1);
 
-    assert_request_eq!(handle, "hello")
-        .send_response("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     assert_eq!(res1.wait().expect("res1.wait"), "world");
 }
