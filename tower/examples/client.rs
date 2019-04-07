@@ -1,13 +1,6 @@
 use futures;
 use hyper;
 
-
-
-
-
-
-
-
 use futures::Future;
 use hyper::client::connect::Destination;
 use hyper::client::HttpConnector;

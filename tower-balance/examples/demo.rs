@@ -2,17 +2,11 @@
 
 use env_logger;
 
-
-
 use rand;
-
 
 use tower_balance;
 
 use tower_discover;
-
-
-
 
 use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;

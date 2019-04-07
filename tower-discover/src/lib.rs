@@ -5,10 +5,6 @@
 //! via the network; however, it is possible to discover services available in
 //! other processes or even in process.
 
-#[macro_use]
-extern crate futures;
-
-
 mod error;
 mod list;
 mod stream;

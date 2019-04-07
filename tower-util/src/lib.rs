@@ -1,11 +1,5 @@
 //! Various utility types and functions that are generally with Tower.
 
-#[macro_use]
-extern crate futures;
-
-
-
-
 mod boxed;
 mod call_all;
 mod either;

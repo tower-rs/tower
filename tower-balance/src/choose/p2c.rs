@@ -1,3 +1,4 @@
+use log::trace;
 use rand::{rngs::SmallRng, FromEntropy, Rng};
 
 use crate::choose::{Choose, Replicas};

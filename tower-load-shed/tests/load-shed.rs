@@ -1,7 +1,5 @@
-
 use tower_load_shed;
 use tower_mock;
-
 
 use futures::Future;
 use tower_load_shed::LoadShed;

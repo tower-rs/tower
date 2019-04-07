@@ -1,7 +1,5 @@
-
 use tower_mock;
 use tower_retry;
-
 
 use futures::{future, Future};
 use tower_retry::Policy;

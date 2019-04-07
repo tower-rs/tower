@@ -8,9 +8,6 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 
-
-
-
 use tower_service::Service;
 
 /// Decorates a `Service`, transforming either the request or the response.

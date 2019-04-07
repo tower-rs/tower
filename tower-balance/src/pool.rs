@@ -15,7 +15,7 @@
 #![deny(missing_docs)]
 
 use super::{Balance, Choose};
-use futures::{Async, Future, Poll};
+use futures::{try_ready, Async, Future, Poll};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 use tower_util::MakeService;

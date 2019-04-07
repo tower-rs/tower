@@ -4,13 +4,7 @@
 
 //! Tower middleware for retrying "failed" requests.
 
-#[macro_use]
-extern crate futures;
-
-
-
-
-use futures::{Async, Future, Poll};
+use futures::{try_ready, Async, Future, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 

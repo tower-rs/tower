@@ -1,10 +1,4 @@
-
 use hyper;
-
-
-
-
-
 
 use futures::{future, Future, Poll, Stream};
 use hyper::{Body, Request, Response};

@@ -10,8 +10,6 @@
 //! * [`Service`](trait.Service.html) is the primary trait and defines the request
 //! / response exchange. See that trait for more details.
 
-
-
 use futures::{Future, Poll};
 
 /// An asynchronous function from `Request` to a `Response`.

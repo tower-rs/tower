@@ -1,12 +1,5 @@
 //! Limit inbound requests.
 
-#[macro_use]
-extern crate futures;
-
-
-
-
-
 pub mod concurrency;
 pub mod rate;
 

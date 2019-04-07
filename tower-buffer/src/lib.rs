@@ -5,13 +5,6 @@
 //! buffer and a dedicated task, the `Buffer` layer in front of the service can
 //! be `Clone` even if the inner service is not.
 
-#[macro_use]
-extern crate futures;
-
-
-
-
-
 pub mod error;
 pub mod future;
 mod message;

@@ -1,19 +1,11 @@
-#[macro_use]
-extern crate futures;
-#[macro_use]
-extern crate log;
-
 use rand;
-
-
-
-
 
 #[cfg(test)]
 extern crate quickcheck;
 
 use futures::{Async, Poll};
 use indexmap::IndexMap;
+use log::{debug, trace};
 use rand::{rngs::SmallRng, SeedableRng};
 use std::fmt;
 use tower_discover::Discover;

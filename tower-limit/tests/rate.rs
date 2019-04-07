@@ -1,9 +1,7 @@
-
 use tokio;
 use tokio_timer;
 
 use tower_mock;
-
 
 use futures::future;
 use tower_limit::rate::*;

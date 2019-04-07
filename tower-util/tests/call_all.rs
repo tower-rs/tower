@@ -1,10 +1,6 @@
 use futures;
 use tokio_mock_task;
 
-
-
-
-
 use futures::future::{ok, FutureResult};
 use futures::stream;
 use futures::{Async, Poll, Stream};

@@ -4,13 +4,6 @@
 
 //! Various utility types and functions that are generally with Tower.
 
-#[macro_use]
-extern crate futures;
-
-
-
-
-
 pub use tower_balance as balance;
 pub use tower_buffer as buffer;
 pub use tower_discover as discover;
@@ -26,7 +19,7 @@ pub mod layer;
 pub mod util;
 
 pub use crate::builder::ServiceBuilder;
+pub use crate::util::ServiceExt;
 pub use tower_service::Service;
 pub use tower_util::MakeConnection;
 pub use tower_util::MakeService;
-pub use crate::util::ServiceExt;

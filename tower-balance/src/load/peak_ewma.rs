@@ -1,4 +1,5 @@
-use futures::{Async, Poll};
+use futures::{try_ready, Async, Poll};
+use log::trace;
 use std::ops;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

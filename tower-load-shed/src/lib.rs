@@ -4,10 +4,6 @@
 
 //! tower-load-shed
 
-
-
-
-
 use futures::Poll;
 use tower_service::Service;
 

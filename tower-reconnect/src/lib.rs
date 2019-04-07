@@ -1,14 +1,9 @@
-
-#[macro_use]
-extern crate log;
-
-
-
 pub mod future;
 
 use crate::future::ResponseFuture;
 
 use futures::{Async, Future, Poll};
+use log::trace;
 use tower_service::Service;
 use tower_util::MakeService;
 

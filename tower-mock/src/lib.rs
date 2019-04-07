@@ -1,9 +1,5 @@
 //! Mock `Service` that can be used in tests.
 
-
-
-
-
 pub mod error;
 pub mod future;
 

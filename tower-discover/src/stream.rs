@@ -1,5 +1,5 @@
 use crate::{Change, Discover};
-use futures::{Async, Poll, Stream};
+use futures::{try_ready, Async, Poll, Stream};
 use std::hash::Hash;
 use tower_service::Service;
 
