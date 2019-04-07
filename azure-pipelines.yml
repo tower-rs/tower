@@ -17,10 +17,10 @@ jobs:
       - tower-buffer
       - tower-discover
       - tower-filter
-      - tower-in-flight-limit
       - tower-layer
+      - tower-limit
       - tower-load-shed
-      - tower-rate-limit
+      - tower-mock
       - tower-reconnect
       - tower-retry
       - tower-service

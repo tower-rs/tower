@@ -1,22 +1,6 @@
-//! A Tower middleware that rate limits the requests that are passed to the
-//! inner service.
-
-#[macro_use]
-extern crate futures;
-extern crate tokio_timer;
-extern crate tower_layer;
-extern crate tower_service;
-
-pub mod error;
-pub mod future;
-mod layer;
-mod rate;
-
-pub use crate::layer::RateLimitLayer;
-pub use crate::rate::Rate;
-
-use crate::error::Error;
-use crate::future::ResponseFuture;
+use super::error::Error;
+use super::future::ResponseFuture;
+use super::Rate;
 use futures::{Future, Poll};
 use tokio_timer::{clock, Delay};
 use tower_service::Service;

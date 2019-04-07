@@ -1,12 +1,12 @@
 extern crate futures;
 extern crate tokio;
 extern crate tokio_timer;
+extern crate tower_limit;
 extern crate tower_mock;
-extern crate tower_rate_limit;
 extern crate tower_service;
 
 use futures::future;
-use tower_rate_limit::*;
+use tower_limit::rate::*;
 use tower_service::*;
 
 use std::time::{Duration, Instant};

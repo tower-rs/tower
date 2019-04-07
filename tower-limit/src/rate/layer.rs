@@ -1,5 +1,5 @@
-use crate::error::{never::Never, Error};
-use crate::{Rate, RateLimit};
+use super::error::{never::Never, Error};
+use super::{Rate, RateLimit};
 use std::time::Duration;
 use tower_layer::Layer;
 use tower_service::Service;
