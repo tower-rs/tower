@@ -3,11 +3,8 @@ use hyper;
 use futures::{future, Future, Poll, Stream};
 use hyper::{Body, Request, Response};
 use tokio_tcp::TcpListener;
-use tower::builder::ServiceBuilder;
-use tower_hyper::body::LiftBody;
-use tower_hyper::server::Server;
-use tower_limit::concurrency::ConcurrencyLimitLayer;
-use tower_service::Service;
+use tower::{builder::ServiceBuilder, Service};
+use tower_hyper::{body::LiftBody, server::Server};
 
 fn main() {
     hyper::rt::run(future::lazy(|| {
@@ -17,7 +14,7 @@ fn main() {
         println!("Listening on http://{}", addr);
 
         let maker = ServiceBuilder::new()
-            .layer(ConcurrencyLimitLayer::new(5))
+            .concurrency_limit(5)
             .make_service(MakeSvc);
 
         let server = Server::new(maker);
