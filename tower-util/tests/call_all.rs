@@ -1,8 +1,9 @@
 extern crate futures;
 extern crate tokio_mock_task;
 extern crate tower;
-extern crate tower_mock;
 extern crate tower_service;
+#[macro_use]
+extern crate tower_test;
 extern crate tower_util;
 
 use futures::future::{ok, FutureResult};
@@ -11,8 +12,8 @@ use futures::{Async, Poll, Stream};
 use std::cell::Cell;
 use std::rc::Rc;
 use tower::ServiceExt;
-use tower_mock::*;
 use tower_service::*;
+use tower_test::mock;
 
 type Error = Box<::std::error::Error + Send + Sync>;
 
@@ -123,26 +124,23 @@ fn ordered() {
 
 #[test]
 fn unordered() {
-    let (mock, mut handle) = Mock::<_, &'static str>::new();
+    let (mock, mut handle) = mock::pair::<_, &'static str>();
     let mut task = tokio_mock_task::MockTask::new();
     let requests = stream::iter_ok::<_, Error>(&["one", "two"]);
 
     let mut svc = mock.call_all(requests).unordered();
     assert_not_ready!(task.enter(|| svc.poll()));
 
-    let (req1, resp1) = handle.next_request().unwrap().into_parts();
-    let (req2, resp2) = handle.next_request().unwrap().into_parts();
+    let resp1 = assert_request_eq!(handle, &"one");
+    let resp2 = assert_request_eq!(handle, &"two");
 
-    assert_eq!(req1, &"one");
-    assert_eq!(req2, &"two");
-
-    resp2.respond("resp 1");
+    resp2.send_response("resp 1");
 
     let v = assert_ready!(task.enter(|| svc.poll()));
     assert_eq!(v, Some("resp 1"));
     assert_not_ready!(task.enter(|| svc.poll()));
 
-    resp1.respond("resp 2");
+    resp1.send_response("resp 2");
 
     let v = assert_ready!(task.enter(|| svc.poll()));
     assert_eq!(v, Some("resp 2"));
