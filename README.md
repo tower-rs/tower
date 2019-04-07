@@ -45,9 +45,6 @@ crates.
 * [`tower-limit`]: Middleware limiting the number of requests that are
   processed ([docs][tlim-docs]).
 
-* [`tower-mock`]: Testing utility for mocking a `Service`. This is useful for
-  testing middleware implementations ([docs][tm-docs]);
-
 * [`tower-reconnect`]: Middleware that automatically reconnects the inner
   service when it becomes degraded ([docs][tre-docs]).
 
@@ -93,8 +90,6 @@ terms or conditions.
 [tf-docs]: https://tower-rs.github.io/tower/doc/tower_filter/index.html
 [`tower-limit`]: tower-limit
 [tlim-docs]: https://tower-rs.github.io/tower/doc/tower_limit/index.html
-[`tower-mock`]: tower-mock
-[tm-docs]: https://tower-rs.github.io/tower/doc/tower_mock/index.html
 [`tower-reconnect`]: tower-reconnect
 [tre-docs]: https://tower-rs.github.io/tower/doc/tower_reconnect/index.html
 [`tower-retry`]: tower-retry
