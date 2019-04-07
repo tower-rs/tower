@@ -14,8 +14,7 @@ mod never;
 
 pub use crate::layer::TimeoutLayer;
 
-use crate::error::Error;
-use crate::future::ResponseFuture;
+use crate::{error::Error, future::ResponseFuture};
 use futures::Poll;
 use tokio_timer::{clock, Delay};
 

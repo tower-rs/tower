@@ -18,7 +18,7 @@ where
     target: Target,
 }
 
-type Error = Box<dyn ::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Debug)]
 enum State<F, S> {

@@ -1,21 +1,16 @@
 //! Combinators for working with `Service`s
 
-pub use tower_util::BoxService;
-pub use tower_util::CallAll;
-pub use tower_util::CallAllUnordered;
-pub use tower_util::Either;
-pub use tower_util::Oneshot;
-pub use tower_util::Optional;
-pub use tower_util::Ready;
-pub use tower_util::ServiceFn;
-pub use tower_util::UnsyncBoxService;
+pub use tower_util::{
+    BoxService, CallAll, CallAllUnordered, Either, Oneshot, Optional, Ready, ServiceFn,
+    UnsyncBoxService,
+};
 
 use futures::Stream;
 use tower_service::Service;
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}
 
-type Error = Box<dyn ::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters

@@ -12,8 +12,7 @@ mod future;
 mod layer;
 
 use self::error::Error;
-pub use self::future::ResponseFuture;
-pub use self::layer::LoadShedLayer;
+pub use self::{future::ResponseFuture, layer::LoadShedLayer};
 
 /// A `Service` that sheds load when the inner service isn't ready.
 #[derive(Debug)]

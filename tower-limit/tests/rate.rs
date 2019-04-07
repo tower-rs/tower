@@ -1,10 +1,8 @@
+use futures::future;
 use tokio;
 use tokio_timer;
-
-use tower_mock;
-
-use futures::future;
 use tower_limit::rate::*;
+use tower_mock;
 use tower_service::*;
 
 use std::time::{Duration, Instant};

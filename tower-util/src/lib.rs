@@ -13,16 +13,18 @@ mod ready;
 mod sealed;
 mod service_fn;
 
-pub use crate::boxed::{BoxService, UnsyncBoxService};
-pub use crate::call_all::{CallAll, CallAllUnordered};
-pub use crate::either::Either;
 #[cfg(feature = "io")]
 pub use crate::make_connection::MakeConnection;
-pub use crate::make_service::MakeService;
-pub use crate::oneshot::Oneshot;
-pub use crate::optional::Optional;
-pub use crate::ready::Ready;
-pub use crate::service_fn::ServiceFn;
+pub use crate::{
+    boxed::{BoxService, UnsyncBoxService},
+    call_all::{CallAll, CallAllUnordered},
+    either::Either,
+    make_service::MakeService,
+    oneshot::Oneshot,
+    optional::Optional,
+    ready::Ready,
+    service_fn::ServiceFn,
+};
 
 pub mod error {
     //! Error types

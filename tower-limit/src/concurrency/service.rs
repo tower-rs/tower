@@ -1,5 +1,4 @@
-use super::future::ResponseFuture;
-use super::Error;
+use super::{future::ResponseFuture, Error};
 
 use tower_service::Service;
 

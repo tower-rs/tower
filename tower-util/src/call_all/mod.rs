@@ -4,7 +4,6 @@ mod common;
 mod ordered;
 mod unordered;
 
-pub use self::ordered::CallAll;
-pub use self::unordered::CallAllUnordered;
+pub use self::{ordered::CallAll, unordered::CallAllUnordered};
 
-type Error = Box<dyn ::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;

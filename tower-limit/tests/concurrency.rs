@@ -1,12 +1,11 @@
-use futures;
-
-use tower_mock;
-
-use tower_limit::concurrency::ConcurrencyLimit;
-use tower_service::Service;
-
-use futures::future::{poll_fn, Future};
+use futures::{
+    self,
+    future::{poll_fn, Future},
+};
 use tokio_mock_task::MockTask;
+use tower_limit::concurrency::ConcurrencyLimit;
+use tower_mock;
+use tower_service::Service;
 
 macro_rules! assert_ready {
     ($e:expr) => {{

@@ -9,8 +9,7 @@ mod error;
 mod list;
 mod stream;
 
-pub use crate::list::ServiceList;
-pub use crate::stream::ServiceStream;
+pub use crate::{list::ServiceList, stream::ServiceStream};
 
 use futures::Poll;
 use std::hash::Hash;

@@ -1,16 +1,15 @@
-use futures;
+use futures::{
+    self,
+    future::{ok, FutureResult},
+    stream, Async, Poll, Stream,
+};
+use std::{cell::Cell, rc::Rc};
 use tokio_mock_task;
-
-use futures::future::{ok, FutureResult};
-use futures::stream;
-use futures::{Async, Poll, Stream};
-use std::cell::Cell;
-use std::rc::Rc;
 use tower::ServiceExt;
 use tower_mock::*;
 use tower_service::*;
 
-type Error = Box<dyn ::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Debug, Eq, PartialEq)]
 struct Srv {

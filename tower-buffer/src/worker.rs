@@ -1,5 +1,7 @@
-use crate::error::{Closed, Error, ServiceError, SpawnError};
-use crate::message::Message;
+use crate::{
+    error::{Closed, Error, ServiceError, SpawnError},
+    message::Message,
+};
 use futures::{try_ready, Async, Future, Poll, Stream};
 use std::sync::{Arc, Mutex};
 use tokio_executor::TypedExecutor;

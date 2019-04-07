@@ -1,7 +1,6 @@
 //! Error types
 
-use std::error;
-use std::fmt;
+use std::{error, fmt};
 
 pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 

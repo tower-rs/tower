@@ -1,11 +1,8 @@
-use tower_mock;
-
 use futures::*;
-use tower_filter::error::Error;
-use tower_filter::Filter;
-use tower_service::*;
-
 use std::thread;
+use tower_filter::{error::Error, Filter};
+use tower_mock;
+use tower_service::Service;
 
 #[test]
 fn passthrough_sync() {

@@ -1,7 +1,5 @@
-use hyper;
-
 use futures::{future, Future, Poll, Stream};
-use hyper::{Body, Request, Response};
+use hyper::{self, Body, Request, Response};
 use tokio_tcp::TcpListener;
 use tower::{builder::ServiceBuilder, Service};
 use tower_hyper::{body::LiftBody, server::Server};

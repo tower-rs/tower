@@ -1,7 +1,9 @@
 //! Future types
 
-use crate::error::{Closed, Error};
-use crate::message;
+use crate::{
+    error::{Closed, Error},
+    message,
+};
 use futures::{Async, Future, Poll};
 
 /// Future eventually completed with the response to the original request.

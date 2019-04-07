@@ -1,8 +1,7 @@
 use super::Error;
 use crate::Service;
 use futures::{try_ready, Async, Future, Poll};
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 use tower_layer::Layer;
 use tower_util::MakeService;
 

@@ -1,12 +1,13 @@
 use tokio;
 
-use futures::future::{self, FutureResult};
-use futures::prelude::*;
+use futures::{
+    future::{self, FutureResult},
+    prelude::*,
+};
 use std::time::Duration;
 use tower::builder::ServiceBuilder;
 use tower_buffer::BufferLayer;
-use tower_limit::concurrency::ConcurrencyLimitLayer;
-use tower_limit::rate::RateLimitLayer;
+use tower_limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer};
 use tower_reconnect::Reconnect;
 use tower_retry::{Policy, RetryLayer};
 use tower_service::*;

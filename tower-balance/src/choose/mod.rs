@@ -3,8 +3,7 @@ use indexmap::IndexMap;
 mod p2c;
 mod round_robin;
 
-pub use self::p2c::PowerOfTwoChoices;
-pub use self::round_robin::RoundRobin;
+pub use self::{p2c::PowerOfTwoChoices, round_robin::RoundRobin};
 
 /// A strategy for choosing nodes.
 // TODO hide `K`

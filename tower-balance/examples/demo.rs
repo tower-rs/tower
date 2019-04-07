@@ -1,24 +1,15 @@
 //! Exercises load balancers with mocked services.
 
 use env_logger;
-
-use rand;
-
-use tower_balance;
-
-use tower_discover;
-
 use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;
-use rand::Rng;
+use rand::{self, Rng};
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
-use tower::ServiceExt;
-use tower_balance as lb;
-use tower_discover::Discover;
-use tower_limit::concurrency::ConcurrencyLimit;
-use tower_service::Service;
-use tower_util::ServiceFn;
+use tower::{
+    balance as lb, discover::Discover, limit::concurrency::ConcurrencyLimit, util::ServiceFn,
+    Service, ServiceExt,
+};
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 500;
@@ -119,7 +110,7 @@ fn main() {
     rt.shutdown_on_idle().wait().unwrap();
 }
 
-type Error = Box<dyn ::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 fn gen_disco() -> impl Discover<
     Key = usize,

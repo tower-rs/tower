@@ -20,13 +20,16 @@ pub mod pool;
 #[cfg(test)]
 mod test;
 
-pub use self::choose::Choose;
-pub use self::load::weight::{HasWeight, Weight, Weighted, WithWeighted};
-pub use self::load::Load;
-pub use self::pool::Pool;
+pub use self::{
+    choose::Choose,
+    load::{
+        weight::{HasWeight, Weight, Weighted, WithWeighted},
+        Load,
+    },
+    pool::Pool,
+};
 
-use self::error::Error;
-use self::future::ResponseFuture;
+use self::{error::Error, future::ResponseFuture};
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]

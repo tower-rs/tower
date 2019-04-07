@@ -3,8 +3,7 @@
 pub use tower_layer::Layer;
 
 pub mod util {
-    pub use tower_util::layer::Chain;
-    pub use tower_util::layer::Identity;
+    pub use tower_util::layer::{Chain, Identity};
 }
 
 /// An extension trait for `Layer`'s that provides a variety of convenient

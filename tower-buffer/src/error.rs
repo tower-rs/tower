@@ -1,7 +1,6 @@
 //! Error types
 
-use std::fmt;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 /// An error produced by a `Service` wrapped by a `Buffer`
 #[derive(Debug)]
@@ -22,7 +21,7 @@ pub struct SpawnError {
 }
 
 /// Errors produced by `Buffer`.
-pub(crate) type Error = Box<dyn ::std::error::Error + Send + Sync>;
+pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
 
 // ===== impl ServiceError =====
 

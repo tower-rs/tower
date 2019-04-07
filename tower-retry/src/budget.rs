@@ -1,12 +1,13 @@
 //! A retry "budget" for allowing only a certain amount of retries over time.
 
-use std::fmt;
-use std::sync::{
-    atomic::{AtomicIsize, Ordering},
-    Mutex,
+use std::{
+    fmt,
+    sync::{
+        atomic::{AtomicIsize, Ordering},
+        Mutex,
+    },
+    time::{Duration, Instant},
 };
-use std::time::{Duration, Instant};
-
 use tokio_timer::clock;
 
 /// Represents a "budget" for retrying requests.
@@ -212,12 +213,13 @@ impl Bucket {
 
 #[cfg(test)]
 mod tests {
-    use tokio_executor;
-
     use self::tokio_executor::enter;
     use super::*;
-    use std::sync::{Arc, Mutex, MutexGuard};
-    use std::time::Instant;
+    use std::{
+        sync::{Arc, Mutex, MutexGuard},
+        time::Instant,
+    };
+    use tokio_executor;
 
     #[test]
     fn empty() {

@@ -1,8 +1,6 @@
-use tower_load_shed;
-use tower_mock;
-
 use futures::Future;
-use tower_load_shed::LoadShed;
+use tower_load_shed::{self, LoadShed};
+use tower_mock;
 use tower_service::Service;
 
 #[test]

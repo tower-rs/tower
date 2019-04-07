@@ -1,8 +1,6 @@
-use tower_mock;
-
-use tower_service::Service;
-
 use futures::Future;
+use tower_mock;
+use tower_service::Service;
 
 #[test]
 fn single_request_ready() {

@@ -18,8 +18,6 @@ pub mod builder;
 pub mod layer;
 pub mod util;
 
-pub use crate::builder::ServiceBuilder;
-pub use crate::util::ServiceExt;
+pub use crate::{builder::ServiceBuilder, util::ServiceExt};
 pub use tower_service::Service;
-pub use tower_util::MakeConnection;
-pub use tower_util::MakeService;
+pub use tower_util::{MakeConnection, MakeService};

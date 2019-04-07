@@ -1,6 +1,5 @@
 use futures::{try_ready, Async, Poll};
-use std::ops;
-use std::sync::Arc;
+use std::{ops, sync::Arc};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 

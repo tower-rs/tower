@@ -1,8 +1,10 @@
 use futures::{try_ready, Async, Poll};
 use log::trace;
-use std::ops;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::{
+    ops,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 use tokio_timer::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
@@ -311,11 +313,12 @@ mod tests {
     use tokio_executor;
     use tokio_timer;
 
-    use self::tokio_executor::enter;
-    use self::tokio_timer::clock;
+    use self::{tokio_executor::enter, tokio_timer::clock};
     use futures::{future, Future, Poll};
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
+    use std::{
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
+    };
 
     use super::*;
 

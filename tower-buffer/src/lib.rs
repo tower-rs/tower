@@ -12,15 +12,11 @@ mod worker;
 
 pub use crate::worker::WorkerExecutor;
 
-use crate::error::Error;
-use crate::future::ResponseFuture;
-use crate::message::Message;
-use crate::worker::Worker;
+use crate::{error::Error, future::ResponseFuture, message::Message, worker::Worker};
 
 use futures::Poll;
 use tokio_executor::DefaultExecutor;
-use tokio_sync::mpsc;
-use tokio_sync::oneshot;
+use tokio_sync::{mpsc, oneshot};
 use tower_layer::Layer;
 use tower_service::Service;
 

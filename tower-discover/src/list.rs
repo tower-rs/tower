@@ -1,5 +1,4 @@
-use crate::error::Never;
-use crate::{Change, Discover};
+use crate::{error::Never, Change, Discover};
 use futures::{Async, Poll};
 use std::iter::{Enumerate, IntoIterator};
 use tower_service::Service;

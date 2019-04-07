@@ -1,5 +1,7 @@
-use crate::error::{self, Error};
-use crate::{Filter, Predicate};
+use crate::{
+    error::{self, Error},
+    Filter, Predicate,
+};
 use tower_layer::Layer;
 use tower_service::Service;
 

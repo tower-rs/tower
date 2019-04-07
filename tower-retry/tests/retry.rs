@@ -103,7 +103,7 @@ fn success_with_cannot_clone() {
 type Req = &'static str;
 type Res = &'static str;
 type InnerError = &'static str;
-type Error = Box<dyn ::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 type Mock = tower_mock::Mock<Req, Res>;
 type Handle = tower_mock::Handle<Req, Res>;
 

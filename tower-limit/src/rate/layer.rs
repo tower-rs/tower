@@ -1,5 +1,7 @@
-use super::error::{never::Never, Error};
-use super::{Rate, RateLimit};
+use super::{
+    error::{never::Never, Error},
+    Rate, RateLimit,
+};
 use std::time::Duration;
 use tower_layer::Layer;
 use tower_service::Service;

@@ -1,8 +1,10 @@
 use tower_layer::Layer;
 use tower_service::Service;
 
-use crate::error::{Error, Never};
-use crate::LoadShed;
+use crate::{
+    error::{Error, Never},
+    LoadShed,
+};
 
 /// A `tower-layer` to wrap services in `LoadShed` middleware.
 #[derive(Debug)]

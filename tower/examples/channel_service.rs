@@ -10,16 +10,15 @@
 #![deny(warnings)]
 
 use env_logger;
-use log::info;
-use tower::{MakeService, Service, ServiceExt};
-
 use futures::{
     future::{Executor, FutureResult},
     sync::{mpsc, oneshot},
     Async, Future, IntoFuture, Poll, Stream,
 };
 use futures_cpupool::CpuPool;
+use log::info;
 use tokio_timer::Timer;
+use tower::{MakeService, Service, ServiceExt};
 
 use std::{io, time::Duration};
 

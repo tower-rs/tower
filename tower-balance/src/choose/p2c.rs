@@ -1,8 +1,10 @@
 use log::trace;
 use rand::{rngs::SmallRng, FromEntropy, Rng};
 
-use crate::choose::{Choose, Replicas};
-use crate::Load;
+use crate::{
+    choose::{Choose, Replicas},
+    Load,
+};
 
 /// Chooses nodes using the [Power of Two Choices][p2c].
 ///

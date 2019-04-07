@@ -58,5 +58,4 @@
 mod sync;
 mod unsync;
 
-pub use self::sync::BoxService;
-pub use self::unsync::UnsyncBoxService;
+pub use self::{sync::BoxService, unsync::UnsyncBoxService};

@@ -1,5 +1,4 @@
-use std::fmt;
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
 
 use futures::{try_ready, Future, Poll};
 use tower_service::Service;
