@@ -17,12 +17,12 @@ pub mod future;
 mod message;
 mod worker;
 
-pub use worker::WorkerExecutor;
+pub use crate::worker::WorkerExecutor;
 
-use error::Error;
-use future::ResponseFuture;
-use message::Message;
-use worker::Worker;
+use crate::error::Error;
+use crate::future::ResponseFuture;
+use crate::message::Message;
+use crate::worker::Worker;
 
 use futures::Poll;
 use tokio_executor::DefaultExecutor;

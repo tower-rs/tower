@@ -1,4 +1,4 @@
-use error::Error;
+use crate::error::Error;
 use futures::{Future, IntoFuture};
 
 /// Checks a request

@@ -1,5 +1,5 @@
 use crate::{Error, Timeout};
-use never::Never;
+use crate::never::Never;
 use std::time::Duration;
 use tower_layer::Layer;
 use tower_service::Service;

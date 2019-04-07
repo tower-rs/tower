@@ -25,8 +25,8 @@ pub mod builder;
 pub mod layer;
 pub mod util;
 
-pub use builder::ServiceBuilder;
+pub use crate::builder::ServiceBuilder;
 pub use tower_service::Service;
 pub use tower_util::MakeConnection;
 pub use tower_util::MakeService;
-pub use util::ServiceExt;
+pub use crate::util::ServiceExt;

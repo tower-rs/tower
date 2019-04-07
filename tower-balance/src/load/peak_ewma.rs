@@ -8,7 +8,7 @@ use tower_service::Service;
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 
-use {HasWeight, Load, Weight};
+use crate::{HasWeight, Load, Weight};
 
 /// Wraps an `S`-typed Service with Peak-EWMA load measurement.
 ///

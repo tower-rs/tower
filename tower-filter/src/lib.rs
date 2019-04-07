@@ -10,11 +10,11 @@ pub mod future;
 mod layer;
 mod predicate;
 
-pub use layer::FilterLayer;
-pub use predicate::Predicate;
+pub use crate::layer::FilterLayer;
+pub use crate::predicate::Predicate;
 
-use error::Error;
-use future::ResponseFuture;
+use crate::error::Error;
+use crate::future::ResponseFuture;
 use futures::Poll;
 use tower_service::Service;
 

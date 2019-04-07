@@ -17,7 +17,7 @@ use tower_service::Service;
 pub mod budget;
 mod never;
 
-use never::Never;
+use crate::never::Never;
 
 /// A "retry policy" to classify if a request should be retried.
 ///

@@ -3,7 +3,7 @@ use std::ops;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-use Load;
+use crate::Load;
 
 /// A weight on [0.0, ∞].
 ///

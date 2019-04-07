@@ -7,8 +7,8 @@ extern crate tower_service;
 pub mod error;
 pub mod future;
 
-use error::Error;
-use future::ResponseFuture;
+use crate::error::Error;
+use crate::future::ResponseFuture;
 use futures::task::{self, Task};
 use futures::{Async, Future, Poll, Stream};
 use tokio_sync::{mpsc, oneshot};

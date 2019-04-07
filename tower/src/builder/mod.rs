@@ -4,13 +4,13 @@ mod service;
 
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
-use buffer::BufferLayer;
-use filter::FilterLayer;
-use limit::concurrency::ConcurrencyLimitLayer;
-use limit::rate::RateLimitLayer;
-use load_shed::LoadShedLayer;
-use retry::RetryLayer;
-use timeout::TimeoutLayer;
+use crate::buffer::BufferLayer;
+use crate::filter::FilterLayer;
+use crate::limit::concurrency::ConcurrencyLimitLayer;
+use crate::limit::rate::RateLimitLayer;
+use crate::load_shed::LoadShedLayer;
+use crate::retry::RetryLayer;
+use crate::timeout::TimeoutLayer;
 
 use tower_layer::Layer;
 use tower_service::Service;

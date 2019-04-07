@@ -2,7 +2,7 @@ use std::fmt;
 
 use futures::{Future, Poll};
 
-use error::{Error, Overloaded};
+use crate::error::{Error, Overloaded};
 
 /// Future for the `LoadShed` service.
 pub struct ResponseFuture<F> {

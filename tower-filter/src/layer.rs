@@ -1,7 +1,7 @@
-use error::{self, Error};
+use crate::error::{self, Error};
 use tower_layer::Layer;
 use tower_service::Service;
-use {Filter, Predicate};
+use crate::{Filter, Predicate};
 
 pub struct FilterLayer<U> {
     predicate: U,

@@ -1,4 +1,4 @@
-use error::ServiceError;
+use crate::error::ServiceError;
 use tokio_sync::oneshot;
 
 /// Message sent over buffer

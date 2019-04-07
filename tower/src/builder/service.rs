@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use tower_layer::Layer;
 use tower_util::MakeService;
-use Service;
+use crate::Service;
 
 /// Composed `MakeService` produced from `ServiceBuilder`
 #[derive(Debug)]

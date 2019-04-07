@@ -1,7 +1,7 @@
 use rand::{rngs::SmallRng, FromEntropy, Rng};
 
-use choose::{Choose, Replicas};
-use Load;
+use crate::choose::{Choose, Replicas};
+use crate::Load;
 
 /// Chooses nodes using the [Power of Two Choices][p2c].
 ///

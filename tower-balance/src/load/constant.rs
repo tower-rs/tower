@@ -2,7 +2,7 @@ use futures::{Async, Poll};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
-use Load;
+use crate::Load;
 
 /// Wraps a type so that `Load::load` returns a constant value.
 pub struct Constant<T, M> {
