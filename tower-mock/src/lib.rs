@@ -1,3 +1,4 @@
+#![deny(rust_2018_idioms)]
 //! Mock `Service` that can be used in tests.
 
 pub mod error;

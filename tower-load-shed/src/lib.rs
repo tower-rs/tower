@@ -1,6 +1,7 @@
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
+#![deny(rust_2018_idioms)]
 
 //! tower-load-shed
 

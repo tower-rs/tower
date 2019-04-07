@@ -4,7 +4,7 @@
 //! will be aborted.
 
 #![doc(html_root_url = "https://docs.rs/tower-timeout/0.1.0")]
-#![deny(missing_debug_implementations, missing_docs)]
+#![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 #![cfg_attr(test, deny(warnings))]
 
 pub mod error;

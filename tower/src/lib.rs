@@ -1,6 +1,7 @@
 // Allows refining features in the future without breaking backwards
 // compatibility
 #![cfg(feature = "full")]
+#![deny(missing_docs, rust_2018_idioms)]
 
 //! Various utility types and functions that are generally with Tower.
 

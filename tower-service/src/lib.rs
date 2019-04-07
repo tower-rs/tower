@@ -1,4 +1,5 @@
 #![deny(missing_docs)]
+#![deny(rust_2018_idioms)]
 #![doc(html_root_url = "https://docs.rs/tower-service/0.2.0")]
 
 //! Definition of the core `Service` trait to Tower
@@ -10,6 +11,7 @@
 //! * [`Service`](trait.Service.html) is the primary trait and defines the request
 //! / response exchange. See that trait for more details.
 
+extern crate futures;
 use futures::{Future, Poll};
 
 /// An asynchronous function from `Request` to a `Response`.

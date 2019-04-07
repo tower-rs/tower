@@ -1,5 +1,4 @@
-use rand;
-
+#![deny(rust_2018_idioms)]
 #[cfg(test)]
 extern crate quickcheck;
 

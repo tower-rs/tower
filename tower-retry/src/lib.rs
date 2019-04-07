@@ -1,6 +1,7 @@
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![deny(warnings)]
+#![deny(rust_2018_idioms)]
 
 //! Tower middleware for retrying "failed" requests.
 

@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 //! Conditionally dispatch requests to the inner service based on the result of
 //! a predicate.
 

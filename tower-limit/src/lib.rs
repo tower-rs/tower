@@ -1,3 +1,4 @@
+#![deny(rust_2018_idioms)]
 //! Limit inbound requests.
 
 pub mod concurrency;

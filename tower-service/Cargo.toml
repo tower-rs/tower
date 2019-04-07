@@ -17,7 +17,7 @@ description = """
 Trait representing an asynchronous, request / response based, client or server.
 """
 categories = ["asynchronous", "network-programming"]
-edition = "2018"
+edition = "2015"
 
 [dependencies]
 futures = "0.1.23"

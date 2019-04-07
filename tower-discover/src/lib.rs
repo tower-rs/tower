@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 //! # Tower service discovery
 //!
 //! Service discovery is the automatic detection of services available to the

@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 //! Buffer requests when the inner service is out of capacity.
 //!
 //! Buffering works by spawning a new task that is dedicated to pulling requests

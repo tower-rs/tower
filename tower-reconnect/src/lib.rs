@@ -1,13 +1,13 @@
+#![deny(rust_2018_idioms)]
+
 pub mod future;
 
 use crate::future::ResponseFuture;
-
 use futures::{Async, Future, Poll};
 use log::trace;
+use std::fmt;
 use tower_service::Service;
 use tower_util::MakeService;
-
-use std::fmt;
 
 pub struct Reconnect<M, Target>
 where

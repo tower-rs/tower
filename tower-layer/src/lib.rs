@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#![deny(missing_docs, rust_2018_idioms)]
 #![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
 
 //! Layer traits and extensions.

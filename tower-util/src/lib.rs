@@ -1,4 +1,5 @@
 //! Various utility types and functions that are generally with Tower.
+#![deny(rust_2018_idioms)]
 
 mod boxed;
 mod call_all;
