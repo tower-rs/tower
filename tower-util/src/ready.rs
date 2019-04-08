@@ -46,7 +46,7 @@ impl<T, Request> fmt::Debug for Ready<T, Request>
 where
     T: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Ready").field("inner", &self.inner).finish()
     }
 }

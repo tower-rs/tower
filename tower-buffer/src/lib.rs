@@ -1,4 +1,5 @@
 #![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 //! Buffer requests when the inner service is out of capacity.
 //!

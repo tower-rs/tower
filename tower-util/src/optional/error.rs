@@ -12,7 +12,7 @@ impl None {
 }
 
 impl fmt::Display for None {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "None")
     }
 }

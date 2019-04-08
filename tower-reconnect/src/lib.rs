@@ -1,4 +1,5 @@
 #![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 pub mod future;
 
@@ -139,7 +140,7 @@ where
     M::Response: fmt::Debug,
     Target: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Reconnect")
             .field("mk_service", &self.mk_service)
             .field("state", &self.state)

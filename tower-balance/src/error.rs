@@ -6,7 +6,7 @@ pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
 pub struct Balance(pub(crate) Error);
 
 impl fmt::Display for Balance {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "load balancing discover error: {}", self.0)
     }
 }

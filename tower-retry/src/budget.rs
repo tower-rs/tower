@@ -140,7 +140,7 @@ impl Default for Budget {
 }
 
 impl fmt::Debug for Budget {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Budget")
             .field("deposit", &self.deposit_amount)
             .field("withdraw", &self.withdraw_amount)
@@ -288,7 +288,7 @@ mod tests {
     struct MockNow(Arc<Mutex<Instant>>);
 
     impl MockNow {
-        fn as_mut(&self) -> MutexGuard<'_, Instant> {
+        fn as_mut(&self) -> MutexGuard<Instant> {
             self.0.lock().unwrap()
         }
     }

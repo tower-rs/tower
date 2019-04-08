@@ -2,6 +2,7 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 #![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware for retrying "failed" requests.
 

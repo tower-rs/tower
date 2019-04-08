@@ -40,7 +40,7 @@ impl ServiceError {
 }
 
 impl fmt::Display for ServiceError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<>) -> fmt::Result {
         write!(fmt, "buffered service failed: {}", self.inner)
     }
 }
@@ -60,7 +60,7 @@ impl Closed {
 }
 
 impl fmt::Display for Closed {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<>) -> fmt::Result {
         fmt.write_str("buffer's worker closed unexpectedly")
     }
 }
@@ -76,7 +76,7 @@ impl SpawnError {
 }
 
 impl fmt::Display for SpawnError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<>) -> fmt::Result {
         write!(f, "failed to spawn Buffer worker task")
     }
 }

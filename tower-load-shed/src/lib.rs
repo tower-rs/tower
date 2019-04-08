@@ -2,6 +2,7 @@
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 //! tower-load-shed
 

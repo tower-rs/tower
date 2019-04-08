@@ -9,7 +9,7 @@ pub(crate) mod never {
     pub enum Never {}
 
     impl fmt::Display for Never {
-        fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn fmt(&self, _: &mut fmt::Formatter<>) -> fmt::Result {
             unreachable!();
         }
     }

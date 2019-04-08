@@ -9,7 +9,7 @@ pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 pub struct Elapsed(pub(super) ());
 
 impl fmt::Display for Elapsed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad("request timed out")
     }
 }
