@@ -14,4 +14,4 @@ tokio-sync = "0.1.0"
 
 [dev-dependencies]
 tower = { version = "0.1", path = "../tower" }
-tower-mock = { version = "0.1", path = "../tower-mock" }
+tower-test = { version = "0.1", path = "../tower-test" }

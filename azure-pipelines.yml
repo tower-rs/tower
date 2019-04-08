@@ -20,10 +20,10 @@ jobs:
       - tower-layer
       - tower-limit
       - tower-load-shed
-      - tower-mock
       - tower-reconnect
       - tower-retry
       - tower-service
+      - tower-test
       - tower-timeout
       - tower-util
       - tower

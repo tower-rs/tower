@@ -5,10 +5,8 @@
 
 //! Various utility types and functions that are generally with Tower.
 
-pub use tower_balance as balance;
 pub use tower_buffer as buffer;
 pub use tower_discover as discover;
-pub use tower_filter as filter;
 pub use tower_limit as limit;
 pub use tower_load_shed as load_shed;
 pub use tower_reconnect as reconnect;

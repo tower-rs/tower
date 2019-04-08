@@ -56,7 +56,7 @@ where
     U: fmt::Debug,
     E: fmt::Debug,
 {
-    fn fmt(&self, fmt: &mut fmt::Formatter<>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BoxService").finish()
     }
 }

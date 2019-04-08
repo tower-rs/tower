@@ -11,4 +11,4 @@ tower-service = "0.2.0"
 tower-layer = { version = "0.1", path = "../tower-layer" }
 
 [dev-dependencies]
-tower-mock = { version = "0.1", path = "../tower-mock" }
+tower-test = { version = "0.1", path = "../tower-test" }

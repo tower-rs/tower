@@ -1,11 +1,9 @@
-#![deny(rust_2018_idioms)]
-#![allow(elided_lifetimes_in_paths)]
 //! Mock `Service` that can be used in tests.
 
 pub mod error;
 pub mod future;
 
-use crate::{error::Error, future::ResponseFuture};
+use crate::mock::{error::Error, future::ResponseFuture};
 use futures::{
     task::{self, Task},
     Async, Future, Poll, Stream,
@@ -15,7 +13,6 @@ use tower_service::Service;
 
 use std::{
     collections::HashMap,
-    ops,
     sync::{Arc, Mutex},
     u64,
 };
@@ -36,15 +33,11 @@ pub struct Handle<T, U> {
     state: Arc<Mutex<State>>,
 }
 
-#[derive(Debug)]
-pub struct Request<T, U> {
-    request: T,
-    respond: Respond<U>,
-}
+type Request<T, U> = (T, SendResponse<U>);
 
-/// Respond to a request received by `Mock`.
+/// Send a response in reply to a received request.
 #[derive(Debug)]
-pub struct Respond<T> {
+pub struct SendResponse<T> {
     tx: oneshot::Sender<Result<T, Error>>,
 }
 
@@ -69,27 +62,23 @@ struct State {
 type Tx<T, U> = mpsc::UnboundedSender<Request<T, U>>;
 type Rx<T, U> = mpsc::UnboundedReceiver<Request<T, U>>;
 
-// ===== impl Mock =====
+/// Create a new `Mock` and `Handle` pair.
+pub fn pair<T, U>() -> (Mock<T, U>, Handle<T, U>) {
+    let (tx, rx) = mpsc::unbounded_channel();
+    let tx = Mutex::new(tx);
 
-impl<T, U> Mock<T, U> {
-    /// Create a new `Mock` and `Handle` pair.
-    pub fn new() -> (Self, Handle<T, U>) {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let tx = Mutex::new(tx);
+    let state = Arc::new(Mutex::new(State::new()));
 
-        let state = Arc::new(Mutex::new(State::new()));
+    let mock = Mock {
+        id: 0,
+        tx,
+        state: state.clone(),
+        can_send: false,
+    };
 
-        let mock = Mock {
-            id: 0,
-            tx,
-            state: state.clone(),
-            can_send: false,
-        };
+    let handle = Handle { rx, state };
 
-        let handle = Handle { rx, state };
-
-        (mock, handle)
-    }
+    (mock, handle)
 }
 
 impl<T, U> Service<T> for Mock<T, U> {
@@ -150,13 +139,9 @@ impl<T, U> Service<T> for Mock<T, U> {
         }
 
         let (tx, rx) = oneshot::channel();
+        let send_response = SendResponse { tx };
 
-        let request = Request {
-            request,
-            respond: Respond { tx },
-        };
-
-        match self.tx.lock().unwrap().try_send(request) {
+        match self.tx.lock().unwrap().try_send((request, send_response)) {
             Ok(_) => {}
             Err(_) => {
                 // TODO: Can this be reached
@@ -236,7 +221,7 @@ impl<T, U> Handle<T, U> {
     }
 
     /// Make the next poll_ method error with the given error.
-    pub fn error<E: Into<Error>>(&mut self, e: E) {
+    pub fn send_error<E: Into<Error>>(&mut self, e: E) {
         let mut state = self.state.lock().unwrap();
         state.err_with = Some(e.into());
 
@@ -267,40 +252,15 @@ impl<T, U> Drop for Handle<T, U> {
     }
 }
 
-// ===== impl Request =====
+// ===== impl SendResponse =====
 
-impl<T, U> Request<T, U> {
-    /// Split the request and respond handle
-    pub fn into_parts(self) -> (T, Respond<U>) {
-        (self.request, self.respond)
-    }
-
-    pub fn respond(self, response: U) {
-        self.respond.respond(response)
-    }
-
-    pub fn error<E: Into<Error>>(self, err: E) {
-        self.respond.error(err)
-    }
-}
-
-impl<T, U> ops::Deref for Request<T, U> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &self.request
-    }
-}
-
-// ===== impl Respond =====
-
-impl<T> Respond<T> {
-    pub fn respond(self, response: T) {
+impl<T> SendResponse<T> {
+    pub fn send_response(self, response: T) {
         // TODO: Should the result be dropped?
         let _ = self.tx.send(Ok(response));
     }
 
-    pub fn error<E: Into<Error>>(self, err: E) {
+    pub fn send_error<E: Into<Error>>(self, err: E) {
         // TODO: Should the result be dropped?
         let _ = self.tx.send(Err(err.into()));
     }

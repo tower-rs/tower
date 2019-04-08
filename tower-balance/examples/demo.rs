@@ -7,9 +7,9 @@ use rand::{self, Rng};
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
 use tower::{
-    balance as lb, discover::Discover, limit::concurrency::ConcurrencyLimit, util::ServiceFn,
-    Service, ServiceExt,
+    discover::Discover, limit::concurrency::ConcurrencyLimit, util::ServiceFn, Service, ServiceExt,
 };
+use tower_balance as lb;
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 500;

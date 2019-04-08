@@ -13,6 +13,6 @@ tokio-sync = "0.1.3"
 tokio-timer = "0.2.6"
 
 [dev-dependencies]
-tower-mock = { version = "0.1", path = "../tower-mock" }
+tower-test = { version = "0.1", path = "../tower-test" }
 tokio = "0.1"
 tokio-mock-task = "0.1.1"
