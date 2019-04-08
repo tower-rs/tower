@@ -14,7 +14,7 @@ use timeout::TimeoutLayer;
 
 use tower_layer::Layer;
 use tower_service::Service;
-use tower_util::layer::{Stack, Identity};
+use tower_util::layer::{Identity, Stack};
 use tower_util::MakeService;
 
 use std::time::Duration;

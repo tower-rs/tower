@@ -3,6 +3,6 @@
 pub use tower_layer::Layer;
 
 pub mod util {
-    pub use tower_util::layer::Stack;
     pub use tower_util::layer::Identity;
+    pub use tower_util::layer::Stack;
 }
