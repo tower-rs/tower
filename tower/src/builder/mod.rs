@@ -5,7 +5,6 @@ mod service;
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
 use buffer::BufferLayer;
-use filter::FilterLayer;
 use limit::concurrency::ConcurrencyLimitLayer;
 use limit::rate::RateLimitLayer;
 use load_shed::LoadShedLayer;
@@ -235,18 +234,6 @@ impl<L> ServiceBuilder<L> {
     /// Buffer requests when when the next layer is out of capacity.
     pub fn buffer(self, bound: usize) -> ServiceBuilder<Stack<BufferLayer, L>> {
         self.layer(BufferLayer::new(bound))
-    }
-
-    /// Filter requests using the given `predicate`.
-    ///
-    /// The `predicate` checks the request and determines if it should be
-    /// forwarded to the next layer or immediately respond with an error.
-    ///
-    /// `predicate` must implement [`Predicate`]
-    ///
-    /// [`Predicate`]: ../filter/trait.Predicate.html
-    pub fn filter<U>(self, predicate: U) -> ServiceBuilder<Stack<FilterLayer<U>, L>> {
-        self.layer(FilterLayer::new(predicate))
     }
 
     /// Limit the max number of in-flight requests.
