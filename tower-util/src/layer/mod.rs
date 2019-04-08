@@ -1,5 +1,5 @@
-mod chain;
 mod identity;
+mod stack;
 
-pub use self::chain::Chain;
 pub use self::identity::Identity;
+pub use self::stack::Stack;
