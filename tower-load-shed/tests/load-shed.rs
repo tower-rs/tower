@@ -1,11 +1,13 @@
 extern crate futures;
 extern crate tower_load_shed;
-extern crate tower_mock;
 extern crate tower_service;
+#[macro_use]
+extern crate tower_test;
 
 use futures::Future;
 use tower_load_shed::LoadShed;
 use tower_service::Service;
+use tower_test::mock;
 
 #[test]
 fn when_ready() {
@@ -20,10 +22,7 @@ fn when_ready() {
 
     let response = service.call("hello");
 
-    let request = handle.next_request().unwrap();
-    assert_eq!(*request, "hello");
-    request.respond("world");
-
+    assert_request_eq!(handle, "hello").send_response("world");
     assert_eq!(response.wait().unwrap(), "world");
 }
 
@@ -46,11 +45,11 @@ fn when_not_ready() {
     assert!(err.is::<tower_load_shed::error::Overloaded>());
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str>;
-type Handle = tower_mock::Handle<&'static str, &'static str>;
+type Mock = mock::Mock<&'static str, &'static str>;
+type Handle = mock::Handle<&'static str, &'static str>;
 
 fn new_service() -> (LoadShed<Mock>, Handle) {
-    let (service, handle) = Mock::new();
+    let (service, handle) = mock::pair();
     let service = LoadShed::new(service);
     (service, handle)
 }

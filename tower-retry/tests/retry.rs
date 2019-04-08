@@ -1,11 +1,13 @@
 extern crate futures;
-extern crate tower_mock;
 extern crate tower_retry;
 extern crate tower_service;
+#[macro_use]
+extern crate tower_test;
 
 use futures::{future, Future};
 use tower_retry::Policy;
 use tower_service::Service;
+use tower_test::mock;
 
 #[test]
 fn retry_errors() {
@@ -14,15 +16,11 @@ fn retry_errors() {
     assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
-    let req1 = handle.next_request().unwrap();
-    assert_eq!(*req1, "hello");
-    req1.error("retry me");
+    assert_request_eq!(handle, "hello").send_error("retry me");
 
     assert_not_ready(&mut fut);
 
-    let req2 = handle.next_request().unwrap();
-    assert_eq!(*req2, "hello");
-    req2.respond("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     assert_eq!(fut.wait().unwrap(), "world");
 }
@@ -34,22 +32,13 @@ fn retry_limit() {
     assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
-    let req1 = handle.next_request().unwrap();
-    assert_eq!(*req1, "hello");
-    req1.error("retry 1");
-
+    assert_request_eq!(handle, "hello").send_error("retry 1");
     assert_not_ready(&mut fut);
 
-    let req2 = handle.next_request().unwrap();
-    assert_eq!(*req2, "hello");
-    req2.error("retry 2");
-
+    assert_request_eq!(handle, "hello").send_error("retry 2");
     assert_not_ready(&mut fut);
 
-    let req3 = handle.next_request().unwrap();
-    assert_eq!(*req3, "hello");
-    req3.error("retry 3");
-
+    assert_request_eq!(handle, "hello").send_error("retry 3");
     assert_eq!(fut.wait().unwrap_err().to_string(), "retry 3");
 }
 
@@ -60,15 +49,10 @@ fn retry_error_inspection() {
     assert!(service.poll_ready().unwrap().is_ready());
     let mut fut = service.call("hello");
 
-    let req1 = handle.next_request().unwrap();
-    assert_eq!(*req1, "hello");
-    req1.error("retry 1");
-
+    assert_request_eq!(handle, "hello").send_error("retry 1");
     assert_not_ready(&mut fut);
 
-    let req2 = handle.next_request().unwrap();
-    assert_eq!(*req2, "hello");
-    req2.error("reject");
+    assert_request_eq!(handle, "hello").send_error("reject");
     assert_eq!(fut.wait().unwrap_err().to_string(), "reject");
 }
 
@@ -79,10 +63,7 @@ fn retry_cannot_clone_request() {
     assert!(service.poll_ready().unwrap().is_ready());
     let fut = service.call("hello");
 
-    let req1 = handle.next_request().unwrap();
-    assert_eq!(*req1, "hello");
-    req1.error("retry 1");
-
+    assert_request_eq!(handle, "hello").send_error("retry 1");
     assert_eq!(fut.wait().unwrap_err().to_string(), "retry 1");
 }
 
@@ -95,10 +76,7 @@ fn success_with_cannot_clone() {
     assert!(service.poll_ready().unwrap().is_ready());
     let fut = service.call("hello");
 
-    let req1 = handle.next_request().unwrap();
-    assert_eq!(*req1, "hello");
-    req1.respond("world");
-
+    assert_request_eq!(handle, "hello").send_response("world");
     assert_eq!(fut.wait().unwrap(), "world");
 }
 
@@ -106,8 +84,8 @@ type Req = &'static str;
 type Res = &'static str;
 type InnerError = &'static str;
 type Error = Box<::std::error::Error + Send + Sync>;
-type Mock = tower_mock::Mock<Req, Res>;
-type Handle = tower_mock::Handle<Req, Res>;
+type Mock = mock::Mock<Req, Res>;
+type Handle = mock::Handle<Req, Res>;
 
 #[derive(Clone)]
 struct RetryErrors;
@@ -182,7 +160,7 @@ impl Policy<Req, Res, Error> for CannotClone {
 fn new_service<P: Policy<Req, Res, Error> + Clone>(
     policy: P,
 ) -> (tower_retry::Retry<P, Mock>, Handle) {
-    let (service, handle) = Mock::new();
+    let (service, handle) = mock::pair();
     let service = tower_retry::Retry::new(policy, service);
     (service, handle)
 }
