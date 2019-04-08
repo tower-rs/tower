@@ -67,7 +67,7 @@ where
     /// Chooses two distinct nodes at random and compares their load.
     ///
     /// Returns the index of the lesser-loaded node.
-    fn choose(&mut self, replicas: Replicas<'_, K, L>) -> usize {
+    fn choose(&mut self, replicas: Replicas<K, L>) -> usize {
         let (a, b) = self.random_pair(replicas.len());
 
         let a_load = replicas[a].load();

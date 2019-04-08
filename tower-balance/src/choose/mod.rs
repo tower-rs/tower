@@ -12,12 +12,12 @@ pub trait Choose<K, N> {
     ///
     /// `replicas` cannot be empty, so this function must always return a valid index on
     /// [0, replicas.len()-1].
-    fn choose(&mut self, replicas: Replicas<'_, K, N>) -> usize;
+    fn choose(&mut self, replicas: Replicas<K, N>) -> usize;
 }
 
 /// Creates a `Replicas` if there are two or more services.
 ///
-pub(crate) fn replicas<K, S>(inner: &IndexMap<K, S>) -> Result<Replicas<'_, K, S>, TooFew> {
+pub(crate) fn replicas<K, S>(inner: &IndexMap<K, S>) -> Result<Replicas<K, S>, TooFew> {
     if inner.len() < 2 {
         return Err(TooFew);
     }
@@ -33,13 +33,13 @@ pub struct TooFew;
 // TODO hide `K`
 pub struct Replicas<'a, K, S>(&'a IndexMap<K, S>);
 
-impl<'a, K, S> Replicas<'a, K, S> {
+impl<K, S> Replicas<'_, K, S> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl<'a, K, S> ::std::ops::Index<usize> for Replicas<'a, K, S> {
+impl<K, S> ::std::ops::Index<usize> for Replicas<'_, K, S> {
     type Output = S;
 
     fn index(&self, idx: usize) -> &Self::Output {

@@ -14,7 +14,7 @@ pub struct RoundRobin {
 }
 
 impl<K, N> Choose<K, N> for RoundRobin {
-    fn choose(&mut self, nodes: Replicas<'_, K, N>) -> usize {
+    fn choose(&mut self, nodes: Replicas<K, N>) -> usize {
         let len = nodes.len();
         let idx = self.pos % len;
         self.pos = (idx + 1) % len;
