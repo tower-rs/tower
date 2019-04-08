@@ -25,9 +25,7 @@ tower-layer = { version = "0.1", path = "../tower-layer" }
 tower-limit = { version = "0.1.0", path = "../tower-limit" }
 tower-retry = { version = "0.1", path = "../tower-retry" }
 tower-buffer = { version = "0.1", path = "../tower-buffer" }
-tower-filter = { version = "0.1", path = "../tower-filter" }
 tower-load-shed = { version = "0.1", path = "../tower-load-shed" }
-tower-balance = { version = "0.1", path = "../tower-balance" }
 tower-discover = { version = "0.1", path = "../tower-discover" }
 tower-reconnect = { version = "0.1", path = "../tower-reconnect" }
 tower-timeout = { version = "0.1", path = "../tower-timeout" }
