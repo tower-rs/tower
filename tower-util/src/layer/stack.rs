@@ -5,21 +5,21 @@ use tower_service::Service;
 ///
 /// This type is produced by `Layer::chain`.
 #[derive(Debug)]
-pub struct Chain<Inner, Outer> {
+pub struct Stack<Inner, Outer> {
     inner: Inner,
     outer: Outer,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
-impl<Inner, Outer> Chain<Inner, Outer> {
-    /// Create a new `Chain`.
+impl<Inner, Outer> Stack<Inner, Outer> {
+    /// Create a new `Stack`.
     pub fn new(inner: Inner, outer: Outer) -> Self {
-        Chain { inner, outer }
+        Stack { inner, outer }
     }
 }
 
-impl<S, Request, Inner, Outer> Layer<S, Request> for Chain<Inner, Outer>
+impl<S, Request, Inner, Outer> Layer<S, Request> for Stack<Inner, Outer>
 where
     S: Service<Request>,
     Inner: Layer<S, Request>,

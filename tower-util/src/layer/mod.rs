@@ -1,4 +1,4 @@
-mod chain;
 mod identity;
+mod stack;
 
-pub use self::{chain::Chain, identity::Identity};
+pub use self::{identity::Identity, stack::Stack};
