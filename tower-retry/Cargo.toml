@@ -2,6 +2,7 @@
 name = "tower-retry"
 version = "0.1.0"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
+license = "MIT"
 publish = false
 edition = "2018"
 
