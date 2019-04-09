@@ -1,7 +1,10 @@
 use futures::prelude::*;
 use std::{cell::RefCell, thread};
 use tokio_executor::{SpawnError, TypedExecutor};
-use tower::{buffer::Buffer, Service};
+use tower::{
+    buffer::{error, Buffer},
+    Service,
+};
 use tower_test::{assert_request_eq, mock};
 
 #[test]
@@ -86,7 +89,7 @@ fn when_inner_fails() {
     ::std::thread::sleep(::std::time::Duration::from_millis(100));
     with_task(|| {
         let e = res1.poll().unwrap_err();
-        if let Some(e) = e.downcast_ref::<tower_buffer::error::ServiceError>() {
+        if let Some(e) = e.downcast_ref::<error::ServiceError>() {
             let e = e.source().unwrap();
 
             assert_eq!(e.to_string(), "foobar");
