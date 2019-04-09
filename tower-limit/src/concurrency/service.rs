@@ -1,9 +1,8 @@
-use super::future::ResponseFuture;
-use super::Error;
+use super::{future::ResponseFuture, Error};
 
 use tower_service::Service;
 
-use futures::Poll;
+use futures::{try_ready, Poll};
 use std::sync::Arc;
 use tokio_sync::semaphore::{self, Semaphore};
 

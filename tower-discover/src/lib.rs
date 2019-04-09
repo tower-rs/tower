@@ -1,3 +1,6 @@
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
+
 //! # Tower service discovery
 //!
 //! Service discovery is the automatic detection of services available to the
@@ -5,16 +8,11 @@
 //! via the network; however, it is possible to discover services available in
 //! other processes or even in process.
 
-#[macro_use]
-extern crate futures;
-extern crate tower_service;
-
 mod error;
 mod list;
 mod stream;
 
-pub use crate::list::ServiceList;
-pub use crate::stream::ServiceStream;
+pub use crate::{list::ServiceList, stream::ServiceStream};
 
 use futures::Poll;
 use std::hash::Hash;

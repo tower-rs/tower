@@ -1,11 +1,10 @@
-use futures::{Async, Poll};
-use std::ops;
-use std::sync::Arc;
+use futures::{try_ready, Async, Poll};
+use std::{ops, sync::Arc};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
-use {HasWeight, Load, Weight};
+use crate::{HasWeight, Load, Weight};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]

@@ -1,8 +1,10 @@
 //! Future types
 
-use error::{Closed, Error};
+use crate::{
+    error::{Closed, Error},
+    message,
+};
 use futures::{Async, Future, Poll};
-use message;
 
 /// Future eventually completed with the response to the original request.
 pub struct ResponseFuture<T> {

@@ -1,30 +1,22 @@
 // Allows refining features in the future without breaking backwards
 // compatibility
 #![cfg(feature = "full")]
+#![deny(missing_docs, rust_2018_idioms)]
 
 //! Various utility types and functions that are generally with Tower.
 
-#[macro_use]
-extern crate futures;
-
-extern crate tower_layer;
-extern crate tower_service;
-extern crate tower_util;
-
-pub extern crate tower_buffer as buffer;
-pub extern crate tower_discover as discover;
-pub extern crate tower_limit as limit;
-pub extern crate tower_load_shed as load_shed;
-pub extern crate tower_reconnect as reconnect;
-pub extern crate tower_retry as retry;
-pub extern crate tower_timeout as timeout;
+pub use tower_buffer as buffer;
+pub use tower_discover as discover;
+pub use tower_limit as limit;
+pub use tower_load_shed as load_shed;
+pub use tower_reconnect as reconnect;
+pub use tower_retry as retry;
+pub use tower_timeout as timeout;
 
 pub mod builder;
 pub mod layer;
 pub mod util;
 
-pub use builder::ServiceBuilder;
+pub use crate::{builder::ServiceBuilder, util::ServiceExt};
 pub use tower_service::Service;
-pub use tower_util::MakeConnection;
-pub use tower_util::MakeService;
-pub use util::ServiceExt;
+pub use tower_util::{MakeConnection, MakeService};

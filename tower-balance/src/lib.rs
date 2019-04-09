@@ -1,19 +1,11 @@
-#[macro_use]
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate indexmap;
-extern crate rand;
-extern crate tokio_timer;
-extern crate tower_discover;
-extern crate tower_service;
-extern crate tower_util;
-
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 #[cfg(test)]
 extern crate quickcheck;
 
 use futures::{Async, Poll};
 use indexmap::IndexMap;
+use log::{debug, trace};
 use rand::{rngs::SmallRng, SeedableRng};
 use std::fmt;
 use tower_discover::Discover;
@@ -28,13 +20,16 @@ pub mod pool;
 #[cfg(test)]
 mod test;
 
-pub use self::choose::Choose;
-pub use self::load::weight::{HasWeight, Weight, Weighted, WithWeighted};
-pub use self::load::Load;
-pub use self::pool::Pool;
+pub use self::{
+    choose::Choose,
+    load::{
+        weight::{HasWeight, Weight, Weighted, WithWeighted},
+        Load,
+    },
+    pool::Pool,
+};
 
-use self::error::Error;
-use self::future::ResponseFuture;
+use self::{error::Error, future::ResponseFuture};
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]
@@ -168,7 +163,7 @@ where
             self.discover.poll().map_err(|e| error::Balance(e.into()))?
         {
             match change {
-                Insert(key, mut svc) => {
+                Insert(key, svc) => {
                     // If the `Insert`ed service is a duplicate of a service already
                     // in the ready list, remove the ready service first. The new
                     // service will then be inserted into the not-ready list.

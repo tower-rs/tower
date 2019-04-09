@@ -1,6 +1,8 @@
-use error::{Closed, Error, ServiceError, SpawnError};
-use futures::{Async, Future, Poll, Stream};
-use message::Message;
+use crate::{
+    error::{Closed, Error, ServiceError, SpawnError},
+    message::Message,
+};
+use futures::{try_ready, Async, Future, Poll, Stream};
 use std::sync::{Arc, Mutex};
 use tokio_executor::TypedExecutor;
 use tokio_sync::mpsc;

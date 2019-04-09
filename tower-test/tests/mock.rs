@@ -1,12 +1,6 @@
-extern crate futures;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
-use tower_service::Service;
-use tower_test::mock;
-
 use futures::Future;
+use tower_service::Service;
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn single_request_ready() {

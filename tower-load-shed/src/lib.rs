@@ -1,12 +1,10 @@
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 //! tower-load-shed
-
-extern crate futures;
-extern crate tower_layer;
-extern crate tower_service;
 
 use futures::Poll;
 use tower_service::Service;
@@ -16,8 +14,7 @@ mod future;
 mod layer;
 
 use self::error::Error;
-pub use self::future::ResponseFuture;
-pub use self::layer::LoadShedLayer;
+pub use self::{future::ResponseFuture, layer::LoadShedLayer};
 
 /// A `Service` that sheds load when the inner service isn't ready.
 #[derive(Debug)]

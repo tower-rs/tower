@@ -1,5 +1,4 @@
 mod chain;
 mod identity;
 
-pub use self::chain::Chain;
-pub use self::identity::Identity;
+pub use self::{chain::Chain, identity::Identity};

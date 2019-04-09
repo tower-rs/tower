@@ -1,20 +1,11 @@
-extern crate futures;
-extern crate tokio;
-extern crate tower;
-extern crate tower_buffer;
-extern crate tower_limit;
-extern crate tower_reconnect;
-extern crate tower_retry;
-extern crate tower_service;
-extern crate void;
-
-use futures::future::{self, FutureResult};
-use futures::prelude::*;
+use futures::{
+    future::{self, FutureResult},
+    prelude::*,
+};
 use std::time::Duration;
 use tower::builder::ServiceBuilder;
 use tower_buffer::BufferLayer;
-use tower_limit::concurrency::ConcurrencyLimitLayer;
-use tower_limit::rate::RateLimitLayer;
+use tower_limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer};
 use tower_reconnect::Reconnect;
 use tower_retry::{Policy, RetryLayer};
 use tower_service::*;
@@ -121,7 +112,7 @@ struct MockPolicy;
 
 impl<E> Policy<Request, Response, E> for MockPolicy
 where
-    E: Into<Box<std::error::Error + Send + Sync + 'static>>,
+    E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
 {
     type Future = FutureResult<Self, ()>;
 

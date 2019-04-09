@@ -1,3 +1,6 @@
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
+
 //! Buffer requests when the inner service is out of capacity.
 //!
 //! Buffering works by spawning a new task that is dedicated to pulling requests
@@ -5,29 +8,18 @@
 //! buffer and a dedicated task, the `Buffer` layer in front of the service can
 //! be `Clone` even if the inner service is not.
 
-#[macro_use]
-extern crate futures;
-extern crate tokio_executor;
-extern crate tokio_sync;
-extern crate tower_layer;
-extern crate tower_service;
-
 pub mod error;
 pub mod future;
 mod message;
 mod worker;
 
-pub use worker::WorkerExecutor;
+pub use crate::worker::WorkerExecutor;
 
-use error::Error;
-use future::ResponseFuture;
-use message::Message;
-use worker::Worker;
+use crate::{error::Error, future::ResponseFuture, message::Message, worker::Worker};
 
 use futures::Poll;
 use tokio_executor::DefaultExecutor;
-use tokio_sync::mpsc;
-use tokio_sync::oneshot;
+use tokio_sync::{mpsc, oneshot};
 use tower_layer::Layer;
 use tower_service::Service;
 

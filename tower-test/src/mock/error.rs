@@ -1,9 +1,8 @@
 //! Error types
 
-use std::error;
-use std::fmt;
+use std::{error, fmt};
 
-pub(crate) type Error = Box<error::Error + Send + Sync>;
+pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 
 #[derive(Debug)]
 pub struct Closed(());

@@ -1,13 +1,7 @@
-extern crate futures;
-extern crate tower_load_shed;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
 use futures::Future;
-use tower_load_shed::LoadShed;
+use tower_load_shed::{self, LoadShed};
 use tower_service::Service;
-use tower_test::mock;
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn when_ready() {

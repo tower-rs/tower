@@ -3,16 +3,19 @@
 pub mod error;
 pub mod future;
 
-use self::error::Error;
-use self::future::ResponseFuture;
-use futures::task::{self, Task};
-use futures::{Async, Future, Poll, Stream};
+use crate::mock::{error::Error, future::ResponseFuture};
+use futures::{
+    task::{self, Task},
+    Async, Future, Poll, Stream,
+};
 use tokio_sync::{mpsc, oneshot};
 use tower_service::Service;
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::u64;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    u64,
+};
 
 /// A mock service
 #[derive(Debug)]

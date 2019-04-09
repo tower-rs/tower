@@ -1,15 +1,9 @@
-extern crate futures;
-extern crate tokio;
-extern crate tokio_timer;
-extern crate tower_limit;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
 use futures::future;
+use tokio::runtime::current_thread::Runtime;
+use tokio_timer::Delay;
 use tower_limit::rate::*;
 use tower_service::*;
-use tower_test::mock;
+use tower_test::{assert_request_eq, mock};
 
 use std::time::{Duration, Instant};
 
@@ -36,7 +30,7 @@ macro_rules! assert_not_ready {
 
 #[test]
 fn reaching_capacity() {
-    let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
+    let mut rt = Runtime::new().unwrap();
     let (mut service, mut handle) = new_service(Rate::new(1, from_millis(100)));
 
     assert_ready!(service.poll_ready());
@@ -57,10 +51,8 @@ fn reaching_capacity() {
     assert!(poll_request.unwrap().is_not_ready());
 
     // Unlike `thread::sleep`, this advances the timer.
-    rt.block_on(tokio_timer::Delay::new(
-        Instant::now() + Duration::from_millis(100),
-    ))
-    .unwrap();
+    rt.block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
+        .unwrap();
 
     let poll_ready = rt.block_on(future::lazy(|| service.poll_ready()));
     assert_ready!(poll_ready);

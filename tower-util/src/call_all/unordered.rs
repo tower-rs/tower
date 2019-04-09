@@ -1,8 +1,7 @@
 //! `Stream<Item = Request>` + `Service<Request>` => `Stream<Item = Response>`.
 
 use super::{common, Error};
-use futures::stream::FuturesUnordered;
-use futures::{Future, Poll, Stream};
+use futures::{stream::FuturesUnordered, Future, Poll, Stream};
 use tower_service::Service;
 
 /// A stream of responses received from the inner service in received order.

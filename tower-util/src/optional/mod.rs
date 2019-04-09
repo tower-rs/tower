@@ -6,8 +6,7 @@
 pub mod error;
 pub mod future;
 
-use self::error::Error;
-use self::future::ResponseFuture;
+use self::{error::Error, future::ResponseFuture};
 use futures::Poll;
 use tower_service::Service;
 

@@ -1,14 +1,17 @@
-use futures::{Async, Poll};
-use std::ops;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use futures::{try_ready, Async, Poll};
+use log::trace;
+use std::{
+    ops,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 use tokio_timer::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 
-use {HasWeight, Load, Weight};
+use crate::{HasWeight, Load, Weight};
 
 /// Wraps an `S`-typed Service with Peak-EWMA load measurement.
 ///
@@ -307,14 +310,13 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    extern crate tokio_executor;
-    extern crate tokio_timer;
-
-    use self::tokio_executor::enter;
-    use self::tokio_timer::clock;
     use futures::{future, Future, Poll};
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
+    use std::{
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
+    };
+    use tokio_executor::enter;
+    use tokio_timer::clock;
 
     use super::*;
 
