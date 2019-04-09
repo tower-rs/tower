@@ -1,6 +1,6 @@
 use std::error;
 
-pub(crate) type Error = Box<error::Error + Send + Sync>;
+pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 
 pub(crate) mod never {
     use std::{error, fmt};

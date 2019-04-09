@@ -1,21 +1,14 @@
-extern crate futures;
-extern crate tokio_mock_task;
-extern crate tower;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-extern crate tower_util;
-
-use futures::future::{ok, FutureResult};
-use futures::stream;
-use futures::{Async, Poll, Stream};
-use std::cell::Cell;
-use std::rc::Rc;
+use futures::{
+    self,
+    future::{ok, FutureResult},
+    stream, Async, Poll, Stream,
+};
+use std::{cell::Cell, rc::Rc};
 use tower::ServiceExt;
 use tower_service::*;
-use tower_test::mock;
+use tower_test::{assert_request_eq, mock};
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Debug, Eq, PartialEq)]
 struct Srv {

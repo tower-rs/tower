@@ -1,7 +1,6 @@
-use std::fmt;
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
 
-use futures::{Future, Poll};
+use futures::{try_ready, Future, Poll};
 use tower_service::Service;
 
 /// Future yielding a `Service` once the service is ready to process a request

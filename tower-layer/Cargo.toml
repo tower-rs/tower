@@ -15,6 +15,7 @@ description = """
 Decorates a `Service` to allow easy composition between `Service`s.
 """
 categories = ["asynchronous", "network-programming"]
+edition = "2018"
 
 [dependencies]
 futures = "0.1"

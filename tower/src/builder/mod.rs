@@ -4,21 +4,24 @@ mod service;
 
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
-use buffer::BufferLayer;
-use limit::concurrency::ConcurrencyLimitLayer;
-use limit::rate::RateLimitLayer;
-use load_shed::LoadShedLayer;
-use retry::RetryLayer;
-use timeout::TimeoutLayer;
+use crate::{
+    buffer::BufferLayer,
+    limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer},
+    load_shed::LoadShedLayer,
+    retry::RetryLayer,
+    timeout::TimeoutLayer,
+};
 
 use tower_layer::Layer;
 use tower_service::Service;
-use tower_util::layer::{Identity, Stack};
-use tower_util::MakeService;
+use tower_util::{
+    layer::{Identity, Stack},
+    MakeService,
+};
 
 use std::time::Duration;
 
-pub(super) type Error = Box<::std::error::Error + Send + Sync>;
+pub(super) type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// Declaratively construct Service values.
 ///

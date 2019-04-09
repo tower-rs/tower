@@ -1,20 +1,17 @@
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
+
 //! Conditionally dispatch requests to the inner service based on the result of
 //! a predicate.
-
-extern crate futures;
-extern crate tower_layer;
-extern crate tower_service;
 
 pub mod error;
 pub mod future;
 mod layer;
 mod predicate;
 
-pub use layer::FilterLayer;
-pub use predicate::Predicate;
+pub use crate::{layer::FilterLayer, predicate::Predicate};
 
-use error::Error;
-use future::ResponseFuture;
+use crate::{error::Error, future::ResponseFuture};
 use futures::Poll;
 use tower_service::Service;
 

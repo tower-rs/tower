@@ -1,18 +1,11 @@
-extern crate futures;
-extern crate tokio_executor;
-extern crate tower_buffer;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
 use futures::prelude::*;
+use std::{cell::RefCell, thread};
 use tokio_executor::{SpawnError, TypedExecutor};
-use tower_buffer::*;
-use tower_service::*;
-use tower_test::mock;
-
-use std::cell::RefCell;
-use std::thread;
+use tower::{
+    buffer::{error, Buffer},
+    Service,
+};
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn req_and_res() {

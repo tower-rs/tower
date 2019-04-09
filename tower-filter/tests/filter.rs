@@ -1,16 +1,8 @@
-extern crate futures;
-extern crate tower_filter;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
 use futures::*;
-use tower_filter::error::Error;
-use tower_filter::Filter;
-use tower_service::*;
-use tower_test::mock;
-
 use std::thread;
+use tower_filter::{error::Error, Filter};
+use tower_service::Service;
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn passthrough_sync() {

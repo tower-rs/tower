@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#![deny(missing_docs, rust_2018_idioms)]
 #![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
 
 //! Layer traits and extensions.
@@ -7,9 +7,6 @@
 //! allows other services to be composed with the service that implements layer.
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
-
-extern crate futures;
-extern crate tower_service;
 
 use tower_service::Service;
 

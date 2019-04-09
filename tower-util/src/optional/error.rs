@@ -1,10 +1,9 @@
-use std::error;
-use std::fmt;
+use std::{error, fmt};
 
 #[derive(Debug)]
 pub struct None(());
 
-pub(crate) type Error = Box<error::Error + Send + Sync>;
+pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 
 impl None {
     pub(crate) fn new() -> None {

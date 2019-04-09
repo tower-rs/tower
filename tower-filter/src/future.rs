@@ -1,6 +1,6 @@
 //! Future types
 
-use error::{self, Error};
+use crate::error::{self, Error};
 use futures::{Async, Future, Poll};
 use tower_service::Service;
 

@@ -1,8 +1,7 @@
-//! Mock `Service` that can be used in tests.
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
-extern crate futures;
-extern crate tokio_sync;
-extern crate tower_service;
+//! Mock `Service` that can be used in tests.
 
 mod macros;
 pub mod mock;

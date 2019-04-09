@@ -3,8 +3,7 @@ use indexmap::IndexMap;
 mod p2c;
 mod round_robin;
 
-pub use self::p2c::PowerOfTwoChoices;
-pub use self::round_robin::RoundRobin;
+pub use self::{p2c::PowerOfTwoChoices, round_robin::RoundRobin};
 
 /// A strategy for choosing nodes.
 // TODO hide `K`
@@ -32,15 +31,15 @@ pub struct TooFew;
 
 /// Holds two or more services.
 // TODO hide `K`
-pub struct Replicas<'a, K: 'a, S: 'a>(&'a IndexMap<K, S>);
+pub struct Replicas<'a, K, S>(&'a IndexMap<K, S>);
 
-impl<'a, K: 'a, S: 'a> Replicas<'a, K, S> {
+impl<K, S> Replicas<'_, K, S> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl<'a, K: 'a, S: 'a> ::std::ops::Index<usize> for Replicas<'a, K, S> {
+impl<K, S> ::std::ops::Index<usize> for Replicas<'_, K, S> {
     type Output = S;
 
     fn index(&self, idx: usize) -> &Self::Output {

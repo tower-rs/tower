@@ -1,16 +1,11 @@
-extern crate futures;
-extern crate tokio_mock_task;
-extern crate tower_limit;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
+use futures::{
+    self,
+    future::{poll_fn, Future},
+};
+use tokio_mock_task::MockTask;
 use tower_limit::concurrency::ConcurrencyLimit;
 use tower_service::Service;
-use tower_test::mock;
-
-use futures::future::{poll_fn, Future};
-use tokio_mock_task::MockTask;
+use tower_test::{assert_request_eq, mock};
 
 macro_rules! assert_ready {
     ($e:expr) => {{

@@ -1,23 +1,19 @@
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![deny(warnings)]
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware for retrying "failed" requests.
 
-#[macro_use]
-extern crate futures;
-extern crate tokio_timer;
-extern crate tower_layer;
-extern crate tower_service;
-
-use futures::{Async, Future, Poll};
+use futures::{try_ready, Async, Future, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
 pub mod budget;
 mod never;
 
-use never::Never;
+use crate::never::Never;
 
 /// A "retry policy" to classify if a request should be retried.
 ///

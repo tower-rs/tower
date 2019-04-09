@@ -1,13 +1,7 @@
-extern crate futures;
-extern crate tower_retry;
-extern crate tower_service;
-#[macro_use]
-extern crate tower_test;
-
 use futures::{future, Future};
 use tower_retry::Policy;
 use tower_service::Service;
-use tower_test::mock;
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn retry_errors() {
@@ -83,7 +77,7 @@ fn success_with_cannot_clone() {
 type Req = &'static str;
 type Res = &'static str;
 type InnerError = &'static str;
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 type Mock = mock::Mock<Req, Res>;
 type Handle = mock::Handle<Req, Res>;
 

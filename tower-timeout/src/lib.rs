@@ -4,13 +4,9 @@
 //! will be aborted.
 
 #![doc(html_root_url = "https://docs.rs/tower-timeout/0.1.0")]
-#![deny(missing_debug_implementations, missing_docs)]
+#![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 #![cfg_attr(test, deny(warnings))]
-
-extern crate futures;
-extern crate tokio_timer;
-extern crate tower_layer;
-extern crate tower_service;
 
 pub mod error;
 pub mod future;
@@ -19,8 +15,7 @@ mod never;
 
 pub use crate::layer::TimeoutLayer;
 
-use crate::error::Error;
-use crate::future::ResponseFuture;
+use crate::{error::Error, future::ResponseFuture};
 use futures::Poll;
 use tokio_timer::{clock, Delay};
 

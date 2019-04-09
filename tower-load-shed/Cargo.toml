@@ -2,7 +2,9 @@
 name = "tower-load-shed"
 version = "0.1.0"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
+license = "MIT"
 publish = false
+edition = "2018"
 
 [dependencies]
 futures = "0.1.25"

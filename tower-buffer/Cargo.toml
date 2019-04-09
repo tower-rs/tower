@@ -2,7 +2,9 @@
 name = "tower-buffer"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
+license = "MIT"
 publish = false
+edition = "2018"
 
 [dependencies]
 futures = "0.1.25"
@@ -12,4 +14,5 @@ tokio-executor = "0.1.7"
 tokio-sync = "0.1.0"
 
 [dev-dependencies]
+tower = { version = "0.1", path = "../tower" }
 tower-test = { version = "0.1", path = "../tower-test" }

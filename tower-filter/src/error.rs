@@ -1,7 +1,6 @@
 //! Error types
 
-use std::error;
-use std::fmt;
+use std::{error, fmt};
 
 /// Error produced by `Filter`
 #[derive(Debug)]
