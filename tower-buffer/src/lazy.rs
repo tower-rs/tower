@@ -1,5 +1,5 @@
 use crate::{error::Error, future::ResponseFuture, service::Buffer, worker::WorkerExecutor};
-use futures::{Async, Poll};
+use futures::Poll;
 use std::sync::{Arc, Mutex};
 use tokio_executor::DefaultExecutor;
 use tower_service::Service;
@@ -15,8 +15,8 @@ pub struct BufferLazy<T, Request, E>
 where
     T: Service<Request>,
 {
-    inner: Arc<Mutex<Option<Buffer<T, Request>>>>,
-    state: State<T, Request>,
+    inner: Arc<Mutex<State<T, Request>>>,
+    buffer: Option<Buffer<T, Request>>,
     executor: E,
 }
 
@@ -36,8 +36,8 @@ where
     /// Create a new BufferLazy based on the provided service and bound
     pub fn new(svc: T, bound: usize) -> Self {
         BufferLazy {
-            inner: Arc::new(Mutex::new(None)),
-            state: State::Waiting(Some(svc), bound),
+            inner: Arc::new(Mutex::new(State::Waiting(Some(svc), bound))),
+            buffer: None,
             executor: DefaultExecutor::current(),
         }
     }
@@ -53,8 +53,8 @@ where
     /// that will lazily spawn the worker on the provided executor.
     pub fn with_executor(svc: T, bound: usize, executor: E) -> Self {
         BufferLazy {
-            inner: Arc::new(Mutex::new(None)),
-            state: State::Waiting(Some(svc), bound),
+            inner: Arc::new(Mutex::new(State::Waiting(Some(svc), bound))),
+            buffer: None,
             executor,
         }
     }
@@ -74,33 +74,40 @@ where
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        match self.state {
-            State::Waiting(ref mut svc, bound) => {
-                let mut inner = self.inner.lock().unwrap();
-                let state = if inner.is_some() {
-                    State::Spawned(inner.clone().unwrap())
-                } else {
+        if let Some(buffer) = &mut self.buffer {
+            buffer.poll_ready()
+        } else {
+            let mut inner = self.inner.lock().unwrap();
+            match &mut *inner {
+                State::Waiting(svc, bound) => {
+                    // let mut inner = self.inner.lock().unwrap();
+
                     let svc = svc.take().unwrap();
-                    let buffer =
-                        // TODO: this should return the error on poll_ready
-                        Buffer::with_executor(svc, bound, &mut self.executor.clone())?;
-                    *inner = Some(buffer.clone());
-                    State::Spawned(buffer)
-                };
-                drop(inner);
+                    let mut buffer =
+                        Buffer::with_executor(svc, *bound, &mut self.executor.clone())?;
+                    *inner = State::Spawned(buffer.clone());
+                    let poll_val = buffer.poll_ready();
+                    self.buffer = Some(buffer);
+                    poll_val
+                }
 
-                self.state = state;
-                return Ok(Async::Ready(()));
+                State::Spawned(buffer) => {
+                    let mut buffer = buffer.clone();
+                    let poll = buffer.poll_ready();
+                    self.buffer = Some(buffer);
+                    poll
+                }
             }
-
-            State::Spawned(ref mut buf) => return buf.poll_ready(),
         }
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        match &mut self.state {
-            State::Waiting(_, _) => panic!("This buffer has not spawned its background worker"),
-            State::Spawned(buf) => buf.call(request),
+        if let Some(buffer) = &mut self.buffer {
+            buffer.call(request)
+        } else {
+            panic!(
+                "This buffer has not spawned its background worker or you did not call poll_ready"
+            );
         }
     }
 }
