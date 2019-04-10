@@ -8,7 +8,7 @@ use tower_service::Service;
 /// The goal of this service is to allow composable methods for creating
 /// `AsyncRead + AsyncWrite` transports. This could mean creating a TLS
 /// based connection or using some other method to authenticate the connection.
-pub trait MakeConnection<Request>: Sealed<(Request,)> {
+pub trait MakeConnection<Target>: Sealed<(Target,)> {
     /// The transport provided by this service
     type Connection: AsyncRead + AsyncWrite;
 
@@ -22,14 +22,14 @@ pub trait MakeConnection<Request>: Sealed<(Request,)> {
     fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
     /// Connect and return a transport asynchronously
-    fn make_connection(&mut self, target: Request) -> Self::Future;
+    fn make_connection(&mut self, target: Target) -> Self::Future;
 }
 
-impl<S, Request> Sealed<(Request,)> for S where S: Service<Request> {}
+impl<S, Target> Sealed<(Target,)> for S where S: Service<Target> {}
 
-impl<C, Request> MakeConnection<Request> for C
+impl<C, Target> MakeConnection<Target> for C
 where
-    C: Service<Request>,
+    C: Service<Target>,
     C::Response: AsyncRead + AsyncWrite,
 {
     type Connection = C::Response;
@@ -40,7 +40,7 @@ where
         Service::poll_ready(self)
     }
 
-    fn make_connection(&mut self, target: Request) -> Self::Future {
+    fn make_connection(&mut self, target: Target) -> Self::Future {
         Service::call(self, target)
     }
 }
