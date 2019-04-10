@@ -14,7 +14,7 @@ pub struct ServiceFn<T> {
 
 impl<T, F, Request> Service<Request> for ServiceFn<T>
 where
-    T: Fn(Request) -> F,
+    T: FnMut(Request) -> F,
     F: IntoFuture,
 {
     type Response = F::Item;
