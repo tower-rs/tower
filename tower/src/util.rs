@@ -3,8 +3,7 @@
 use futures::Stream;
 use tower_service::Service;
 pub use tower_util::{
-    BoxService, CallAll, CallAllUnordered, Either, Oneshot, Optional, Ready, ServiceFn,
-    UnsyncBoxService,
+    BoxService, CallAll, CallAllUnordered, Either, Oneshot, Optional, Ready, UnsyncBoxService,
 };
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: Service<Request> {}

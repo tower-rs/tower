@@ -6,9 +6,7 @@ use hdrsample::Histogram;
 use rand::{self, Rng};
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
-use tower::{
-    discover::Discover, limit::concurrency::ConcurrencyLimit, util::ServiceFn, Service, ServiceExt,
-};
+use tower::{discover::Discover, limit::concurrency::ConcurrencyLimit, Service, ServiceExt};
 use tower_balance as lb;
 
 const REQUESTS: usize = 50_000;
@@ -124,7 +122,7 @@ fn gen_disco() -> impl Discover<
         .zip(WEIGHTS.iter())
         .enumerate()
         .map(|(instance, (latency, weight))| {
-            let svc = ServiceFn::new(move |_| {
+            let svc = tower::service_fn(move |_| {
                 let start = Instant::now();
 
                 let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
