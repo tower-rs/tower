@@ -4,6 +4,12 @@ use std::sync::{Arc, Mutex};
 use tokio_executor::DefaultExecutor;
 use tower_service::Service;
 
+/// A buffer to lazily buffer requests
+///
+/// This buffer is a wrapper around `Buffer` which will lazily
+/// spawn the background worker on the first call to `poll_ready`.
+/// This allows one to create the buffer backed service without needing to
+/// be within a futures context.
 #[derive(Clone)]
 pub struct BufferLazy<T, Request, E>
 where
@@ -27,6 +33,7 @@ impl<T, Request> BufferLazy<T, Request, DefaultExecutor>
 where
     T: Service<Request>,
 {
+    /// Create a new BufferLazy based on the provided service and bound
     pub fn new(svc: T, bound: usize) -> Self {
         BufferLazy {
             inner: Arc::new(Mutex::new(None)),
@@ -42,6 +49,8 @@ where
     T::Error: Into<Error>,
     E: WorkerExecutor<T, Request> + Clone,
 {
+    /// Create a new BufferLazy based on the provided service and bound
+    /// that will lazily spawn the worker on the provided executor.
     pub fn with_executor(svc: T, bound: usize, executor: E) -> Self {
         BufferLazy {
             inner: Arc::new(Mutex::new(None)),
@@ -90,10 +99,7 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         match &mut self.state {
-            State::Waiting(_, _) => {
-                panic!("Did not call poll_ready!");
-            }
-
+            State::Waiting(_, _) => panic!("This buffer has not spawned its background worker"),
             State::Spawned(buf) => buf.call(request),
         }
     }
