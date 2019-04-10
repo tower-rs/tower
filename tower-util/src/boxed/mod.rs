@@ -20,37 +20,15 @@
 //! # use futures::*;
 //! # use futures::future::FutureResult;
 //! # use tower_service::Service;
-//! # use tower_util::BoxService;
-//! // Respond to requests using a closure. Since closures cannot be named,
-//! // `ServiceFn` cannot be named either
-//! pub struct ServiceFn<F> {
-//!     f: F,
-//! }
+//! # use tower_util::{BoxService, service_fn};
+//! // Respond to requests using a closure, but closures cannot be named...
+//! # pub fn main() {
+//! let svc = service_fn(|mut request: String| {
+//!     request.push_str(" response");
+//!     Ok(request)
+//! });
 //!
-//! impl<F> Service<String> for ServiceFn<F>
-//! where F: Fn(String) -> String,
-//! {
-//!     type Response = String;
-//!     type Error = ();
-//!     type Future = FutureResult<String, ()>;
-//!
-//!     fn poll_ready(&mut self) -> Poll<(), ()> {
-//!         Ok(().into())
-//!     }
-//!
-//!     fn call(&mut self, request: String) -> FutureResult<String, ()> {
-//!         future::ok((self.f)(request))
-//!     }
-//! }
-//!
-//! pub fn main() {
-//!     let f = |mut request: String| {
-//!         request.push_str(" response");
-//!         request
-//!     };
-//!
-//!     let service: BoxService<String, String, ()> =
-//!         BoxService::new(ServiceFn { f });
+//! let service: BoxService<String, String, ()> = BoxService::new(svc);
 //! # drop(service);
 //! }
 //! ```

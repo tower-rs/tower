@@ -25,7 +25,7 @@ pub use crate::{
     oneshot::Oneshot,
     optional::Optional,
     ready::Ready,
-    service_fn::ServiceFn,
+    service_fn::{service_fn, ServiceFn},
 };
 
 pub mod error {
