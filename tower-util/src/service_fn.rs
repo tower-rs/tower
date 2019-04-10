@@ -2,12 +2,13 @@ use futures::{IntoFuture, Poll};
 use tower_service::Service;
 
 /// A `Service` implemented by a closure.
+#[derive(Copy, Clone, Debug)]
 pub struct ServiceFn<T> {
     f: T,
 }
 
 impl<T> ServiceFn<T> {
-    /// Returns a new `NewServiceFn` with the given closure.
+    /// Returns a new `ServiceFn` with the given closure.
     pub fn new(f: T) -> Self {
         ServiceFn { f }
     }
