@@ -16,7 +16,7 @@ mod message;
 mod service;
 mod worker;
 
-pub use crate::layer::BufferLayer;
+pub use crate::layer::{BufferLayer, BufferLazyLayer};
 pub use crate::lazy::BufferLazy;
 pub use crate::service::Buffer;
 pub use crate::worker::WorkerExecutor;

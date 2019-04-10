@@ -74,7 +74,7 @@ where
                     let svc = svc.take().unwrap();
                     let buffer =
                         // TODO: this should return the error on poll_ready
-                        Buffer::with_executor(svc, bound, &mut self.executor.clone()).unwrap();
+                        Buffer::with_executor(svc, bound, &mut self.executor.clone())?;
                     *inner = Some(buffer.clone());
                     State::Spawned(buffer)
                 };
