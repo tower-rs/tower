@@ -5,7 +5,7 @@ mod service;
 pub use self::service::{LayeredMakeService, ServiceFuture};
 
 use crate::{
-    buffer::BufferLayer,
+    buffer::{BufferLayer, BufferLazyLayer},
     limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer},
     load_shed::LoadShedLayer,
     retry::RetryLayer,
@@ -237,6 +237,16 @@ impl<L> ServiceBuilder<L> {
     /// Buffer requests when when the next layer is out of capacity.
     pub fn buffer(self, bound: usize) -> ServiceBuilder<Stack<BufferLayer, L>> {
         self.layer(BufferLayer::new(bound))
+    }
+
+    /// Buffer requests when when the next layer is out of capacity.
+    ///
+    /// This is just like `buffer` except it defers spawning the background worker
+    /// till the first call of `poll_ready`. This requires an atomic check on each
+    /// first call to a new buffer's `poll_ready` but every request after will not
+    /// require an atomic check.
+    pub fn buffer_lazy(self, bound: usize) -> ServiceBuilder<Stack<BufferLazyLayer, L>> {
+        self.layer(BufferLazyLayer::new(bound))
     }
 
     /// Limit the max number of in-flight requests.
