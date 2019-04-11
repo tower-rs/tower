@@ -8,8 +8,6 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 
-use tower_service::Service;
-
 /// Decorates a `Service`, transforming either the request or the response.
 ///
 /// Often, many of the pieces needed for writing network applications can be
@@ -36,21 +34,14 @@ use tower_service::Service;
 ///     target: &'static str,
 /// }
 ///
-/// impl<S, Request> Layer<S, Request> for LogLayer
-/// where
-///     S: Service<Request>,
-///     Request: fmt::Debug,
-/// {
-///     type Response = S::Response;
-///     type Error = S::Error;
-///     type LayerError = Void;
+/// impl<S> Layer<S> for LogLayer {
 ///     type Service = LogService<S>;
 ///
-///     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-///         Ok(LogService {
+///     fn layer(&self, service: S) -> Self::Service {
+///         LogService {
 ///             target: self.target,
 ///             service
-///         })
+///         }
 ///     }
 /// }
 ///
@@ -84,20 +75,10 @@ use tower_service::Service;
 /// The above log implementation is decoupled from the underlying protocol and
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
-pub trait Layer<S, Request> {
-    /// The wrapped service response type
-    type Response;
-
-    /// The wrapped service's error type
-    type Error;
-
-    /// The error produced when calling `layer`
-    type LayerError;
-
+pub trait Layer<S> {
     /// The wrapped service
-    type Service: Service<Request, Response = Self::Response, Error = Self::Error>;
-
+    type Service;
     /// Wrap the given service with the middleware, returning a new service
     /// that has been decorated with the middleware.
-    fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError>;
+    fn layer(&self, inner: S) -> Self::Service;
 }

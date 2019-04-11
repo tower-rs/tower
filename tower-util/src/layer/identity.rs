@@ -1,6 +1,4 @@
-use std::fmt;
 use tower_layer::Layer;
-use tower_service::Service;
 
 /// A no-op middleware.
 ///
@@ -19,28 +17,10 @@ impl Identity {
 }
 
 /// Decorates a `Service`, transforming either the request or the response.
-impl<S, Request> Layer<S, Request> for Identity
-where
-    S: Service<Request>,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type LayerError = Never;
+impl<S> Layer<S> for Identity {
     type Service = S;
 
-    fn layer(&self, inner: S) -> Result<Self::Service, Self::LayerError> {
-        Ok(inner)
+    fn layer(&self, inner: S) -> Self::Service {
+        inner
     }
 }
-
-/// An error that can never occur.
-#[derive(Debug)]
-pub enum Never {}
-
-impl fmt::Display for Never {
-    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
-        match *self {}
-    }
-}
-
-impl ::std::error::Error for Never {}

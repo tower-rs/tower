@@ -22,12 +22,7 @@ pub struct Filter<T, U> {
 }
 
 impl<T, U> Filter<T, U> {
-    pub fn new<Request>(inner: T, predicate: U) -> Self
-    where
-        T: Service<Request> + Clone,
-        T::Error: Into<error::Source>,
-        U: Predicate<Request>,
-    {
+    pub fn new(inner: T, predicate: U) -> Self {
         Filter { inner, predicate }
     }
 }

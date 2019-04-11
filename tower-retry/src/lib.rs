@@ -1,6 +1,6 @@
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
@@ -11,9 +11,6 @@ use tower_layer::Layer;
 use tower_service::Service;
 
 pub mod budget;
-mod never;
-
-use crate::never::Never;
 
 /// A "retry policy" to classify if a request should be retried.
 ///
@@ -127,19 +124,15 @@ impl<P> RetryLayer<P> {
     }
 }
 
-impl<P, S, Request> Layer<S, Request> for RetryLayer<P>
+impl<P, S> Layer<S> for RetryLayer<P>
 where
-    S: Service<Request> + Clone,
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: Clone,
 {
-    type Response = S::Response;
-    type Error = S::Error;
-    type LayerError = Never;
     type Service = Retry<P, S>;
 
-    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+    fn layer(&self, service: S) -> Self::Service {
         let policy = self.policy.clone();
-        Ok(Retry::new(policy, service))
+        Retry::new(policy, service)
     }
 }
 
@@ -147,11 +140,7 @@ where
 
 impl<P, S> Retry<P, S> {
     /// Retry the inner service depending on this [`Policy`][Policy}.
-    pub fn new<Request>(policy: P, service: S) -> Self
-    where
-        P: Policy<Request, S::Response, S::Error> + Clone,
-        S: Service<Request> + Clone,
-    {
+    pub fn new(policy: P, service: S) -> Self {
         Retry { policy, service }
     }
 }

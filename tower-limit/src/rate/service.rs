@@ -21,10 +21,7 @@ enum State {
 
 impl<T> RateLimit<T> {
     /// Create a new rate limiter
-    pub fn new<Request>(inner: T, rate: Rate) -> Self
-    where
-        T: Service<Request>,
-    {
+    pub fn new(inner: T, rate: Rate) -> Self {
         let state = State::Ready {
             until: clock::now(),
             rem: rate.num(),

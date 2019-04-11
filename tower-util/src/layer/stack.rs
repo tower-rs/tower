@@ -1,5 +1,4 @@
 use tower_layer::Layer;
-use tower_service::Service;
 
 /// Two middlewares chained together.
 ///
@@ -10,8 +9,6 @@ pub struct Stack<Inner, Outer> {
     outer: Outer,
 }
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
-
 impl<Inner, Outer> Stack<Inner, Outer> {
     /// Create a new `Stack`.
     pub fn new(inner: Inner, outer: Outer) -> Self {
@@ -19,22 +16,16 @@ impl<Inner, Outer> Stack<Inner, Outer> {
     }
 }
 
-impl<S, Request, Inner, Outer> Layer<S, Request> for Stack<Inner, Outer>
+impl<S, Inner, Outer> Layer<S> for Stack<Inner, Outer>
 where
-    S: Service<Request>,
-    Inner: Layer<S, Request>,
-    Inner::LayerError: Into<Error>,
-    Outer: Layer<Inner::Service, Request>,
-    Outer::LayerError: Into<Error>,
+    Inner: Layer<S>,
+    Outer: Layer<Inner::Service>,
 {
-    type Response = Outer::Response;
-    type Error = Outer::Error;
-    type LayerError = Error;
     type Service = Outer::Service;
 
-    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        let inner = self.inner.layer(service).map_err(Into::into)?;
+    fn layer(&self, service: S) -> Self::Service {
+        let inner = self.inner.layer(service);
 
-        self.outer.layer(inner).map_err(Into::into)
+        self.outer.layer(inner)
     }
 }

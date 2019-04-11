@@ -1,9 +1,5 @@
-use crate::{
-    error::{self, Error},
-    Filter, Predicate,
-};
+use crate::Filter;
 use tower_layer::Layer;
-use tower_service::Service;
 
 pub struct FilterLayer<U> {
     predicate: U,
@@ -15,19 +11,11 @@ impl<U> FilterLayer<U> {
     }
 }
 
-impl<U, S, Request> Layer<S, Request> for FilterLayer<U>
-where
-    U: Predicate<Request> + Clone,
-    S: Service<Request> + Clone,
-    S::Error: Into<error::Source>,
-{
-    type Response = S::Response;
-    type Error = Error;
-    type LayerError = error::never::Never;
+impl<U: Clone, S> Layer<S> for FilterLayer<U> {
     type Service = Filter<S, U>;
 
-    fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
+    fn layer(&self, service: S) -> Self::Service {
         let predicate = self.predicate.clone();
-        Ok(Filter::new(service, predicate))
+        Filter::new(service, predicate)
     }
 }

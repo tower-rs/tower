@@ -46,8 +46,3 @@ impl error::Error for Error {
         }
     }
 }
-
-pub(crate) mod never {
-    #[derive(Debug)]
-    pub enum Never {}
-}

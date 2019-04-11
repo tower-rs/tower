@@ -1,4 +1,3 @@
-use super::Error;
 use crate::Service;
 use futures::{try_ready, Async, Future, Poll};
 use std::{marker::PhantomData, sync::Arc};
@@ -36,17 +35,15 @@ impl<S, L, Request> LayeredMakeService<S, L, Request> {
 impl<S, L, Target, Request> Service<Target> for LayeredMakeService<S, L, Request>
 where
     S: MakeService<Target, Request>,
-    S::MakeError: Into<Error>,
-    L: Layer<S::Service, Request> + Sync + Send + 'static,
-    L::LayerError: Into<Error>,
+    L: Layer<S::Service> + Sync + Send + 'static,
     Target: Clone,
 {
     type Response = L::Service;
-    type Error = Error;
+    type Error = S::MakeError;
     type Future = ServiceFuture<S, L, Target, Request>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.maker.poll_ready().map_err(Into::into)
+        self.maker.poll_ready()
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
@@ -60,19 +57,14 @@ where
 impl<S, L, Target, Request> Future for ServiceFuture<S, L, Target, Request>
 where
     S: MakeService<Target, Request>,
-    S::MakeError: Into<Error>,
-    L: Layer<S::Service, Request>,
-    L::LayerError: Into<Error>,
+    L: Layer<S::Service>,
 {
     type Item = L::Service;
-    type Error = Error;
+    type Error = S::MakeError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let service = try_ready!(self.inner.poll().map_err(Into::into));
-
-        match self.layer.layer(service) {
-            Ok(service) => Ok(Async::Ready(service)),
-            Err(e) => Err(e.into()),
-        }
+        let service = try_ready!(self.inner.poll());
+        let service = self.layer.layer(service);
+        Ok(Async::Ready(service))
     }
 }
