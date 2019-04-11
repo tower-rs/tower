@@ -10,7 +10,6 @@ use tower_service::Service;
 /// spawn the background worker on the first call to `poll_ready`.
 /// This allows one to create the buffer backed service without needing to
 /// be within a futures context.
-#[derive(Clone)]
 pub struct BufferLazy<T, Request, E>
 where
     T: Service<Request>,
@@ -80,8 +79,6 @@ where
             let mut inner = self.inner.lock().unwrap();
             match &mut *inner {
                 State::Waiting(svc, bound) => {
-                    // let mut inner = self.inner.lock().unwrap();
-
                     let svc = svc.take().unwrap();
                     let mut buffer =
                         Buffer::with_executor(svc, *bound, &mut self.executor.clone())?;
@@ -108,6 +105,20 @@ where
             panic!(
                 "This buffer has not spawned its background worker or you did not call poll_ready"
             );
+        }
+    }
+}
+
+impl<T, Request, E> Clone for BufferLazy<T, Request, E>
+where
+    T: Service<Request>,
+    E: Clone,
+{
+    fn clone(&self) -> Self {
+        BufferLazy {
+            inner: self.inner.clone(),
+            buffer: self.buffer.clone(),
+            executor: self.executor.clone(),
         }
     }
 }
