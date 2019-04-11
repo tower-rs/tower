@@ -11,7 +11,6 @@
 pub mod error;
 pub mod future;
 mod layer;
-mod never;
 
 pub use crate::layer::TimeoutLayer;
 

@@ -2,7 +2,6 @@
 
 pub mod future;
 mod layer;
-mod never;
 mod service;
 
 pub use self::{layer::ConcurrencyLimitLayer, service::ConcurrencyLimit};
