@@ -11,12 +11,14 @@ pub trait Policy<Request> {
 /// original request to the A service and, if the request was able to be cloned,
 /// the cloned request to the B service.  Both resulting futures will be polled
 /// and whichever future completes first will be used as the result.
+#[derive(Debug)]
 pub struct Select<P, A, B> {
     policy: P,
     a: A,
     b: B,
 }
 
+#[derive(Debug)]
 pub struct ResponseFuture<AF, BF> {
     a_fut: AF,
     b_fut: Option<BF>,

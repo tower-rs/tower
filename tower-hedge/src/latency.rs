@@ -13,12 +13,13 @@ pub trait Record {
 
 /// Latency is a middleware that measures request latency and records it to the
 /// provided Record instance.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Latency<R, S> {
     rec: R,
     service: S,
 }
 
+#[derive(Debug)]
 pub struct ResponseFuture<R, F> {
     start: Instant,
     rec: R,

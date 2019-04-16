@@ -11,7 +11,7 @@ mod support;
 use support::*;
 
 use futures::Future;
-use hedge::Policy;
+use hedge::{Hedge, Policy};
 use tower_service::Service;
 
 use std::time::Duration;
@@ -160,12 +160,12 @@ impl hedge::Policy<Req> for TestPolicy {
     }
 }
 
-fn new_service<P: Policy<Req> + Clone>(policy: P) -> (hedge::Service<Mock, P>, Handle) {
+fn new_service<P: Policy<Req> + Clone>(policy: P) -> (Hedge<Mock, P>, Handle) {
     let (service, handle) = Mock::new();
 
     let mock_latencies: [u64; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 10, 10];
 
-    let service = hedge::service_with_mock_latencies(
+    let service = Hedge::new_with_mock_latencies(
         service,
         policy,
         10,

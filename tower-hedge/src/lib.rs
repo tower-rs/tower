@@ -1,3 +1,8 @@
+//! Pre-emptively retry requests which have been outstanding for longer
+//! than a given latency percentile.
+
+#![deny(warnings)]
+#![deny(missing_docs)]
 extern crate futures;
 extern crate hdrhistogram;
 #[macro_use]
@@ -6,7 +11,7 @@ extern crate tokio_timer;
 extern crate tower_filter;
 extern crate tower_service;
 
-use futures::future;
+use futures::{future, Poll};
 use futures::future::FutureResult;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -23,11 +28,23 @@ use rotating_histogram::RotatingHistogram;
 use select::Select;
 
 type Histo = Arc<Mutex<RotatingHistogram>>;
-pub type Service<InnerSvc, P> = select::Select<
+type Service<S, P> = select::Select<
     SelectPolicy<P>,
-    Latency<Histo, InnerSvc>,
-    Delay<DelayPolicy, Filter<Latency<Histo, InnerSvc>, PolicyPredicate<P>>>,
+    Latency<Histo, S>,
+    Delay<DelayPolicy, Filter<Latency<Histo, S>, PolicyPredicate<P>>>,
 >;
+/// A middleware that pre-emptively retries requests which have been outstanding
+/// for longer than a given latency percentile.  If either of the original
+/// future or the retry future completes, that value is used.
+#[derive(Debug)]
+pub struct Hedge<S, P>(Service<S, P>);
+/// The Future returned by the hedge Service.
+pub struct Future<S, P, Request>(<Service<S, P> as tower_service::Service<Request>>::Future)
+where
+    S: tower_service::Service<Request> + Clone,
+    S::Error: Into<Error>,
+    P: Policy<Request> + Clone;
+
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// A policy which describes which requests can be cloned and then whether those
@@ -41,103 +58,149 @@ pub trait Policy<Request> {
     fn can_retry(&self, req: &Request) -> bool;
 }
 
-#[derive(Clone)]
-pub struct PolicyPredicate<P>(P);
-pub struct DelayPolicy {
+#[derive(Clone, Debug)]
+struct PolicyPredicate<P>(P);
+#[derive(Debug)]
+struct DelayPolicy {
     histo: Histo,
     latency_percentile: f32,
 }
-pub struct SelectPolicy<P> {
+#[derive(Debug)]
+struct SelectPolicy<P> {
     policy: P,
     histo: Histo,
     min_data_points: u64,
 }
 
-/// A middleware that pre-emptively retries requests which have been outstanding
-/// for longer than a given latency percentile.  If either of the original
-/// future or the retry future completes, that value is used.
-pub fn service<S, P, Request>(
-    service: S,
-    policy: P,
-    min_data_points: u64,
-    latency_percentile: f32,
-    period: Duration,
-) -> Service<S, P>
-where
-    S: tower_service::Service<Request> + Clone,
-    S::Error: Into<Error>,
-    P: Policy<Request> + Clone,
-{
-    let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
-    service_with_histo(service, policy, min_data_points, latency_percentile, histo)
-}
+impl<S, P> Hedge<S, P> {
 
-/// A hedge middleware with a prepopulated latency histogram.  This is usedful
-/// for integration tests.
-pub fn service_with_mock_latencies<S, P, Request>(
-    service: S,
-    policy: P,
-    min_data_points: u64,
-    latency_percentile: f32,
-    period: Duration,
-    latencies_ms: &[u64],
-) -> Service<S, P>
-where
-    S: tower_service::Service<Request> + Clone,
-    S::Error: Into<Error>,
-    P: Policy<Request> + Clone,
-{
-    let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
+    /// Create a new hedge middleware.
+    pub fn new<Request>(
+        service: S,
+        policy: P,
+        min_data_points: u64,
+        latency_percentile: f32,
+        period: Duration,
+    ) -> Hedge<S, P>
+        where
+            S: tower_service::Service<Request> + Clone,
+            S::Error: Into<Error>,
+            P: Policy<Request> + Clone,
     {
-        let mut locked = histo.lock().unwrap();
-        for latency in latencies_ms.iter() {
-            locked.read().record(*latency).unwrap();
-        }
+        let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
+        Self::new_with_histo(service, policy, min_data_points, latency_percentile, histo)
     }
-    service_with_histo(service, policy, min_data_points, latency_percentile, histo)
+
+    /// A hedge middleware with a prepopulated latency histogram.  This is usedful
+    /// for integration tests.
+    pub fn new_with_mock_latencies<Request>(
+        service: S,
+        policy: P,
+        min_data_points: u64,
+        latency_percentile: f32,
+        period: Duration,
+        latencies_ms: &[u64],
+    ) -> Hedge<S, P>
+        where
+            S: tower_service::Service<Request> + Clone,
+            S::Error: Into<Error>,
+            P: Policy<Request> + Clone,
+    {
+        let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
+        {
+            let mut locked = histo.lock().unwrap();
+            for latency in latencies_ms.iter() {
+                locked.read().record(*latency).unwrap();
+            }
+        }
+        Self::new_with_histo(service, policy, min_data_points, latency_percentile, histo)
+    }
+
+    fn new_with_histo<Request>(
+        service: S,
+        policy: P,
+        min_data_points: u64,
+        latency_percentile: f32,
+        histo: Histo,
+    ) -> Hedge<S, P>
+        where
+            S: tower_service::Service<Request> + Clone,
+            S::Error: Into<Error>,
+            P: Policy<Request> + Clone,
+    {
+        // Clone the underlying service and wrap both copies in a middleware that
+        // records the latencies in a rotating histogram.
+        let recorded_a = Latency::new(histo.clone(), service.clone());
+        let recorded_b = Latency::new(histo.clone(), service);
+
+        // Check policy to see if the hedge request should be issued.
+        let filtered = Filter::new(recorded_b, PolicyPredicate(policy.clone()));
+
+        // Delay the second request by a percentile of the recorded request latency
+        // histogram.
+        let delay_policy = DelayPolicy {
+            histo: histo.clone(),
+            latency_percentile,
+        };
+        let delayed = Delay::new(delay_policy, filtered);
+
+        // If the request is retryable, issue two requests -- the second one delayed
+        // by a latency percentile.  Use the first result to complete.
+        let select_policy = SelectPolicy {
+            policy,
+            histo,
+            min_data_points,
+        };
+        Hedge(Select::new(select_policy, recorded_a, delayed))
+    }
 }
 
-fn service_with_histo<S, P, Request>(
-    service: S,
-    policy: P,
-    min_data_points: u64,
-    latency_percentile: f32,
-    histo: Histo,
-) -> Service<S, P>
+
+
+
+
+
+
+impl<S, P, Request> tower_service::Service<Request> for Hedge<S, P>
 where
     S: tower_service::Service<Request> + Clone,
     S::Error: Into<Error>,
     P: Policy<Request> + Clone,
 {
-    // Clone the underlying service and wrap both copies in a middleware that
-    // records the latencies in a rotating histogram.
-    let recorded_a = Latency::new(histo.clone(), service.clone());
-    let recorded_b = Latency::new(histo.clone(), service);
+    type Response = S::Response;
+    type Error = Error;
+    type Future = Future<S, P, Request>;
 
-    // Check policy to see if the hedge request should be issued.
-    let filtered = Filter::new(recorded_b, PolicyPredicate(policy.clone()));
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        self.0.poll_ready()
+    }
 
-    // Delay the second request by a percentile of the recorded request latency
-    // histogram.
-    let delay_policy = DelayPolicy {
-        histo: histo.clone(),
-        latency_percentile,
-    };
-    let delayed = Delay::new(delay_policy, filtered);
+    fn call(&mut self, request: Request) -> Self::Future {
+        Future(self.0.call(request))
+    }
+}
 
-    // If the request is retryable, issue two requests -- the second one delayed
-    // by a latency percentile.  Use the first result to complete.
-    let select_policy = SelectPolicy {
-        policy,
-        histo,
-        min_data_points,
-    };
-    Select::new(select_policy, recorded_a, delayed)
+impl<S, P, Request> futures::Future for Future<S, P, Request>
+where
+    S: tower_service::Service<Request> + Clone,
+    S::Error: Into<Error>,
+    P: Policy<Request> + Clone,
+{
+    type Item = S::Response;
+    type Error = Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
+    }
 }
 
 // TODO: Remove when Duration::as_millis() becomes stable.
-fn duration_as_millis(d: Duration) -> u64 {
-    d.as_secs() * 1_000 + d.subsec_millis() as u64
+const NANOS_PER_MILLI: u32 = 1_000_000;
+const MILLIS_PER_SEC: u64 = 1_000;
+fn millis(duration: Duration) -> u64 {
+    // Round up.
+    let millis = (duration.subsec_nanos() + NANOS_PER_MILLI - 1) / NANOS_PER_MILLI;
+    duration.as_secs().saturating_mul(MILLIS_PER_SEC).saturating_add(u64::from(millis))
 }
 
 impl latency::Record for Histo {
@@ -145,7 +208,7 @@ impl latency::Record for Histo {
         let mut locked = self.lock().unwrap();
         locked
             .write()
-            .record(duration_as_millis(latency))
+            .record(millis(latency))
             .unwrap_or_else(|e| {
                 error!("Failed to write to hedge histogram: {:?}", e);
             })

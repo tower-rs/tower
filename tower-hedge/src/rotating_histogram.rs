@@ -10,6 +10,7 @@ use tokio_timer::clock;
 /// histogram is discarded and replaced by the write histogram.  The idea here
 /// is that the read histogram should always contain a full period (the previous
 /// period) of write operations.
+#[derive(Debug)]
 pub struct RotatingHistogram {
     read: Histogram<u64>,
     write: Histogram<u64>,
@@ -43,7 +44,7 @@ impl RotatingHistogram {
         let delta = clock::now() - self.last_rotation;
         // TODO: replace with delta.duration_div when it becomes stable.
         let rotations =
-            (Self::duration_as_nanos(&delta) / Self::duration_as_nanos(&self.period)) as u32;
+            (nanos(delta) / nanos(self.period)) as u32;
         if rotations >= 2 {
             trace!("Time since last rotation is {:?}.  clearing!", delta);
             self.clear();
@@ -64,8 +65,9 @@ impl RotatingHistogram {
         self.read.clear();
         self.write.clear();
     }
+}
 
-    fn duration_as_nanos(d: &Duration) -> u64 {
-        d.as_secs() * 1_000_000_000 + (d.subsec_nanos() as u64)
-    }
+const NANOS_PER_SEC: u64 = 1_000_000_000;
+fn nanos(duration: Duration) -> u64 {
+    duration.as_secs().saturating_mul(NANOS_PER_SEC).saturating_add(u64::from(duration.subsec_nanos()))
 }

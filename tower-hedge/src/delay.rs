@@ -1,9 +1,6 @@
 use futures::{Async, Future, Poll};
 use tower_service::Service;
 
-mod error;
-use self::error::Error;
-
 use std::time::Duration;
 
 /// A policy which specifies how long each request should be delayed for.
@@ -13,19 +10,22 @@ pub trait Policy<Request> {
 
 /// A middleware which delays sending the request to the underlying service
 /// for an amount of time specified by the policy.
+#[derive(Debug)]
 pub struct Delay<P, S> {
     policy: P,
     service: S,
 }
 
-enum State<Request, F> {
-    Delaying(tokio_timer::Delay, Option<Request>),
-    Called(F),
-}
-
+#[derive(Debug)]
 pub struct ResponseFuture<Request, S, F> {
     service: S,
     state: State<Request, F>,
+}
+
+#[derive(Debug)]
+enum State<Request, F> {
+    Delaying(tokio_timer::Delay, Option<Request>),
+    Called(F),
 }
 
 impl<P, S> Delay<P, S> {
@@ -46,19 +46,25 @@ where
     S::Error: Into<super::Error>,
 {
     type Response = S::Response;
-    type Error = Error;
+    type Error = super::Error;
     type Future = ResponseFuture<Request, S, S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service
             .poll_ready()
-            .map_err(|e| Error::ServiceError(e.into()))
+            .map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         let deadline = tokio_timer::clock::now() + self.policy.delay(&request);
+        let mut cloned = self.service.clone();
+        // Pass the original service to the ResponseFuture and keep the cloned service on self.
+        let orig = {
+            std::mem::swap(&mut cloned, &mut self.service);
+            cloned
+        };
         ResponseFuture {
-            service: self.service.clone(),
+            service: orig,
             state: State::Delaying(tokio_timer::Delay::new(deadline), Some(request)),
         }
     }
@@ -71,7 +77,7 @@ where
     S: Service<Request, Future = F, Response = F::Item, Error = F::Error>,
 {
     type Item = F::Item;
-    type Error = Error;
+    type Error = super::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -83,10 +89,10 @@ where
                         let fut = self.service.call(req);
                         State::Called(fut)
                     }
-                    Err(e) => return Err(Error::TimerError(e)),
+                    Err(e) => return Err(e.into()),
                 },
                 State::Called(ref mut fut) => {
-                    return fut.poll().map_err(|e| Error::ServiceError(e.into()));
+                    return fut.poll().map_err(|e| e.into());
                 }
             };
             self.state = next;
