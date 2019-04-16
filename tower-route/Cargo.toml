@@ -1,0 +1,11 @@
+[package]
+name = "tower-route"
+version = "0.1.0"
+authors = ["Abdel-Rahman A. <abogical@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+futures = "0.1.26"
+tower-service = "0.2.0"
+tower-layer = { path = "../tower-layer" }
+void = "1.0.2"

@@ -15,6 +15,7 @@ members = [
   "tower-test",
   "tower-timeout",
   "tower-util",
+  "tower-route"
 ]
 
 [patch.'https://github.com/tower-rs/tower']
