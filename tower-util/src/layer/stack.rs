@@ -3,7 +3,7 @@ use tower_layer::Layer;
 /// Two middlewares chained together.
 ///
 /// This type is produced by `Layer::chain`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Stack<Inner, Outer> {
     inner: Inner,
     outer: Outer,
