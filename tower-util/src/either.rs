@@ -10,6 +10,7 @@ use tower_service::Service;
 /// Both services must be of the same request, response, and error types.
 /// `Either` is useful for handling conditional branching in service middleware
 /// to different inner service types.
+#[derive(Clone, Debug)]
 pub enum Either<A, B> {
     A(A),
     B(B),
