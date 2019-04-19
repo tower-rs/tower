@@ -50,9 +50,7 @@ where
     type Future = ResponseFuture<Request, S, S::Future>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service
-            .poll_ready()
-            .map_err(|e| e.into())
+        self.service.poll_ready().map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

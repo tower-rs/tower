@@ -11,8 +11,8 @@ extern crate tokio_timer;
 extern crate tower_filter;
 extern crate tower_service;
 
-use futures::{future, Poll};
 use futures::future::FutureResult;
+use futures::{future, Poll};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tower_filter::Filter;
@@ -73,7 +73,6 @@ struct SelectPolicy<P> {
 }
 
 impl<S, P> Hedge<S, P> {
-
     /// Create a new hedge middleware.
     pub fn new<Request>(
         service: S,
@@ -82,10 +81,10 @@ impl<S, P> Hedge<S, P> {
         latency_percentile: f32,
         period: Duration,
     ) -> Hedge<S, P>
-        where
-            S: tower_service::Service<Request> + Clone,
-            S::Error: Into<Error>,
-            P: Policy<Request> + Clone,
+    where
+        S: tower_service::Service<Request> + Clone,
+        S::Error: Into<Error>,
+        P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
         Self::new_with_histo(service, policy, min_data_points, latency_percentile, histo)
@@ -101,10 +100,10 @@ impl<S, P> Hedge<S, P> {
         period: Duration,
         latencies_ms: &[u64],
     ) -> Hedge<S, P>
-        where
-            S: tower_service::Service<Request> + Clone,
-            S::Error: Into<Error>,
-            P: Policy<Request> + Clone,
+    where
+        S: tower_service::Service<Request> + Clone,
+        S::Error: Into<Error>,
+        P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
         {
@@ -123,10 +122,10 @@ impl<S, P> Hedge<S, P> {
         latency_percentile: f32,
         histo: Histo,
     ) -> Hedge<S, P>
-        where
-            S: tower_service::Service<Request> + Clone,
-            S::Error: Into<Error>,
-            P: Policy<Request> + Clone,
+    where
+        S: tower_service::Service<Request> + Clone,
+        S::Error: Into<Error>,
+        P: Policy<Request> + Clone,
     {
         // Clone the underlying service and wrap both copies in a middleware that
         // records the latencies in a rotating histogram.
@@ -154,12 +153,6 @@ impl<S, P> Hedge<S, P> {
         Hedge(Select::new(select_policy, recorded_a, delayed))
     }
 }
-
-
-
-
-
-
 
 impl<S, P, Request> tower_service::Service<Request> for Hedge<S, P>
 where
@@ -200,18 +193,18 @@ const MILLIS_PER_SEC: u64 = 1_000;
 fn millis(duration: Duration) -> u64 {
     // Round up.
     let millis = (duration.subsec_nanos() + NANOS_PER_MILLI - 1) / NANOS_PER_MILLI;
-    duration.as_secs().saturating_mul(MILLIS_PER_SEC).saturating_add(u64::from(millis))
+    duration
+        .as_secs()
+        .saturating_mul(MILLIS_PER_SEC)
+        .saturating_add(u64::from(millis))
 }
 
 impl latency::Record for Histo {
     fn record(&mut self, latency: Duration) {
         let mut locked = self.lock().unwrap();
-        locked
-            .write()
-            .record(millis(latency))
-            .unwrap_or_else(|e| {
-                error!("Failed to write to hedge histogram: {:?}", e);
-            })
+        locked.write().record(millis(latency)).unwrap_or_else(|e| {
+            error!("Failed to write to hedge histogram: {:?}", e);
+        })
     }
 }
 

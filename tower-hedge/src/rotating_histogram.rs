@@ -43,8 +43,7 @@ impl RotatingHistogram {
     fn maybe_rotate(&mut self) {
         let delta = clock::now() - self.last_rotation;
         // TODO: replace with delta.duration_div when it becomes stable.
-        let rotations =
-            (nanos(delta) / nanos(self.period)) as u32;
+        let rotations = (nanos(delta) / nanos(self.period)) as u32;
         if rotations >= 2 {
             trace!("Time since last rotation is {:?}.  clearing!", delta);
             self.clear();
@@ -69,5 +68,8 @@ impl RotatingHistogram {
 
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 fn nanos(duration: Duration) -> u64 {
-    duration.as_secs().saturating_mul(NANOS_PER_SEC).saturating_add(u64::from(duration.subsec_nanos()))
+    duration
+        .as_secs()
+        .saturating_mul(NANOS_PER_SEC)
+        .saturating_add(u64::from(duration.subsec_nanos()))
 }
