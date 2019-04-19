@@ -1,4 +1,5 @@
-use futures::Future;
+use crate::sealed::Sealed;
+use futures::{Future, Poll};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tower_service::Service;
 
@@ -7,36 +8,39 @@ use tower_service::Service;
 /// The goal of this service is to allow composable methods for creating
 /// `AsyncRead + AsyncWrite` transports. This could mean creating a TLS
 /// based connection or using some other method to authenticate the connection.
-pub trait MakeConnection<Request> {
+pub trait MakeConnection<Target>: Sealed<(Target,)> {
     /// The transport provided by this service
-    type Response: AsyncRead + AsyncWrite;
+    type Connection: AsyncRead + AsyncWrite;
 
     /// Errors produced by the connecting service
     type Error;
 
     /// The future that eventually produces the transport
-    type Future: Future<Item = Self::Response, Error = Self::Error>;
+    type Future: Future<Item = Self::Connection, Error = Self::Error>;
+
+    /// Returns `Ready` when it is able to make more connections.
+    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
     /// Connect and return a transport asynchronously
-    fn make_connection(&mut self, target: Request) -> Self::Future;
+    fn make_connection(&mut self, target: Target) -> Self::Future;
 }
 
-impl<S, Request> self::sealed::Sealed<Request> for S where S: Service<Request> {}
+impl<S, Target> Sealed<(Target,)> for S where S: Service<Target> {}
 
-impl<C, Request> MakeConnection<Request> for C
+impl<C, Target> MakeConnection<Target> for C
 where
-    C: Service<Request>,
+    C: Service<Target>,
     C::Response: AsyncRead + AsyncWrite,
 {
-    type Response = C::Response;
+    type Connection = C::Response;
     type Error = C::Error;
     type Future = C::Future;
 
-    fn make_connection(&mut self, target: Request) -> Self::Future {
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        Service::poll_ready(self)
+    }
+
+    fn make_connection(&mut self, target: Target) -> Self::Future {
         Service::call(self, target)
     }
-}
-
-mod sealed {
-    pub trait Sealed<A> {}
 }

@@ -1,8 +1,7 @@
-use crate::{Error, Timeout};
+use crate::{never::Never, Error, Timeout};
 use std::time::Duration;
 use tower_layer::Layer;
 use tower_service::Service;
-
 /// Applies a timeout to requests via the supplied inner service.
 #[derive(Debug)]
 pub struct TimeoutLayer {
@@ -23,7 +22,7 @@ where
 {
     type Response = S::Response;
     type Error = Error;
-    type LayerError = ();
+    type LayerError = Never;
     type Service = Timeout<S>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

@@ -1,14 +1,11 @@
-extern crate futures;
-extern crate tower_buffer;
-extern crate tower_mock;
-extern crate tower_service;
-
 use futures::prelude::*;
-use tower_buffer::*;
-use tower_service::*;
-
-use std::cell::RefCell;
-use std::thread;
+use std::{cell::RefCell, thread};
+use tokio_executor::{SpawnError, TypedExecutor};
+use tower::{
+    buffer::{error, Buffer},
+    Service,
+};
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn req_and_res() {
@@ -16,9 +13,7 @@ fn req_and_res() {
 
     let response = service.call("hello");
 
-    let request = handle.next_request().unwrap();
-    assert_eq!(*request, "hello");
-    request.respond("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     assert_eq!(response.wait().unwrap(), "world");
 }
@@ -31,8 +26,7 @@ fn clears_canceled_requests() {
 
     let res1 = service.call("hello");
 
-    let req1 = handle.next_request().unwrap();
-    assert_eq!(*req1, "hello");
+    let send_response1 = assert_request_eq!(handle, "hello");
 
     // don't respond yet, new requests will get buffered
 
@@ -45,15 +39,14 @@ fn clears_canceled_requests() {
 
     drop(res2);
 
-    req1.respond("world");
+    send_response1.send_response("world");
     assert_eq!(res1.wait().unwrap(), "world");
 
     // res2 was dropped, so it should have been canceled in the buffer
     handle.allow(1);
 
-    let req3 = handle.next_request().unwrap();
-    assert_eq!(*req3, "hello3");
-    req3.respond("world3");
+    assert_request_eq!(handle, "hello3").send_response("world3");
+
     assert_eq!(res3.wait().unwrap(), "world3");
 }
 
@@ -75,9 +68,7 @@ fn when_inner_is_not_ready() {
 
     handle.allow(1);
 
-    let req1 = handle.next_request().expect("next_request1");
-    assert_eq!(*req1, "hello");
-    req1.respond("world");
+    assert_request_eq!(handle, "hello").send_response("world");
 
     assert_eq!(res1.wait().expect("res1.wait"), "world");
 }
@@ -90,7 +81,7 @@ fn when_inner_fails() {
 
     // Make the service NotReady
     handle.allow(0);
-    handle.error("foobar");
+    handle.send_error("foobar");
 
     let mut res1 = service.call("hello");
 
@@ -110,12 +101,12 @@ fn when_inner_fails() {
 
 #[test]
 fn poll_ready_when_worker_is_dropped_early() {
-    let (service, _handle) = Mock::new();
+    let (service, _handle) = mock::pair::<(), ()>();
 
     // drop that worker right on the floor!
-    let exec = ExecFn(drop);
+    let mut exec = ExecFn(drop);
 
-    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+    let mut service = Buffer::with_executor(service, 1, &mut exec).unwrap();
 
     with_task(|| {
         service
@@ -126,13 +117,13 @@ fn poll_ready_when_worker_is_dropped_early() {
 
 #[test]
 fn response_future_when_worker_is_dropped_early() {
-    let (service, mut handle) = Mock::new();
+    let (service, mut handle) = mock::pair::<_, ()>();
 
     // hold the worker in a cell until we want to drop it later
     let cell = RefCell::new(None);
-    let exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
+    let mut exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
 
-    let mut service = Buffer::with_executor(service, 1, &exec).unwrap();
+    let mut service = Buffer::with_executor(service, 1, &mut exec).unwrap();
 
     // keep the request in the worker
     handle.allow(0);
@@ -144,16 +135,16 @@ fn response_future_when_worker_is_dropped_early() {
     response.wait().expect_err("res.wait");
 }
 
-type Mock = tower_mock::Mock<&'static str, &'static str>;
-type Handle = tower_mock::Handle<&'static str, &'static str>;
+type Mock = mock::Mock<&'static str, &'static str>;
+type Handle = mock::Handle<&'static str, &'static str>;
 
 struct Exec;
 
-impl<F> futures::future::Executor<F> for Exec
+impl<F> TypedExecutor<F> for Exec
 where
     F: Future<Item = (), Error = ()> + Send + 'static,
 {
-    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
+    fn spawn(&mut self, fut: F) -> Result<(), SpawnError> {
         thread::spawn(move || {
             fut.wait().unwrap();
         });
@@ -163,21 +154,21 @@ where
 
 struct ExecFn<Func>(Func);
 
-impl<Func, F> futures::future::Executor<F> for ExecFn<Func>
+impl<Func, F> TypedExecutor<F> for ExecFn<Func>
 where
     Func: Fn(F),
     F: Future<Item = (), Error = ()> + Send + 'static,
 {
-    fn execute(&self, fut: F) -> Result<(), futures::future::ExecuteError<F>> {
+    fn spawn(&mut self, fut: F) -> Result<(), SpawnError> {
         (self.0)(fut);
         Ok(())
     }
 }
 
 fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
-    let (service, handle) = Mock::new();
+    let (service, handle) = mock::pair();
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
-    let service = Buffer::with_executor(service, 10, &Exec).unwrap();
+    let service = Buffer::with_executor(service, 10, &mut Exec).unwrap();
     (service, handle)
 }
 

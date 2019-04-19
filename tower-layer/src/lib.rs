@@ -1,21 +1,12 @@
+#![deny(missing_docs, rust_2018_idioms)]
+#![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
+
 //! Layer traits and extensions.
 //!
 //! A layer decorates an service and provides additional functionality. It
 //! allows other services to be composed with the service that implements layer.
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
-
-#![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
-
-extern crate futures;
-extern crate tower_service;
-
-#[cfg(feature = "util")]
-pub mod util;
-
-#[cfg(feature = "util")]
-pub use util::LayerExt;
 
 use tower_service::Service;
 
@@ -34,10 +25,12 @@ use tower_service::Service;
 /// ```rust
 /// # extern crate futures;
 /// # extern crate tower_service;
+/// # extern crate void;
 /// # use tower_service::Service;
 /// # use futures::{Poll, Async};
 /// # use tower_layer::Layer;
 /// # use std::fmt;
+/// # use void::Void;
 ///
 /// pub struct LogLayer {
 ///     target: &'static str,
@@ -50,7 +43,7 @@ use tower_service::Service;
 /// {
 ///     type Response = S::Response;
 ///     type Error = S::Error;
-///     type LayerError = ();
+///     type LayerError = Void;
 ///     type Service = LogService<S>;
 ///
 ///     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {

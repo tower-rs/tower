@@ -2,7 +2,9 @@
 name = "tower-filter"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
+license = "MIT"
 publish = false
+edition = "2018"
 
 [dependencies]
 futures = "0.1"
@@ -10,5 +12,4 @@ tower-service = "0.2.0"
 tower-layer = { version = "0.1", path = "../tower-layer" }
 
 [dev-dependencies]
-tower-mock = { version = "0.1", path = "../tower-mock" }
-tower-util = { version = "0.1", path = "../tower-util" }
+tower-test = { version = "0.1", path = "../tower-test" }

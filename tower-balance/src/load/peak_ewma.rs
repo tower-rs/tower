@@ -1,13 +1,17 @@
-use futures::{Async, Poll};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use futures::{try_ready, Async, Poll};
+use log::trace;
+use std::{
+    ops,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 use tokio_timer::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 
-use Load;
+use crate::{HasWeight, Load, Weight};
 
 /// Wraps an `S`-typed Service with Peak-EWMA load measurement.
 ///
@@ -189,6 +193,12 @@ impl<S, I> Load for PeakEwma<S, I> {
     }
 }
 
+impl<S: HasWeight, I> HasWeight for PeakEwma<S, I> {
+    fn weight(&self) -> Weight {
+        self.service.weight()
+    }
+}
+
 impl<S, I> PeakEwma<S, I> {
     fn update_estimate(&self) -> f64 {
         let mut rtt = self.rtt_estimate.lock().expect("peak ewma prior_estimate");
@@ -277,6 +287,16 @@ impl Drop for Handle {
     }
 }
 
+// ===== impl Cost =====
+
+impl ops::Div<Weight> for Cost {
+    type Output = f64;
+
+    fn div(self, w: Weight) -> f64 {
+        self.0 / w
+    }
+}
+
 // Utility that converts durations to nanos in f64.
 //
 // Due to a lossy transformation, the maximum value that can be represented is ~585 years,
@@ -290,14 +310,13 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    extern crate tokio_executor;
-    extern crate tokio_timer;
-
-    use self::tokio_executor::enter;
-    use self::tokio_timer::clock;
     use futures::{future, Future, Poll};
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
+    use std::{
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
+    };
+    use tokio_executor::enter;
+    use tokio_timer::clock;
 
     use super::*;
 

@@ -9,28 +9,18 @@
 
 #![deny(warnings)]
 
-extern crate futures;
-extern crate futures_cpupool;
-extern crate tokio_timer;
-extern crate tower_service;
-extern crate tower_util;
-
-#[macro_use]
-extern crate log;
-
-extern crate env_logger;
-
-use tower_service::Service;
-use tower_util::{MakeService, ServiceExt};
-
-use futures::future::{Executor, FutureResult};
-use futures::sync::{mpsc, oneshot};
-use futures::{Async, Future, IntoFuture, Poll, Stream};
+use env_logger;
+use futures::{
+    future::{Executor, FutureResult},
+    sync::{mpsc, oneshot},
+    Async, Future, IntoFuture, Poll, Stream,
+};
 use futures_cpupool::CpuPool;
+use log::info;
 use tokio_timer::Timer;
+use tower::{MakeService, Service, ServiceExt};
 
-use std::io;
-use std::time::Duration;
+use std::{io, time::Duration};
 
 /// Service that dispatches requests to a side task using a channel.
 #[derive(Debug)]

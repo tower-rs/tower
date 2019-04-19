@@ -2,7 +2,9 @@
 name = "tower-balance"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
+license = "MIT"
 publish = false
+edition = "2018"
 
 [dependencies]
 futures = "0.1"
@@ -21,5 +23,6 @@ hdrsample = "6.0"
 quickcheck = { version = "0.6", default-features = false }
 tokio = "0.1.7"
 tokio-executor = "0.1.2"
+tower = { version = "0.1", path = "../tower" }
 tower-buffer = { version = "0.1", path = "../tower-buffer" }
-tower-in-flight-limit = { version = "0.1", path = "../tower-in-flight-limit" }
+tower-limit = { version = "0.1", path = "../tower-limit" }

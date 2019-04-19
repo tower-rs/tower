@@ -1,18 +1,14 @@
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate tower_service;
-extern crate tower_util;
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 pub mod future;
 
 use crate::future::ResponseFuture;
-
 use futures::{Async, Future, Poll};
+use log::trace;
+use std::fmt;
 use tower_service::Service;
 use tower_util::MakeService;
-
-use std::fmt;
 
 pub struct Reconnect<M, Target>
 where
@@ -23,7 +19,7 @@ where
     target: Target,
 }
 
-type Error = Box<::std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Debug)]
 enum State<F, S> {

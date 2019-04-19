@@ -2,7 +2,9 @@
 name = "tower-reconnect"
 version = "0.1.0"
 authors = ["Carl Lerche <me@carllerche.com>"]
+license = "MIT"
 publish = false
+edition = "2018"
 
 [dependencies]
 log = "0.4.1"

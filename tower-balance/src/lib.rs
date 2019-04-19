@@ -1,18 +1,11 @@
-#[macro_use]
-extern crate futures;
-#[macro_use]
-extern crate log;
-extern crate indexmap;
+#![deny(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 #[cfg(test)]
 extern crate quickcheck;
-extern crate rand;
-extern crate tokio_timer;
-extern crate tower_discover;
-extern crate tower_service;
-extern crate tower_util;
 
-use futures::{Async, Future, Poll};
+use futures::{Async, Poll};
 use indexmap::IndexMap;
+use log::{debug, trace};
 use rand::{rngs::SmallRng, SeedableRng};
 use std::fmt;
 use tower_discover::Discover;
@@ -20,14 +13,23 @@ use tower_service::Service;
 
 pub mod choose;
 pub mod error;
+pub mod future;
 pub mod load;
 pub mod pool;
 
-pub use self::choose::Choose;
-pub use self::load::Load;
-pub use self::pool::Pool;
+#[cfg(test)]
+mod test;
 
-use self::error::Error;
+pub use self::{
+    choose::Choose,
+    load::{
+        weight::{HasWeight, Weight, Weighted, WithWeighted},
+        Load,
+    },
+    pool::Pool,
+};
+
+use self::{error::Error, future::ResponseFuture};
 
 /// Balances requests across a set of inner services.
 #[derive(Debug)]
@@ -52,8 +54,6 @@ pub struct Balance<D: Discover, C> {
     /// Newly-added endpoints that have not yet become ready.
     not_ready: IndexMap<D::Key, D::Service>,
 }
-
-pub struct ResponseFuture<F>(F);
 
 // ===== impl Balance =====
 
@@ -163,7 +163,7 @@ where
             self.discover.poll().map_err(|e| error::Balance(e.into()))?
         {
             match change {
-                Insert(key, mut svc) => {
+                Insert(key, svc) => {
                     // If the `Insert`ed service is a duplicate of a service already
                     // in the ready list, remove the ready service first. The new
                     // service will then be inserted into the not-ready list.
@@ -338,158 +338,6 @@ where
         self.dispatched_ready_index = Some(idx);
 
         let rsp = svc.call(request);
-        ResponseFuture(rsp)
-    }
-}
-
-// ===== impl ResponseFuture =====
-
-impl<F> Future for ResponseFuture<F>
-where
-    F: Future,
-    F::Error: Into<Error>,
-{
-    type Item = F::Item;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(Into::into)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use futures::future;
-    use quickcheck::*;
-    use std::collections::VecDeque;
-    use tower_discover::Change;
-
-    use super::*;
-
-    struct ReluctantDisco(VecDeque<Change<usize, ReluctantService>>);
-
-    struct ReluctantService {
-        polls_until_ready: usize,
-    }
-
-    impl Discover for ReluctantDisco {
-        type Key = usize;
-        type Service = ReluctantService;
-        type Error = Error;
-
-        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-            let r = self
-                .0
-                .pop_front()
-                .map(Async::Ready)
-                .unwrap_or(Async::NotReady);
-            debug!("polling disco: {:?}", r.is_ready());
-            Ok(r)
-        }
-    }
-
-    impl Service<()> for ReluctantService {
-        type Response = ();
-        type Error = Error;
-        type Future = future::FutureResult<Self::Response, Self::Error>;
-
-        fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-            if self.polls_until_ready == 0 {
-                return Ok(Async::Ready(()));
-            }
-
-            self.polls_until_ready -= 1;
-            return Ok(Async::NotReady);
-        }
-
-        fn call(&mut self, _: ()) -> Self::Future {
-            future::ok(())
-        }
-    }
-
-    quickcheck! {
-        /// Creates a random number of services, each of which must be polled a random
-        /// number of times before becoming ready. As the balancer is polled, ensure that
-        /// it does not become ready prematurely and that services are promoted from
-        /// not_ready to ready.
-        fn poll_ready(service_tries: Vec<usize>) -> TestResult {
-            // Stores the number of pending services after each poll_ready call.
-            let mut pending_at = Vec::new();
-
-            let disco = {
-                let mut changes = VecDeque::new();
-                for (i, n) in service_tries.iter().map(|n| *n).enumerate() {
-                    for j in 0..n {
-                        if j == pending_at.len() {
-                            pending_at.push(1);
-                        } else {
-                            pending_at[j] += 1;
-                        }
-                    }
-
-                    let s = ReluctantService { polls_until_ready: n };
-                    changes.push_back(Change::Insert(i, s));
-                }
-                ReluctantDisco(changes)
-            };
-            pending_at.push(0);
-
-            let mut balancer = Balance::new(disco, choose::RoundRobin::default());
-
-            let services = service_tries.len();
-            let mut next_pos = 0;
-            for pending in pending_at.iter().map(|p| *p) {
-                assert!(pending <= services);
-                let ready = services - pending;
-
-                match balancer.poll_ready() {
-                    Err(_) => return TestResult::error("poll_ready failed"),
-                    Ok(p) => {
-                        if p.is_ready() != (ready > 0) {
-                            return TestResult::failed();
-                        }
-                    }
-                }
-
-                if balancer.num_ready() != ready {
-                    return TestResult::failed();
-                }
-
-                if balancer.num_not_ready() != pending {
-                    return TestResult::failed();
-                }
-
-                if balancer.is_ready() != (ready > 0) {
-                    return TestResult::failed();
-                }
-                if balancer.is_not_ready() != (ready == 0) {
-                    return TestResult::failed();
-                }
-
-                if balancer.dispatched_ready_index.is_some() {
-                    return TestResult::failed();
-                }
-
-                if ready == 0 {
-                    if balancer.chosen_ready_index.is_some() {
-                        return TestResult::failed();
-                    }
-                } else {
-                    // Check that the round-robin chooser is doing its thing:
-                    match balancer.chosen_ready_index {
-                        None => return TestResult::failed(),
-                        Some(idx) => {
-                            if idx != next_pos  {
-                                return TestResult::failed();
-                            }
-                        }
-                    }
-
-                    next_pos = (next_pos + 1) % ready;
-                }
-            }
-
-            TestResult::passed()
-        }
+        ResponseFuture::new(rsp)
     }
 }

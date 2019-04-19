@@ -1,4 +1,4 @@
-use choose::{Choose, Replicas};
+use crate::choose::{Choose, Replicas};
 
 /// Chooses nodes sequentially.
 ///

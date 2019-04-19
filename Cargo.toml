@@ -7,14 +7,16 @@ members = [
   "tower-discover",
   "tower-filter",
   "tower-hedge",
-  "tower-in-flight-limit",
-  "tower-mock",
   "tower-layer",
-  "tower-rate-limit",
+  "tower-limit",
+  "tower-load-shed",
   "tower-reconnect",
   "tower-retry",
   "tower-service",
+  "tower-test",
   "tower-timeout",
   "tower-util",
-  "tower-watch",
 ]
+
+[patch.'https://github.com/tower-rs/tower']
+tower-retry = { path = "tower-retry" }

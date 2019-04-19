@@ -15,11 +15,11 @@ description = """
 Decorates a `Service` to allow easy composition between `Service`s.
 """
 categories = ["asynchronous", "network-programming"]
+edition = "2018"
 
 [dependencies]
 futures = "0.1"
 tower-service = "0.2.0"
 
-[features]
-default = ["util"]
-util = []
+[dev-dependencies]
+void = "1"

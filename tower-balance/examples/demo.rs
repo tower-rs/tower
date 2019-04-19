@@ -1,48 +1,37 @@
 //! Exercises load balancers with mocked services.
 
-extern crate env_logger;
-#[macro_use]
-extern crate futures;
-extern crate hdrsample;
-#[macro_use]
-extern crate log;
-extern crate rand;
-extern crate tokio;
-extern crate tower_balance;
-extern crate tower_buffer;
-extern crate tower_discover;
-extern crate tower_in_flight_limit;
-extern crate tower_service;
-
-use futures::{future, stream, Async, Future, Poll, Stream};
+use env_logger;
+use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;
-use rand::Rng;
-use std::collections::VecDeque;
-use std::fmt;
+use rand::{self, Rng};
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
+use tower::{discover::Discover, limit::concurrency::ConcurrencyLimit, Service, ServiceExt};
 use tower_balance as lb;
-use tower_buffer::Buffer;
-use tower_discover::{Change, Discover};
-use tower_in_flight_limit::InFlightLimit;
-use tower_service::Service;
 
 const REQUESTS: usize = 50_000;
-const CONCURRENCY: usize = 50;
+const CONCURRENCY: usize = 500;
 const DEFAULT_RTT: Duration = Duration::from_millis(30);
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
 static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(1),
-    Duration::from_millis(10),
+    Duration::from_millis(5),
     Duration::from_millis(10),
     Duration::from_millis(10),
     Duration::from_millis(10),
     Duration::from_millis(100),
     Duration::from_millis(100),
     Duration::from_millis(100),
-    Duration::from_millis(100),
+    Duration::from_millis(500),
     Duration::from_millis(1000),
 ];
+static WEIGHTS: [f64; 10] = [1.0, 1.0, 1.0, 0.5, 1.5, 0.5, 1.5, 1.0, 1.0, 1.0];
+
+struct Summary {
+    latencies: Histogram<u64>,
+    start: Instant,
+    count_by_instance: [usize; 10],
+}
 
 fn main() {
     env_logger::init();
@@ -56,10 +45,40 @@ fn main() {
         print!("{}ms, ", l);
     }
     println!("]");
+    print!("WEIGHTS=[");
+    for w in &WEIGHTS {
+        print!("{}, ", w);
+    }
+    println!("]");
 
     let mut rt = runtime::Runtime::new().unwrap();
 
+    // Show weighted behavior first...
+
     let fut = future::lazy(move || {
+        let decay = Duration::from_secs(10);
+        let d = gen_disco();
+        let pe = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPeakEwma::new(
+            d,
+            DEFAULT_RTT,
+            decay,
+            lb::load::NoInstrument,
+        )));
+        run("P2C+PeakEWMA w/ weights", pe)
+    });
+
+    let fut = fut.then(move |_| {
+        let d = gen_disco();
+        let ll = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPendingRequests::new(
+            d,
+            lb::load::NoInstrument,
+        )));
+        run("P2C+LeastLoaded w/ weights", ll)
+    });
+
+    // Then run through standard comparisons...
+
+    let fut = fut.then(move |_| {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
         let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(
@@ -71,7 +90,7 @@ fn main() {
         run("P2C+PeakEWMA", pe)
     });
 
-    let fut = fut.and_then(move |_| {
+    let fut = fut.then(move |_| {
         let d = gen_disco();
         let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(
             d,
@@ -89,265 +108,128 @@ fn main() {
     rt.shutdown_on_idle().wait().unwrap();
 }
 
-fn gen_disco() -> Disco {
-    use self::Change::Insert;
+type Error = Box<dyn std::error::Error + Send + Sync>;
 
-    let mut changes = VecDeque::new();
-    for (i, latency) in MAX_ENDPOINT_LATENCIES.iter().enumerate() {
-        changes.push_back(Insert(i, DelayService(*latency)));
-    }
+fn gen_disco() -> impl Discover<
+    Key = usize,
+    Error = impl Into<Error>,
+    Service = lb::Weighted<
+        impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
+    >,
+> + Send {
+    let svcs = MAX_ENDPOINT_LATENCIES
+        .iter()
+        .zip(WEIGHTS.iter())
+        .enumerate()
+        .map(|(instance, (latency, weight))| {
+            let svc = tower::service_fn(move |_| {
+                let start = Instant::now();
 
-    Disco { changes }
+                let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                    .saturating_add(latency.as_secs().saturating_mul(1_000));
+                let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
+
+                timer::Delay::new(start + latency).map(move |_| {
+                    let latency = start.elapsed();
+                    Rsp { latency, instance }
+                })
+            });
+
+            let svc = ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY);
+            lb::Weighted::new(svc, *weight)
+        });
+    tower_discover::ServiceList::new(svcs)
 }
 
 fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
 where
     D: Discover + Send + 'static,
+    D::Error: Into<Error>,
     D::Key: Send,
-    D::Service: Service<Req, Response = Rsp> + Send,
-    D::Error: ::std::error::Error + Send + Sync + 'static,
+    D::Service: Service<Req, Response = Rsp, Error = Error> + Send,
     <D::Service as Service<Req>>::Future: Send,
-    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
     C: lb::Choose<D::Key, D::Service> + Send + 'static,
 {
     println!("{}", name);
-    let t0 = Instant::now();
 
-    compute_histo(SendRequests::new(lb, REQUESTS, CONCURRENCY))
-        .map(move |h| report(&h, t0.elapsed()))
-        .map_err(|_| {})
+    let requests = stream::repeat::<_, Error>(Req).take(REQUESTS as u64);
+    let service = ConcurrencyLimit::new(lb, CONCURRENCY);
+    let responses = service.call_all(requests).unordered();
+
+    compute_histo(responses).map(|s| s.report()).map_err(|_| {})
 }
 
-fn compute_histo<S>(times: S) -> impl Future<Item = Histogram<u64>, Error = S::Error> + 'static
+fn compute_histo<S>(times: S) -> impl Future<Item = Summary, Error = Error> + 'static
 where
-    S: Stream<Item = Rsp> + 'static,
+    S: Stream<Item = Rsp, Error = Error> + 'static,
 {
-    // The max delay is 2000ms. At 3 significant figures.
-    let histo = Histogram::<u64>::new_with_max(3_000, 3).unwrap();
-    times.fold(histo, |mut histo, Rsp { latency }| {
-        let ms = latency.as_secs() * 1_000;
-        let ms = ms + u64::from(latency.subsec_nanos()) / 1_000 / 1_000;
-        histo += ms;
-        future::ok(histo)
+    times.fold(Summary::new(), |mut summary, rsp| {
+        summary.count(rsp);
+        Ok(summary) as Result<_, Error>
     })
 }
 
-fn report(histo: &Histogram<u64>, elapsed: Duration) {
-    println!("  wall {:4}s", elapsed.as_secs());
-
-    if histo.len() < 2 {
-        return;
+impl Summary {
+    fn new() -> Self {
+        Self {
+            // The max delay is 2000ms. At 3 significant figures.
+            latencies: Histogram::<u64>::new_with_max(3_000, 3).unwrap(),
+            start: Instant::now(),
+            count_by_instance: [0; 10],
+        }
     }
-    println!("  p50  {:4}ms", histo.value_at_quantile(0.5));
 
-    if histo.len() < 10 {
-        return;
+    fn count(&mut self, rsp: Rsp) {
+        let ms = rsp.latency.as_secs() * 1_000;
+        let ms = ms + u64::from(rsp.latency.subsec_nanos()) / 1_000 / 1_000;
+        self.latencies += ms;
+        self.count_by_instance[rsp.instance] += 1;
     }
-    println!("  p90  {:4}ms", histo.value_at_quantile(0.9));
 
-    if histo.len() < 50 {
-        return;
-    }
-    println!("  p95  {:4}ms", histo.value_at_quantile(0.95));
+    fn report(&self) {
+        let mut total = 0;
+        for c in &self.count_by_instance {
+            total += c;
+        }
+        for (i, c) in self.count_by_instance.into_iter().enumerate() {
+            let p = *c as f64 / total as f64 * 100.0;
+            println!("  [{:02}] {:>5.01}%", i, p);
+        }
 
-    if histo.len() < 100 {
-        return;
-    }
-    println!("  p99  {:4}ms", histo.value_at_quantile(0.99));
+        println!("  wall {:4}s", self.start.elapsed().as_secs());
 
-    if histo.len() < 1000 {
-        return;
+        if self.latencies.len() < 2 {
+            return;
+        }
+        println!("  p50  {:4}ms", self.latencies.value_at_quantile(0.5));
+
+        if self.latencies.len() < 10 {
+            return;
+        }
+        println!("  p90  {:4}ms", self.latencies.value_at_quantile(0.9));
+
+        if self.latencies.len() < 50 {
+            return;
+        }
+        println!("  p95  {:4}ms", self.latencies.value_at_quantile(0.95));
+
+        if self.latencies.len() < 100 {
+            return;
+        }
+        println!("  p99  {:4}ms", self.latencies.value_at_quantile(0.99));
+
+        if self.latencies.len() < 1000 {
+            return;
+        }
+        println!("  p999 {:4}ms", self.latencies.value_at_quantile(0.999));
     }
-    println!("  p999 {:4}ms", histo.value_at_quantile(0.999));
 }
 
-#[derive(Debug)]
-struct DelayService(Duration);
-
-#[derive(Debug)]
-struct Delay {
-    delay: timer::Delay,
-    start: Instant,
-}
-
-struct Disco {
-    changes: VecDeque<Change<usize, DelayService>>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Req;
 
 #[derive(Debug)]
 struct Rsp {
     latency: Duration,
-}
-
-impl Service<Req> for DelayService {
-    type Response = Rsp;
-    type Error = timer::Error;
-    type Future = Delay;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        debug!("polling delay service: ready");
-        Ok(Async::Ready(()))
-    }
-
-    fn call(&mut self, _: Req) -> Delay {
-        let start = Instant::now();
-        let maxms = u64::from(self.0.subsec_nanos() / 1_000 / 1_000)
-            .saturating_add(self.0.as_secs().saturating_mul(1_000));
-        let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
-        Delay {
-            delay: timer::Delay::new(start + latency),
-            start,
-        }
-    }
-}
-
-impl Future for Delay {
-    type Item = Rsp;
-    type Error = timer::Error;
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        try_ready!(self.delay.poll());
-        let rsp = Rsp {
-            latency: Instant::now() - self.start,
-        };
-        Ok(Async::Ready(rsp))
-    }
-}
-
-impl Discover for Disco {
-    type Key = usize;
-    type Error = DiscoError;
-    type Service = Errify<InFlightLimit<Buffer<DelayService, Req>>>;
-
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        match self.changes.pop_front() {
-            Some(Change::Insert(k, svc)) => {
-                let svc = Buffer::new(svc, 0).unwrap();
-                let svc = Errify(InFlightLimit::new(svc, ENDPOINT_CAPACITY));
-                Ok(Async::Ready(Change::Insert(k, svc)))
-            }
-            Some(Change::Remove(k)) => Ok(Async::Ready(Change::Remove(k))),
-            None => Ok(Async::NotReady),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct DiscoError;
-
-impl fmt::Display for DiscoError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "discovery error")
-    }
-}
-
-impl std::error::Error for DiscoError {}
-
-type DemoService<D, C> = InFlightLimit<Buffer<lb::Balance<D, C>, Req>>;
-
-struct SendRequests<D, C>
-where
-    D: Discover,
-    D::Error: ::std::error::Error + Send + Sync + 'static,
-    D::Service: Service<Req>,
-    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
-    C: lb::Choose<D::Key, D::Service>,
-{
-    send_remaining: usize,
-    lb: DemoService<D, C>,
-    responses: stream::FuturesUnordered<<DemoService<D, C> as Service<Req>>::Future>,
-}
-
-impl<D, C> SendRequests<D, C>
-where
-    D: Discover + Send + 'static,
-    D::Error: ::std::error::Error + Send + Sync + 'static,
-    D::Service: Service<Req>,
-    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
-    D::Key: Send,
-    D::Service: Send,
-    D::Error: Send + Sync,
-    <D::Service as Service<Req>>::Future: Send,
-    <D::Service as Service<Req>>::Error: Send + Sync,
-    C: lb::Choose<D::Key, D::Service> + Send + 'static,
-{
-    pub fn new(lb: lb::Balance<D, C>, total: usize, concurrency: usize) -> Self {
-        Self {
-            send_remaining: total,
-            lb: InFlightLimit::new(Buffer::new(lb, 0).ok().expect("buffer"), concurrency),
-            responses: stream::FuturesUnordered::new(),
-        }
-    }
-}
-
-impl<D, C> Stream for SendRequests<D, C>
-where
-    D: Discover,
-    D::Error: ::std::error::Error + Send + Sync + 'static,
-    D::Service: Service<Req>,
-    <D::Service as Service<Req>>::Error: ::std::error::Error + Send + Sync + 'static,
-    C: lb::Choose<D::Key, D::Service>,
-{
-    type Item = <DemoService<D, C> as Service<Req>>::Response;
-    type Error = <DemoService<D, C> as Service<Req>>::Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        debug!(
-            "sending requests {} / {}",
-            self.send_remaining,
-            self.responses.len()
-        );
-        while self.send_remaining > 0 {
-            if !self.responses.is_empty() {
-                if let Async::Ready(Some(rsp)) = self.responses.poll()? {
-                    return Ok(Async::Ready(Some(rsp)));
-                }
-            }
-
-            debug!("polling lb ready");
-            try_ready!(self.lb.poll_ready());
-
-            debug!("sending request");
-            let rsp = self.lb.call(Req);
-            self.responses.push(rsp);
-
-            self.send_remaining -= 1;
-        }
-
-        if !self.responses.is_empty() {
-            return self.responses.poll();
-        }
-
-        Ok(Async::Ready(None))
-    }
-}
-
-pub struct Errify<T>(T);
-
-impl<T, Request> Service<Request> for Errify<T>
-where
-    T: Service<Request>,
-{
-    type Response = T::Response;
-    type Error = DiscoError;
-    type Future = Errify<T::Future>;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.0.poll_ready().map_err(|_| DiscoError)
-    }
-
-    fn call(&mut self, request: Request) -> Self::Future {
-        Errify(self.0.call(request))
-    }
-}
-
-impl<T: Future> Future for Errify<T> {
-    type Item = T::Item;
-    type Error = DiscoError;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(|_| DiscoError)
-    }
+    instance: usize,
 }

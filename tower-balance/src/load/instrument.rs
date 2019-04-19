@@ -1,4 +1,4 @@
-use futures::{Future, Poll};
+use futures::{try_ready, Future, Poll};
 
 /// Attaches `I`-typed instruments to `V` typed values.
 ///

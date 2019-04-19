@@ -1,5 +1,5 @@
+use crate::Error;
 use futures::{Future, Poll};
-use Error;
 
 pub struct ResponseFuture<F> {
     inner: F,
