@@ -3,8 +3,8 @@ extern crate tokio_executor;
 extern crate tokio_mock_task;
 extern crate tokio_timer;
 extern crate tower_hedge as hedge;
-extern crate tower_mock;
 extern crate tower_service;
+extern crate tower_test;
 
 #[macro_use]
 mod support;
@@ -23,7 +23,7 @@ fn hedge_orig_completes_first() {
     mocked(|timer, _| {
         let mut fut = service.call("orig");
         // Check that orig request has been issued.
-        let req = handle.next_request().expect("orig");
+        let (_, req) = handle.next_request().expect("orig");
         // Check fut is not ready.
         assert!(fut.poll().unwrap().is_not_ready());
 
@@ -33,9 +33,9 @@ fn hedge_orig_completes_first() {
         // Check fut is not ready.
         assert!(fut.poll().unwrap().is_not_ready());
         // Check that the hedge has been issued.
-        let _hedge_req = handle.next_request().expect("hedge");
+        let (_, _hedge_req) = handle.next_request().expect("hedge");
 
-        req.respond("orig-done");
+        req.send_response("orig-done");
         // Check that fut gets orig response.
         assert_eq!(fut.wait().unwrap(), "orig-done");
     });
@@ -48,7 +48,7 @@ fn hedge_hedge_completes_first() {
     mocked(|timer, _| {
         let mut fut = service.call("orig");
         // Check that orig request has been issued.
-        let _req = handle.next_request().expect("orig");
+        let (_, _req) = handle.next_request().expect("orig");
         // Check fut is not ready.
         assert!(fut.poll().unwrap().is_not_ready());
 
@@ -59,8 +59,8 @@ fn hedge_hedge_completes_first() {
         assert!(fut.poll().unwrap().is_not_ready());
 
         // Check that the hedge has been issued.
-        let hedge_req = handle.next_request().expect("hedge");
-        hedge_req.respond("hedge-done");
+        let (_, hedge_req) = handle.next_request().expect("hedge");
+        hedge_req.send_response("hedge-done");
         // Check that fut gets hedge response.
         assert_eq!(fut.wait().unwrap(), "hedge-done");
     });
@@ -73,11 +73,11 @@ fn completes_before_hedge() {
     mocked(|_, _| {
         let mut fut = service.call("orig");
         // Check that orig request has been issued.
-        let req = handle.next_request().expect("orig");
+        let (_, req) = handle.next_request().expect("orig");
         // Check fut is not ready.
         assert!(fut.poll().unwrap().is_not_ready());
 
-        req.respond("orig-done");
+        req.send_response("orig-done");
         // Check hedge has not been issued.
         assert!(handle.poll_request().unwrap().is_not_ready());
         // Check that fut gets orig response.
@@ -92,7 +92,7 @@ fn request_not_retyable() {
     mocked(|timer, _| {
         let mut fut = service.call(NOT_RETRYABLE);
         // Check that orig request has been issued.
-        let req = handle.next_request().expect("orig");
+        let (_, req) = handle.next_request().expect("orig");
         // Check fut is not ready.
         assert!(fut.poll().unwrap().is_not_ready());
 
@@ -104,7 +104,7 @@ fn request_not_retyable() {
         // Check hedge has not been issued.
         assert!(handle.poll_request().unwrap().is_not_ready());
 
-        req.respond("orig-done");
+        req.send_response("orig-done");
         // Check that fut gets orig response.
         assert_eq!(fut.wait().unwrap(), "orig-done");
     });
@@ -117,7 +117,7 @@ fn request_not_clonable() {
     mocked(|timer, _| {
         let mut fut = service.call(NOT_CLONABLE);
         // Check that orig request has been issued.
-        let req = handle.next_request().expect("orig");
+        let (_, req) = handle.next_request().expect("orig");
         // Check fut is not ready.
         assert!(fut.poll().unwrap().is_not_ready());
 
@@ -129,7 +129,7 @@ fn request_not_clonable() {
         // Check hedge has not been issued.
         assert!(handle.poll_request().unwrap().is_not_ready());
 
-        req.respond("orig-done");
+        req.send_response("orig-done");
         // Check that fut gets orig response.
         assert_eq!(fut.wait().unwrap(), "orig-done");
     });
@@ -137,8 +137,8 @@ fn request_not_clonable() {
 
 type Req = &'static str;
 type Res = &'static str;
-type Mock = tower_mock::Mock<Req, Res>;
-type Handle = tower_mock::Handle<Req, Res>;
+type Mock = tower_test::mock::Mock<Req, Res>;
+type Handle = tower_test::mock::Handle<Req, Res>;
 
 static NOT_RETRYABLE: &'static str = "NOT_RETRYABLE";
 static NOT_CLONABLE: &'static str = "NOT_CLONABLE";
@@ -161,7 +161,7 @@ impl hedge::Policy<Req> for TestPolicy {
 }
 
 fn new_service<P: Policy<Req> + Clone>(policy: P) -> (Hedge<Mock, P>, Handle) {
-    let (service, handle) = Mock::new();
+    let (service, handle) = tower_test::mock::pair();
 
     let mock_latencies: [u64; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 10, 10];
 
