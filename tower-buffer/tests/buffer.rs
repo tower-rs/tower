@@ -100,19 +100,45 @@ fn when_inner_fails() {
 }
 
 #[test]
+fn when_spawn_fails() {
+    let (service, _handle) = mock::pair::<(), ()>();
+
+    let mut exec = ExecFn(|_| Err(()));
+
+    let mut service = Buffer::with_executor(service, 1, &mut exec);
+
+    let err = with_task(|| {
+        service
+            .poll_ready()
+            .expect_err("buffer poll_ready should error")
+    });
+
+    assert!(
+        err.is::<error::SpawnError>(),
+        "should be a SpawnError: {:?}",
+        err
+    );
+}
+
+#[test]
 fn poll_ready_when_worker_is_dropped_early() {
     let (service, _handle) = mock::pair::<(), ()>();
 
     // drop that worker right on the floor!
-    let mut exec = ExecFn(drop);
+    let mut exec = ExecFn(|fut| {
+        drop(fut);
+        Ok(())
+    });
 
-    let mut service = Buffer::with_executor(service, 1, &mut exec).unwrap();
+    let mut service = Buffer::with_executor(service, 1, &mut exec);
 
-    with_task(|| {
+    let err = with_task(|| {
         service
             .poll_ready()
-            .expect_err("buffer poll_ready should error");
+            .expect_err("buffer poll_ready should error")
     });
+
+    assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
 #[test]
@@ -121,9 +147,12 @@ fn response_future_when_worker_is_dropped_early() {
 
     // hold the worker in a cell until we want to drop it later
     let cell = RefCell::new(None);
-    let mut exec = ExecFn(|fut| *cell.borrow_mut() = Some(fut));
+    let mut exec = ExecFn(|fut| {
+        *cell.borrow_mut() = Some(fut);
+        Ok(())
+    });
 
-    let mut service = Buffer::with_executor(service, 1, &mut exec).unwrap();
+    let mut service = Buffer::with_executor(service, 1, &mut exec);
 
     // keep the request in the worker
     handle.allow(0);
@@ -132,7 +161,8 @@ fn response_future_when_worker_is_dropped_early() {
     // drop the worker (like an executor closing up)
     cell.borrow_mut().take();
 
-    response.wait().expect_err("res.wait");
+    let err = response.wait().expect_err("res.wait");
+    assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;
@@ -156,23 +186,22 @@ struct ExecFn<Func>(Func);
 
 impl<Func, F> TypedExecutor<F> for ExecFn<Func>
 where
-    Func: Fn(F),
+    Func: Fn(F) -> Result<(), ()>,
     F: Future<Item = (), Error = ()> + Send + 'static,
 {
     fn spawn(&mut self, fut: F) -> Result<(), SpawnError> {
-        (self.0)(fut);
-        Ok(())
+        (self.0)(fut).map_err(|()| SpawnError::shutdown())
     }
 }
 
 fn new_service() -> (Buffer<Mock, &'static str>, Handle) {
     let (service, handle) = mock::pair();
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
-    let service = Buffer::with_executor(service, 10, &mut Exec).unwrap();
+    let service = Buffer::with_executor(service, 10, &mut Exec);
     (service, handle)
 }
 
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::{lazy, Future};
+    use futures::future::lazy;
     lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }
