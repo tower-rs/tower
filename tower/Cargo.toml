@@ -33,7 +33,7 @@ tower-timeout = { version = "0.1", path = "../tower-timeout" }
 
 [dev-dependencies]
 futures = "0.1"
-tower-hyper = { git = "https://github.com/tower-rs/tower-hyper" }
+tower-hyper = { git = "https://github.com/tower-rs/tower-hyper", rev = "9dfe56f" }
 tokio-tcp = "0.1"
 hyper = "0.12"
 log = "0.4.1"
