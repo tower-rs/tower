@@ -14,5 +14,5 @@ tokio-mock-task = { git = "https://github.com/carllerche/tokio-mock-task" }
 tokio-timer = "0.2.6"
 
 [dev-dependencies]
-tower-mock = { version = "0.1", path = "../tower-mock" }
+tower-test = { version = "0.1", path = "../tower-test" }
 tokio-executor = "0.1.2"
