@@ -55,5 +55,9 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     client
         .ready()
         .map_err(|e| panic!("Service is not ready: {:?}", e))
-        .and_then(|mut c| c.call(request).map_err(|e| panic!("{:?}", e)))
+        .and_then(|mut c| {
+            c.call(request)
+                .map(|res| res.map(|b| b.into_inner()))
+                .map_err(|e| panic!("{:?}", e))
+        })
 }
