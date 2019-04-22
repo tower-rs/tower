@@ -1,5 +1,5 @@
 use crate::{
-    error::{Closed, Error, ServiceError, SpawnError},
+    error::{Closed, Error, ServiceError},
     message::Message,
 };
 use futures::{try_ready, Async, Future, Poll, Stream};
@@ -58,7 +58,7 @@ where
         service: T,
         rx: mpsc::Receiver<Message<Request, T::Future>>,
         executor: &mut E,
-    ) -> Result<Handle, Error>
+    ) -> Option<Handle>
     where
         E: WorkerExecutor<T, Request>,
     {
@@ -76,8 +76,8 @@ where
         };
 
         match executor.spawn(worker) {
-            Ok(()) => Ok(handle),
-            Err(_) => Err(SpawnError::new().into()),
+            Ok(()) => Some(handle),
+            Err(_) => None,
         }
     }
 

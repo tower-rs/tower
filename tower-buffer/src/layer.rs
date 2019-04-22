@@ -41,6 +41,10 @@ where
     type Service = Buffer<S, Request>;
 
     fn layer(&self, service: S) -> Result<Self::Service, Self::LayerError> {
-        Buffer::with_executor(service, self.bound, &mut self.executor.clone())
+        Ok(Buffer::with_executor(
+            service,
+            self.bound,
+            &mut self.executor.clone(),
+        ))
     }
 }
