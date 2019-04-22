@@ -56,7 +56,7 @@ use futures::{Future, Poll};
 ///             .with_body(b"hello world\n");
 ///
 ///         // Return the response as an immediate future
-///         futures::finished(resp).boxed()
+///         Box::new(futures::finished(resp))
 ///     }
 /// }
 /// ```
@@ -96,7 +96,6 @@ use futures::{Future, Poll};
 /// use futures::Future;
 /// use std::time::Duration;
 ///
-/// use tokio_timer::Timer;
 ///
 /// pub struct Timeout<T> {
 ///     inner: T,
@@ -109,11 +108,10 @@ use futures::{Future, Poll};
 /// pub struct Expired;
 ///
 /// impl<T> Timeout<T> {
-///     pub fn new(inner: T, delay: Duration) -> Timeout<T> {
+///     pub fn new(inner: T, timeout: Duration) -> Timeout<T> {
 ///         Timeout {
-///             inner: inner,
-///             delay: delay,
-///             timer: Timer::default(),
+///             inner,
+///             timeout
 ///         }
 ///     }
 /// }
@@ -121,25 +119,27 @@ use futures::{Future, Poll};
 /// impl<T, Request> Service<Request> for Timeout<T>
 /// where
 ///     T: Service<Request>,
-///     T::Error: From<Expired>,
+///     T::Future: 'static,
+///     T::Error: From<Expired> + 'static,
+///     T::Response: 'static
 /// {
 ///     type Response = T::Response;
 ///     type Error = T::Error;
 ///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 ///
 ///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-///         Ok(Async::Ready(()))
+///        self.inner.poll_ready().map_err(Into::into)
 ///     }
 ///
 ///     fn call(&mut self, req: Request) -> Self::Future {
-///         let timeout = self.timer.sleep(self.delay)
-///             .and_then(|_| Err(Self::Error::from(Expired)));
+///         let timeout = tokio_timer::sleep(self.timeout)
+///             .then(|_| Err(Self::Error::from(Expired)));
 ///
-///         self.inner.call(req)
-///             .select(timeout)
+///         let f = self.inner.call(req).select(timeout)
 ///             .map(|(v, _)| v)
-///             .map_err(|(e, _)| e)
-///             .boxed()
+///             .map_err(|(e, _)| e);
+///
+///         Box::new(f)
 ///     }
 /// }
 ///
