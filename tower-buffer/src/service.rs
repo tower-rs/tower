@@ -1,5 +1,5 @@
 use crate::{
-    error::Error,
+    error::{Error, SpawnError},
     future::ResponseFuture,
     message::Message,
     worker::{Handle, Worker, WorkerExecutor},
@@ -18,7 +18,7 @@ where
     T: Service<Request>,
 {
     tx: mpsc::Sender<Message<Request, T::Future>>,
-    worker: Handle,
+    worker: Option<Handle>,
 }
 
 impl<T, Request> Buffer<T, Request>
@@ -33,7 +33,7 @@ where
     ///
     /// The default Tokio executor is used to run the given service, which means that this method
     /// must be called while on the Tokio runtime.
-    pub fn new(service: T, bound: usize) -> Result<Self, Error>
+    pub fn new(service: T, bound: usize) -> Self
     where
         T: Send + 'static,
         T::Future: Send,
@@ -51,13 +51,24 @@ where
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
-    pub fn with_executor<E>(service: T, bound: usize, executor: &mut E) -> Result<Self, Error>
+    pub fn with_executor<E>(service: T, bound: usize, executor: &mut E) -> Self
     where
         E: WorkerExecutor<T, Request>,
     {
         let (tx, rx) = mpsc::channel(bound);
+        let worker = Worker::spawn(service, rx, executor);
+        Buffer { tx, worker }
+    }
 
-        Worker::spawn(service, rx, executor).map(|worker| Buffer { tx, worker })
+    fn get_worker_error(&self) -> Error {
+        self.worker
+            .as_ref()
+            .map(|w| w.get_error_on_closed())
+            .unwrap_or_else(|| {
+                // If there's no worker handle, that's because spawning it
+                // at the beginning failed.
+                SpawnError::new().into()
+            })
     }
 }
 
@@ -72,9 +83,7 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // If the inner service has errored, then we error here.
-        self.tx
-            .poll_ready()
-            .map_err(|_| self.worker.get_error_on_closed())
+        self.tx.poll_ready().map_err(|_| self.get_worker_error())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -87,7 +96,7 @@ where
         match self.tx.try_send(Message { request, tx }) {
             Err(e) => {
                 if e.is_closed() {
-                    ResponseFuture::failed(self.worker.get_error_on_closed())
+                    ResponseFuture::failed(self.get_worker_error())
                 } else {
                     // When `mpsc::Sender::poll_ready` returns `Ready`, a slot
                     // in the channel is reserved for the handle. Other `Sender`

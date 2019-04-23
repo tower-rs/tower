@@ -3,7 +3,6 @@
 use std::fmt;
 
 pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
-pub(crate) use self::never::Never;
 
 /// An error returned by `Overload` when the underlying service
 /// is not ready to handle any requests at the time of being
@@ -31,18 +30,3 @@ impl fmt::Display for Overloaded {
 }
 
 impl std::error::Error for Overloaded {}
-
-pub(crate) mod never {
-    use std::{error, fmt};
-
-    #[derive(Debug)]
-    pub enum Never {}
-
-    impl fmt::Display for Never {
-        fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
-            match *self {}
-        }
-    }
-
-    impl error::Error for Never {}
-}

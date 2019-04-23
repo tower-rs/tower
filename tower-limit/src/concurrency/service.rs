@@ -20,10 +20,7 @@ struct Limit {
 
 impl<T> ConcurrencyLimit<T> {
     /// Create a new rate limiter
-    pub fn new<Request>(inner: T, max: usize) -> Self
-    where
-        T: Service<Request>,
-    {
+    pub fn new(inner: T, max: usize) -> Self {
         ConcurrencyLimit {
             inner,
             limit: Limit {

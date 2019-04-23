@@ -37,8 +37,7 @@ fn builder_service() {
             .layer(BufferLayer::new(5))
             .layer(ConcurrencyLimitLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
-            .service(MockSvc)
-            .unwrap();
+            .service(MockSvc);
 
         client.poll_ready().unwrap();
         client

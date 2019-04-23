@@ -73,7 +73,7 @@ pub(super) type Error = Box<dyn std::error::Error + Send + Sync>;
 /// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
 /// # {
 /// ServiceBuilder::new()
-///     .buffer(100)
+///     // .buffer(100)
 ///     .concurrency_limit(10)
 ///     .service(my_service)
 /// # ;
@@ -96,7 +96,7 @@ pub(super) type Error = Box<dyn std::error::Error + Send + Sync>;
 /// # {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(10)
-///     .buffer(100)
+///     // .buffer(100)
 ///     .service(my_service)
 /// # ;
 /// # }
@@ -207,12 +207,12 @@ pub(super) type Error = Box<dyn std::error::Error + Send + Sync>;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     .buffer(5)
+///     // .buffer(5)
 ///     .concurrency_limit(5)
 ///     .rate_limit(5, Duration::from_secs(1))
 ///     .service(MyService);
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ServiceBuilder<L> {
     layer: L,
 }
@@ -235,7 +235,7 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Buffer requests when when the next layer is out of capacity.
-    pub fn buffer(self, bound: usize) -> ServiceBuilder<Stack<BufferLayer, L>> {
+    pub fn buffer<Request>(self, bound: usize) -> ServiceBuilder<Stack<BufferLayer<Request>, L>> {
         self.layer(BufferLayer::new(bound))
     }
 
@@ -291,10 +291,9 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Wrap the service `S` with the layers.
-    pub fn service<S, Request>(self, service: S) -> Result<L::Service, L::LayerError>
+    pub fn service<S>(self, service: S) -> L::Service
     where
-        L: Layer<S, Request>,
-        S: Service<Request>,
+        L: Layer<S>,
     {
         self.layer.layer(service)
     }
