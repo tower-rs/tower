@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+/// A rate of requests per time period.
 #[derive(Debug, Copy, Clone)]
 pub struct Rate {
     num: u64,
@@ -7,7 +8,7 @@ pub struct Rate {
 }
 
 impl Rate {
-    /// Create a new rate
+    /// Create a new rate.
     ///
     /// # Panics
     ///

@@ -3,6 +3,7 @@ use futures::{Future, Poll};
 use std::sync::Arc;
 use tokio_sync::semaphore::Semaphore;
 
+/// Future for the `ConcurrencyLimit` service.
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
     inner: T,

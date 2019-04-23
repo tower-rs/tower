@@ -3,12 +3,9 @@
 
 //! Definition of the core `Service` trait to Tower
 //!
-//! These traits provide the necessary abstractions for defining a request /
-//! response clients and servers. They are simple but powerul and are
+//! The [`Service`] trait provides the necessary abstractions for defining a
+//! request / response clients and servers. It is simple but powerul and is
 //! used as the foundation for the rest of Tower.
-//!
-//! * [`Service`](trait.Service.html) is the primary trait and defines the request
-//! / response exchange. See that trait for more details.
 
 extern crate futures;
 

@@ -4,7 +4,7 @@
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
-//! tower-load-shed
+//! Tower middleware for shedding load when inner services aren't ready.
 
 use futures::Poll;
 use tower_service::Service;
