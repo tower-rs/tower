@@ -1,6 +1,6 @@
 //! Limit the rate at which requests are processed.
 
-pub mod error;
+mod error;
 pub mod future;
 mod layer;
 mod rate;
