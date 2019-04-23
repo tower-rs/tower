@@ -1,9 +1,5 @@
 //! Builder types to compose layers and services
 
-mod service;
-
-pub use self::service::{LayeredMakeService, ServiceFuture};
-
 use crate::{
     buffer::BufferLayer,
     limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer},
@@ -13,45 +9,25 @@ use crate::{
 };
 
 use tower_layer::Layer;
-use tower_util::{
-    layer::{Identity, Stack},
-    MakeService,
-};
+use tower_util::layer::{Identity, Stack};
 
 use std::time::Duration;
 
 /// Declaratively construct Service values.
 ///
 /// `ServiceBuilder` provides a [builder-like interface][builder] for composing
-/// layers and a connection, where the latter is modeled by a `MakeService`. The
-/// builder produces either a new `Service` or `MakeService`,
-/// depending on whether `service` or `make_service` is called.
-///
-/// # Services and MakeServices
-///
-/// - A [`Service`](tower_service::Service) is a trait representing an
-///   asynchronous function of a request to a response. It is similar to `async
-///   fn(Request) -> Result<Response, Error>`.
-///
-/// - A [`MakeService`](tower_util::MakeService) is a trait creating specific
-///   instances of a `Service`
+/// layers to be applied to a `Service`.
 ///
 /// # Service
+///
+/// A [`Service`](tower_service::Service) is a trait representing an
+/// asynchronous function of a request to a response. It is similar to `async
+/// fn(Request) -> Result<Response, Error>`.
 ///
 /// A `Service` is typically bound to a single transport, such as a TCP
 /// connection.  It defines how _all_ inbound or outbound requests are handled
 /// by that connection.
 ///
-/// # MakeService
-///
-/// Since a `Service` is bound to a single connection, a `MakeService` allows
-/// for the creation of _new_ `Service`s that'll be bound to _different_
-/// different connections.  This is useful for servers, as they require the
-/// ability to accept new connections.
-///
-/// Resources that need to be shared by all `Service`s can be put into a
-/// `MakeService`, and then passed to individual `Service`s when `make_service`
-/// is called.
 ///
 /// [builder]: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
 ///
@@ -59,7 +35,7 @@ use std::time::Duration;
 ///
 /// The order in which layers are added impacts how requests are handled. Layers
 /// that are added first will be called with the request first. The argument to
-/// `service` or `make_service` will be last to see the request.
+/// `service` will be last to see the request.
 ///
 /// ```
 /// # use tower::Service;
@@ -70,7 +46,7 @@ use std::time::Duration;
 /// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
 /// # {
 /// ServiceBuilder::new()
-///     // .buffer(100)
+///     .buffer(100)
 ///     .concurrency_limit(10)
 ///     .service(my_service)
 /// # ;
@@ -93,7 +69,7 @@ use std::time::Duration;
 /// # {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(10)
-///     // .buffer(100)
+///     .buffer(100)
 ///     .service(my_service)
 /// # ;
 /// # }
@@ -104,49 +80,6 @@ use std::time::Duration;
 /// total.
 ///
 /// # Examples
-///
-/// A MakeService stack with a single layer:
-///
-/// ```rust
-/// # extern crate tower;
-/// # extern crate tower_limit;
-/// # extern crate futures;
-/// # extern crate void;
-/// # use void::Void;
-/// # use tower::Service;
-/// # use tower::builder::ServiceBuilder;
-/// # use tower_limit::concurrency::ConcurrencyLimitLayer;
-/// # use futures::{Poll, future::{self, FutureResult}};
-/// # #[derive(Debug)]
-/// # struct MyMakeService;
-/// # impl Service<()> for MyMakeService {
-/// #    type Response = MyService;
-/// #    type Error = Void;
-/// #    type Future = FutureResult<Self::Response, Self::Error>;
-/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-/// #        Ok(().into())
-/// #    }
-/// #    fn call(&mut self, _: ()) -> Self::Future {
-/// #        future::ok(MyService)
-/// #    }
-/// # }
-/// # #[derive(Debug)]
-/// # struct MyService;
-/// # impl Service<()> for MyService {
-/// #    type Response = ();
-/// #    type Error = Void;
-/// #    type Future = FutureResult<Self::Response, Self::Error>;
-/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-/// #        Ok(().into())
-/// #    }
-/// #    fn call(&mut self, _: ()) -> Self::Future {
-/// #        future::ok(())
-/// #    }
-/// # }
-/// ServiceBuilder::new()
-///     .concurrency_limit(5)
-///     .make_service(MyMakeService);
-/// ```
 ///
 /// A `Service` stack with a single layer:
 ///
@@ -204,7 +137,7 @@ use std::time::Duration;
 /// #    }
 /// # }
 /// ServiceBuilder::new()
-///     // .buffer(5)
+///     .buffer(5)
 ///     .concurrency_limit(5)
 ///     .rate_limit(5, Duration::from_secs(1))
 ///     .service(MyService);
@@ -215,7 +148,7 @@ pub struct ServiceBuilder<L> {
 }
 
 impl ServiceBuilder<Identity> {
-    /// Create a new `ServiceBuilder` from a `MakeService`.
+    /// Create a new `ServiceBuilder`.
     pub fn new() -> Self {
         ServiceBuilder {
             layer: Identity::new(),
@@ -224,7 +157,7 @@ impl ServiceBuilder<Identity> {
 }
 
 impl<L> ServiceBuilder<L> {
-    /// Layer a new layer `T` onto the `ServiceBuilder`.
+    /// Add a new layer `T` into the `ServiceBuilder`.
     pub fn layer<T>(self, layer: T) -> ServiceBuilder<Stack<T, L>> {
         ServiceBuilder {
             layer: Stack::new(layer, self.layer),
@@ -277,14 +210,6 @@ impl<L> ServiceBuilder<L> {
     /// processing is terminated and an error is returned.
     pub fn timeout(self, timeout: Duration) -> ServiceBuilder<Stack<TimeoutLayer, L>> {
         self.layer(TimeoutLayer::new(timeout))
-    }
-
-    /// Create a `LayeredMakeService` from the composed layers and transport `MakeService`.
-    pub fn make_service<M, Target, Request>(self, mk: M) -> LayeredMakeService<M, L, Request>
-    where
-        M: MakeService<Target, Request>,
-    {
-        LayeredMakeService::new(mk, self.layer)
     }
 
     /// Wrap the service `S` with the layers.
