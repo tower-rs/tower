@@ -4,7 +4,7 @@ use hyper::{
     Request, Response, Uri,
 };
 use std::time::Duration;
-use tower::{builder::ServiceBuilder, reconnect::Reconnect, Service, ServiceExt};
+use tower::{builder::ServiceBuilder, ServiceExt};
 use tower_hyper::{
     client::{Builder, Connect},
     retry::{Body, RetryPolicy},
@@ -34,7 +34,7 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
     // - provide backpressure for the RateLimitLayer, and ConcurrencyLimitLayer
     // - meet `RetryLayer`'s requirement that our service implement `Service + Clone`
     // - ..and to provide cheap clones on the service.
-    let maker = ServiceBuilder::new()
+    let client = ServiceBuilder::new()
         .buffer(5)
         .rate_limit(5, Duration::from_secs(1))
         .concurrency_limit(5)
@@ -42,18 +42,17 @@ fn request() -> impl Future<Item = Response<hyper::Body>, Error = ()> {
         .buffer(5)
         .make_service(hyper);
 
-    // `Reconnect` accepts a destination and a MakeService, creating a new service
-    // any time the connection encounters an error.
-    let client = Reconnect::new(maker, dst);
-
-    let request = Request::builder()
-        .method("GET")
-        .body(Body::from(Vec::new()))
-        .unwrap();
-
-    // we check to see if the client is ready to accept requests.
     client
-        .ready()
-        .map_err(|e| panic!("Service is not ready: {:?}", e))
-        .and_then(|mut c| c.call(request).map_err(|e| panic!("{:?}", e)))
+        // Make a `Service` to `dst`...
+        .oneshot(dst)
+        .map_err(|e| panic!("connect error: {:?}", e))
+        .and_then(|svc| {
+            let req = Request::builder()
+                .method("GET")
+                .body(Body::from(Vec::new()))
+                .unwrap();
+            // Send the request when `svc` is ready...
+            svc.oneshot(req)
+        })
+        .map_err(|e| panic!("ruh roh: {:?}", e))
 }
