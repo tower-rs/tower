@@ -13,15 +13,12 @@ use crate::{
 };
 
 use tower_layer::Layer;
-use tower_service::Service;
 use tower_util::{
     layer::{Identity, Stack},
     MakeService,
 };
 
 use std::time::Duration;
-
-pub(super) type Error = Box<dyn std::error::Error + Send + Sync>;
 
 /// Declaratively construct Service values.
 ///
