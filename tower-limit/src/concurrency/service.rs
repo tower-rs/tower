@@ -6,6 +6,8 @@ use futures::{try_ready, Poll};
 use std::sync::Arc;
 use tokio_sync::semaphore::{self, Semaphore};
 
+/// Enforces a limit on the concurrent number of requests the underlying
+/// service can handle.
 #[derive(Debug)]
 pub struct ConcurrencyLimit<T> {
     inner: T,
@@ -19,7 +21,7 @@ struct Limit {
 }
 
 impl<T> ConcurrencyLimit<T> {
-    /// Create a new rate limiter
+    /// Create a new concurrency limiter.
     pub fn new(inner: T, max: usize) -> Self {
         ConcurrencyLimit {
             inner,

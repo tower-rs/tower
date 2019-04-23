@@ -1,6 +1,10 @@
+#![cfg_attr(test, deny(warnings))]
+#![deny(missing_debug_implementations)]
+#![deny(missing_docs)]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
-//! Limit inbound requests.
+
+//! Tower middleware for limiting requests.
 
 pub mod concurrency;
 pub mod rate;

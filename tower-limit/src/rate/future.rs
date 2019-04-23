@@ -1,6 +1,7 @@
 use super::error::Error;
 use futures::{Future, Poll};
 
+/// Future for the `RateLimit` service.
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
     inner: T,

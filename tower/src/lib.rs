@@ -1,9 +1,13 @@
 // Allows refining features in the future without breaking backwards
 // compatibility
 #![cfg(feature = "full")]
-#![deny(missing_docs, rust_2018_idioms)]
+#![deny(missing_docs, missing_debug_implementations, rust_2018_idioms)]
+#![cfg_attr(test, deny(warnings))]
 
-//! Various utility types and functions that are generally with Tower.
+//! `fn(Request) -> Future<Response>`
+//!
+//! Tower is a library of modular and reusable components for building
+//! robust networking clients and servers.
 
 #[doc(inline)]
 pub use tower_buffer as buffer;
