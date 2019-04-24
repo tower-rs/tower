@@ -14,8 +14,8 @@ pub mod future;
 mod layer;
 
 use crate::error::Error;
-pub use crate::{layer::LoadShedLayer};
 use crate::future::ResponseFuture;
+pub use crate::layer::LoadShedLayer;
 
 /// A `Service` that sheds load when the inner service isn't ready.
 #[derive(Debug)]
