@@ -10,11 +10,12 @@ use futures::Poll;
 use tower_service::Service;
 
 pub mod error;
-mod future;
+pub mod future;
 mod layer;
 
-use self::error::Error;
-pub use self::{future::ResponseFuture, layer::LoadShedLayer};
+use crate::error::Error;
+pub use crate::{layer::LoadShedLayer};
+use crate::future::ResponseFuture;
 
 /// A `Service` that sheds load when the inner service isn't ready.
 #[derive(Debug)]

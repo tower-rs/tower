@@ -1,3 +1,5 @@
+//! Future types
+
 use super::error::Error;
 use futures::{Future, Poll};
 

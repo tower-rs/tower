@@ -1,3 +1,5 @@
+//! Future types
+//!
 use super::Error;
 use futures::{Future, Poll};
 use std::sync::Arc;

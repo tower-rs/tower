@@ -1,3 +1,5 @@
+//! Future types
+
 use std::fmt;
 
 use futures::{Future, Poll};
