@@ -31,9 +31,11 @@ where
     P: Policy<Request, S::Response, S::Error>,
     S: Service<Request>,
 {
-    pub(crate) fn new(request: Option<Request>, retry: Retry<P, S>, future: S::Future)
-        -> ResponseFuture<P, S, Request>
-    {
+    pub(crate) fn new(
+        request: Option<Request>,
+        retry: Retry<P, S>,
+        future: S::Future,
+    ) -> ResponseFuture<P, S, Request> {
         ResponseFuture {
             request,
             retry,
