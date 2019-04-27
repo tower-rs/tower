@@ -16,7 +16,7 @@ use crate::{error::Error, future::ResponseFuture};
 use futures::Poll;
 use tower_service::Service;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Filter<T, U> {
     inner: T,
     predicate: U,
