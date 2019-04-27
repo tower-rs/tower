@@ -1,3 +1,4 @@
+#![doc(html_root_url = "https://docs.rs/tower-discover/0.1.0")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 

@@ -16,6 +16,3 @@ members = [
   "tower-timeout",
   "tower-util",
 ]
-
-[patch.'https://github.com/tower-rs/tower']
-tower-retry = { path = "tower-retry" }

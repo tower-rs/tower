@@ -1,12 +1,12 @@
-//! Tower middleware that applies a timeout to requests.
-//!
-//! If the response does not complete within the specified timeout, the response
-//! will be aborted.
-
 #![doc(html_root_url = "https://docs.rs/tower-timeout/0.1.0")]
 #![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 #![cfg_attr(test, deny(warnings))]
+
+//! Tower middleware that applies a timeout to requests.
+//!
+//! If the response does not complete within the specified timeout, the response
+//! will be aborted.
 
 pub mod error;
 pub mod future;

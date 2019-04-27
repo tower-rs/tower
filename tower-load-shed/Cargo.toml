@@ -1,16 +1,23 @@
 [package]
 name = "tower-load-shed"
+# When releasing to crates.io:
+# - Remove path dependencies
+# - Update html_root_url.
+# - Update doc url
+#   - Cargo.toml
+#   - README.md
+# - Update CHANGELOG.md.
+# - Create "v0.1.x" git tag.
 version = "0.1.0"
-authors = ["Sean McArthur <sean@seanmonstar.com>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
-publish = false
 edition = "2018"
 
 [dependencies]
 futures = "0.1.25"
 tower-service = "0.2.0"
-tower-layer = { version = "0.1.0", path = "../tower-layer" }
+tower-layer = "0.1.0"
 
 [dev-dependencies]
 tokio-mock-task = "0.1.1"
-tower-test = { version = "0.1", path = "../tower-test" }
+tower-test = { version = "0.1.0", path = "../tower-test" }

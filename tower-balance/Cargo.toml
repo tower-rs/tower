@@ -1,20 +1,28 @@
 [package]
 name = "tower-balance"
+# When releasing to crates.io:
+# - Remove path dependencies
+# - Update html_root_url.
+# - Update doc url
+#   - Cargo.toml
+#   - README.md
+# - Update CHANGELOG.md.
+# - Create "v0.1.x" git tag.
 version = "0.1.0"
-authors = ["Carl Lerche <me@carllerche.com>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
-publish = false
 edition = "2018"
+publish = false
 
 [dependencies]
-futures = "0.1"
+futures = "0.1.26"
+indexmap = "1.0.2"
 log = "0.4.1"
-rand = "0.6"
+rand = "0.6.5"
 tokio-timer = "0.2.4"
 tower-service = "0.2.0"
-tower-discover = { version = "0.1", path = "../tower-discover" }
-tower-util = { version = "0.1", path = "../tower-util" }
-indexmap = "1"
+tower-discover = "0.1.0"
+tower-util = "0.1.0"
 
 [dev-dependencies]
 log = "0.4.1"

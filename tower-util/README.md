@@ -1,6 +1,6 @@
 # Tower Service Util
 
-Utilities for working with `tower-service`.
+Utilities for working with `Service`.
 
 ## License
 

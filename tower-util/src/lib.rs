@@ -1,6 +1,8 @@
-//! Various utility types and functions that are generally with Tower.
+#![doc(html_root_url = "https://docs.rs/tower-util/0.1.0")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
+
+//! Various utility types and functions that are generally with Tower.
 
 mod boxed;
 mod call_all;
