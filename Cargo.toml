@@ -9,6 +9,7 @@ members = [
   "tower-layer",
   "tower-limit",
   "tower-load-shed",
+  "tower-map",
   "tower-reconnect",
   "tower-retry",
   "tower-service",
