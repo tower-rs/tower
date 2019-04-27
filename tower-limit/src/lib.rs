@@ -1,7 +1,6 @@
+#![doc(html_root_url = "https://docs.rs/tower-limit/0.1.0")]
 #![cfg_attr(test, deny(warnings))]
-#![deny(missing_debug_implementations)]
-#![deny(missing_docs)]
-#![deny(rust_2018_idioms)]
+#![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware for limiting requests.
