@@ -15,9 +15,9 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tokio-util/0.1.0"
+documentation = "https://docs.rs/tower-util/0.1.0"
 description = """
-Utilities for working with tower-service.
+Utilities for working with `Service`.
 """
 categories = ["asynchronous", "network-programming"]
 edition = "2018"

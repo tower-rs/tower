@@ -11,6 +11,14 @@ name = "tower-retry"
 version = "0.1.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tower-rs/tower"
+homepage = "https://github.com/tower-rs/tower"
+documentation = "https://docs.rs/tower-retry/0.1.0"
+description = """
+Retry failed requests.
+"""
+categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]

@@ -11,6 +11,14 @@ name = "tower-test"
 version = "0.1.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tower-rs/tower"
+homepage = "https://github.com/tower-rs/tower"
+documentation = "https://docs.rs/tower-test/0.1.0"
+description = """
+Utilities for writing client and server `Service` tests.
+"""
+categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]

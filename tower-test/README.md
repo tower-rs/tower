@@ -1,6 +1,6 @@
-# Tower Mock
+# Tower Test
 
-A mock `Service` that can be used to test middleware or clients.
+Utilities for writing client and server `Service` tests.
 
 ## License
 
