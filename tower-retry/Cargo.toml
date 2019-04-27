@@ -9,17 +9,16 @@ name = "tower-retry"
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
 version = "0.1.0"
-authors = ["Sean McArthur <sean@seanmonstar.com>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
-publish = false
 edition = "2018"
 
 [dependencies]
-futures = "0.1"
+futures = "0.1.26"
 tower-service = "0.2.0"
-tower-layer = { version = "0.1", path = "../tower-layer" }
+tower-layer = "0.1.0"
 tokio-timer = "0.2.4"
 
 [dev-dependencies]
-tower-test = { version = "0.1", path = "../tower-test" }
+tower-test = { version = "0.1.0", path = "../tower-test" }
 tokio-executor = "0.1.2"

@@ -9,13 +9,12 @@ name = "tower-timeout"
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
 version = "0.1.0"
-authors = ["Carl Lerche <me@carllerche.com>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
-publish = false
 edition = "2018"
 
 [dependencies]
-futures = "0.1"
+futures = "0.1.26"
 tower-service = "0.2.0"
-tower-layer = { version = "0.1", path = "../tower-layer" }
+tower-layer = "0.1.0"
 tokio-timer = "0.2.6"

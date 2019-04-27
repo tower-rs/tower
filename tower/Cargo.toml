@@ -9,11 +9,10 @@ name = "tower"
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
 version = "0.1.0"
-authors = ["Carl Lerche <me@carllerche.com>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
-publish = false
 description = """
 Tower is a library of modular and reusable components for building robust
 clients and servers.
@@ -27,20 +26,20 @@ default = ["full"]
 full = []
 
 [dependencies]
-futures = "0.1"
-tower-service = "0.2"
-tower-util = { version = "0.1.0", path = "../tower-util", features = ["io"] }
-tower-layer = { version = "0.1", path = "../tower-layer" }
-tower-limit = { version = "0.1.0", path = "../tower-limit" }
-tower-retry = { version = "0.1", path = "../tower-retry" }
-tower-buffer = { version = "0.1", path = "../tower-buffer" }
-tower-load-shed = { version = "0.1", path = "../tower-load-shed" }
-tower-discover = { version = "0.1", path = "../tower-discover" }
-tower-timeout = { version = "0.1", path = "../tower-timeout" }
+futures = "0.1.26"
+tower-buffer = "0.1.0"
+tower-discover = "0.1.0"
+tower-layer = "0.1.0"
+tower-limit = "0.1.0"
+tower-load-shed = "0.1.0"
+tower-retry = "0.1.0"
+tower-service = "0.2.0"
+tower-timeout = "0.1.0"
+tower-util = { version = "0.1.0", features = ["io"] }
 
 [dev-dependencies]
-futures = "0.1"
+futures = "0.1.26"
 log = "0.4.1"
 tokio = "0.1"
 env_logger = { version = "0.5.3", default-features = false }
-void = "1"
+void = "1.0.2"
