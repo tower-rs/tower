@@ -11,6 +11,7 @@ pub mod layer;
 #[cfg(feature = "io")]
 mod make_connection;
 mod make_service;
+mod map;
 mod oneshot;
 mod optional;
 mod ready;
