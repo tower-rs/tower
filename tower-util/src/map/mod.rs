@@ -1,10 +1,8 @@
-//! Tower middleware for converting the request type
+//! Tower middleware for synchronously converting the request type
 
 mod layer;
 mod service;
-mod error;
 
-use error::Error;
 pub use self::{layer::MapRequestLayer, service::MapRequest};
 
 /// A mapping implemented by a closure

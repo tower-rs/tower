@@ -1,8 +1,6 @@
-use futures::{IntoFuture, Poll};
-use futures::future::Future;
+use futures::Poll;
 
 use tower_service::Service;
-use super::Error;
 
 /// Map the reqeust from type A to type B
 #[derive(Debug)]
@@ -21,11 +19,10 @@ impl<S, M> MapRequest<S, M> {
   }
 }
 
-impl<S, M, F, O, Request> Service<Request> for MapRequest<S, M>
+impl<S, M, O, Request> Service<Request> for MapRequest<S, M>
 where
   // Func(Request) -> Future<S::Request, ?>
-  M: FnMut(Request) -> F,
-  F: IntoFuture<Item = O, Error = Error>,
+  M: FnMut(Request) -> O,
   S: Service<O>,
 {
   type Response = S::Response;
@@ -40,8 +37,8 @@ where
     // convert the inbond request to the downstream
     // request. Then handle that the conversion
     // returns a future as well.
-    let transformed = (self.m)(request).into_future();
+    let transformed = (self.m)(request);
 
-    transformed.and_then(|x| self.inner.call(x)).map_err(|e| e.into())
+    self.inner.call(transformed)
   }
 }
