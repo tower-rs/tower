@@ -29,7 +29,7 @@ pub struct Retry<P, S> {
 // ===== impl Retry =====
 
 impl<P, S> Retry<P, S> {
-    /// Retry the inner service depending on this [`Policy`][Policy}.
+    /// Retry the inner service depending on this `Policy`.
     pub fn new(policy: P, service: S) -> Self {
         Retry { policy, service }
     }
