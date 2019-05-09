@@ -1,5 +1,5 @@
 use crate::{error::Error, service::Buffer, worker::WorkerExecutor};
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
 use tokio_executor::DefaultExecutor;
 use tower_layer::Layer;
 use tower_service::Service;
@@ -41,5 +41,17 @@ where
 
     fn layer(&self, service: S) -> Self::Service {
         Buffer::with_executor(service, self.bound, &mut self.executor.clone())
+    }
+}
+
+impl<Request, E> fmt::Debug for BufferLayer<Request, E>
+where
+    // Require E: Debug in case we want to print the executor at a later date
+    E: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("BufferLayer")
+            .field("bound", &self.bound)
+            .finish()
     }
 }
