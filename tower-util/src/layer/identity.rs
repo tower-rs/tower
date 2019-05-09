@@ -1,10 +1,11 @@
+use std::fmt;
 use tower_layer::Layer;
 
 /// A no-op middleware.
 ///
 /// When wrapping a `Service`, the `Identity` layer returns the provided
 /// service without modifying it.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct Identity {
     _p: (),
 }
@@ -22,5 +23,11 @@ impl<S> Layer<S> for Identity {
 
     fn layer(&self, inner: S) -> Self::Service {
         inner
+    }
+}
+
+impl fmt::Debug for Identity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Identity").finish()
     }
 }
