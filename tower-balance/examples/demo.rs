@@ -178,10 +178,12 @@ fn gen_disco() -> impl Discover<
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
-                    timer::Delay::new(start + latency).map_err(Into::into).map(move |_| {
-                        let latency = start.elapsed();
-                        Rsp { latency, instance }
-                    })
+                    timer::Delay::new(start + latency)
+                        .map_err(Into::into)
+                        .map(move |_| {
+                            let latency = start.elapsed();
+                            Rsp { latency, instance }
+                        })
                 });
 
                 (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
