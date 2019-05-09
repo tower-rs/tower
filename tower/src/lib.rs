@@ -3,6 +3,7 @@
 // compatibility
 #![cfg(feature = "full")]
 #![deny(missing_docs, missing_debug_implementations, rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 #![cfg_attr(test, deny(warnings))]
 
 //! `fn(Request) -> Future<Response>`
