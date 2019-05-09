@@ -11,7 +11,7 @@ use crate::{
 use tower_layer::Layer;
 use tower_util::layer::{Identity, Stack};
 
-use std::time::Duration;
+use std::{fmt, time::Duration};
 
 /// Declaratively construct Service values.
 ///
@@ -142,7 +142,7 @@ use std::time::Duration;
 ///     .rate_limit(5, Duration::from_secs(1))
 ///     .service(MyService);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ServiceBuilder<L> {
     layer: L,
 }
@@ -218,5 +218,11 @@ impl<L> ServiceBuilder<L> {
         L: Layer<S>,
     {
         self.layer.layer(service)
+    }
+}
+
+impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("ServiceBuilder").field(&self.layer).finish()
     }
 }
