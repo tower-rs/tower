@@ -79,12 +79,12 @@ impl<R, S: Service<R>> Service<R> for Weighted<S> {
     }
 }
 
-// === impl withWeight ===
+// === impl WithWeighted ===
 
 impl<D> From<D> for WithWeighted<D>
 where
     D: Discover,
-    D::Service: HasWeight,
+    D::Key: HasWeight,
 {
     fn from(d: D) -> Self {
         WithWeighted(d)
@@ -94,7 +94,7 @@ where
 impl<D> Discover for WithWeighted<D>
 where
     D: Discover,
-    D::Service: HasWeight,
+    D::Key: HasWeight,
 {
     type Key = D::Key;
     type Error = D::Error;
@@ -102,8 +102,11 @@ where
 
     fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, Self::Error> {
         let c = match try_ready!(self.0.poll()) {
-            Change::Insert(k, svc) => Change::Insert(k, Weighted::from(svc)),
             Change::Remove(k) => Change::Remove(k),
+            Change::Insert(k, svc) => {
+                let w = k.weight();
+                Change::Insert(k, Weighted::new(svc, w))
+            }
         };
 
         Ok(Async::Ready(c))

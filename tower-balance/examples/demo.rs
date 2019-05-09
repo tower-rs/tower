@@ -4,9 +4,10 @@ use env_logger;
 use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;
 use rand::{self, Rng};
+use std::{cmp, hash};
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};
-use tower::{discover::Discover, limit::concurrency::ConcurrencyLimit, Service, ServiceExt};
+use tower::{discover::{Discover, error::Never}, limit::concurrency::ConcurrencyLimit, Service, ServiceExt};
 use tower_balance as lb;
 
 const REQUESTS: usize = 50_000;
@@ -110,18 +111,51 @@ fn main() {
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
+#[derive(Clone, Debug, PartialEq)]
+struct Key {
+    instance: usize,
+    weight: lb::Weight,
+}
+
+impl cmp::Eq for Key {
+}
+
+impl hash::Hash for Key {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.instance.hash(state);
+        // Ignore weight.
+    }
+}
+
 fn gen_disco() -> impl Discover<
-    Key = usize,
+Key = Key,
     Error = impl Into<Error>,
-    Service = lb::Weighted<
+    Service =
         impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
-    >,
 > + Send {
-    let svcs = MAX_ENDPOINT_LATENCIES
+    struct Disco<I: IntoIterator>(I::IntoIter);
+    impl<S, I: IntoIterator<Item = (Key, S)>> Discover for Disco<I> {
+        type Key = Key;
+        type Service = S;
+        type Error = Never;
+        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
+            match self.0.next() {
+                Some((k, service)) => Ok(Change::Insert(k, service).into()),
+                None => Ok(Async::NotReady),
+            }
+        }
+    }
+
+    Disco(MAX_ENDPOINT_LATENCIES
         .iter()
         .zip(WEIGHTS.iter())
         .enumerate()
         .map(|(instance, (latency, weight))| {
+            let key = Key {
+                instance,
+                weight: (*weight).into(),
+            };
+
             let svc = tower::service_fn(move |_| {
                 let start = Instant::now();
 
@@ -135,10 +169,8 @@ fn gen_disco() -> impl Discover<
                 })
             });
 
-            let svc = ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY);
-            lb::Weighted::new(svc, *weight)
-        });
-    tower_discover::ServiceList::new(svcs)
+            (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
+        }))
 }
 
 fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
