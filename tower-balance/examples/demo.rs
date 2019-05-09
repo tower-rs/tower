@@ -1,12 +1,17 @@
 //! Exercises load balancers with mocked services.
 
 use env_logger;
-use futures::{future, stream, Future, Stream};
+use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrsample::Histogram;
 use rand::{self, Rng};
 use std::time::{Duration, Instant};
+use std::{cmp, hash};
 use tokio::{runtime, timer};
-use tower::{discover::Discover, limit::concurrency::ConcurrencyLimit, Service, ServiceExt};
+use tower::{
+    discover::{Change, Discover},
+    limit::concurrency::ConcurrencyLimit,
+    Service, ServiceExt,
+};
 use tower_balance as lb;
 
 const REQUESTS: usize = 50_000;
@@ -110,35 +115,81 @@ fn main() {
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
+#[derive(Clone, Debug, PartialEq)]
+struct Key {
+    instance: usize,
+    weight: lb::Weight,
+}
+
+impl cmp::Eq for Key {}
+
+impl hash::Hash for Key {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.instance.hash(state);
+        // Ignore weight.
+    }
+}
+
+impl lb::HasWeight for Key {
+    fn weight(&self) -> lb::Weight {
+        self.weight
+    }
+}
+
+struct Disco<S>(Vec<(Key, S)>);
+
+impl<S> Discover for Disco<S>
+where
+    S: Service<Req, Response = Rsp, Error = Error>,
+{
+    type Key = Key;
+    type Service = S;
+    type Error = Error;
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
+        match self.0.pop() {
+            Some((k, service)) => Ok(Change::Insert(k, service).into()),
+            None => Ok(Async::NotReady),
+        }
+    }
+}
+
 fn gen_disco() -> impl Discover<
-    Key = usize,
-    Error = impl Into<Error>,
-    Service = lb::Weighted<
+    Key = Key,
+    Error = Error,
+    Service = ConcurrencyLimit<
         impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
     >,
 > + Send {
-    let svcs = MAX_ENDPOINT_LATENCIES
-        .iter()
-        .zip(WEIGHTS.iter())
-        .enumerate()
-        .map(|(instance, (latency, weight))| {
-            let svc = tower::service_fn(move |_| {
-                let start = Instant::now();
+    Disco(
+        MAX_ENDPOINT_LATENCIES
+            .iter()
+            .zip(WEIGHTS.iter())
+            .enumerate()
+            .map(|(instance, (latency, weight))| {
+                let key = Key {
+                    instance,
+                    weight: (*weight).into(),
+                };
 
-                let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
-                    .saturating_add(latency.as_secs().saturating_mul(1_000));
-                let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
+                let svc = tower::service_fn(move |_| {
+                    let start = Instant::now();
 
-                timer::Delay::new(start + latency).map(move |_| {
-                    let latency = start.elapsed();
-                    Rsp { latency, instance }
-                })
-            });
+                    let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                        .saturating_add(latency.as_secs().saturating_mul(1_000));
+                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
-            let svc = ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY);
-            lb::Weighted::new(svc, *weight)
-        });
-    tower_discover::ServiceList::new(svcs)
+                    timer::Delay::new(start + latency)
+                        .map_err(Into::into)
+                        .map(move |_| {
+                            let latency = start.elapsed();
+                            Rsp { latency, instance }
+                        })
+                });
+
+                (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
+            })
+            .collect(),
+    )
 }
 
 fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
