@@ -1,14 +1,14 @@
 //! Exercises load balancers with mocked services.
 
 use env_logger;
-use futures::{future, stream, Future, Stream};
+use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrsample::Histogram;
 use rand::{self, Rng};
 use std::time::{Duration, Instant};
 use std::{cmp, hash};
 use tokio::{runtime, timer};
 use tower::{
-    discover::{error::Never, Discover},
+    discover::{Change, Discover},
     limit::concurrency::ConcurrencyLimit,
     Service, ServiceExt,
 };
@@ -130,24 +130,36 @@ impl hash::Hash for Key {
     }
 }
 
-fn gen_disco() -> impl Discover<
-    Key = Key,
-    Error = impl Into<Error>,
-    Service = impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
-> + Send {
-    struct Disco<I: IntoIterator>(I::IntoIter);
-    impl<S, I: IntoIterator<Item = (Key, S)>> Discover for Disco<I> {
-        type Key = Key;
-        type Service = S;
-        type Error = Never;
-        fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-            match self.0.next() {
-                Some((k, service)) => Ok(Change::Insert(k, service).into()),
-                None => Ok(Async::NotReady),
-            }
+impl lb::HasWeight for Key {
+    fn weight(&self) -> lb::Weight {
+        self.weight
+    }
+}
+
+struct Disco<S>(Vec<(Key, S)>);
+
+impl<S> Discover for Disco<S>
+where
+    S: Service<Req, Response = Rsp, Error = Error>,
+{
+    type Key = Key;
+    type Service = S;
+    type Error = Error;
+    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
+        match self.0.pop() {
+            Some((k, service)) => Ok(Change::Insert(k, service).into()),
+            None => Ok(Async::NotReady),
         }
     }
+}
 
+fn gen_disco() -> impl Discover<
+    Key = Key,
+    Error = Error,
+    Service = ConcurrencyLimit<
+        impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
+    >,
+> + Send {
     Disco(
         MAX_ENDPOINT_LATENCIES
             .iter()
@@ -166,14 +178,15 @@ fn gen_disco() -> impl Discover<
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
-                    timer::Delay::new(start + latency).map(move |_| {
+                    timer::Delay::new(start + latency).map_err(Into::into).map(move |_| {
                         let latency = start.elapsed();
                         Rsp { latency, instance }
                     })
                 });
 
                 (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
-            }),
+            })
+            .collect(),
     )
 }
 
