@@ -4,10 +4,14 @@ use env_logger;
 use futures::{future, stream, Future, Stream};
 use hdrsample::Histogram;
 use rand::{self, Rng};
-use std::{cmp, hash};
 use std::time::{Duration, Instant};
+use std::{cmp, hash};
 use tokio::{runtime, timer};
-use tower::{discover::{Discover, error::Never}, limit::concurrency::ConcurrencyLimit, Service, ServiceExt};
+use tower::{
+    discover::{error::Never, Discover},
+    limit::concurrency::ConcurrencyLimit,
+    Service, ServiceExt,
+};
 use tower_balance as lb;
 
 const REQUESTS: usize = 50_000;
@@ -117,8 +121,7 @@ struct Key {
     weight: lb::Weight,
 }
 
-impl cmp::Eq for Key {
-}
+impl cmp::Eq for Key {}
 
 impl hash::Hash for Key {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
@@ -128,10 +131,9 @@ impl hash::Hash for Key {
 }
 
 fn gen_disco() -> impl Discover<
-Key = Key,
+    Key = Key,
     Error = impl Into<Error>,
-    Service =
-        impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
+    Service = impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
 > + Send {
     struct Disco<I: IntoIterator>(I::IntoIter);
     impl<S, I: IntoIterator<Item = (Key, S)>> Discover for Disco<I> {
@@ -146,31 +148,33 @@ Key = Key,
         }
     }
 
-    Disco(MAX_ENDPOINT_LATENCIES
-        .iter()
-        .zip(WEIGHTS.iter())
-        .enumerate()
-        .map(|(instance, (latency, weight))| {
-            let key = Key {
-                instance,
-                weight: (*weight).into(),
-            };
+    Disco(
+        MAX_ENDPOINT_LATENCIES
+            .iter()
+            .zip(WEIGHTS.iter())
+            .enumerate()
+            .map(|(instance, (latency, weight))| {
+                let key = Key {
+                    instance,
+                    weight: (*weight).into(),
+                };
 
-            let svc = tower::service_fn(move |_| {
-                let start = Instant::now();
+                let svc = tower::service_fn(move |_| {
+                    let start = Instant::now();
 
-                let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
-                    .saturating_add(latency.as_secs().saturating_mul(1_000));
-                let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
+                    let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                        .saturating_add(latency.as_secs().saturating_mul(1_000));
+                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
-                timer::Delay::new(start + latency).map(move |_| {
-                    let latency = start.elapsed();
-                    Rsp { latency, instance }
-                })
-            });
+                    timer::Delay::new(start + latency).map(move |_| {
+                        let latency = start.elapsed();
+                        Rsp { latency, instance }
+                    })
+                });
 
-            (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
-        }))
+                (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
+            }),
+    )
 }
 
 fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
