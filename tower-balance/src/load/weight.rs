@@ -8,8 +8,8 @@ use crate::Load;
 /// A weight on [0.0, ∞].
 ///
 /// Lesser-weighted nodes receive less traffic than heavier-weighted nodes.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub struct Weight(f64);
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct Weight(u32);
 
 /// A Service, that implements Load, that
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -116,39 +116,44 @@ where
 // === impl Weight ===
 
 impl Weight {
-    pub const MIN: Weight = Weight(0.0);
-    pub const DEFAULT: Weight = Weight(1.0);
+    pub const ZERO: Weight = Weight(0);
+    pub const UNIT: Weight = Weight(10_000);
+    pub const MAX: Weight = Weight(std::u32::MAX);
 }
 
 impl Default for Weight {
     fn default() -> Self {
-        Weight::DEFAULT
+        Weight::UNIT
     }
 }
 
 impl From<f64> for Weight {
     fn from(w: f64) -> Self {
-        if w < 0.0 {
-            Weight::MIN
+        if w < 0.0 || w == std::f64::NAN {
+            Self::ZERO
+        } else if w == std::f64::INFINITY {
+            Self::MAX
         } else {
-            Weight(w)
+            Weight((w * 10_000.0).round() as u32)
         }
     }
 }
 
 impl Into<f64> for Weight {
     fn into(self) -> f64 {
-        self.0
+        let v: f64 = self.0.into();
+        v / 10_000.0
     }
 }
 
 impl ops::Div<Weight> for f64 {
     type Output = f64;
 
-    fn div(self, Weight(w): Weight) -> f64 {
-        if w == 0.0 {
+    fn div(self, w: Weight) -> f64 {
+        if w == Weight::ZERO {
             ::std::f64::INFINITY
         } else {
+            let w: f64 = w.into();
             self / w
         }
     }
@@ -158,13 +163,13 @@ impl ops::Div<Weight> for usize {
     type Output = f64;
 
     fn div(self, w: Weight) -> f64 {
-        (self as f64) / w
+        self as f64 / w
     }
 }
 
 #[test]
 fn div_min() {
-    assert_eq!(10.0 / Weight::MIN, ::std::f64::INFINITY);
-    assert_eq!(10 / Weight::MIN, ::std::f64::INFINITY);
-    assert_eq!(0 / Weight::MIN, ::std::f64::INFINITY);
+    assert_eq!(10.0 / Weight::ZERO, ::std::f64::INFINITY);
+    assert_eq!(10 / Weight::ZERO, ::std::f64::INFINITY);
+    assert_eq!(0 / Weight::ZERO, ::std::f64::INFINITY);
 }
