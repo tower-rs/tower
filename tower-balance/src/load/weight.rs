@@ -12,7 +12,7 @@ use crate::Load;
 pub struct Weight(u32);
 
 /// A Service, that implements Load, that
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Weighted<T> {
     inner: T,
     weight: Weight,
