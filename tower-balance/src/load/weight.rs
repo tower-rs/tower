@@ -1,5 +1,6 @@
+use log::trace;
 use futures::{try_ready, Async, Poll};
-use std::ops;
+use std::{fmt, ops};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
@@ -55,13 +56,16 @@ impl<T> Weighted<T> {
 impl<L> Load for Weighted<L>
 where
     L: Load,
-    L::Metric: ops::Div<Weight>,
-    <L::Metric as ops::Div<Weight>>::Output: PartialOrd,
+    L::Metric: ops::Div<Weight> + fmt::Debug + Copy,
+    <L::Metric as ops::Div<Weight>>::Output: PartialOrd + fmt::Debug,
 {
     type Metric = <L::Metric as ops::Div<Weight>>::Output;
 
     fn load(&self) -> Self::Metric {
-        self.inner.load() / self.weight
+        let load = self.inner.load();
+        let v = load / self.weight;
+        trace!("load={:?}; weight={:?} => {:?}", load, self.weight, v);
+        v
     }
 }
 
