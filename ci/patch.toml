@@ -12,6 +12,7 @@ tower-load-shed = { path = "tower-load-shed" }
 tower-reconnect = { path = "tower-reconnect" }
 tower-retry = { path = "tower-retry" }
 tower-service = { path = "tower-service" }
+tower-spawn-ready = { path = "tower-spawn-ready" }
 tower-test = { path = "tower-test" }
 tower-timeout = { path = "tower-timeout" }
 tower-util = { path = "tower-util" }
