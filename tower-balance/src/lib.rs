@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-balance/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-load/0.1.0")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 #[cfg(test)]
@@ -10,25 +10,18 @@ use log::{debug, trace};
 use rand::{rngs::SmallRng, SeedableRng};
 use std::fmt;
 use tower_discover::Discover;
+use tower_load::Load;
 use tower_service::Service;
 
 pub mod choose;
 pub mod error;
 pub mod future;
-pub mod load;
 pub mod pool;
 
 #[cfg(test)]
 mod test;
 
-pub use self::{
-    choose::Choose,
-    load::{
-        weight::{HasWeight, Weight, Weighted, WithWeighted},
-        Load,
-    },
-    pool::Pool,
-};
+pub use self::{choose::Choose, pool::Pool};
 
 use self::{error::Error, future::ResponseFuture};
 

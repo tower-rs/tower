@@ -19,6 +19,7 @@ jobs:
       - tower-filter
       - tower-layer
       - tower-limit
+      - tower-load
       - tower-load-shed
       - tower-reconnect
       - tower-retry
