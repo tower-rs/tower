@@ -23,6 +23,7 @@ jobs:
       - tower-reconnect
       - tower-retry
       - tower-service
+      - tower-spawn-ready
       - tower-test
       - tower-timeout
       - tower-util
