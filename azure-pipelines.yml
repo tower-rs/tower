@@ -17,6 +17,7 @@ jobs:
       - tower-buffer
       - tower-discover
       - tower-filter
+      - tower-hedge
       - tower-layer
       - tower-limit
       - tower-load-shed

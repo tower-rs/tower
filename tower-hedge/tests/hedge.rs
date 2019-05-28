@@ -21,6 +21,7 @@ fn hedge_orig_completes_first() {
     let (mut service, mut handle) = new_service(TestPolicy);
 
     mocked(|timer, _| {
+        assert!(service.poll_ready().unwrap().is_ready());
         let mut fut = service.call("orig");
         // Check that orig request has been issued.
         let (_, req) = handle.next_request().expect("orig");
@@ -46,6 +47,7 @@ fn hedge_hedge_completes_first() {
     let (mut service, mut handle) = new_service(TestPolicy);
 
     mocked(|timer, _| {
+        assert!(service.poll_ready().unwrap().is_ready());
         let mut fut = service.call("orig");
         // Check that orig request has been issued.
         let (_, _req) = handle.next_request().expect("orig");
@@ -71,6 +73,7 @@ fn completes_before_hedge() {
     let (mut service, mut handle) = new_service(TestPolicy);
 
     mocked(|_, _| {
+        assert!(service.poll_ready().unwrap().is_ready());
         let mut fut = service.call("orig");
         // Check that orig request has been issued.
         let (_, req) = handle.next_request().expect("orig");
@@ -90,6 +93,7 @@ fn request_not_retyable() {
     let (mut service, mut handle) = new_service(TestPolicy);
 
     mocked(|timer, _| {
+        assert!(service.poll_ready().unwrap().is_ready());
         let mut fut = service.call(NOT_RETRYABLE);
         // Check that orig request has been issued.
         let (_, req) = handle.next_request().expect("orig");
@@ -115,6 +119,7 @@ fn request_not_clonable() {
     let (mut service, mut handle) = new_service(TestPolicy);
 
     mocked(|timer, _| {
+        assert!(service.poll_ready().unwrap().is_ready());
         let mut fut = service.call(NOT_CLONABLE);
         // Check that orig request has been issued.
         let (_, req) = handle.next_request().expect("orig");
