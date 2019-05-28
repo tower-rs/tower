@@ -1,8 +1,7 @@
-crate::{
+use crate::{
     error::{Error, SpawnError},
     future::{BackgroundReady, BackgroundReadyExecutor},
 };
-
 use futures::{future, try_ready, Async, Future, Poll};
 use std::marker::PhantomData;
 use tokio_executor::DefaultExecutor;

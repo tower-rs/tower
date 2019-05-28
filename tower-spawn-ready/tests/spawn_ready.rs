@@ -3,7 +3,7 @@ use std::{thread, time::Duration};
 use tokio_executor::{SpawnError, TypedExecutor};
 use tower::Service;
 use tower_spawn_ready::{error, SpawnReady};
-use tower_test::{mock};
+use tower_test::mock;
 
 #[test]
 fn when_inner_is_not_ready() {
@@ -52,11 +52,7 @@ fn when_spawn_fails() {
     // Make the service NotReady so a background task is spawned.
     handle.allow(0);
 
-    let err = with_task(|| {
-        service
-            .poll_ready()
-            .expect_err("poll_ready should error")
-    });
+    let err = with_task(|| service.poll_ready().expect_err("poll_ready should error"));
 
     assert!(
         err.is::<error::SpawnError>(),
