@@ -43,4 +43,3 @@ tokio-executor = "0.1.2"
 tower = { version = "0.1", path = "../tower" }
 tower-buffer = { version = "0.1", path = "../tower-buffer" }
 tower-limit = { version = "0.1", path = "../tower-limit" }
-tower-test = { version = "0.1.0", path = "../tower-test" }
