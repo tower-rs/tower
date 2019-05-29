@@ -20,6 +20,7 @@ jobs:
       - tower-hedge
       - tower-layer
       - tower-limit
+      - tower-load
       - tower-load-shed
       - tower-reconnect
       - tower-retry

@@ -5,7 +5,6 @@ use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrsample::Histogram;
 use rand::{self, Rng};
 use std::time::{Duration, Instant};
-use std::{cmp, hash};
 use tokio::{runtime, timer};
 use tower::{
     discover::{Change, Discover},
@@ -13,6 +12,7 @@ use tower::{
     Service, ServiceExt,
 };
 use tower_balance as lb;
+use tower_load as load;
 
 const REQUESTS: usize = 50_000;
 const CONCURRENCY: usize = 500;
@@ -30,7 +30,6 @@ static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(500),
     Duration::from_millis(1000),
 ];
-static WEIGHTS: [f64; 10] = [1.0, 1.0, 1.0, 0.5, 1.5, 0.5, 1.5, 1.0, 1.0, 1.0];
 
 struct Summary {
     latencies: Histogram<u64>,
@@ -50,57 +49,24 @@ fn main() {
         print!("{}ms, ", l);
     }
     println!("]");
-    print!("WEIGHTS=[");
-    for w in &WEIGHTS {
-        print!("{}, ", w);
-    }
-    println!("]");
 
     let mut rt = runtime::Runtime::new().unwrap();
-
-    // Show weighted behavior first...
 
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
-        let pe = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPeakEwma::new(
+        let pe = lb::Balance::p2c(load::PeakEwmaDiscover::new(
             d,
             DEFAULT_RTT,
             decay,
-            lb::load::NoInstrument,
-        )));
-        run("P2C+PeakEWMA w/ weights", pe)
-    });
-
-    let fut = fut.then(move |_| {
-        let d = gen_disco();
-        let ll = lb::Balance::p2c(lb::WithWeighted::from(lb::load::WithPendingRequests::new(
-            d,
-            lb::load::NoInstrument,
-        )));
-        run("P2C+LeastLoaded w/ weights", ll)
-    });
-
-    // Then run through standard comparisons...
-
-    let fut = fut.then(move |_| {
-        let decay = Duration::from_secs(10);
-        let d = gen_disco();
-        let pe = lb::Balance::p2c(lb::load::WithPeakEwma::new(
-            d,
-            DEFAULT_RTT,
-            decay,
-            lb::load::NoInstrument,
+            load::NoInstrument,
         ));
         run("P2C+PeakEWMA", pe)
     });
 
     let fut = fut.then(move |_| {
         let d = gen_disco();
-        let ll = lb::Balance::p2c(lb::load::WithPendingRequests::new(
-            d,
-            lb::load::NoInstrument,
-        ));
+        let ll = lb::Balance::p2c(load::PendingRequestsDiscover::new(d, load::NoInstrument));
         run("P2C+LeastLoaded", ll)
     });
 
@@ -115,26 +81,7 @@ fn main() {
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
-#[derive(Clone, Debug, PartialEq)]
-struct Key {
-    instance: usize,
-    weight: lb::Weight,
-}
-
-impl cmp::Eq for Key {}
-
-impl hash::Hash for Key {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.instance.hash(state);
-        // Ignore weight.
-    }
-}
-
-impl lb::HasWeight for Key {
-    fn weight(&self) -> lb::Weight {
-        self.weight
-    }
-}
+type Key = usize;
 
 struct Disco<S>(Vec<(Key, S)>);
 
@@ -163,14 +110,8 @@ fn gen_disco() -> impl Discover<
     Disco(
         MAX_ENDPOINT_LATENCIES
             .iter()
-            .zip(WEIGHTS.iter())
             .enumerate()
-            .map(|(instance, (latency, weight))| {
-                let key = Key {
-                    instance,
-                    weight: (*weight).into(),
-                };
-
+            .map(|(instance, latency)| {
                 let svc = tower::service_fn(move |_| {
                     let start = Instant::now();
 
@@ -186,7 +127,7 @@ fn gen_disco() -> impl Discover<
                         })
                 });
 
-                (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
+                (instance, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
             })
             .collect(),
     )

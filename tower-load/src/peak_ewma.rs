@@ -1,17 +1,16 @@
+//! A `Load` implementation that PeakEWMA on response latency.
+
+use super::{Instrument, InstrumentFuture, NoInstrument};
+use crate::Load;
 use futures::{try_ready, Async, Poll};
 use log::trace;
 use std::{
-    ops,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tokio_timer::clock;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
-
-use super::{Instrument, InstrumentFuture, NoInstrument};
-
-use crate::{HasWeight, Load, Weight};
 
 /// Wraps an `S`-typed Service with Peak-EWMA load measurement.
 ///
@@ -46,7 +45,7 @@ pub struct PeakEwma<S, I = NoInstrument> {
 }
 
 /// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
-pub struct WithPeakEwma<D, I = NoInstrument> {
+pub struct PeakEwmaDiscover<D, I = NoInstrument> {
     discover: D,
     decay_ns: f64,
     default_rtt: Duration,
@@ -60,14 +59,14 @@ pub struct WithPeakEwma<D, I = NoInstrument> {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Cost(f64);
 
-/// Updates `RttEstimate` when dropped.
+/// Tracks an in-flight request and updates the RTT-estimate on Drop.
 pub struct Handle {
     sent_at: Instant,
     decay_ns: f64,
     rtt_estimate: Arc<Mutex<RttEstimate>>,
 }
 
-/// Holds the current RTT estimateand the last time this value was updated.
+/// Holds the current RTT estimate and the last time this value was updated.
 struct RttEstimate {
     update_at: Instant,
     rtt_ns: f64,
@@ -77,7 +76,7 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 // ===== impl PeakEwma =====
 
-impl<D, I> WithPeakEwma<D, I> {
+impl<D, I> PeakEwmaDiscover<D, I> {
     /// Wraps a `D`-typed `Discover` so that services have a `PeakEwma` load metric.
     ///
     /// The provided `default_rtt` is used as the default RTT estimate for newly
@@ -91,7 +90,7 @@ impl<D, I> WithPeakEwma<D, I> {
         D::Service: Service<Request>,
         I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
     {
-        WithPeakEwma {
+        PeakEwmaDiscover {
             discover,
             decay_ns: nanos(decay),
             default_rtt,
@@ -100,7 +99,7 @@ impl<D, I> WithPeakEwma<D, I> {
     }
 }
 
-impl<D, I> Discover for WithPeakEwma<D, I>
+impl<D, I> Discover for PeakEwmaDiscover<D, I>
 where
     D: Discover,
     I: Clone,
@@ -110,19 +109,17 @@ where
     type Error = D::Error;
 
     fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
-        use self::Change::*;
-
         let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => {
-                let s = PeakEwma::new(
+            Change::Remove(k) => Change::Remove(k),
+            Change::Insert(k, svc) => {
+                let peak_ewma = PeakEwma::new(
                     svc,
                     self.default_rtt,
                     self.decay_ns,
                     self.instrument.clone(),
                 );
-                Insert(k, s)
+                Change::Insert(k, peak_ewma)
             }
-            Remove(k) => Remove(k),
         };
 
         Ok(Async::Ready(change))
@@ -190,12 +187,6 @@ impl<S, I> Load for PeakEwma<S, I> {
             cost,
         );
         cost
-    }
-}
-
-impl<S: HasWeight, I> HasWeight for PeakEwma<S, I> {
-    fn weight(&self) -> Weight {
-        self.service.weight()
     }
 }
 
@@ -288,14 +279,6 @@ impl Drop for Handle {
 }
 
 // ===== impl Cost =====
-
-impl ops::Div<Weight> for Cost {
-    type Output = f64;
-
-    fn div(self, w: Weight) -> f64 {
-        self.0 / w
-    }
-}
 
 // Utility that converts durations to nanos in f64.
 //

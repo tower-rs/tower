@@ -10,25 +10,18 @@ use log::{debug, trace};
 use rand::{rngs::SmallRng, SeedableRng};
 use std::fmt;
 use tower_discover::Discover;
+use tower_load::Load;
 use tower_service::Service;
 
 pub mod choose;
 pub mod error;
 pub mod future;
-pub mod load;
 pub mod pool;
 
 #[cfg(test)]
 mod test;
 
-pub use self::{
-    choose::Choose,
-    load::{
-        weight::{HasWeight, Weight, Weighted, WithWeighted},
-        Load,
-    },
-    pool::Pool,
-};
+pub use self::{choose::Choose, pool::Pool};
 
 use self::{error::Error, future::ResponseFuture};
 

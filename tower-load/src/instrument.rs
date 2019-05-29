@@ -15,10 +15,11 @@ use futures::{try_ready, Future, Poll};
 /// multiple messages.
 ///
 /// In many cases, the `Output` type is simply `V`. However, `Instrument` may alter the
-/// typein order to instrument it appropriately. For example, an HTTP Instrument may
+/// type in order to instrument it appropriately. For example, an HTTP Instrument may
 /// modify the body type: so an `Instrument` that takes values of type `http::Response<A>`
 /// may output values of type `http::Response<B>`.
 pub trait Instrument<H, V>: Clone {
+    /// The instrumented value type.
     type Output;
 
     /// Attaches an `H`-typed handle to a `V`-typed value.
@@ -48,6 +49,7 @@ where
     F: Future,
     I: Instrument<H, F::Item>,
 {
+    /// Wraps a future, instrumenting its value if successful.
     pub fn new(instrument: I, handle: H, future: F) -> Self {
         InstrumentFuture {
             future,
