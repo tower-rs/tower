@@ -21,7 +21,7 @@ pub use self::{
 /// Exposes a load metric.
 pub trait Load {
     /// A comparable load metric. Lesser values are "preferable" to greater values.
-    type Metric: PartialOrd + std::fmt::Debug;
+    type Metric: PartialOrd;
 
     /// Obtains a service's load.
     fn load(&self) -> Self::Metric;
