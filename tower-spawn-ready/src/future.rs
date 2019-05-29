@@ -24,9 +24,9 @@ where
 {
 }
 
-impl<T, Request, E: TypedExecutor<BackgroundReady<T, Request>>> BackgroundReadyExecutor<T, Request>
-    for E
+impl<T, Request, E> BackgroundReadyExecutor<T, Request> for E
 where
+    E: TypedExecutor<BackgroundReady<T, Request>>,
     T: Service<Request>,
     T::Error: Into<Error>,
 {

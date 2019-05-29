@@ -93,10 +93,10 @@ where
 
                     Inner::Future(rx)
                 }
-                Inner::Future(ref mut fut) => match try_ready!(fut.poll()) {
-                    Ok(svc) => Inner::Service(Some(svc)),
-                    Err(e) => return Err(e),
-                },
+                Inner::Future(ref mut fut) => {
+                    let svc = try_ready!(fut.poll())?;
+                    Inner::Service(Some(svc))
+                }
             }
         }
     }
