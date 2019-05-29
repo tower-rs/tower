@@ -86,7 +86,7 @@ where
                     }
 
                     let (bg, rx) = background_ready(svc.take().expect("illegal state"));
-                    self.executor.spawn(bg).map_err(|_| SpawnError::new())?;
+                    self.executor.spawn(bg).map_err(SpawnError::new)?;
 
                     Inner::Future(rx)
                 }
