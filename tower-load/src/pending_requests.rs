@@ -1,10 +1,11 @@
+//! A `Load` implementation that uses the count of in-flight requests.
+
+use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::Load;
 use futures::{try_ready, Async, Poll};
 use std::sync::Arc;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
-
-use super::{Instrument, InstrumentFuture, NoInstrument};
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
@@ -21,7 +22,7 @@ struct RefCount(Arc<()>);
 
 /// Wraps `inner`'s services with `PendingRequests`.
 #[derive(Debug)]
-pub struct WithPendingRequests<D, I = NoInstrument> {
+pub struct PendingRequestsDiscover<D, I = NoInstrument> {
     discover: D,
     instrument: I,
 }
@@ -30,7 +31,7 @@ pub struct WithPendingRequests<D, I = NoInstrument> {
 #[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Ord, Eq)]
 pub struct Count(usize);
 
-/// Tracks an in-flight requests by reference count.
+/// Tracks an in-flight request by reference count.
 #[derive(Debug)]
 pub struct Handle(RefCount);
 
@@ -81,9 +82,10 @@ where
     }
 }
 
-// ===== impl WithPendingRequests =====
+// ===== impl PendingRequestsDiscover =====
 
-impl<D, I> WithPendingRequests<D, I> {
+impl<D, I> PendingRequestsDiscover<D, I> {
+    /// Wraps a `Discover``, wrapping all of its services with `PendingRequests`.
     pub fn new<Request>(discover: D, instrument: I) -> Self
     where
         D: Discover,
@@ -97,7 +99,7 @@ impl<D, I> WithPendingRequests<D, I> {
     }
 }
 
-impl<D, I> Discover for WithPendingRequests<D, I>
+impl<D, I> Discover for PendingRequestsDiscover<D, I>
 where
     D: Discover,
     I: Clone,

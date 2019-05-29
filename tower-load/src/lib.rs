@@ -1,5 +1,9 @@
+//! Abstractions and utilties for measuring a service's load.
+
 #![doc(html_root_url = "https://docs.rs/tower-load/0.1.0")]
+#![deny(missing_docs)]
 #![deny(rust_2018_idioms)]
+#![deny(warnings)]
 #![allow(elided_lifetimes_in_paths)]
 
 mod constant;
@@ -10,16 +14,15 @@ pub mod pending_requests;
 pub use self::{
     constant::Constant,
     instrument::{Instrument, InstrumentFuture, NoInstrument},
-    peak_ewma::{PeakEwma, WithPeakEwma},
-    pending_requests::{PendingRequests, WithPendingRequests},
+    peak_ewma::{PeakEwma, PeakEwmaDiscover},
+    pending_requests::{PendingRequests, PendingRequestsDiscover},
 };
 
 /// Exposes a load metric.
-///
-/// Implementors should choose load values so that lesser-loaded instances return lesser
-/// values than higher-load instances.
 pub trait Load {
+    /// A comparable load metric. Lesser values are "preferable" to greater values.
     type Metric: PartialOrd + std::fmt::Debug;
 
+    /// Obtains a service's load.
     fn load(&self) -> Self::Metric;
 }

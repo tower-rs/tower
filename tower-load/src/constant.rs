@@ -1,3 +1,5 @@
+//! A constant `Load` implementation. Primarily useful for testing.
+
 use futures::{try_ready, Async, Poll};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
@@ -13,6 +15,7 @@ pub struct Constant<T, M> {
 // ===== impl Constant =====
 
 impl<T, M: Copy> Constant<T, M> {
+    /// Wraps a `T`-typed service with a constant `M`-typed load metric.
     pub fn new(inner: T, load: M) -> Self {
         Self { inner, load }
     }

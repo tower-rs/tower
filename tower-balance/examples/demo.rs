@@ -55,7 +55,7 @@ fn main() {
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
-        let pe = lb::Balance::p2c(load::WithPeakEwma::new(
+        let pe = lb::Balance::p2c(load::PeakEwmaDiscover::new(
             d,
             DEFAULT_RTT,
             decay,
@@ -66,7 +66,7 @@ fn main() {
 
     let fut = fut.then(move |_| {
         let d = gen_disco();
-        let ll = lb::Balance::p2c(load::WithPendingRequests::new(d, load::NoInstrument));
+        let ll = lb::Balance::p2c(load::PendingRequestsDiscover::new(d, load::NoInstrument));
         run("P2C+LeastLoaded", ll)
     });
 
