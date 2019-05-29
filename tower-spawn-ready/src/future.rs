@@ -32,19 +32,22 @@ where
 {
 }
 
-impl<T, Request> BackgroundReady<T, Request>
+pub(crate) fn background_ready<T, Request>(
+    service: T,
+) -> (
+    BackgroundReady<T, Request>,
+    oneshot::Receiver<Result<T, Error>>,
+)
 where
     T: Service<Request>,
     T::Error: Into<Error>,
 {
-    pub(crate) fn new(service: T) -> (Self, oneshot::Receiver<Result<T, Error>>) {
-        let (tx, rx) = oneshot::channel();
-        let bg = Self {
-            ready: Ready::new(service),
-            tx: Some(tx),
-        };
-        (bg, rx)
-    }
+    let (tx, rx) = oneshot::channel();
+    let bg = BackgroundReady {
+        ready: Ready::new(service),
+        tx: Some(tx),
+    };
+    (bg, rx)
 }
 
 impl<T, Request> Future for BackgroundReady<T, Request>

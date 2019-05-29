@@ -1,6 +1,6 @@
 use crate::{
     error::{Error, SpawnError},
-    future::{BackgroundReady, BackgroundReadyExecutor},
+    future::{background_ready, BackgroundReadyExecutor},
 };
 use futures::{future, try_ready, Async, Future, Poll};
 use std::marker::PhantomData;
@@ -85,7 +85,7 @@ where
                         return Ok(Async::Ready(()));
                     }
 
-                    let (bg, rx) = BackgroundReady::new(svc.take().expect("illegal state"));
+                    let (bg, rx) = background_ready(svc.take().expect("illegal state"));
                     self.executor.spawn(bg).map_err(|_| SpawnError::new())?;
 
                     Inner::Future(rx)
