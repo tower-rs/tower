@@ -52,9 +52,6 @@ where
     ///
     /// `executor` is used to spawn a new `BackgroundReady` task that is
     /// dedicated to driving the inner service to readiness.
-    ///
-    /// `bound` gives the maximal number of requests that can be queued for the service before
-    /// backpressure is applied to callers.
     pub fn with_executor(service: T, executor: E) -> Self {
         Self {
             executor,
