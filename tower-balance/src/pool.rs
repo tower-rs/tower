@@ -200,7 +200,7 @@ impl Builder {
         };
 
         Pool {
-            balance: P2CBalance::new(d),
+            balance: P2CBalance::from_entropy(d),
             options: *self,
             ewma: self.init,
         }

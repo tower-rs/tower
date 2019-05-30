@@ -54,19 +54,19 @@ pub struct P2CBalance<D: Discover> {
 // ===== impl P2CBalance =====
 
 impl<D: Discover> P2CBalance<D> {
-    /// Initializes a P2C load balancer from the OS's entropy source.
-    pub fn new(discover: D) -> Self {
-        Self::from_rng(discover, SmallRng::from_entropy())
-    }
-
     /// Initializes a P2C load balancer from the provided randomization source.
-    pub fn from_rng(discover: D, rng: SmallRng) -> Self {
+    pub fn new(discover: D, rng: SmallRng) -> Self {
         Self {
             rng,
             discover,
-            ready_index: None,
             endpoints: IndexMap::default(),
+            ready_index: None,
         }
+    }
+
+    /// Initializes a P2C load balancer from the OS's entropy source.
+    pub fn from_entropy(discover: D) -> Self {
+        Self::new(discover, SmallRng::from_entropy())
     }
 
     /// Returns the number of endpoints currently tracked by the balancer.

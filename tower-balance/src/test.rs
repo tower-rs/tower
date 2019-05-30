@@ -30,7 +30,7 @@ macro_rules! assert_not_ready {
 fn empty() {
     let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
     let disco = ServiceList::new(empty);
-    let mut svc = P2CBalance::new(disco);
+    let mut svc = P2CBalance::from_entropy(disco);
     assert_not_ready!(svc);
 }
 
@@ -40,7 +40,7 @@ fn single_endpoint() {
     let mock = load::Constant::new(mock, 0);
 
     let disco = ServiceList::new(vec![mock].into_iter());
-    let mut svc = P2CBalance::new(disco);
+    let mut svc = P2CBalance::from_entropy(disco);
 
     with_task(|| {
         handle.allow(0);
@@ -80,7 +80,7 @@ fn two_endpoints_with_equal_weight() {
     let mock_b = load::Constant::new(mock_b, 1);
 
     let disco = ServiceList::new(vec![mock_a, mock_b].into_iter());
-    let mut svc = P2CBalance::new(disco);
+    let mut svc = P2CBalance::from_entropy(disco);
 
     with_task(|| {
         handle_a.allow(0);

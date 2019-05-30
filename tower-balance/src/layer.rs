@@ -36,7 +36,7 @@ impl<D: Discover> Layer<D> for P2CBalanceLayer<D> {
     type Service = P2CBalance<D>;
 
     fn layer(&self, discover: D) -> Self::Service {
-        P2CBalance::from_rng(discover, self.rng.clone())
+        P2CBalance::new(discover, self.rng.clone())
     }
 }
 
