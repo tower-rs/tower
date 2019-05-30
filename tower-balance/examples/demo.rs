@@ -66,7 +66,8 @@ fn main() {
 
     let fut = fut.then(move |_| {
         let d = gen_disco();
-        let ll = lb::P2CBalance::from_entropy(load::PendingRequestsDiscover::new(d, load::NoInstrument));
+        let ll =
+            lb::P2CBalance::from_entropy(load::PendingRequestsDiscover::new(d, load::NoInstrument));
         run("P2C+LeastLoaded...", ll)
     });
 
