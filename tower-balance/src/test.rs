@@ -1,136 +1,142 @@
-use futures::{future, Async, Poll};
-use quickcheck::*;
-use std::collections::VecDeque;
-use tower_discover::Change;
+use futures::{Async, Future};
+use tower_discover::ServiceList;
+use tower_load as load;
 use tower_service::Service;
+use tower_test::mock;
 
 use crate::*;
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
+//type Error = Box<dyn std::error::Error + Send + Sync>;
 
-struct ReluctantDisco(VecDeque<Change<usize, ReluctantService>>);
-
-struct ReluctantService {
-    polls_until_ready: usize,
+macro_rules! assert_ready {
+    ($svc:expr) => {{
+        assert_ready!($svc, "must be ready");
+    }};
+    ($svc:expr, $msg:expr) => {{
+        assert!($svc.poll_ready().expect("must not fail").is_ready(), $msg);
+    }};
 }
 
-impl Discover for ReluctantDisco {
-    type Key = usize;
-    type Service = ReluctantService;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        let r = self
-            .0
-            .pop_front()
-            .map(Async::Ready)
-            .unwrap_or(Async::NotReady);
-        debug!("polling disco: {:?}", r.is_ready());
-        Ok(r)
-    }
+macro_rules! assert_not_ready {
+    ($svc:expr) => {{
+        assert_not_ready!($svc, "must not be ready");
+    }};
+    ($svc:expr, $msg:expr) => {{
+        assert!(!$svc.poll_ready().expect("must not fail").is_ready(), $msg);
+    }};
 }
 
-impl Service<()> for ReluctantService {
-    type Response = ();
-    type Error = Error;
-    type Future = future::FutureResult<Self::Response, Self::Error>;
+#[test]
+fn empty() {
+    let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
+    let disco = ServiceList::new(empty);
+    let mut svc = P2CBalance::new(disco);
+    assert_not_ready!(svc);
+}
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        if self.polls_until_ready == 0 {
-            return Ok(Async::Ready(()));
+#[test]
+fn single_endpoint() {
+    let (mock, mut handle) = mock::pair();
+    let mock = load::Constant::new(mock, 0);
+
+    let disco = ServiceList::new(vec![mock].into_iter());
+    let mut svc = P2CBalance::new(disco);
+
+    with_task(|| {
+        handle.allow(0);
+        assert_not_ready!(svc);
+        assert_eq!(
+            svc.endpoints.len(),
+            1,
+            "balancer must have discovered endpoint"
+        );
+
+        handle.allow(1);
+        assert_ready!(svc);
+
+        let fut = svc.call(());
+
+        let ((), rsp) = handle.next_request().unwrap();
+        rsp.send_response(1);
+
+        assert_eq!(fut.wait().expect("call must complete"), 1);
+        handle.allow(1);
+        assert_ready!(svc);
+
+        handle.send_error("endpoint lost");
+        assert_not_ready!(svc);
+        assert!(
+            svc.endpoints.is_empty(),
+            "balancer must drop failed endpoints"
+        );
+    });
+}
+
+#[test]
+fn two_endpoints_with_equal_weight() {
+    let (mock_a, mut handle_a) = mock::pair();
+    let (mock_b, mut handle_b) = mock::pair();
+    let mock_a = load::Constant::new(mock_a, 1);
+    let mock_b = load::Constant::new(mock_b, 1);
+
+    let disco = ServiceList::new(vec![mock_a, mock_b].into_iter());
+    let mut svc = P2CBalance::new(disco);
+
+    with_task(|| {
+        handle_a.allow(0);
+        handle_b.allow(0);
+        assert_not_ready!(svc);
+        assert_eq!(
+            svc.endpoints.len(),
+            2,
+            "balancer must have discovered both endpoints"
+        );
+
+        handle_a.allow(1);
+        handle_b.allow(0);
+        assert_ready!(svc, "must be ready when one of two services is ready");
+        {
+            let fut = svc.call(());
+            let ((), rsp) = handle_a.next_request().unwrap();
+            rsp.send_response("a");
+            assert_eq!(fut.wait().expect("call must complete"), "a");
         }
 
-        self.polls_until_ready -= 1;
-        return Ok(Async::NotReady);
-    }
-
-    fn call(&mut self, _: ()) -> Self::Future {
-        future::ok(())
-    }
-}
-
-quickcheck! {
-    /// Creates a random number of services, each of which must be polled a random
-    /// number of times before becoming ready. As the balancer is polled, ensure that
-    /// it does not become ready prematurely and that services are promoted from
-    /// not_ready to ready.
-    fn poll_ready(service_tries: Vec<usize>) -> TestResult {
-        // Stores the number of pending services after each poll_ready call.
-        let mut pending_at = Vec::new();
-
-        let disco = {
-            let mut changes = VecDeque::new();
-            for (i, n) in service_tries.iter().map(|n| *n).enumerate() {
-                for j in 0..n {
-                    if j == pending_at.len() {
-                        pending_at.push(1);
-                    } else {
-                        pending_at[j] += 1;
-                    }
-                }
-
-                let s = ReluctantService { polls_until_ready: n };
-                changes.push_back(Change::Insert(i, s));
-            }
-            ReluctantDisco(changes)
-        };
-        pending_at.push(0);
-
-        let mut balancer = Balance::new(disco, choose::RoundRobin::default());
-
-        let services = service_tries.len();
-        let mut next_pos = 0;
-        for pending in pending_at.iter().map(|p| *p) {
-            assert!(pending <= services);
-            let ready = services - pending;
-
-            match balancer.poll_ready() {
-                Err(_) => return TestResult::error("poll_ready failed"),
-                Ok(p) => {
-                    if p.is_ready() != (ready > 0) {
-                        return TestResult::failed();
-                    }
-                }
-            }
-
-            if balancer.num_ready() != ready {
-                return TestResult::failed();
-            }
-
-            if balancer.num_not_ready() != pending {
-                return TestResult::failed();
-            }
-
-            if balancer.is_ready() != (ready > 0) {
-                return TestResult::failed();
-            }
-            if balancer.is_not_ready() != (ready == 0) {
-                return TestResult::failed();
-            }
-
-            if balancer.dispatched_ready_index.is_some() {
-                return TestResult::failed();
-            }
-
-            if ready == 0 {
-                if balancer.chosen_ready_index.is_some() {
-                    return TestResult::failed();
-                }
-            } else {
-                // Check that the round-robin chooser is doing its thing:
-                match balancer.chosen_ready_index {
-                    None => return TestResult::failed(),
-                    Some(idx) => {
-                        if idx != next_pos  {
-                            return TestResult::failed();
-                        }
-                    }
-                }
-
-                next_pos = (next_pos + 1) % ready;
-            }
+        handle_a.allow(0);
+        handle_b.allow(1);
+        assert_ready!(svc, "must be ready when both endpoints are ready");
+        {
+            let fut = svc.call(());
+            let ((), rsp) = handle_b.next_request().unwrap();
+            rsp.send_response("b");
+            assert_eq!(fut.wait().expect("call must complete"), "b");
         }
 
-        TestResult::passed()
-    }
+        handle_a.allow(1);
+        handle_b.allow(1);
+        assert_ready!(svc, "must be ready when both endpoints are ready");
+        {
+            let fut = svc.call(());
+            for (ref mut h, c) in &mut [(&mut handle_a, "a"), (&mut handle_b, "b")] {
+                if let Async::Ready(Some((_, tx))) = h.poll_request().unwrap() {
+                    tx.send_response(c);
+                }
+            }
+            fut.wait().expect("call must complete");
+        }
+
+        handle_a.send_error("endpoint lost");
+        handle_b.allow(1);
+        assert_ready!(svc, "must be ready after one endpoint is removed");
+        assert_eq!(
+            svc.endpoints.len(),
+            1,
+            "balancer must drop failed endpoints",
+        );
+    });
+}
+
+fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
+    use futures::future::lazy;
+    lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }

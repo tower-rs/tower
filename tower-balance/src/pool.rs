@@ -14,13 +14,14 @@
 //! added or removed.
 #![deny(missing_docs)]
 
-use super::{Balance, Choose};
+use super::P2CBalance;
 use futures::{try_ready, Async, Future, Poll};
 use tower_discover::{Change, Discover};
+use tower_load::Load;
 use tower_service::Service;
 use tower_util::MakeService;
 
-enum Load {
+enum Level {
     /// Load is low -- remove a service instance.
     Low,
     /// Load is normal -- keep the service set as it is.
@@ -38,7 +39,7 @@ where
     maker: MS,
     making: Option<MS::Future>,
     target: Target,
-    load: Load,
+    load: Level,
     services: usize,
 }
 
@@ -59,7 +60,7 @@ where
             self.making = Some(self.maker.make_service(self.target.clone()));
         }
 
-        if let Load::High = self.load {
+        if let Level::High = self.load {
             if self.making.is_none() {
                 try_ready!(self.maker.poll_ready());
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
@@ -70,7 +71,7 @@ where
         if let Some(mut fut) = self.making.take() {
             if let Async::Ready(s) = fut.poll()? {
                 self.services += 1;
-                self.load = Load::Normal;
+                self.load = Level::Normal;
                 return Ok(Async::Ready(Change::Insert(self.services, s)));
             } else {
                 self.making = Some(fut);
@@ -79,13 +80,13 @@ where
         }
 
         match self.load {
-            Load::High => {
+            Level::High => {
                 unreachable!("found high load but no Service being made");
             }
-            Load::Normal => Ok(Async::NotReady),
-            Load::Low if self.services == 1 => Ok(Async::NotReady),
-            Load::Low => {
-                self.load = Load::Normal;
+            Level::Normal => Ok(Async::NotReady),
+            Level::Low if self.services == 1 => Ok(Async::NotReady),
+            Level::Low => {
+                self.load = Level::Normal;
                 let rm = self.services;
                 self.services -= 1;
                 Ok(Async::Ready(Change::Remove(rm)))
@@ -177,29 +178,29 @@ impl Builder {
     }
 
     /// See [`Pool::new`].
-    pub fn build<C, MS, Target, Request>(
+    pub fn build<MS, Target, Request>(
         &self,
         make_service: MS,
         target: Target,
-        choose: C,
-    ) -> Pool<C, MS, Target, Request>
+    ) -> Pool<MS, Target, Request>
     where
         MS: MakeService<Target, Request>,
+        MS::Service: Load,
+        <MS::Service as Load>::Metric: std::fmt::Debug,
         MS::MakeError: ::std::error::Error + Send + Sync + 'static,
         MS::Error: ::std::error::Error + Send + Sync + 'static,
         Target: Clone,
-        C: Choose<usize, MS::Service>,
     {
         let d = PoolDiscoverer {
             maker: make_service,
             making: None,
             target,
-            load: Load::Normal,
+            load: Level::Normal,
             services: 0,
         };
 
         Pool {
-            balance: Balance::new(d, choose),
+            balance: P2CBalance::new(d),
             options: *self,
             ewma: self.init,
         }
@@ -207,25 +208,26 @@ impl Builder {
 }
 
 /// A dynamically sized, load-balanced pool of `Service` instances.
-pub struct Pool<C, MS, Target, Request>
+pub struct Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
     MS::MakeError: ::std::error::Error + Send + Sync + 'static,
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
 {
-    balance: Balance<PoolDiscoverer<MS, Target, Request>, C>,
+    balance: P2CBalance<PoolDiscoverer<MS, Target, Request>>,
     options: Builder,
     ewma: f64,
 }
 
-impl<C, MS, Target, Request> Pool<C, MS, Target, Request>
+impl<MS, Target, Request> Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
+    MS::Service: Load,
+    <MS::Service as Load>::Metric: std::fmt::Debug,
     MS::MakeError: ::std::error::Error + Send + Sync + 'static,
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
-    C: Choose<usize, MS::Service>,
 {
     /// Construct a new dynamically sized `Pool`.
     ///
@@ -233,22 +235,23 @@ where
     /// `Service` that is then added to the load-balanced pool. If multiple services are available,
     /// `choose` is used to determine which one to use (just as in `Balance`). If many calls to
     /// `poll_ready` succeed, the most recently added `Service` is dropped from the pool.
-    pub fn new(make_service: MS, target: Target, choose: C) -> Self {
-        Builder::new().build(make_service, target, choose)
+    pub fn new(make_service: MS, target: Target) -> Self {
+        Builder::new().build(make_service, target)
     }
 }
 
-impl<C, MS, Target, Request> Service<Request> for Pool<C, MS, Target, Request>
+impl<MS, Target, Request> Service<Request> for Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
+    MS::Service: Load,
+    <MS::Service as Load>::Metric: std::fmt::Debug,
     MS::MakeError: ::std::error::Error + Send + Sync + 'static,
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
-    C: Choose<usize, MS::Service>,
 {
-    type Response = <Balance<PoolDiscoverer<MS, Target, Request>, C> as Service<Request>>::Response;
-    type Error = <Balance<PoolDiscoverer<MS, Target, Request>, C> as Service<Request>>::Error;
-    type Future = <Balance<PoolDiscoverer<MS, Target, Request>, C> as Service<Request>>::Future;
+    type Response = <P2CBalance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Response;
+    type Error = <P2CBalance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Error;
+    type Future = <P2CBalance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Future;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if let Async::Ready(()) = self.balance.poll_ready()? {
@@ -257,14 +260,14 @@ where
             self.ewma = (1.0 - self.options.alpha) * self.ewma;
 
             if self.ewma < self.options.low {
-                self.balance.discover.load = Load::Low;
+                self.balance.discover.load = Level::Low;
 
                 if self.balance.discover.services > 1 {
                     // reset EWMA so we don't immediately try to remove another service
                     self.ewma = self.options.init;
                 }
             } else {
-                self.balance.discover.load = Load::Normal;
+                self.balance.discover.load = Level::Normal;
             }
 
             Ok(Async::Ready(()))
@@ -274,12 +277,12 @@ where
             self.ewma = self.options.alpha + (1.0 - self.options.alpha) * self.ewma;
 
             if self.ewma > self.options.high {
-                self.balance.discover.load = Load::High;
+                self.balance.discover.load = Level::High;
 
             // don't reset the EWMA -- in theory, poll_ready should now start returning
             // `Ready`, so we won't try to launch another service immediately.
             } else {
-                self.balance.discover.load = Load::Normal;
+                self.balance.discover.load = Level::Normal;
             }
 
             Ok(Async::NotReady)
@@ -290,6 +293,6 @@ where
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        Service::call(&mut self.balance, req)
+        self.balance.call(req)
     }
 }

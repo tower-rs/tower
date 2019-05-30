@@ -14,7 +14,7 @@ use tower::{
 use tower_balance as lb;
 use tower_load as load;
 
-const REQUESTS: usize = 50_000;
+const REQUESTS: usize = 100_000;
 const CONCURRENCY: usize = 500;
 const DEFAULT_RTT: Duration = Duration::from_millis(30);
 static ENDPOINT_CAPACITY: usize = CONCURRENCY;
@@ -55,24 +55,19 @@ fn main() {
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
-        let pe = lb::Balance::p2c(load::PeakEwmaDiscover::new(
+        let pe = lb::P2CBalance::new(load::PeakEwmaDiscover::new(
             d,
             DEFAULT_RTT,
             decay,
             load::NoInstrument,
         ));
-        run("P2C+PeakEWMA", pe)
+        run("P2C+PeakEWMA...", pe)
     });
 
     let fut = fut.then(move |_| {
         let d = gen_disco();
-        let ll = lb::Balance::p2c(load::PendingRequestsDiscover::new(d, load::NoInstrument));
-        run("P2C+LeastLoaded", ll)
-    });
-
-    let fut = fut.and_then(move |_| {
-        let rr = lb::Balance::round_robin(gen_disco());
-        run("RoundRobin", rr)
+        let ll = lb::P2CBalance::new(load::PendingRequestsDiscover::new(d, load::NoInstrument));
+        run("P2C+LeastLoaded...", ll)
     });
 
     rt.spawn(fut);
@@ -133,18 +128,20 @@ fn gen_disco() -> impl Discover<
     )
 }
 
-fn run<D, C>(name: &'static str, lb: lb::Balance<D, C>) -> impl Future<Item = (), Error = ()>
+fn run<D>(name: &'static str, lb: lb::P2CBalance<D>) -> impl Future<Item = (), Error = ()>
 where
     D: Discover + Send + 'static,
     D::Error: Into<Error>,
     D::Key: Send,
-    D::Service: Service<Req, Response = Rsp, Error = Error> + Send,
+    D::Service: Service<Req, Response = Rsp, Error = Error> + load::Load + Send,
     <D::Service as Service<Req>>::Future: Send,
-    C: lb::Choose<D::Key, D::Service> + Send + 'static,
+    <D::Service as load::Load>::Metric: std::fmt::Debug,
 {
     println!("{}", name);
 
     let requests = stream::repeat::<_, Error>(Req).take(REQUESTS as u64);
+    fn check<S: Service<Req>>(_: &S) {}
+    check(&lb);
     let service = ConcurrencyLimit::new(lb, CONCURRENCY);
     let responses = service.call_all(requests).unordered();
 
