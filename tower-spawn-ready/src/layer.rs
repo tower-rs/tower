@@ -41,6 +41,16 @@ where
     }
 }
 
+impl<Request, E: Clone> Clone for SpawnReadyLayer<Request, E>
+{
+    fn clone(&self) -> Self {
+        Self {
+            executor: self.executor.clone(),
+            _p: PhantomData
+        }
+    }
+}
+
 impl<Request, E> fmt::Debug for SpawnReadyLayer<Request, E>
 where
     // Require E: Debug in case we want to print the executor at a later date
