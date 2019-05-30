@@ -7,7 +7,6 @@
 #![deny(warnings)]
 
 pub mod error;
-//pub mod future;
 mod layer;
 pub mod pool;
 
