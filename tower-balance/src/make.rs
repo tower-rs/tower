@@ -5,6 +5,7 @@ use tower_discover::Discover;
 use tower_service::Service;
 
 /// Makes `P2CBalancers` given an inner service that makes `Discover`s.
+#[derive(Clone, Debug)]
 pub struct MakeP2CBalance<S> {
     inner: S,
     rng: SmallRng,
