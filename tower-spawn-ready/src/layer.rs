@@ -9,6 +9,7 @@ pub struct SpawnReadyLayer<E = DefaultExecutor> {
 }
 
 impl SpawnReadyLayer<DefaultExecutor> {
+    /// Builds a SpawnReady layer with the default executor.
     pub fn new() -> Self {
         Self {
             executor: DefaultExecutor::current(),
@@ -17,6 +18,7 @@ impl SpawnReadyLayer<DefaultExecutor> {
 }
 
 impl<E: Clone> SpawnReadyLayer<E> {
+    /// Builds a SpawnReady layer with the provided executor.
     pub fn with_executor(executor: E) -> Self {
         Self { executor }
     }

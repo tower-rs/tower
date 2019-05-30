@@ -3,11 +3,15 @@ use futures::{try_ready, Future, Poll};
 use tokio_executor::DefaultExecutor;
 use tower_service::Service;
 
+/// Builds SpawnReady instances with the result of an inner Service.
+#[derive(Clone, Debug)]
 pub struct MakeSpawnReady<S, E = DefaultExecutor> {
     inner: S,
     executor: E,
 }
 
+/// Builds a SpawnReady with the result of an inner Future.
+#[derive(Debug)]
 pub struct MakeFuture<F, E = DefaultExecutor> {
     inner: F,
     executor: E,
