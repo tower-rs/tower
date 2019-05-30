@@ -1,47 +1,49 @@
-use crate::{error::Error, future::BackgroundReadyExecutor, service::SpawnReady};
-use std::{fmt, marker::PhantomData};
+use crate::MakeSpawnReady;
+use std::fmt;
 use tokio_executor::DefaultExecutor;
 use tower_layer::Layer;
-use tower_service::Service;
 
 /// Spawns tasks to drive its inner service to readiness.
-pub struct SpawnReadyLayer<Request, E = DefaultExecutor> {
+pub struct SpawnReadyLayer<E = DefaultExecutor> {
     executor: E,
-    _p: PhantomData<fn(Request)>,
 }
 
-impl<Request> SpawnReadyLayer<Request, DefaultExecutor> {
+impl SpawnReadyLayer<DefaultExecutor> {
+    /// Builds a SpawnReady layer with the default executor.
     pub fn new() -> Self {
-        SpawnReadyLayer {
+        Self {
             executor: DefaultExecutor::current(),
-            _p: PhantomData,
         }
     }
 }
 
-impl<Request, E: Clone> SpawnReadyLayer<Request, E> {
+impl<E: Clone> SpawnReadyLayer<E> {
+    /// Builds a SpawnReady layer with the provided executor.
     pub fn with_executor(executor: E) -> Self {
-        SpawnReadyLayer {
-            executor,
-            _p: PhantomData,
-        }
+        Self { executor }
     }
 }
 
-impl<E, S, Request> Layer<S> for SpawnReadyLayer<Request, E>
+impl<E, S> Layer<S> for SpawnReadyLayer<E>
 where
-    S: Service<Request> + Send + 'static,
-    S::Error: Into<Error>,
-    E: BackgroundReadyExecutor<S, Request> + Clone,
+    E: Clone,
 {
-    type Service = SpawnReady<S, Request, E>;
+    type Service = MakeSpawnReady<S, E>;
 
     fn layer(&self, service: S) -> Self::Service {
-        SpawnReady::with_executor(service, self.executor.clone())
+        MakeSpawnReady::with_executor(service, self.executor.clone())
     }
 }
 
-impl<Request, E> fmt::Debug for SpawnReadyLayer<Request, E>
+impl<E: Clone> Clone for SpawnReadyLayer<E> {
+    fn clone(&self) -> Self {
+        Self {
+            executor: self.executor.clone(),
+        }
+    }
+}
+
+impl<E> fmt::Debug for SpawnReadyLayer<E>
 where
     // Require E: Debug in case we want to print the executor at a later date
     E: fmt::Debug,
