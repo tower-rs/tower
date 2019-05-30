@@ -8,7 +8,9 @@
 pub mod error;
 pub mod future;
 mod layer;
+mod make;
 mod service;
 
 pub use crate::layer::SpawnReadyLayer;
+pub use crate::make::{MakeFuture, MakeSpawnReady};
 pub use crate::service::SpawnReady;

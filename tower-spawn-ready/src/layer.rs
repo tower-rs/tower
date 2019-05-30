@@ -1,47 +1,48 @@
-use crate::{error::Error, future::BackgroundReadyExecutor, service::SpawnReady};
+use crate::{error::Error, future::BackgroundReadyExecutor, MakeSpawnReady};
 use std::{fmt, marker::PhantomData};
 use tokio_executor::DefaultExecutor;
 use tower_layer::Layer;
 use tower_service::Service;
 
 /// Spawns tasks to drive its inner service to readiness.
-pub struct SpawnReadyLayer<Request, E = DefaultExecutor> {
+pub struct SpawnReadyLayer<Target, Request, E = DefaultExecutor> {
     executor: E,
-    _p: PhantomData<fn(Request)>,
+    _p: PhantomData<fn(Target, Request)>,
 }
 
-impl<Request> SpawnReadyLayer<Request, DefaultExecutor> {
+impl<Target, Request> SpawnReadyLayer<Target, Request, DefaultExecutor> {
     pub fn new() -> Self {
-        SpawnReadyLayer {
+        Self {
             executor: DefaultExecutor::current(),
             _p: PhantomData,
         }
     }
 }
 
-impl<Request, E: Clone> SpawnReadyLayer<Request, E> {
+impl<Target, Request, E: Clone> SpawnReadyLayer<Target, Request, E> {
     pub fn with_executor(executor: E) -> Self {
-        SpawnReadyLayer {
+        Self {
             executor,
             _p: PhantomData,
         }
     }
 }
 
-impl<E, S, Request> Layer<S> for SpawnReadyLayer<Request, E>
+impl<E, S, Target, T, Request> Layer<S> for SpawnReadyLayer<Target, Request, E>
 where
-    S: Service<Request> + Send + 'static,
-    S::Error: Into<Error>,
-    E: BackgroundReadyExecutor<S, Request> + Clone,
+    S: Service<Target, Response = T>,
+    T: Service<Request> + Send + 'static,
+    T::Error: Into<Error>,
+    E: BackgroundReadyExecutor<T, Request> + Clone,
 {
-    type Service = SpawnReady<S, Request, E>;
+    type Service = MakeSpawnReady<S, Target, Request, E>;
 
     fn layer(&self, service: S) -> Self::Service {
-        SpawnReady::with_executor(service, self.executor.clone())
+        MakeSpawnReady::with_executor(service, self.executor.clone())
     }
 }
 
-impl<Request, E: Clone> Clone for SpawnReadyLayer<Request, E> {
+impl<Target, Request, E: Clone> Clone for SpawnReadyLayer<Target, Request, E> {
     fn clone(&self) -> Self {
         Self {
             executor: self.executor.clone(),
@@ -50,7 +51,7 @@ impl<Request, E: Clone> Clone for SpawnReadyLayer<Request, E> {
     }
 }
 
-impl<Request, E> fmt::Debug for SpawnReadyLayer<Request, E>
+impl<Target, Request, E> fmt::Debug for SpawnReadyLayer<Target, Request, E>
 where
     // Require E: Debug in case we want to print the executor at a later date
     E: fmt::Debug,
