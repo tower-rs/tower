@@ -90,7 +90,7 @@ where
     }
 }
 
-fn new_service() -> (SpawnReady<Mock, &'static str, Exec>, Handle) {
+fn new_service() -> (SpawnReady<Mock, Exec>, Handle) {
     let (service, handle) = mock::pair();
     let service = SpawnReady::with_executor(service, Exec);
     (service, handle)

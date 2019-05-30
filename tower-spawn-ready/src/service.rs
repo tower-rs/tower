@@ -3,7 +3,6 @@ use crate::{
     future::{background_ready, BackgroundReadyExecutor},
 };
 use futures::{future, try_ready, Async, Future, Poll};
-use std::marker::PhantomData;
 use tokio_executor::DefaultExecutor;
 use tokio_sync::oneshot;
 use tower_service::Service;
@@ -11,15 +10,9 @@ use tower_service::Service;
 /// Spawns tasks to drive an inner service to readiness.
 ///
 /// See crate level documentation for more details.
-pub struct SpawnReady<T, Request, E>
-where
-    T: Service<Request>,
-    T::Error: Into<Error>,
-    E: BackgroundReadyExecutor<T, Request>,
-{
+pub struct SpawnReady<T, E> {
     executor: E,
     inner: Inner<T>,
-    _marker: PhantomData<fn(Request)>,
 }
 
 enum Inner<T> {
@@ -27,12 +20,7 @@ enum Inner<T> {
     Future(oneshot::Receiver<Result<T, Error>>),
 }
 
-impl<T, Request> SpawnReady<T, Request, DefaultExecutor>
-where
-    T: Service<Request> + Send + 'static,
-    T::Error: Into<Error>,
-    Request: 'static,
-{
+impl<T> SpawnReady<T, DefaultExecutor> {
     /// Creates a new `SpawnReady` wrapping `service`.
     ///
     /// The default Tokio executor is used to drive service readiness, which
@@ -42,12 +30,7 @@ where
     }
 }
 
-impl<T, Request, E> SpawnReady<T, Request, E>
-where
-    T: Service<Request> + Send,
-    T::Error: Into<Error>,
-    E: BackgroundReadyExecutor<T, Request>,
-{
+impl<T, E> SpawnReady<T, E> {
     /// Creates a new `SpawnReady` wrapping `service`.
     ///
     /// `executor` is used to spawn a new `BackgroundReady` task that is
@@ -56,12 +39,11 @@ where
         Self {
             executor,
             inner: Inner::Service(Some(service)),
-            _marker: PhantomData,
         }
     }
 }
 
-impl<T, Request, E> Service<Request> for SpawnReady<T, Request, E>
+impl<T, E, Request> Service<Request> for SpawnReady<T, E>
 where
     T: Service<Request> + Send,
     T::Error: Into<Error>,

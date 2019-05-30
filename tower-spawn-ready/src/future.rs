@@ -1,3 +1,5 @@
+//! Background readiness types
+
 use crate::error::Error;
 use futures::{Async, Future, Poll};
 use tokio_executor::TypedExecutor;
@@ -5,6 +7,7 @@ use tokio_sync::oneshot;
 use tower_service::Service;
 use tower_util::Ready;
 
+/// Drives a service to readiness.
 pub struct BackgroundReady<T, Request>
 where
     T: Service<Request>,
