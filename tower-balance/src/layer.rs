@@ -1,7 +1,6 @@
-use crate::P2CBalance;
+use crate::MakeP2CBalance;
 use rand::{rngs::SmallRng, FromEntropy, Rng, SeedableRng};
 use std::{fmt, marker::PhantomData};
-use tower_discover::Discover;
 use tower_layer::Layer;
 
 /// Efficiently distributes requests across an arbitrary number of services
@@ -32,11 +31,11 @@ impl<D> P2CBalanceLayer<D> {
     }
 }
 
-impl<D: Discover> Layer<D> for P2CBalanceLayer<D> {
-    type Service = P2CBalance<D>;
+impl<S> Layer<S> for P2CBalanceLayer<S> {
+    type Service = MakeP2CBalance<S>;
 
-    fn layer(&self, discover: D) -> Self::Service {
-        P2CBalance::new(discover, self.rng.clone())
+    fn layer(&self, make_discover: S) -> Self::Service {
+        MakeP2CBalance::new(make_discover, self.rng.clone())
     }
 }
 

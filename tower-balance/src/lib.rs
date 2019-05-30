@@ -8,9 +8,11 @@
 
 pub mod error;
 mod layer;
+mod make;
 pub mod pool;
 
 pub use layer::P2CBalanceLayer;
+pub use make::{MakeFuture, MakeP2CBalance};
 
 #[cfg(test)]
 mod test;
