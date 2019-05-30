@@ -41,12 +41,11 @@ where
     }
 }
 
-impl<Request, E: Clone> Clone for SpawnReadyLayer<Request, E>
-{
+impl<Request, E: Clone> Clone for SpawnReadyLayer<Request, E> {
     fn clone(&self) -> Self {
         Self {
             executor: self.executor.clone(),
-            _p: PhantomData
+            _p: PhantomData,
         }
     }
 }
