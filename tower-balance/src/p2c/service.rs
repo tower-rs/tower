@@ -75,9 +75,10 @@ impl<D: Discover> Balance<D> {
                 Change::Remove(rm_key) => {
                     // Update the ready index to account for reordering of endpoints.
                     if let Some((rm_idx, _, _)) = self.endpoints.swap_remove_full(&rm_key) {
+                        let orig_sz = self.endpoints.len() + 1;
                         self.ready_index = self
                             .ready_index
-                            .and_then(|i| Self::repair_index(i, rm_idx, self.endpoints.len() + 1));
+                            .and_then(|i| Self::repair_index(i, rm_idx, orig_sz));
                     }
                 }
             }
