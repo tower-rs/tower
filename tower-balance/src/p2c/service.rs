@@ -149,6 +149,7 @@ impl<D: Discover> Balance<D> {
 
                 let aidx = idxs.index(0);
                 let bidx = idxs.index(1);
+                debug_assert_ne!(aidx, bidx, "random indices must be distinct");
 
                 let (aload, bidx) = match self.poll_endpoint_index_load(aidx) {
                     Ok(ready) => (ready, bidx),
