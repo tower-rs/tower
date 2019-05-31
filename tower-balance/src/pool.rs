@@ -40,6 +40,7 @@ where
     target: Target,
     load: Load,
     services: usize,
+    limit: Option<usize>,
 }
 
 impl<MS, Target, Request> Discover for PoolDiscoverer<MS, Target, Request>
@@ -61,6 +62,14 @@ where
 
         if let Load::High = self.load {
             if self.making.is_none() {
+                if self
+                    .limit
+                    .map(|limit| self.services >= limit)
+                    .unwrap_or(false)
+                {
+                    return Ok(Async::NotReady);
+                }
+
                 try_ready!(self.maker.poll_ready());
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
                 self.making = Some(self.maker.make_service(self.target.clone()));
@@ -105,6 +114,7 @@ pub struct Builder {
     high: f64,
     init: f64,
     alpha: f64,
+    limit: Option<usize>,
 }
 
 impl Default for Builder {
@@ -114,6 +124,7 @@ impl Default for Builder {
             low: 0.00001,
             high: 0.2,
             alpha: 0.03,
+            limit: None,
         }
     }
 }
@@ -176,6 +187,17 @@ impl Builder {
         self
     }
 
+    /// The maximum number of backing `Service` instances to maintain.
+    ///
+    /// When the limit is reached, the load estimate is clamped to the high load threshhold, and no
+    /// new service is spawned.
+    ///
+    /// No maximum limit is imposed by default.
+    pub fn max_services(&mut self, limit: Option<usize>) -> &mut Self {
+        self.limit = limit;
+        self
+    }
+
     /// See [`Pool::new`].
     pub fn build<C, MS, Target, Request>(
         &self,
@@ -196,6 +218,7 @@ impl Builder {
             target,
             load: Load::Normal,
             services: 0,
+            limit: self.limit,
         };
 
         Pool {
@@ -276,8 +299,10 @@ where
             if self.ewma > self.options.high {
                 self.balance.discover.load = Load::High;
 
-            // don't reset the EWMA -- in theory, poll_ready should now start returning
-            // `Ready`, so we won't try to launch another service immediately.
+                // don't reset the EWMA -- in theory, poll_ready should now start returning
+                // `Ready`, so we won't try to launch another service immediately.
+                // we clamp it to high though in case the # of services is limited.
+                self.ewma = self.options.high;
             } else {
                 self.balance.discover.load = Load::Normal;
             }
