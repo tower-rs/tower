@@ -143,8 +143,6 @@ where
     println!("{}", name);
 
     let requests = stream::repeat::<_, Error>(Req).take(REQUESTS as u64);
-    fn check<S: Service<Req>>(_: &S) {}
-    check(&lb);
     let service = ConcurrencyLimit::new(lb, CONCURRENCY);
     let responses = service.call_all(requests).unordered();
 
