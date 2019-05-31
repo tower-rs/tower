@@ -6,8 +6,6 @@ use tower_test::mock;
 
 use crate::*;
 
-//type Error = Box<dyn std::error::Error + Send + Sync>;
-
 macro_rules! assert_ready {
     ($svc:expr) => {{
         assert_ready!($svc, "must be ready");
