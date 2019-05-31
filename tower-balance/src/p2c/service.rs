@@ -34,8 +34,6 @@ pub struct Balance<D: Discover> {
     rng: SmallRng,
 }
 
-// ===== impl P2CBalance =====
-
 impl<D: Discover> Balance<D> {
     /// Initializes a P2C load balancer from the provided randomization source.
     pub fn new(discover: D, rng: SmallRng) -> Self {
