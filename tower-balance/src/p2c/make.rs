@@ -1,12 +1,12 @@
-use crate::P2CBalance;
+use super::Balance;
 use futures::{try_ready, Future, Poll};
 use rand::{rngs::SmallRng, FromEntropy};
 use tower_discover::Discover;
 use tower_service::Service;
 
-/// Makes `P2CBalancers` given an inner service that makes `Discover`s.
+/// Makes `Balancer`s given an inner service that makes `Discover`s.
 #[derive(Clone, Debug)]
-pub struct MakeP2CBalance<S> {
+pub struct BalanceMake<S> {
     inner: S,
     rng: SmallRng,
 }
@@ -17,7 +17,7 @@ pub struct MakeFuture<F> {
     rng: SmallRng,
 }
 
-impl<S> MakeP2CBalance<S> {
+impl<S> BalanceMake<S> {
     pub(crate) fn new(inner: S, rng: SmallRng) -> Self {
         Self { inner, rng }
     }
@@ -28,12 +28,12 @@ impl<S> MakeP2CBalance<S> {
     }
 }
 
-impl<S, Target> Service<Target> for MakeP2CBalance<S>
+impl<S, Target> Service<Target> for BalanceMake<S>
 where
     S: Service<Target>,
     S::Response: Discover,
 {
-    type Response = P2CBalance<S::Response>;
+    type Response = Balance<S::Response>;
     type Error = S::Error;
     type Future = MakeFuture<S::Future>;
 
@@ -54,12 +54,12 @@ where
     F: Future,
     F::Item: Discover,
 {
-    type Item = P2CBalance<F::Item>;
+    type Item = Balance<F::Item>;
     type Error = F::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let inner = try_ready!(self.inner.poll());
-        let svc = P2CBalance::new(inner, self.rng.clone());
+        let svc = Balance::new(inner, self.rng.clone());
         Ok(svc.into())
     }
 }

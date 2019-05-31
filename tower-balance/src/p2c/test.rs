@@ -4,7 +4,7 @@ use tower_load as load;
 use tower_service::Service;
 use tower_test::mock;
 
-use crate::*;
+use super::*;
 
 macro_rules! assert_ready {
     ($svc:expr) => {{
@@ -28,7 +28,7 @@ macro_rules! assert_not_ready {
 fn empty() {
     let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
     let disco = ServiceList::new(empty);
-    let mut svc = P2CBalance::from_entropy(disco);
+    let mut svc = Balance::from_entropy(disco);
     assert_not_ready!(svc);
 }
 
@@ -38,13 +38,13 @@ fn single_endpoint() {
     let mock = load::Constant::new(mock, 0);
 
     let disco = ServiceList::new(vec![mock].into_iter());
-    let mut svc = P2CBalance::from_entropy(disco);
+    let mut svc = Balance::from_entropy(disco);
 
     with_task(|| {
         handle.allow(0);
         assert_not_ready!(svc);
         assert_eq!(
-            svc.endpoints.len(),
+            svc.len(),
             1,
             "balancer must have discovered endpoint"
         );
@@ -64,7 +64,7 @@ fn single_endpoint() {
         handle.send_error("endpoint lost");
         assert_not_ready!(svc);
         assert!(
-            svc.endpoints.is_empty(),
+            svc.len() == 0,
             "balancer must drop failed endpoints"
         );
     });
@@ -78,14 +78,14 @@ fn two_endpoints_with_equal_weight() {
     let mock_b = load::Constant::new(mock_b, 1);
 
     let disco = ServiceList::new(vec![mock_a, mock_b].into_iter());
-    let mut svc = P2CBalance::from_entropy(disco);
+    let mut svc = Balance::from_entropy(disco);
 
     with_task(|| {
         handle_a.allow(0);
         handle_b.allow(0);
         assert_not_ready!(svc);
         assert_eq!(
-            svc.endpoints.len(),
+            svc.len(),
             2,
             "balancer must have discovered both endpoints"
         );
@@ -127,7 +127,7 @@ fn two_endpoints_with_equal_weight() {
         handle_b.allow(1);
         assert_ready!(svc, "must be ready after one endpoint is removed");
         assert_eq!(
-            svc.endpoints.len(),
+            svc.len(),
             1,
             "balancer must drop failed endpoints",
         );

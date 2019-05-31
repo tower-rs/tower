@@ -14,7 +14,7 @@
 //! added or removed.
 #![deny(missing_docs)]
 
-use super::P2CBalance;
+use super::p2c::Balance;
 use futures::{try_ready, Async, Future, Poll};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
@@ -200,7 +200,7 @@ impl Builder {
         };
 
         Pool {
-            balance: P2CBalance::from_entropy(d),
+            balance: Balance::from_entropy(d),
             options: *self,
             ewma: self.init,
         }
@@ -215,7 +215,7 @@ where
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
 {
-    balance: P2CBalance<PoolDiscoverer<MS, Target, Request>>,
+    balance: Balance<PoolDiscoverer<MS, Target, Request>>,
     options: Builder,
     ewma: f64,
 }
@@ -249,9 +249,9 @@ where
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
 {
-    type Response = <P2CBalance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Response;
-    type Error = <P2CBalance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Error;
-    type Future = <P2CBalance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Future;
+    type Response = <Balance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Response;
+    type Error = <Balance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Error;
+    type Future = <Balance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Future;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if let Async::Ready(()) = self.balance.poll_ready()? {
@@ -259,37 +259,38 @@ where
             // update ewma with a 0 sample
             self.ewma = (1.0 - self.options.alpha) * self.ewma;
 
+            let discover = self.balance.discover_mut();
             if self.ewma < self.options.low {
-                self.balance.discover.load = Level::Low;
+                discover.load = Level::Low;
 
-                if self.balance.discover.services > 1 {
+                if discover.services > 1 {
                     // reset EWMA so we don't immediately try to remove another service
                     self.ewma = self.options.init;
                 }
             } else {
-                self.balance.discover.load = Level::Normal;
+                discover.load = Level::Normal;
             }
 
-            Ok(Async::Ready(()))
-        } else if self.balance.discover.making.is_none() {
+            return Ok(Async::Ready(()))
+        }
+
+        let discover = self.balance.discover_mut();
+        if discover.making.is_none() {
             // no services are ready -- we're overloaded
             // update ewma with a 1 sample
             self.ewma = self.options.alpha + (1.0 - self.options.alpha) * self.ewma;
 
             if self.ewma > self.options.high {
-                self.balance.discover.load = Level::High;
+                discover.load = Level::High;
 
             // don't reset the EWMA -- in theory, poll_ready should now start returning
             // `Ready`, so we won't try to launch another service immediately.
             } else {
-                self.balance.discover.load = Level::Normal;
+                discover.load = Level::Normal;
             }
-
-            Ok(Async::NotReady)
-        } else {
-            // no services are ready, but we're already making another service!
-            Ok(Async::NotReady)
         }
+
+        Ok(Async::NotReady)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {

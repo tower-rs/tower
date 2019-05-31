@@ -1,16 +1,16 @@
-use crate::MakeP2CBalance;
+use super::BalanceMake;
 use rand::{rngs::SmallRng, FromEntropy, Rng, SeedableRng};
 use std::{fmt, marker::PhantomData};
 use tower_layer::Layer;
 
 /// Efficiently distributes requests across an arbitrary number of services
 #[derive(Clone)]
-pub struct P2CBalanceLayer<D> {
+pub struct BalanceLayer<D> {
     rng: SmallRng,
     _marker: PhantomData<fn(D)>,
 }
 
-impl<D> P2CBalanceLayer<D> {
+impl<D> BalanceLayer<D> {
     /// Builds a balancer using the system entropy.
     pub fn new() -> Self {
         Self {
@@ -31,17 +31,17 @@ impl<D> P2CBalanceLayer<D> {
     }
 }
 
-impl<S> Layer<S> for P2CBalanceLayer<S> {
-    type Service = MakeP2CBalance<S>;
+impl<S> Layer<S> for BalanceLayer<S> {
+    type Service = BalanceMake<S>;
 
     fn layer(&self, make_discover: S) -> Self::Service {
-        MakeP2CBalance::new(make_discover, self.rng.clone())
+        BalanceMake::new(make_discover, self.rng.clone())
     }
 }
 
-impl<D> fmt::Debug for P2CBalanceLayer<D> {
+impl<D> fmt::Debug for BalanceLayer<D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("P2CBalanceLayer")
+        f.debug_struct("BalanceLayer")
             .field("rng", &self.rng)
             .finish()
     }
