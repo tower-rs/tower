@@ -232,7 +232,7 @@ where
         self.poll_discover()?;
 
         if let Some(index) = self.ready_index {
-            debug_assert!(!self.endpoints.is_empty());
+            debug_assert!(index < self.endpoints.len());
             // Ensure the selected endpoint is still ready.
             match self.poll_endpoint_index_load(index) {
                 Ok(Async::Ready(_)) => return Ok(Async::Ready(())),
