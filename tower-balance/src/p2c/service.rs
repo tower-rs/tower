@@ -3,7 +3,6 @@ use futures::{future, try_ready, Async, Future, Poll};
 use indexmap::IndexMap;
 use log::{debug, info, trace};
 use rand::{rngs::SmallRng, FromEntropy};
-use std::cmp;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
@@ -249,7 +248,8 @@ where
 
         let tries = match self.endpoints.len() {
             0 => return Ok(Async::NotReady),
-            n => cmp::max(1, n / 2),
+            1 => 1,
+            n => n / 2,
         };
         for _ in 0..tries {
             if let Async::Ready(idx) = self.poll_ready_index().map_err(Into::into)? {
