@@ -74,10 +74,9 @@ impl<D: Discover> Balance<D> {
                 Change::Remove(rm_key) => {
                     // Update the ready index to account for reordering of endpoints.
                     if let Some((rm_idx, _, _)) = self.endpoints.swap_remove_full(&rm_key) {
-                        let orig_sz = self.endpoints.len() + 1;
                         self.ready_index = self
                             .ready_index
-                            .and_then(|i| Self::repair_index(i, rm_idx, orig_sz));
+                            .and_then(|i| Self::repair_index(i, rm_idx, self.endpoints.len()));
                     }
                 }
             }
@@ -89,18 +88,18 @@ impl<D: Discover> Balance<D> {
     //
     // If `orig_idx` is the same as `rm_idx`, None is returned to indicate that
     // index cannot be repaired.
-    fn repair_index(orig_idx: usize, rm_idx: usize, orig_sz: usize) -> Option<usize> {
-        debug_assert!(orig_sz > orig_idx && orig_sz > rm_idx);
+    fn repair_index(orig_idx: usize, rm_idx: usize, new_sz: usize) -> Option<usize> {
+        debug_assert!(orig_idx <= new_sz && rm_idx <= new_sz);
         let repaired = match orig_idx {
-            i if i == rm_idx => None,              // removed
-            i if i == orig_sz - 1 => Some(rm_idx), // swapped
-            i => Some(i),                          // uneffected
+            i if i == rm_idx => None,         // removed
+            i if i == new_sz => Some(rm_idx), // swapped
+            i => Some(i),                     // uneffected
         };
         trace!(
             "repair_index: orig={}; rm={}; sz={}; => {:?}",
             orig_idx,
             rm_idx,
-            orig_sz,
+            new_sz,
             repaired,
         );
         repaired
@@ -156,7 +155,7 @@ impl<D: Discover> Balance<D> {
                     Err(e) => {
                         info!("evicting failed endpoint: {}", e.into());
                         let _ = self.endpoints.swap_remove_index(aidx);
-                        let new_bidx = Self::repair_index(bidx, aidx, len)
+                        let new_bidx = Self::repair_index(bidx, aidx, self.endpoints.len())
                             .expect("random indices must be distinct");
                         (Async::NotReady, new_bidx)
                     }
@@ -167,7 +166,7 @@ impl<D: Discover> Balance<D> {
                     Err(e) => {
                         info!("evicting failed endpoint: {}", e.into());
                         let _ = self.endpoints.swap_remove_index(bidx);
-                        let new_aidx = Self::repair_index(aidx, bidx, len)
+                        let new_aidx = Self::repair_index(aidx, bidx, self.endpoints.len())
                             .expect("random indices must be distinct");
                         (Async::NotReady, new_aidx)
                     }
