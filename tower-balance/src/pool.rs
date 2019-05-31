@@ -231,10 +231,10 @@ where
 {
     /// Construct a new dynamically sized `Pool`.
     ///
-    /// If many calls to `poll_ready` return `NotReady`, `new_service` is used to construct another
-    /// `Service` that is then added to the load-balanced pool. If multiple services are available,
-    /// `choose` is used to determine which one to use (just as in `Balance`). If many calls to
-    /// `poll_ready` succeed, the most recently added `Service` is dropped from the pool.
+    /// If many calls to `poll_ready` return `NotReady`, `new_service` is used to
+    /// construct another `Service` that is then added to the load-balanced pool.
+    /// If many calls to `poll_ready` succeed, the most recently added `Service`
+    /// is dropped from the pool.
     pub fn new(make_service: MS, target: Target) -> Self {
         Builder::new().build(make_service, target)
     }
@@ -271,7 +271,7 @@ where
                 discover.load = Level::Normal;
             }
 
-            return Ok(Async::Ready(()))
+            return Ok(Async::Ready(()));
         }
 
         let discover = self.balance.discover_mut();

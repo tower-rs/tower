@@ -43,11 +43,7 @@ fn single_endpoint() {
     with_task(|| {
         handle.allow(0);
         assert_not_ready!(svc);
-        assert_eq!(
-            svc.len(),
-            1,
-            "balancer must have discovered endpoint"
-        );
+        assert_eq!(svc.len(), 1, "balancer must have discovered endpoint");
 
         handle.allow(1);
         assert_ready!(svc);
@@ -63,10 +59,7 @@ fn single_endpoint() {
 
         handle.send_error("endpoint lost");
         assert_not_ready!(svc);
-        assert!(
-            svc.len() == 0,
-            "balancer must drop failed endpoints"
-        );
+        assert!(svc.len() == 0, "balancer must drop failed endpoints");
     });
 }
 
@@ -84,11 +77,7 @@ fn two_endpoints_with_equal_weight() {
         handle_a.allow(0);
         handle_b.allow(0);
         assert_not_ready!(svc);
-        assert_eq!(
-            svc.len(),
-            2,
-            "balancer must have discovered both endpoints"
-        );
+        assert_eq!(svc.len(), 2, "balancer must have discovered both endpoints");
 
         handle_a.allow(1);
         handle_b.allow(0);
@@ -126,11 +115,7 @@ fn two_endpoints_with_equal_weight() {
         handle_a.send_error("endpoint lost");
         handle_b.allow(1);
         assert_ready!(svc, "must be ready after one endpoint is removed");
-        assert_eq!(
-            svc.len(),
-            1,
-            "balancer must drop failed endpoints",
-        );
+        assert_eq!(svc.len(), 1, "balancer must drop failed endpoints",);
     });
 }
 

@@ -8,5 +8,5 @@ mod service;
 mod test;
 
 pub use layer::BalanceLayer;
-pub use make::{MakeFuture, BalanceMake};
+pub use make::{BalanceMake, MakeFuture};
 pub use service::Balance;

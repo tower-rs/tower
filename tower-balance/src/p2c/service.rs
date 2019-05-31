@@ -76,12 +76,10 @@ impl<D: Discover> Balance<D> {
                 Change::Insert(key, svc) => drop(self.endpoints.insert(key, svc)),
                 Change::Remove(rm_key) => {
                     // Update the ready index to account for reordering of endpoints.
-                    let orig_sz = self.endpoints.len();
                     if let Some((rm_idx, _, _)) = self.endpoints.swap_remove_full(&rm_key) {
-                        self.ready_index = match self.ready_index {
-                            Some(i) => Self::repair_index(i, rm_idx, orig_sz),
-                            None => None,
-                        };
+                        self.ready_index = self
+                            .ready_index
+                            .and_then(|i| Self::repair_index(i, rm_idx, self.endpoints.len() + 1));
                     }
                 }
             }
@@ -112,8 +110,12 @@ impl<D: Discover> Balance<D> {
 
     /// Performs P2C on inner services to find a suitable endpoint.
     ///
-    /// When this function returns Ready, `self.ready_index` is set with the
-    /// value of a suitable (ready endpoint). When
+    /// When this function returns NotReady, `ready_index` is unset. When this
+    /// function returns Ready, `ready_index` is set with an index into
+    /// `endpoints` of a ready endpoint service.
+    ///
+    /// If `endpoints` is reordered due to removals, `ready_index` is updated via
+    /// `repair_index()`.
     fn poll_ready_index<Svc, Request>(&mut self) -> Poll<usize, Svc::Error>
     where
         D: Discover<Service = Svc>,
@@ -124,7 +126,7 @@ impl<D: Discover> Balance<D> {
         match self.endpoints.len() {
             0 => Ok(Async::NotReady),
             1 => {
-                // If there's only one endpoint, ignore its but require that it
+                // If there's only one endpoint, ignore its load but require that it
                 // is ready.
                 match self.poll_endpoint_index_load(0) {
                     Ok(Async::NotReady) => Ok(Async::NotReady),
@@ -223,7 +225,7 @@ where
 
     /// Prepares the balancer to process a request.
     ///
-    /// When `Async::Ready` is returned, `chosen` is set with a valid index
+    /// When `Async::Ready` is returned, `ready_index` is set with a valid index
     /// into `ready` referring to a `Service` that is ready to disptach a request.
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // First and foremost, process discovery updates. This removes or updates a
