@@ -93,12 +93,12 @@ impl<T, U> Service<T> for Mock<T, U> {
             return Err(error::Closed::new().into());
         }
 
-        if self.can_send {
-            return Ok(().into());
-        }
-
         if let Some(e) = state.err_with.take() {
             return Err(e);
+        }
+
+        if self.can_send {
+            return Ok(().into());
         }
 
         if state.rem > 0 {

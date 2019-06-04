@@ -29,6 +29,7 @@ log = "0.4.1"
 rand = "0.6.5"
 tokio-timer = "0.2.4"
 tower-discover = "0.1.0"
+tower-layer = "0.1.0"
 tower-load = { version = "0.1.0", path = "../tower-load" }
 tower-service = "0.2.0"
 tower-util = "0.1.0"
@@ -43,3 +44,4 @@ tokio-executor = "0.1.2"
 tower = { version = "0.1", path = "../tower" }
 tower-buffer = { version = "0.1", path = "../tower-buffer" }
 tower-limit = { version = "0.1", path = "../tower-limit" }
+tower-test = { version = "0.1.0", path = "../tower-test" }
