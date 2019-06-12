@@ -1,8 +1,10 @@
 use crate::error;
-use futures::{future, try_ready, Async, Future, Poll};
+use futures::{future, stream, try_ready, Async, Future, Poll, Stream};
 use indexmap::IndexMap;
 use log::{debug, info, trace};
 use rand::{rngs::SmallRng, FromEntropy};
+use tokio_sync::oneshot;
+use tower::ServiceExt;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
@@ -21,10 +23,13 @@ use tower_service::Service;
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 #[derive(Debug)]
-pub struct Balance<D: Discover> {
+pub struct Balance<D: Discover, Req> {
     discover: D,
 
-    endpoints: IndexMap<D::Key, D::Service>,
+    ready: IndexMap<D::Key, D::Service>,
+
+    unready: stream::FuturesUnordered<CancelReady<D::Key, D::Service, Req>>,
+    cancelations: IndexMap<D::Key, oneshot::Sender<()>>,
 
     /// Holds an index into `endpoints`, indicating the service that has been
     /// chosen to dispatch the next request.
@@ -33,13 +38,31 @@ pub struct Balance<D: Discover> {
     rng: SmallRng,
 }
 
-impl<D: Discover> Balance<D> {
+#[derive(Debug)]
+struct CancelReady<K, S, Req> {
+    key: Option<K>,
+    cancel: oneshot::Receiver<()>,
+    ready: tower_util::Ready<S, Req>,
+}
+
+enum Error<E> {
+    Inner(E),
+    Canceled,
+}
+
+impl<D, Req> Balance<D, Req>
+where
+    D: Discover,
+    D::Service: Service<Req>,
+{
     /// Initializes a P2C load balancer from the provided randomization source.
     pub fn new(discover: D, rng: SmallRng) -> Self {
         Self {
             rng,
             discover,
-            endpoints: IndexMap::default(),
+            ready: IndexMap::default(),
+            cancelations: IndexMap::default(),
+            unready: stream::FuturesUnordered::new(),
             ready_index: None,
         }
     }
@@ -51,33 +74,81 @@ impl<D: Discover> Balance<D> {
 
     /// Returns the number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
-        self.endpoints.len()
+        self.ready.len() + self.unready.len()
     }
 
     // XXX `pool::Pool` requires direct access to this... Not ideal.
     pub(crate) fn discover_mut(&mut self) -> &mut D {
         &mut self.discover
     }
+}
 
+impl<D, Req> Balance<D, Req>
+where
+    D: Discover,
+    D::Key: Clone,
+    D::Error: Into<error::Error>,
+    D::Service: Service<Req> + Load,
+    <D::Service as Load>::Metric: std::fmt::Debug,
+    <D::Service as Service<Req>>::Error: Into<error::Error>,
+{
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn poll_discover(&mut self) -> Poll<(), error::Discover>
-    where
-        D::Error: Into<error::Error>,
-    {
+    fn poll_discover(&mut self) -> Poll<(), error::Discover> {
         debug!("updating from discover");
-
         loop {
             match try_ready!(self.discover.poll().map_err(|e| error::Discover(e.into()))) {
-                Change::Insert(key, svc) => drop(self.endpoints.insert(key, svc)),
-                Change::Remove(rm_key) => {
-                    // Update the ready index to account for reordering of endpoints.
-                    if let Some((rm_idx, _, _)) = self.endpoints.swap_remove_full(&rm_key) {
-                        self.ready_index = self
-                            .ready_index
-                            .and_then(|i| Self::repair_index(i, rm_idx, self.endpoints.len()));
-                    }
+                Change::Remove(key) => {
+                    trace!("remove");
+                    self.evict(&key)
+                }
+                Change::Insert(key, svc) => {
+                    trace!("insert");
+                    self.evict(&key);
+                    self.push_unready(key, svc);
+                }
+            }
+        }
+    }
+
+    fn push_unready(&mut self, key: D::Key, svc: D::Service) {
+        let (tx, rx) = oneshot::channel();
+        self.cancelations.insert(key.clone(), tx);
+        self.unready.push(CancelReady {
+            key: Some(key),
+            ready: svc.ready(),
+            cancel: rx,
+        });
+    }
+
+    fn evict(&mut self, key: &D::Key) {
+        // Update the ready index to account for reordering of ready.
+        if let Some((idx, _, _)) = self.ready.swap_remove_full(key) {
+            self.ready_index = self
+                .ready_index
+                .and_then(|i| Self::repair_index(i, idx, self.ready.len()));
+            debug_assert!(!self.cancelations.contains_key(key));
+        } else if let Some(cancel) = self.cancelations.remove(key) {
+            let _ = cancel.send(());
+        }
+    }
+
+    fn poll_unready(&mut self) {
+        loop {
+            match self.unready.poll() {
+                Ok(Async::NotReady) | Ok(Async::Ready(None)) => return,
+                Ok(Async::Ready(Some((key, svc)))) => {
+                    trace!("endpoint ready");
+                    let _cancel = self.cancelations.remove(&key);
+                    debug_assert!(_cancel.is_some(), "missing cancelation");
+                    self.ready.insert(key, svc);
+                }
+                Err((key, Error::Canceled)) => debug_assert!(!self.cancelations.contains_key(&key)),
+                Err((key, Error::Inner(e))) => {
+                    info!("dropping failed endpoint: {}", e.into());
+                    let _cancel = self.cancelations.swap_remove(&key);
+                    debug_assert!(_cancel.is_some());
                 }
             }
         }
@@ -106,120 +177,102 @@ impl<D: Discover> Balance<D> {
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
-    ///
-    /// When this function returns NotReady, `ready_index` is unset. When this
-    /// function returns Ready, `ready_index` is set with an index into
-    /// `endpoints` of a ready endpoint service.
-    ///
-    /// If `endpoints` is reordered due to removals, `ready_index` is updated via
-    /// `repair_index()`.
-    fn poll_ready_index<Svc, Request>(&mut self) -> Poll<usize, Svc::Error>
-    where
-        D: Discover<Service = Svc>,
-        Svc: Service<Request> + Load,
-        Svc::Error: Into<error::Error>,
-        Svc::Metric: std::fmt::Debug,
-    {
-        match self.endpoints.len() {
-            0 => Ok(Async::NotReady),
-            1 => {
-                // If there's only one endpoint, ignore its load but require that it
-                // is ready.
-                match self.poll_endpoint_index_load(0) {
-                    Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Ok(Async::Ready(_)) => {
-                        self.ready_index = Some(0);
-                        Ok(Async::Ready(0))
-                    }
-                    Err(e) => {
-                        info!("evicting failed endpoint: {}", e.into());
-                        let _ = self.endpoints.swap_remove_index(0);
-                        Ok(Async::NotReady)
-                    }
-                }
-            }
+    fn poll_p2c_ready_index(&mut self) -> Option<usize> {
+        match self.ready.len() {
+            0 => None,
+            1 => self.poll_ready_index_load(0).map(|_| 0),
             len => {
                 // Get two distinct random indexes (in a random order). Poll the
                 // service at each index.
                 //
-                // If either fails, the service is removed from the set of
-                // endpoints.
+                // If either fails, the service is removed.
                 let idxs = rand::seq::index::sample(&mut self.rng, len, 2);
 
                 let aidx = idxs.index(0);
                 let bidx = idxs.index(1);
                 debug_assert_ne!(aidx, bidx, "random indices must be distinct");
 
-                let (aload, bidx) = match self.poll_endpoint_index_load(aidx) {
-                    Ok(ready) => (ready, bidx),
-                    Err(e) => {
-                        info!("evicting failed endpoint: {}", e.into());
-                        let _ = self.endpoints.swap_remove_index(aidx);
-                        let new_bidx = Self::repair_index(bidx, aidx, self.endpoints.len())
+                let (aload, bidx) = match self.poll_ready_index_load(aidx) {
+                    Some(aload) => (Some(aload), bidx),
+                    None => {
+                        let new_bidx = Self::repair_index(bidx, aidx, self.ready.len())
                             .expect("random indices must be distinct");
-                        (Async::NotReady, new_bidx)
+                        (None, new_bidx)
                     }
                 };
 
-                let (bload, aidx) = match self.poll_endpoint_index_load(bidx) {
-                    Ok(ready) => (ready, aidx),
-                    Err(e) => {
-                        info!("evicting failed endpoint: {}", e.into());
-                        let _ = self.endpoints.swap_remove_index(bidx);
-                        let new_aidx = Self::repair_index(aidx, bidx, self.endpoints.len())
+                let (bload, aidx) = match self.poll_ready_index_load(bidx) {
+                    Some(bload) => (Some(bload), aidx),
+                    None => {
+                        let new_aidx = Self::repair_index(aidx, bidx, self.ready.len())
                             .expect("random indices must be distinct");
-                        (Async::NotReady, new_aidx)
+                        (None, new_aidx)
                     }
                 };
 
                 trace!("load[{}]={:?}; load[{}]={:?}", aidx, aload, bidx, bload);
 
                 let ready = match (aload, bload) {
-                    (Async::Ready(aload), Async::Ready(bload)) => {
+                    (Some(aload), Some(bload)) => {
                         if aload <= bload {
-                            Async::Ready(aidx)
+                            Some(aidx)
                         } else {
-                            Async::Ready(bidx)
+                            Some(bidx)
                         }
                     }
-                    (Async::Ready(_), Async::NotReady) => Async::Ready(aidx),
-                    (Async::NotReady, Async::Ready(_)) => Async::Ready(bidx),
-                    (Async::NotReady, Async::NotReady) => Async::NotReady,
+                    (Some(_), None) => Some(aidx),
+                    (None, Some(_)) => Some(bidx),
+                    (None, None) => None,
                 };
                 trace!(" -> ready={:?}", ready);
-                Ok(ready)
+                ready
             }
         }
     }
 
-    /// Accesses an endpoint by index and, if it is ready, returns its current load.
-    fn poll_endpoint_index_load<Svc, Request>(
-        &mut self,
-        index: usize,
-    ) -> Poll<Svc::Metric, Svc::Error>
-    where
-        D: Discover<Service = Svc>,
-        Svc: Service<Request> + Load,
-        Svc::Error: Into<error::Error>,
-    {
-        let (_, svc) = self.endpoints.get_index_mut(index).expect("invalid index");
-        try_ready!(svc.poll_ready());
-        Ok(Async::Ready(svc.load()))
+    /// Accesses a ready endpoint by index and returns its current load.
+    fn poll_ready_index_load(&mut self, index: usize) -> Option<<D::Service as Load>::Metric> {
+        let (_, svc) = self.ready.get_index_mut(index).expect("invalid index");
+        let load = match svc.poll_ready() {
+            Ok(Async::Ready(_)) => Some(svc.load()),
+            Ok(Async::NotReady) => {
+                // became unready; so move it back there.
+                let (key, svc) = self
+                    .ready
+                    .swap_remove_index(index)
+                    .expect("invalid ready index");
+                self.push_unready(key, svc);
+                None
+            }
+            Err(e) => {
+                // failed, so drop it.
+                info!("evicting failed endpoint: {}", e.into());
+                self.ready
+                    .swap_remove_index(index)
+                    .expect("invalid ready index");
+                None
+            }
+        };
+        trace!("poll_ready_index_load({}) => {:?}", index, load);
+        load
     }
 }
 
-impl<D, Svc, Request> Service<Request> for Balance<D>
+impl<D, Req> Service<Req> for Balance<D, Req>
 where
-    D: Discover<Service = Svc>,
+    D: Discover,
+    D::Key: Clone,
     D::Error: Into<error::Error>,
-    Svc: Service<Request> + Load,
-    Svc::Error: Into<error::Error>,
-    Svc::Metric: std::fmt::Debug,
+    D::Service: Service<Req> + Load,
+    <D::Service as Load>::Metric: std::fmt::Debug,
+    <D::Service as Service<Req>>::Error: Into<error::Error>,
 {
-    type Response = <D::Service as Service<Request>>::Response;
+    type Response = <D::Service as Service<Req>>::Response;
     type Error = error::Error;
-    type Future =
-        future::MapErr<<D::Service as Service<Request>>::Future, fn(Svc::Error) -> error::Error>;
+    type Future = future::MapErr<
+        <D::Service as Service<Req>>::Future,
+        fn(<D::Service as Service<Req>>::Error) -> error::Error,
+    >;
 
     /// Prepares the balancer to process a request.
     ///
@@ -230,45 +283,65 @@ where
         // previously-selected `ready_index` if appropriate.
         self.poll_discover()?;
 
+        self.poll_unready();
+        debug!("ready={}; unready={}", self.ready.len(), self.unready.len());
+
         if let Some(index) = self.ready_index {
-            debug_assert!(index < self.endpoints.len());
+            trace!("preselected ready_index={}", index);
+            debug_assert!(index < self.ready.len());
             // Ensure the selected endpoint is still ready.
-            match self.poll_endpoint_index_load(index) {
-                Ok(Async::Ready(_)) => return Ok(Async::Ready(())),
-                Ok(Async::NotReady) => {}
-                Err(e) => {
-                    drop(self.endpoints.swap_remove_index(index));
-                    info!("evicting failed endpoint: {}", e.into());
-                }
+            if self.poll_ready_index_load(index).is_some() {
+                return Ok(Async::Ready(()));
             }
 
             self.ready_index = None;
         }
 
-        let tries = match self.endpoints.len() {
-            0 => return Ok(Async::NotReady),
-            1 => 1,
-            n => n / 2,
-        };
-        for _ in 0..tries {
-            if let Async::Ready(idx) = self.poll_ready_index().map_err(Into::into)? {
-                trace!("ready: {:?}", idx);
-                self.ready_index = Some(idx);
-                return Ok(Async::Ready(()));
-            }
+        if let Some(idx) = self.poll_p2c_ready_index() {
+            trace!("ready: {:?}", idx);
+            debug_assert!(idx < self.ready.len());
+            self.ready_index = Some(idx);
+            return Ok(Async::Ready(()));
         }
 
-        trace!("exhausted {} attempts", tries);
         Ok(Async::NotReady)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: Req) -> Self::Future {
         let index = self.ready_index.take().expect("not ready");
-        let (_, svc) = self
-            .endpoints
-            .get_index_mut(index)
+        let (key, mut svc) = self
+            .ready
+            .swap_remove_index(index)
             .expect("invalid ready index");
+        // no need to repair since the ready_index has been cleared.
 
-        svc.call(request).map_err(Into::into)
+        let fut = svc.call(request);
+        self.push_unready(key, svc);
+
+        fut.map_err(Into::into)
+    }
+}
+
+impl<K, S: Service<Req>, Req> Future for CancelReady<K, S, Req> {
+    type Item = (K, S);
+    type Error = (K, Error<S::Error>);
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Ok(Async::Ready(())) = self.cancel.poll() {
+            let key = self.key.take().expect("polled after ready");
+            return Err((key, Error::Canceled));
+        }
+
+        match self.ready.poll() {
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Ok(Async::Ready(svc)) => {
+                let key = self.key.take().expect("polled after ready");
+                Ok((key, svc).into())
+            }
+            Err(e) => {
+                let key = self.key.take().expect("polled after ready");
+                Err((key, Error::Inner(e)))
+            }
+        }
     }
 }

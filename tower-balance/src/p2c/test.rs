@@ -29,7 +29,9 @@ fn empty() {
     let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
     let disco = ServiceList::new(empty);
     let mut svc = Balance::from_entropy(disco);
-    assert_not_ready!(svc);
+    with_task(|| {
+        assert_not_ready!(svc);
+    })
 }
 
 #[test]
@@ -64,7 +66,7 @@ fn single_endpoint() {
 }
 
 #[test]
-fn two_endpoints_with_equal_weight() {
+fn two_endpoints_with_equal_load() {
     let (mock_a, mut handle_a) = mock::pair();
     let (mock_b, mut handle_b) = mock::pair();
     let mock_a = load::Constant::new(mock_a, 1);
@@ -101,20 +103,21 @@ fn two_endpoints_with_equal_weight() {
 
         handle_a.allow(1);
         handle_b.allow(1);
-        assert_ready!(svc, "must be ready when both endpoints are ready");
-        {
+        for _ in 0..2 {
+            assert_ready!(svc, "must be ready when both endpoints are ready");
             let fut = svc.call(());
             for (ref mut h, c) in &mut [(&mut handle_a, "a"), (&mut handle_b, "b")] {
                 if let Async::Ready(Some((_, tx))) = h.poll_request().unwrap() {
+                    log::info!("using {}", c);
                     tx.send_response(c);
+                    h.allow(0);
                 }
             }
             fut.wait().expect("call must complete");
         }
 
         handle_a.send_error("endpoint lost");
-        handle_b.allow(1);
-        assert_ready!(svc, "must be ready after one endpoint is removed");
+        assert_not_ready!(svc, "must be not be ready");
         assert_eq!(svc.len(), 1, "balancer must drop failed endpoints",);
     });
 }
