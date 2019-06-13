@@ -177,8 +177,8 @@ where
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
-    fn poll_p2c_ready_index(&mut self) -> Option<usize> {
-        match self.ready.len() {
+    fn poll_next_ready_index(&mut self) -> Poll<(), error::Error> {
+        self.next_ready_index = match self.ready.len() {
             0 => None,
             1 => self.poll_ready_index_load(0).map(|_| 0),
             len => {
@@ -225,7 +225,13 @@ where
                 trace!(" -> ready={:?}", ready);
                 ready
             }
+        };
+
+        if self.next_ready_index.is_some() {
+            return Ok(Async::Ready(()));
         }
+
+        Ok(Async::NotReady)
     }
 
     /// Accesses a ready endpoint by index and returns its current load.
@@ -295,14 +301,7 @@ where
             self.next_ready_index = None;
         }
 
-        if let Some(idx) = self.poll_p2c_ready_index() {
-            trace!("ready: {:?}", idx);
-            debug_assert!(idx < self.ready.len());
-            self.next_ready_index = Some(idx);
-            return Ok(Async::Ready(()));
-        }
-
-        Ok(Async::NotReady)
+        self.poll_next_ready_index()
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
