@@ -220,9 +220,7 @@ where
                             Some(bidx)
                         }
                     }
-                    (Some(_), None) => Some(aidx),
-                    (None, Some(_)) => Some(bidx),
-                    (None, None) => None,
+                    (a, b) => a.map(|_| aidx).or_else(|| b.map(|_| bidx)),
                 };
                 trace!(" -> ready={:?}", ready);
                 ready
