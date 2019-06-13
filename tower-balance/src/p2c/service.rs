@@ -33,7 +33,7 @@ pub struct Balance<D: Discover, Req> {
 
     /// Holds an index into `endpoints`, indicating the service that has been
     /// chosen to dispatch the next request.
-    ready_index: Option<usize>,
+    next_ready_index: Option<usize>,
 
     rng: SmallRng,
 }
@@ -63,7 +63,7 @@ where
             ready: IndexMap::default(),
             cancelations: IndexMap::default(),
             unready: stream::FuturesUnordered::new(),
-            ready_index: None,
+            next_ready_index: None,
         }
     }
 
@@ -125,8 +125,8 @@ where
     fn evict(&mut self, key: &D::Key) {
         // Update the ready index to account for reordering of ready.
         if let Some((idx, _, _)) = self.ready.swap_remove_full(key) {
-            self.ready_index = self
-                .ready_index
+            self.next_ready_index = self
+                .next_ready_index
                 .and_then(|i| Self::repair_index(i, idx, self.ready.len()));
             debug_assert!(!self.cancelations.contains_key(key));
         } else if let Some(cancel) = self.cancelations.remove(key) {
@@ -284,7 +284,7 @@ where
         self.poll_unready();
         debug!("ready={}; unready={}", self.ready.len(), self.unready.len());
 
-        if let Some(index) = self.ready_index {
+        if let Some(index) = self.next_ready_index {
             trace!("preselected ready_index={}", index);
             debug_assert!(index < self.ready.len());
             // Ensure the selected endpoint is still ready.
@@ -292,13 +292,13 @@ where
                 return Ok(Async::Ready(()));
             }
 
-            self.ready_index = None;
+            self.next_ready_index = None;
         }
 
         if let Some(idx) = self.poll_p2c_ready_index() {
             trace!("ready: {:?}", idx);
             debug_assert!(idx < self.ready.len());
-            self.ready_index = Some(idx);
+            self.next_ready_index = Some(idx);
             return Ok(Async::Ready(()));
         }
 
@@ -306,7 +306,7 @@ where
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
-        let index = self.ready_index.take().expect("not ready");
+        let index = self.next_ready_index.take().expect("not ready");
         let (key, mut svc) = self
             .ready
             .swap_remove_index(index)
