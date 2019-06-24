@@ -22,4 +22,4 @@ Trait representing an asynchronous, request / response based, client or server.
 categories = ["asynchronous", "network-programming"]
 
 [dependencies]
-futures = "0.1.23"
+# futures = "0.1.23"

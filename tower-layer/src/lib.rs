@@ -75,10 +75,10 @@
 /// The above log implementation is decoupled from the underlying protocol and
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
-pub trait Layer<S> {
+pub trait Layer<'a, S> {
     /// The wrapped service
     type Service;
     /// Wrap the given service with the middleware, returning a new service
     /// that has been decorated with the middleware.
-    fn layer(&self, inner: S) -> Self::Service;
+    fn layer(&self, inner: &'a mut S) -> Self::Service;
 }

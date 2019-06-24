@@ -22,7 +22,9 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures = "0.1.26"
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
-tokio-timer = "0.2.6"
+# futures = "0.1.26"
+# tower-service = "0.2.0"
+tower-service = { path = "../tower-service" }
+tower-layer = { path = "../tower-layer" }
+# tokio-timer = "0.2.6"
+tokio-timer = { git = "https://github.com/tokio-rs/tokio", branch = "std-future" }

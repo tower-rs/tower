@@ -15,10 +15,10 @@ impl TimeoutLayer {
     }
 }
 
-impl<S> Layer<S> for TimeoutLayer {
-    type Service = Timeout<S>;
+impl<'a, S: 'a> Layer<'a, S> for TimeoutLayer {
+    type Service = Timeout<'a, S>;
 
-    fn layer(&self, service: S) -> Self::Service {
+    fn layer(&self, service: &'a mut S) -> Self::Service {
         Timeout::new(service, self.timeout)
     }
 }

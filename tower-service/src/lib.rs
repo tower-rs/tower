@@ -5,11 +5,12 @@
 //!
 //! The [`Service`] trait provides the necessary abstractions for defining a
 //! request / response clients and servers. It is simple but powerul and is
-//! used as the foundation for the rest of Tower.
+//! used as the foundation for the rest of
 
-extern crate futures;
-
-use futures::{Future, Poll};
+use std::future::Future;
+use std::marker::Unpin;
+use std::ops::DerefMut;
+use std::pin::Pin;
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
@@ -174,7 +175,7 @@ use futures::{Future, Poll};
 /// `Service` provides a mechanism by which the caller is able to coordinate
 /// readiness. `Service::poll_ready` returns `Ready` if the service expects that
 /// it is able to process a request.
-pub trait Service<Request> {
+pub trait Service<'a, Request> {
     /// Responses given by the service.
     type Response;
 
@@ -182,7 +183,7 @@ pub trait Service<Request> {
     type Error;
 
     /// The future response value.
-    type Future: Future<Item = Self::Response, Error = Self::Error>;
+    type Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'a;
 
     /// Returns `Ready` when the service is able to process requests.
     ///
@@ -196,7 +197,7 @@ pub trait Service<Request> {
     /// Once `poll_ready` returns `Ready`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Ready` or `Err`.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+    // fn poll_ready(&mut self) -> Poll<(), Self::Error>;
 
     /// Process the request and return the response asynchronously.
     ///
@@ -213,36 +214,50 @@ pub trait Service<Request> {
     fn call(&mut self, req: Request) -> Self::Future;
 }
 
-impl<'a, S, Request> Service<Request> for &'a mut S
+impl<'a, S, Request> Service<'a, Request> for &'a mut S
 where
-    S: Service<Request> + 'a,
+    S: Service<'a, Request>,
 {
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), S::Error> {
-        (**self).poll_ready()
-    }
+    // fn poll_ready(&mut self) -> Poll<(), S::Error> {
+    //     (**self).poll_ready()
+    // }
 
     fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
     }
 }
 
-impl<S, Request> Service<Request> for Box<S>
-where
-    S: Service<Request> + ?Sized,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
+// impl<S, Request> Service<Request> for Box<S>
+// where
+//     S: Service<Request> + ?Sized,
+// {
+//     type Response = S::Response;
+//     type Error = S::Error;
+//     type Future = S::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), S::Error> {
-        (**self).poll_ready()
-    }
+//     fn poll_ready(&mut self) -> Poll<(), S::Error> {
+//         (**self).poll_ready()
+//     }
 
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
-    }
-}
+//     fn call(&mut self, request: Request) -> S::Future {
+//         (**self).call(request)
+//     }
+// }
+
+// impl<'a, S, Request> Service<'a, Request> for Pin<S>
+// where
+//     S: DerefMut + Unpin,
+//     S::Target: Service<'a, Request>,
+// {
+//     type Response = <S::Target as Service<'a, Request>>::Response;
+//     type Error = <S::Target as Service<'a, Request>>::Error;
+//     type Future = <S::Target as Service<'a, Request>>::Future;
+
+//     fn call(&mut self, req: Request) -> Self::Future {
+//         (**self).call(req)
+//     }
+// }
