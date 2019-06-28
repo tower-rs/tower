@@ -259,7 +259,7 @@ where
     type Future = <S::Target as Service<'a, Request>>::Future;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.get_mut().as_mut().poll_ready(cx)
+        Pin::get_mut(self).as_mut().poll_ready(cx)
     }
 
     fn call(self: Pin<&mut Self>, req: Request) -> Self::Future {
