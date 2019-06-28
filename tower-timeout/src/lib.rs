@@ -11,9 +11,9 @@
 
 pub mod error;
 pub mod future;
-mod layer;
+// mod layer;
 
-pub use crate::layer::TimeoutLayer;
+// pub use crate::layer::TimeoutLayer;
 
 use crate::{error::Error, future::ResponseFuture};
 use tokio_timer::{clock, Delay};
@@ -26,23 +26,24 @@ use std::time::Duration;
 
 /// Applies a timeout to requests.
 #[derive(Debug)]
-pub struct Timeout<'a, T> {
-    inner: &'a mut T,
+pub struct Timeout<S> {
+    inner: S,
     timeout: Duration,
+    // _pd: PhantomData<R>,
 }
 
 // ===== impl Timeout =====
 
-impl<'a, T> Timeout<'a, T> {
+impl<S> Timeout<S> {
     /// Creates a new Timeout
-    pub fn new(inner: &'a mut T, timeout: Duration) -> Self {
+    pub fn new(inner: S, timeout: Duration) -> Self {
         Timeout { inner, timeout }
     }
 }
 
-impl<'a, S, Request: 'a> Service<'a, Request> for Timeout<'a, S>
+impl<S, Request> Service<Request> for Timeout<S>
 where
-    S: Service<'a, Request> + Unpin,
+    S: Service<Request> + Unpin,
     S::Future: Unpin,
     S::Response: Send,
     S::Error: Send,
@@ -52,11 +53,11 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future, S::Response, S::Error>;
 
-    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Pin::new(&mut self.inner).poll_ready(cx).map_err(Into::into)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(mut self: Pin<&mut Self>, request: Request) -> Self::Future {
+    fn call(&mut self, request: Request) -> Self::Future {
         let response = Pin::new(&mut self.inner).call(request);
         let sleep = Delay::new(clock::now() + self.timeout);
         ResponseFuture::new(response, sleep)
