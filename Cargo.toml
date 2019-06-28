@@ -13,7 +13,7 @@ members = [
   # "tower-load-shed",
   # "tower-reconnect",
   # "tower-retry",
-  # "tower-service",
+  "tower-service",
   # "tower-spawn-ready",
   # "tower-test",
   # "tower-timeout",
