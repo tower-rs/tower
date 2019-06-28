@@ -11,6 +11,7 @@ use std::future::Future;
 use std::marker::Unpin;
 use std::ops::DerefMut;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
@@ -183,7 +184,7 @@ pub trait Service<'a, Request> {
     type Error;
 
     /// The future response value.
-    type Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'a;
+    type Future: Future<Output = Result<Self::Response, Self::Error>> + 'a;
 
     /// Returns `Ready` when the service is able to process requests.
     ///
@@ -197,7 +198,7 @@ pub trait Service<'a, Request> {
     /// Once `poll_ready` returns `Ready`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Ready` or `Err`.
-    // fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Process the request and return the response asynchronously.
     ///
@@ -211,25 +212,25 @@ pub trait Service<'a, Request> {
     ///
     /// Implementations are permitted to panic if `call` is invoked without
     /// obtaining `Ready` from `poll_ready`.
-    fn call(&mut self, req: Request) -> Self::Future;
+    fn call(self: Pin<&mut Self>, req: Request) -> Self::Future;
 }
 
-impl<'a, S, Request> Service<'a, Request> for &'a mut S
-where
-    S: Service<'a, Request>,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
+// impl<'a, S, Request> Service<'a, Request> for &'a mut S
+// where
+//     S: Service<'a, Request> + Unpin,
+// {
+//     type Response = S::Response;
+//     type Error = S::Error;
+//     type Future = S::Future;
 
-    // fn poll_ready(&mut self) -> Poll<(), S::Error> {
-    //     (**self).poll_ready()
-    // }
+//     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
+//         (**self).poll_ready(cx)
+//     }
 
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
-    }
-}
+//     fn call(mut self: Pin<&mut Self>, request: Request) -> S::Future {
+//         (**self).call(request)
+//     }
+// }
 
 // impl<S, Request> Service<Request> for Box<S>
 // where
@@ -250,14 +251,18 @@ where
 
 // impl<'a, S, Request> Service<'a, Request> for Pin<S>
 // where
-//     S: DerefMut + Unpin,
-//     S::Target: Service<'a, Request>,
+//     S: DerefMut,
+//     S::Target: Service<'a, Request> + Unpin,
 // {
 //     type Response = <S::Target as Service<'a, Request>>::Response;
 //     type Error = <S::Target as Service<'a, Request>>::Error;
 //     type Future = <S::Target as Service<'a, Request>>::Future;
 
-//     fn call(&mut self, req: Request) -> Self::Future {
+//     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+//         (**self).poll_ready(cx)
+//     }
+
+//     fn call(self: Pin<&mut Self>, req: Request) -> Self::Future {
 //         (**self).call(req)
 //     }
 // }
