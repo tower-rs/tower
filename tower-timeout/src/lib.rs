@@ -20,6 +20,8 @@ use tokio_timer::{clock, Delay};
 
 use tower_service::Service;
 
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 /// Applies a timeout to requests.
@@ -40,7 +42,7 @@ impl<'a, T> Timeout<'a, T> {
 
 impl<'a, S, Request: 'a> Service<'a, Request> for Timeout<'a, S>
 where
-    S: Service<'a, Request> + Send + Sync,
+    S: Service<'a, Request> + Unpin,
     S::Future: Unpin,
     S::Response: Send,
     S::Error: Send,
@@ -50,12 +52,12 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future, S::Response, S::Error>;
 
-    // fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-    //     self.inner.poll_ready().map_err(Into::into)
-    // }
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Pin::new(&mut self.inner).poll_ready(cx).map_err(Into::into)
+    }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        let response = self.inner.call(request);
+    fn call(mut self: Pin<&mut Self>, request: Request) -> Self::Future {
+        let response = Pin::new(&mut self.inner).call(request);
         let sleep = Delay::new(clock::now() + self.timeout);
         ResponseFuture::new(response, sleep)
     }
