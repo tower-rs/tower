@@ -9,8 +9,6 @@
 
 use std::future::Future;
 use std::marker::Unpin;
-use std::ops::DerefMut;
-use std::pin::Pin;
 use std::task::{Context, Poll};
 
 /// An asynchronous function from `Request` to a `Response`.

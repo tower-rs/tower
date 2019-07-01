@@ -26,10 +26,9 @@ edition = "2018"
 io = ["tokio-io"]
 
 [dependencies]
-futures = "0.1.23"
 tokio-io = { version = "0.1.12", optional = true }
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
+tower-service = { path = "../tower-service" }
+tower-layer = { path = "../tower-layer" }
 
 [dev-dependencies]
 tokio-mock-task = "0.1.1"

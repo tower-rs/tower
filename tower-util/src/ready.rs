@@ -1,6 +1,8 @@
 use std::{fmt, marker::PhantomData};
 
-use futures::{try_ready, Future, Poll};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// Future yielding a `Service` once the service is ready to process a request
@@ -23,22 +25,26 @@ where
     }
 }
 
+impl<T: Unpin, Request> Unpin for Ready<T, Request> {}
 impl<T, Request> Future for Ready<T, Request>
 where
-    T: Service<Request>,
+    T: Service<Request> + Unpin,
 {
-    type Item = T;
-    type Error = T::Error;
+    type Output = Result<T, T::Error>;
 
-    fn poll(&mut self) -> Poll<T, T::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<T, T::Error>> {
         match self.inner {
             Some(ref mut service) => {
-                let _ = try_ready!(service.poll_ready());
+                match service.poll_ready(cx) {
+                    Poll::Ready(Ok(_)) => {}
+                    Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                    Poll::Pending => return Poll::Pending,
+                };
             }
             None => panic!("called `poll` after future completed"),
         }
 
-        Ok(self.inner.take().unwrap().into())
+        Ok(self.inner.take().unwrap()).into()
     }
 }
 
