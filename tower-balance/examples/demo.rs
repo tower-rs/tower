@@ -2,7 +2,7 @@
 
 use env_logger;
 use futures::{future, stream, Async, Future, Poll, Stream};
-use hdrsample::Histogram;
+use hdrhistogram::Histogram;
 use rand::{self, Rng};
 use std::time::{Duration, Instant};
 use tokio::{runtime, timer};

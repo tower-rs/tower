@@ -163,7 +163,6 @@ fn assert_not_ready<F: Future>(f: &mut F)
 where
     F::Error: ::std::fmt::Debug,
 {
-    use futures::future;
     future::poll_fn(|| {
         assert!(f.poll().unwrap().is_not_ready());
         Ok::<_, ()>(().into())
