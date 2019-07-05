@@ -185,10 +185,8 @@ where
             0 => None,
             1 => Some(0),
             len => {
-                // Get two distinct random indexes (in a random order). Poll the
-                // service at each index.
-                //
-                // If either fails, the service is removed.
+                // Get two distinct random indexes (in a random order) and
+                // compare the loads of the service at each index.
                 let idxs = rand::seq::index::sample(&mut self.rng, len, 2);
 
                 let aidx = idxs.index(0);
