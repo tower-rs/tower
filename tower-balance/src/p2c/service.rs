@@ -294,7 +294,7 @@ where
         self.poll_discover()?;
 
         self.poll_unready();
-        debug!(
+        trace!(
             "ready={}; unready={}",
             self.ready_services.len(),
             self.unready_services.len()
