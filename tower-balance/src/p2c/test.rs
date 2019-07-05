@@ -108,7 +108,7 @@ fn two_endpoints_with_equal_load() {
             let fut = svc.call(());
             for (ref mut h, c) in &mut [(&mut handle_a, "a"), (&mut handle_b, "b")] {
                 if let Async::Ready(Some((_, tx))) = h.poll_request().unwrap() {
-                    log::info!("using {}", c);
+                    tracing::info!("using {}", c);
                     tx.send_response(c);
                     h.allow(0);
                 }

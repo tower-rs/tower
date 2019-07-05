@@ -21,12 +21,17 @@ Buffer requests before dispatching to a `Service`.
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
+[features]
+log = ["tracing/log"]
+default = []
+
 [dependencies]
 futures = "0.1.25"
 tower-service = "0.2.0"
 tower-layer = "0.1.0"
 tokio-executor = "0.1.7"
 tokio-sync = "0.1.0"
+tracing = "0.1"
 
 [dev-dependencies]
 tower = { version = "0.1.0", path = "../tower" }

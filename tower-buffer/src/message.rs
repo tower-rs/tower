@@ -6,6 +6,7 @@ use tokio_sync::oneshot;
 pub(crate) struct Message<Request, Fut> {
     pub(crate) request: Request,
     pub(crate) tx: Tx<Fut>,
+    pub(crate) span: tracing::Span,
 }
 
 /// Response sender

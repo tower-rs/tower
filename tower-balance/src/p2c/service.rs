@@ -1,13 +1,13 @@
 use crate::error;
 use futures::{future, stream, try_ready, Async, Future, Poll, Stream};
 use indexmap::IndexMap;
-use log::{debug, trace};
 use rand::{rngs::SmallRng, FromEntropy};
 use tokio_sync::oneshot;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
 use tower_util::Ready;
+use tracing::{debug, info, trace};
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
 ///
@@ -149,7 +149,8 @@ where
                 }
                 Err((key, Error::Canceled)) => debug_assert!(!self.cancelations.contains_key(&key)),
                 Err((key, Error::Inner(e))) => {
-                    debug!("dropping failed endpoint: {:?}", e.into());
+                    let error = e.into();
+                    info!({ ?error }, "dropping failed endpoint");
                     let _cancel = self.cancelations.swap_remove(&key);
                     debug_assert!(_cancel.is_some());
                 }
@@ -170,11 +171,8 @@ where
             i => Some(i),                     // uneffected
         };
         trace!(
-            "repair_index: orig={}; rm={}; sz={}; => {:?}",
-            orig_idx,
-            rm_idx,
-            new_sz,
-            repaired,
+            { orig = orig_idx, rm = rm_idx, sz = new_sz, i = ?repaired },
+            "repair_index"
         );
         repaired
     }
@@ -197,14 +195,7 @@ where
                 let bload = self.ready_index_load(bidx);
                 let ready = if aload <= bload { aidx } else { bidx };
 
-                trace!(
-                    "load[{}]={:?}; load[{}]={:?} -> ready={}",
-                    aidx,
-                    aload,
-                    bidx,
-                    bload,
-                    ready
-                );
+                trace!({ a.idx = aidx, a.load = ?aload, b.idx = bidx, b.load = ?bload, ready = ?ready }, "choosing by load");
                 Some(ready)
             }
         }
@@ -235,7 +226,8 @@ where
             }
             Err(e) => {
                 // failed, so drop it.
-                debug!("evicting failed endpoint: {:?}", e.into());
+                let error = e.into();
+                info!({ ?error }, "evicting failed endpoint");
                 self.ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
@@ -272,11 +264,7 @@ where
 
         // Drive new or busy services to readiness.
         self.poll_unready();
-        trace!(
-            "ready={}; unready={}",
-            self.ready_services.len(),
-            self.unready_services.len()
-        );
+        trace!({ nready = self.ready_services.len(), nunready = self.unready_services.len() }, "poll_ready");
 
         loop {
             // If a node has already been selected, ensure that it is ready.
@@ -285,7 +273,7 @@ where
             // detector has changed the state of the service, it may be evicted
             // from the ready set so that P2C can be performed again.
             if let Some(index) = self.next_ready_index {
-                trace!("preselected ready_index={}", index);
+                trace!({ index }, "preselected ready_index");
                 debug_assert!(index < self.ready_services.len());
 
                 if let Ok(Async::Ready(())) = self.poll_ready_index_or_evict(index) {
