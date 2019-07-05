@@ -49,6 +49,6 @@ fn new_service() -> (LoadShed<Mock>, Handle) {
 }
 
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::{lazy, Future};
+    use futures::future::lazy;
     lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }
