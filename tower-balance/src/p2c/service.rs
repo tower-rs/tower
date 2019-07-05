@@ -1,7 +1,7 @@
 use crate::error;
 use futures::{future, stream, try_ready, Async, Future, Poll, Stream};
 use indexmap::IndexMap;
-use log::{debug, info, trace};
+use log::{debug, trace};
 use rand::{rngs::SmallRng, FromEntropy};
 use tokio_sync::oneshot;
 use tower_discover::{Change, Discover};
@@ -149,7 +149,7 @@ where
                 }
                 Err((key, Error::Canceled)) => debug_assert!(!self.cancelations.contains_key(&key)),
                 Err((key, Error::Inner(e))) => {
-                    info!("dropping failed endpoint: {}", e.into());
+                    debug!("dropping failed endpoint: {:?}", e.into());
                     let _cancel = self.cancelations.swap_remove(&key);
                     debug_assert!(_cancel.is_some());
                 }
@@ -256,7 +256,7 @@ where
             }
             Err(e) => {
                 // failed, so drop it.
-                info!("evicting failed endpoint: {}", e.into());
+                debug!("evicting failed endpoint: {:?}", e.into());
                 self.ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
