@@ -180,10 +180,10 @@ where
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
-    fn poll_next_ready_index(&mut self) -> Poll<(), error::Error> {
-        self.next_ready_index = match self.ready_services.len() {
+    fn p2c_next_ready_index(&mut self) -> Option<usize> {
+        match self.ready_services.len() {
             0 => None,
-            1 => self.poll_ready_index_load(0).map(|_| 0),
+            1 => Some(0),
             len => {
                 // Get two distinct random indexes (in a random order). Poll the
                 // service at each index.
@@ -195,56 +195,37 @@ where
                 let bidx = idxs.index(1);
                 debug_assert_ne!(aidx, bidx, "random indices must be distinct");
 
-                let (aload, bidx) = match self.poll_ready_index_load(aidx) {
-                    Some(aload) => (Some(aload), bidx),
-                    None => {
-                        let new_bidx = Self::repair_index(bidx, aidx, self.ready_services.len())
-                            .expect("random indices must be distinct");
-                        (None, new_bidx)
-                    }
-                };
+                let aload = self.ready_index_load(aidx);
+                let bload = self.ready_index_load(bidx);
+                let ready = if aload <= bload { aidx } else { bidx };
 
-                let (bload, aidx) = match self.poll_ready_index_load(bidx) {
-                    Some(bload) => (Some(bload), aidx),
-                    None => {
-                        let new_aidx = Self::repair_index(aidx, bidx, self.ready_services.len())
-                            .expect("random indices must be distinct");
-                        (None, new_aidx)
-                    }
-                };
-
-                trace!("load[{}]={:?}; load[{}]={:?}", aidx, aload, bidx, bload);
-
-                let ready = match (aload, bload) {
-                    (Some(aload), Some(bload)) => {
-                        if aload <= bload {
-                            Some(aidx)
-                        } else {
-                            Some(bidx)
-                        }
-                    }
-                    (a, b) => a.map(|_| aidx).or_else(|| b.map(|_| bidx)),
-                };
-                trace!(" -> ready={:?}", ready);
-                ready
+                trace!(
+                    "load[{}]={:?}; load[{}]={:?} -> ready={}",
+                    aidx,
+                    aload,
+                    bidx,
+                    bload,
+                    ready
+                );
+                Some(ready)
             }
-        };
-
-        if self.next_ready_index.is_some() {
-            return Ok(Async::Ready(()));
         }
-
-        Ok(Async::NotReady)
     }
 
     /// Accesses a ready endpoint by index and returns its current load.
-    fn poll_ready_index_load(&mut self, index: usize) -> Option<<D::Service as Load>::Metric> {
+    fn ready_index_load(&self, index: usize) -> <D::Service as Load>::Metric {
+        let (_, svc) = self.ready_services.get_index(index).expect("invalid index");
+        svc.load()
+    }
+
+    fn poll_ready_index_or_evict(&mut self, index: usize) -> Poll<(), ()> {
         let (_, svc) = self
             .ready_services
             .get_index_mut(index)
             .expect("invalid index");
-        let load = match svc.poll_ready() {
-            Ok(Async::Ready(_)) => Some(svc.load()),
+
+        match svc.poll_ready() {
+            Ok(Async::Ready(())) => Ok(Async::Ready(())),
             Ok(Async::NotReady) => {
                 // became unready; so move it back there.
                 let (key, svc) = self
@@ -252,7 +233,7 @@ where
                     .swap_remove_index(index)
                     .expect("invalid ready index");
                 self.push_unready(key, svc);
-                None
+                Ok(Async::NotReady)
             }
             Err(e) => {
                 // failed, so drop it.
@@ -260,11 +241,9 @@ where
                 self.ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
-                None
+                Err(())
             }
-        };
-        trace!("poll_ready_index_load({}) => {:?}", index, load);
-        load
+        }
     }
 }
 
@@ -293,6 +272,7 @@ where
         // previously-selected `ready_index` if appropriate.
         self.poll_discover()?;
 
+        // Drive new or busy services to readiness.
         self.poll_unready();
         trace!(
             "ready={}; unready={}",
@@ -300,18 +280,29 @@ where
             self.unready_services.len()
         );
 
-        if let Some(index) = self.next_ready_index {
-            trace!("preselected ready_index={}", index);
-            debug_assert!(index < self.ready_services.len());
-            // Ensure the selected endpoint is still ready.
-            if self.poll_ready_index_load(index).is_some() {
-                return Ok(Async::Ready(()));
+        loop {
+            // If a node has already been selected, ensure that it is ready.
+            // This ensures that the underlying service is ready immediately
+            // before a request is dispatched to it. If, e.g., a failure
+            // detector has changed the state of the service, it may be evicted
+            // from the ready set so that P2C can be performed again.
+            if let Some(index) = self.next_ready_index {
+                trace!("preselected ready_index={}", index);
+                debug_assert!(index < self.ready_services.len());
+
+                if let Ok(Async::Ready(())) = self.poll_ready_index_or_evict(index) {
+                    return Ok(Async::Ready(()));
+                }
+
+                self.next_ready_index = None;
             }
 
-            self.next_ready_index = None;
+            self.next_ready_index = self.p2c_next_ready_index();
+            if self.next_ready_index.is_none() {
+                debug_assert!(self.ready_services.is_empty());
+                return Ok(Async::NotReady);
+            }
         }
-
-        self.poll_next_ready_index()
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
