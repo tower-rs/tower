@@ -4,10 +4,10 @@ use indexmap::IndexMap;
 use log::{debug, info, trace};
 use rand::{rngs::SmallRng, FromEntropy};
 use tokio_sync::oneshot;
-use tower::ServiceExt;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
+use tower_util::Ready;
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
 ///
@@ -117,7 +117,7 @@ where
         self.cancelations.insert(key.clone(), tx);
         self.unready.push(CancelReady {
             key: Some(key),
-            ready: svc.ready(),
+            ready: Ready::new(svc),
             cancel: rx,
         });
     }
