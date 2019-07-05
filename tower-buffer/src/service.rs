@@ -87,7 +87,7 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let span = tracing::trace_span!("request through buffer");
+        let span = tracing::Span::current();
         let _guard = span.enter();
 
         // TODO:
@@ -96,6 +96,7 @@ where
         // outside of task context.
         let (tx, rx) = oneshot::channel();
 
+        tracing::trace!("sending request to buffer worker");
         match self.tx.try_send(Message {
             request,
             span: span.clone(),
