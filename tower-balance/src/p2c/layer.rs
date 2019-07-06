@@ -5,12 +5,12 @@ use tower_layer::Layer;
 
 /// Efficiently distributes requests across an arbitrary number of services
 #[derive(Clone)]
-pub struct BalanceLayer<D> {
+pub struct BalanceLayer<D, Req> {
     rng: SmallRng,
-    _marker: PhantomData<fn(D)>,
+    _marker: PhantomData<fn(D, Req)>,
 }
 
-impl<D> BalanceLayer<D> {
+impl<D, Req> BalanceLayer<D, Req> {
     /// Builds a balancer using the system entropy.
     pub fn new() -> Self {
         Self {
@@ -31,15 +31,15 @@ impl<D> BalanceLayer<D> {
     }
 }
 
-impl<S> Layer<S> for BalanceLayer<S> {
-    type Service = BalanceMake<S>;
+impl<S, Req> Layer<S> for BalanceLayer<S, Req> {
+    type Service = BalanceMake<S, Req>;
 
     fn layer(&self, make_discover: S) -> Self::Service {
         BalanceMake::new(make_discover, self.rng.clone())
     }
 }
 
-impl<D> fmt::Debug for BalanceLayer<D> {
+impl<D, Req> fmt::Debug for BalanceLayer<D, Req> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BalanceLayer")
             .field("rng", &self.rng)

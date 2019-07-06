@@ -238,7 +238,7 @@ where
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
 {
-    balance: Balance<PoolDiscoverer<MS, Target, Request>>,
+    balance: Balance<PoolDiscoverer<MS, Target, Request>, Request>,
     options: Builder,
     ewma: f64,
 }
@@ -263,18 +263,18 @@ where
     }
 }
 
-impl<MS, Target, Request> Service<Request> for Pool<MS, Target, Request>
+impl<MS, Target, Req> Service<Req> for Pool<MS, Target, Req>
 where
-    MS: MakeService<Target, Request>,
+    MS: MakeService<Target, Req>,
     MS::Service: Load,
     <MS::Service as Load>::Metric: std::fmt::Debug,
     MS::MakeError: ::std::error::Error + Send + Sync + 'static,
     MS::Error: ::std::error::Error + Send + Sync + 'static,
     Target: Clone,
 {
-    type Response = <Balance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Response;
-    type Error = <Balance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Error;
-    type Future = <Balance<PoolDiscoverer<MS, Target, Request>> as Service<Request>>::Future;
+    type Response = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;
+    type Error = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Error;
+    type Future = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Future;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         if let Async::Ready(()) = self.balance.poll_ready()? {
@@ -318,7 +318,7 @@ where
         Ok(Async::NotReady)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, req: Req) -> Self::Future {
         self.balance.call(req)
     }
 }
