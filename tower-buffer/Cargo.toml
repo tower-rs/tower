@@ -31,7 +31,7 @@ tower-service = "0.2.0"
 tower-layer = "0.1.0"
 tokio-executor = "0.1.7"
 tokio-sync = "0.1.0"
-tracing = { git = "https://github.com/tokio-rs/tracing.git", branch = "eliza/current-span" }
+tracing = "0.1.2"
 
 [dev-dependencies]
 tower = { version = "0.1.0", path = "../tower" }
