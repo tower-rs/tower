@@ -212,6 +212,11 @@ impl<L> ServiceBuilder<L> {
         self.layer(TimeoutLayer::new(timeout))
     }
 
+    /// Obtains the underlying `Layer` implementation.
+    pub fn into_inner(self) -> L {
+        self.layer
+    }
+
     /// Wrap the service `S` with the layers.
     pub fn service<S>(self, service: S) -> L::Service
     where
