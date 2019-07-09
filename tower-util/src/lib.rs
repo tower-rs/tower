@@ -5,8 +5,8 @@
 //! Various utility types and functions that are generally with Tower.
 
 mod boxed;
-mod combinator;
 mod call_all;
+pub mod combinator;
 mod either;
 pub mod layer;
 #[cfg(feature = "io")]
@@ -23,7 +23,6 @@ pub use crate::make_connection::MakeConnection;
 pub use crate::{
     boxed::{BoxService, UnsyncBoxService},
     call_all::{CallAll, CallAllUnordered},
-    combinator::{Map, MapErr},
     either::Either,
     make_service::MakeService,
     oneshot::Oneshot,
