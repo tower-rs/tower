@@ -6,21 +6,25 @@
 use futures::{future, prelude::*};
 use tower_service::Service;
 
+mod sealed {
+    pub trait Sealed<T> {}
+}
+
 /// `Service` extension to provide combinator functionality equivalent to those
 /// used in futures.
-pub trait ServiceExt<Request>: Service<Request> {
+pub trait ServiceExt<Request>: sealed::Sealed<Request> + Service<Request> {
     /// Map this service's result to a different type, returning a new service.
     /// Equivalent to `futures::Future::map`.
     fn map<F, U>(self, f: F) -> Map<Self, F>
     where
-        F: Copy + Fn(Self::Response) -> U,
+        F: Fn(Self::Response) -> U,
         Self: Sized;
 
     /// Map this service's error to a different error, returning a new service.
     /// Equivalent to `futures::Future::map_err`.
     fn map_err<F, U>(self, f: F) -> MapErr<Self, F>
     where
-        F: Copy + Fn(Self::Error) -> U,
+        F: Fn(Self::Error) -> U,
         Self: Sized;
 
     /// Map this service's error to any error implementing `From` for this
@@ -40,7 +44,7 @@ pub trait ServiceExt<Request>: Service<Request> {
     /// But it doesn't make sense to apply `then` to the `poll_ready` type.
     fn then<F, U>(self, f: F) -> Then<Self, F>
     where
-        F: Copy + FnOnce(Result<Self::Response, Self::Error>) -> U,
+        F: FnOnce(Result<Self::Response, Self::Error>) -> U,
         U: IntoFuture<Error = Self::Error>,
         Self: Sized;
 
@@ -48,7 +52,7 @@ pub trait ServiceExt<Request>: Service<Request> {
     /// Equivalent to `futures::Future::and_then`.
     fn and_then<F, U>(self, f: F) -> AndThen<Self, F>
     where
-        F: Copy + FnOnce(Self::Response) -> U,
+        F: FnOnce(Self::Response) -> U,
         U: IntoFuture<Error = Self::Error>,
         Self: Sized;
 
@@ -60,7 +64,7 @@ pub trait ServiceExt<Request>: Service<Request> {
     /// But it doesn't make sense to `or_else` the `poll_ready` type.
     fn or_else<F, U>(self, f: F) -> OrElse<Self, F>
     where
-        F: Copy + FnOnce(Self::Error) -> U,
+        F: FnOnce(Self::Error) -> U,
         U: IntoFuture<Item = Self::Response, Error = Self::Error>,
         Self: Sized;
 
@@ -68,9 +72,11 @@ pub trait ServiceExt<Request>: Service<Request> {
     /// Equivalent to `futures::Future::inspect`.
     fn inspect<F>(self, f: F) -> Inspect<Self, F>
     where
-        F: Copy + FnOnce(&Self::Response),
+        F: FnOnce(&Self::Response),
         Self: Sized;
 }
+
+impl<T, Request> sealed::Sealed<Request> for T where T: Service<Request> {}
 
 impl<T, Request> ServiceExt<Request> for T
 where
@@ -78,14 +84,14 @@ where
 {
     fn map<F, U>(self, f: F) -> Map<Self, F>
     where
-        F: Copy + Fn(Self::Response) -> U,
+        F: Fn(Self::Response) -> U,
     {
         Map::new(self, f)
     }
 
     fn map_err<F, U>(self, f: F) -> MapErr<Self, F>
     where
-        F: Copy + Fn(Self::Error) -> U,
+        F: Fn(Self::Error) -> U,
     {
         MapErr::new(self, f)
     }
@@ -99,7 +105,7 @@ where
 
     fn then<F, U>(self, f: F) -> Then<Self, F>
     where
-        F: Copy + FnOnce(Result<Self::Response, Self::Error>) -> U,
+        F: FnOnce(Result<Self::Response, Self::Error>) -> U,
         U: IntoFuture<Error = Self::Error>,
     {
         Then::new(self, f)
@@ -107,7 +113,7 @@ where
 
     fn and_then<F, U>(self, f: F) -> AndThen<Self, F>
     where
-        F: Copy + FnOnce(Self::Response) -> U,
+        F: FnOnce(Self::Response) -> U,
         U: IntoFuture<Error = Self::Error>,
     {
         AndThen::new(self, f)
@@ -115,7 +121,7 @@ where
 
     fn or_else<F, U>(self, f: F) -> OrElse<Self, F>
     where
-        F: Copy + FnOnce(Self::Error) -> U,
+        F: FnOnce(Self::Error) -> U,
         U: IntoFuture<Item = Self::Response, Error = Self::Error>,
     {
         OrElse::new(self, f)
@@ -123,7 +129,7 @@ where
 
     fn inspect<F>(self, f: F) -> Inspect<Self, F>
     where
-        F: Copy + FnOnce(&Self::Response),
+        F: FnOnce(&Self::Response),
     {
         Inspect::new(self, f)
     }
@@ -462,5 +468,16 @@ mod tests {
         let mut fut = svc.call(15);
         let res = assert_ready!(mock.enter(|| fut.poll()));
         assert_eq!(res, "Ok-15");
+    }
+
+    fn view_val(_x: &u8) {}
+
+    #[test]
+    fn test_inspect() {
+        let mut mock = tokio_mock_task::MockTask::new();
+        let mut svc = Foo.inspect(view_val);
+        let mut fut = svc.call(16);
+        let res = assert_ready!(mock.enter(|| fut.poll()));
+        assert_eq!(res, 16);
     }
 }
