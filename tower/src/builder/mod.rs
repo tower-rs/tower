@@ -213,7 +213,7 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Obtains the underlying `Layer` implementation.
-    pub fn into_stack(self) -> L {
+    pub fn into_inner(self) -> L {
         self.layer
     }
 
