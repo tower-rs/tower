@@ -212,7 +212,7 @@ impl<L> ServiceBuilder<L> {
         self.layer(TimeoutLayer::new(timeout))
     }
 
-    /// Obtains the underlying `Layer` impementation.
+    /// Obtains the underlying `Layer` implementation.
     pub fn into_stack(self) -> L {
         self.layer
     }
