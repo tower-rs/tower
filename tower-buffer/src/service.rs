@@ -87,21 +87,15 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let span = tracing::Span::current();
-        let _guard = span.enter();
-
         // TODO:
         // ideally we'd poll_ready again here so we don't allocate the oneshot
         // if the try_send is about to fail, but sadly we can't call poll_ready
         // outside of task context.
         let (tx, rx) = oneshot::channel();
 
-        tracing::trace!("sending request to buffer worker");
-        match self.tx.try_send(Message {
-            request,
-            span: span.clone(),
-            tx,
-        }) {
+        let span = tracing::Span::current();
+        tracing::trace!(parent: &span, "sending request to buffer worker");
+        match self.tx.try_send(Message { request, span, tx }) {
             Err(e) => {
                 if e.is_closed() {
                     ResponseFuture::failed(self.get_worker_error())
