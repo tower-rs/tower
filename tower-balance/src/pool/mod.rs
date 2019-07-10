@@ -23,6 +23,9 @@ use tower_load::Load;
 use tower_service::Service;
 use tower_util::MakeService;
 
+#[cfg(test)]
+mod test;
+
 enum Level {
     /// Load is low -- remove a service instance.
     Low,
