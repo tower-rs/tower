@@ -23,7 +23,7 @@ edition = "2018"
 
 [features]
 log = ["tracing/log"]
-default = []
+default = ["log"]
 
 [dependencies]
 futures = "0.1.25"
