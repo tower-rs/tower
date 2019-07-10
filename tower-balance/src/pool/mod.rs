@@ -58,6 +58,7 @@ where
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         if self.services == 0 && self.making.is_none() {
+            let _ = try_ready!(self.maker.poll_ready());
             self.making = Some(self.maker.make_service(self.target.clone()));
         }
 
@@ -310,6 +311,10 @@ where
                 // `Ready`, so we won't try to launch another service immediately.
                 // we clamp it to high though in case the # of services is limited.
                 self.ewma = self.options.high;
+
+                // we need to call balance again for PoolDiscover to realize
+                // it can make a new service
+                return self.balance.poll_ready();
             } else {
                 discover.load = Level::Normal;
             }
