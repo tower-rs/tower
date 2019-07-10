@@ -16,7 +16,8 @@
 
 use super::p2c::Balance;
 use crate::error;
-use futures::{try_ready, Async, Future, Poll};
+use futures::{try_ready, Async, Future, Poll, Stream};
+use slab::Slab;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
@@ -41,7 +42,9 @@ where
     making: Option<MS::Future>,
     target: Target,
     load: Level,
-    services: usize,
+    services: Slab<()>,
+    died_tx: tokio_sync::mpsc::UnboundedSender<usize>,
+    died_rx: tokio_sync::mpsc::UnboundedReceiver<usize>,
     limit: Option<usize>,
 }
 
@@ -53,11 +56,19 @@ where
     Target: Clone,
 {
     type Key = usize;
-    type Service = MS::Service;
+    type Service = DropNotifyService<MS::Service>;
     type Error = MS::MakeError;
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        if self.services == 0 && self.making.is_none() {
+        while let Async::Ready(Some(sid)) = self
+            .died_rx
+            .poll()
+            .expect("cannot be closed as we hold tx too")
+        {
+            self.services.remove(sid);
+        }
+
+        if self.services.len() == 0 && self.making.is_none() {
             let _ = try_ready!(self.maker.poll_ready());
             self.making = Some(self.maker.make_service(self.target.clone()));
         }
@@ -66,7 +77,7 @@ where
             if self.making.is_none() {
                 if self
                     .limit
-                    .map(|limit| self.services >= limit)
+                    .map(|limit| self.services.len() >= limit)
                     .unwrap_or(false)
                 {
                     return Ok(Async::NotReady);
@@ -79,10 +90,15 @@ where
         }
 
         if let Some(mut fut) = self.making.take() {
-            if let Async::Ready(s) = fut.poll()? {
-                self.services += 1;
+            if let Async::Ready(svc) = fut.poll()? {
+                let id = self.services.insert(());
+                let svc = DropNotifyService {
+                    svc,
+                    id,
+                    notify: self.died_tx.clone(),
+                };
                 self.load = Level::Normal;
-                return Ok(Async::Ready(Change::Insert(self.services, s)));
+                return Ok(Async::Ready(Change::Insert(id, svc)));
             } else {
                 self.making = Some(fut);
                 return Ok(Async::NotReady);
@@ -94,11 +110,13 @@ where
                 unreachable!("found high load but no Service being made");
             }
             Level::Normal => Ok(Async::NotReady),
-            Level::Low if self.services == 1 => Ok(Async::NotReady),
+            Level::Low if self.services.len() == 1 => Ok(Async::NotReady),
             Level::Low => {
                 self.load = Level::Normal;
-                let rm = self.services;
-                self.services -= 1;
+                // NOTE: this is a little sad -- we'd prefer to kill short-living services
+                let rm = self.services.iter().next().unwrap().0;
+                // note that we _don't_ remove from self.services here
+                // that'll happen automatically on drop
                 Ok(Async::Ready(Change::Remove(rm)))
             }
         }
@@ -214,12 +232,15 @@ impl Builder {
         MS::Error: Into<error::Error>,
         Target: Clone,
     {
+        let (died_tx, died_rx) = tokio_sync::mpsc::unbounded_channel();
         let d = PoolDiscoverer {
             maker: make_service,
             making: None,
             target,
             load: Level::Normal,
-            services: 0,
+            services: Slab::new(),
+            died_tx,
+            died_rx,
             limit: self.limit,
         };
 
@@ -287,7 +308,7 @@ where
             if self.ewma < self.options.low {
                 discover.load = Level::Low;
 
-                if discover.services > 1 {
+                if discover.services.len() > 1 {
                     // reset EWMA so we don't immediately try to remove another service
                     self.ewma = self.options.init;
                 }
@@ -325,5 +346,39 @@ where
 
     fn call(&mut self, req: Req) -> Self::Future {
         self.balance.call(req)
+    }
+}
+
+#[doc(hidden)]
+pub struct DropNotifyService<Svc> {
+    svc: Svc,
+    id: usize,
+    notify: tokio_sync::mpsc::UnboundedSender<usize>,
+}
+
+impl<Svc> Drop for DropNotifyService<Svc> {
+    fn drop(&mut self) {
+        let _ = self.notify.try_send(self.id).is_ok();
+    }
+}
+
+impl<Svc: Load> Load for DropNotifyService<Svc> {
+    type Metric = Svc::Metric;
+    fn load(&self) -> Self::Metric {
+        self.svc.load()
+    }
+}
+
+impl<Request, Svc: Service<Request>> Service<Request> for DropNotifyService<Svc> {
+    type Response = Svc::Response;
+    type Future = Svc::Future;
+    type Error = Svc::Error;
+
+    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        self.svc.poll_ready()
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        self.svc.call(req)
     }
 }

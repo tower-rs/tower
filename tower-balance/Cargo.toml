@@ -34,6 +34,7 @@ tower-layer = "0.1.0"
 tower-load = { version = "0.1.0", path = "../tower-load" }
 tower-service = "0.2.0"
 tower-util = "0.1.0"
+slab = "0.4"
 
 [dev-dependencies]
 log = "0.4.1"
