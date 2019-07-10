@@ -21,6 +21,7 @@ use tower_load::Load;
 use tower_service::Service;
 use tower_util::MakeService;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum Level {
     /// Load is low -- remove a service instance.
     Low,
@@ -58,6 +59,7 @@ where
 
     fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
         if self.services == 0 && self.making.is_none() {
+            tracing::trace!("construct initial pool connection");
             self.making = Some(self.maker.make_service(self.target.clone()));
         }
 
@@ -71,7 +73,9 @@ where
                     return Ok(Async::NotReady);
                 }
 
+                tracing::trace!("decided to add service to loaded pool");
                 try_ready!(self.maker.poll_ready());
+                tracing::trace!("making new service");
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
                 self.making = Some(self.maker.make_service(self.target.clone()));
             }
@@ -79,6 +83,7 @@ where
 
         if let Some(mut fut) = self.making.take() {
             if let Async::Ready(s) = fut.poll()? {
+                tracing::trace!("finished creating new service");
                 self.services += 1;
                 self.load = Level::Normal;
                 return Ok(Async::Ready(Change::Insert(self.services, s)));
@@ -95,6 +100,7 @@ where
             Level::Normal => Ok(Async::NotReady),
             Level::Low if self.services == 1 => Ok(Async::NotReady),
             Level::Low => {
+                tracing::trace!("removing service for over-provisioned pool");
                 self.load = Level::Normal;
                 let rm = self.services;
                 self.services -= 1;
@@ -284,6 +290,9 @@ where
 
             let discover = self.balance.discover_mut();
             if self.ewma < self.options.low {
+                if discover.load != Level::Low {
+                    tracing::trace!({ ewma = %self.ewma }, "pool is over-provisioned");
+                }
                 discover.load = Level::Low;
 
                 if discover.services > 1 {
@@ -291,6 +300,9 @@ where
                     self.ewma = self.options.init;
                 }
             } else {
+                if discover.load != Level::Normal {
+                    tracing::trace!({ ewma = %self.ewma }, "pool is appropriately provisioned");
+                }
                 discover.load = Level::Normal;
             }
 
@@ -304,6 +316,9 @@ where
             self.ewma = self.options.alpha + (1.0 - self.options.alpha) * self.ewma;
 
             if self.ewma > self.options.high {
+                if discover.load != Level::High {
+                    tracing::trace!({ ewma = %self.ewma }, "pool is under-provisioned");
+                }
                 discover.load = Level::High;
 
                 // don't reset the EWMA -- in theory, poll_ready should now start returning
