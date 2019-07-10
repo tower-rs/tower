@@ -15,6 +15,7 @@
 #![deny(missing_docs)]
 
 use super::p2c::Balance;
+use crate::error;
 use futures::{try_ready, Async, Future, Poll};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
@@ -47,9 +48,8 @@ where
 impl<MS, Target, Request> Discover for PoolDiscoverer<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
-    // NOTE: these bounds should go away once MakeService adopts Box<dyn Error>
-    MS::MakeError: ::std::error::Error + Send + Sync + 'static,
-    MS::Error: ::std::error::Error + Send + Sync + 'static,
+    MS::MakeError: Into<error::Error>,
+    MS::Error: Into<error::Error>,
     Target: Clone,
 {
     type Key = usize;
@@ -209,8 +209,8 @@ impl Builder {
         MS: MakeService<Target, Request>,
         MS::Service: Load,
         <MS::Service as Load>::Metric: std::fmt::Debug,
-        MS::MakeError: ::std::error::Error + Send + Sync + 'static,
-        MS::Error: ::std::error::Error + Send + Sync + 'static,
+        MS::MakeError: Into<error::Error>,
+        MS::Error: Into<error::Error>,
         Target: Clone,
     {
         let d = PoolDiscoverer {
@@ -234,8 +234,8 @@ impl Builder {
 pub struct Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
-    MS::MakeError: ::std::error::Error + Send + Sync + 'static,
-    MS::Error: ::std::error::Error + Send + Sync + 'static,
+    MS::MakeError: Into<error::Error>,
+    MS::Error: Into<error::Error>,
     Target: Clone,
 {
     balance: Balance<PoolDiscoverer<MS, Target, Request>, Request>,
@@ -248,8 +248,8 @@ where
     MS: MakeService<Target, Request>,
     MS::Service: Load,
     <MS::Service as Load>::Metric: std::fmt::Debug,
-    MS::MakeError: ::std::error::Error + Send + Sync + 'static,
-    MS::Error: ::std::error::Error + Send + Sync + 'static,
+    MS::MakeError: Into<error::Error>,
+    MS::Error: Into<error::Error>,
     Target: Clone,
 {
     /// Construct a new dynamically sized `Pool`.
@@ -268,8 +268,8 @@ where
     MS: MakeService<Target, Req>,
     MS::Service: Load,
     <MS::Service as Load>::Metric: std::fmt::Debug,
-    MS::MakeError: ::std::error::Error + Send + Sync + 'static,
-    MS::Error: ::std::error::Error + Send + Sync + 'static,
+    MS::MakeError: Into<error::Error>,
+    MS::Error: Into<error::Error>,
     Target: Clone,
 {
     type Response = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;
