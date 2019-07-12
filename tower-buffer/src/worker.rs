@@ -199,7 +199,7 @@ where
                         }
                         Err(e) => {
                             let error = e.into();
-                            tracing::debug!({ ?error }, "service failed");
+                            tracing::debug!({ %error }, "service failed");
                             drop(_guard);
                             self.failed(error);
                             let _ = msg.tx.send(Err(self
