@@ -175,8 +175,8 @@ where
 
                     // Wait for the service to be ready
                     tracing::trace!(
-                        { resumed = !first },
-                        "worker received request; waiting for service readiness"
+                        resumed = !first,
+                        message = "worker received request; waiting for service readiness"
                     );
                     match self.service.poll_ready() {
                         Ok(Async::Ready(())) => {
