@@ -7,7 +7,7 @@ use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
 use tower_util::Ready;
-use tracing::{debug, info, trace};
+use tracing::{debug, trace};
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
 ///
