@@ -77,9 +77,10 @@ where
     ///
     /// Returns true iff the referenced service was unready and it was
     /// succsesfully canceled.
-    pub fn cancel_unready<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
+    fn cancel_unready<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
         if let Some(c) = self.cancelations.swap_remove(key) {
-            c.send(()).is_ok()
+            c.send(()).expect("cancel receiver lost");
+            true
         } else {
             false
         }
@@ -117,10 +118,7 @@ where
 
         self.ready_services
             .swap_remove_full(key)
-            .map(|(idx, _k, _)| {
-                debug_assert!(!self.cancelations.contains_key(&_k));
-                idx
-            })
+            .map(|(idx, _, _)| idx)
     }
 }
 
@@ -140,7 +138,7 @@ where
     pub fn push_unready(&mut self, key: K, svc: S) {
         let (tx, rx) = oneshot::channel();
         if let Some(c) = self.cancelations.insert(key.clone(), tx) {
-            let _ = c.send(());
+            c.send(()).expect("cancel receiver lost");
         }
         self.unready_services.push(UnreadyService {
             key: Some(key),
@@ -161,17 +159,19 @@ where
                 Ok(Async::Ready(None)) => return Async::Ready(()),
                 Ok(Async::Ready(Some((key, svc)))) => {
                     trace!("endpoint ready");
-                    let _cancel = self.cancelations.remove(&key);
-                    debug_assert!(_cancel.is_some(), "missing cancelation");
+                    self.cancelations.remove(&key).expect("cancel sender lost");
                     self.ready_services.insert(key, svc);
                 }
-                Err((key, UnreadyError::Canceled)) => {
-                    debug_assert!(!self.cancelations.contains_key(&key));
+                Err((_, UnreadyError::Canceled)) => {
+                    debug!("endpoint canceled");
+                    // Either the cancelation has already been removed, or a
+                    // replacement unready service has already been pushed.
                 }
                 Err((key, UnreadyError::Inner(e))) => {
                     debug!("dropping failed endpoint: {:?}", e);
-                    let _cancel = self.cancelations.swap_remove(&key);
-                    debug_assert!(_cancel.is_some());
+                    self.cancelations
+                        .swap_remove(&key)
+                        .expect("missing cancelation");
                 }
             }
         }
@@ -202,11 +202,13 @@ where
                     .ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
+
                 // If a new version of this service has been added to the
                 // unready set, don't overwrite it.
                 if !self.unready_contains(&key) {
                     self.push_unready(key, svc);
                 }
+
                 Ok(Async::NotReady)
             }
             Err(e) => {
@@ -253,7 +255,7 @@ where
     type Error = (K, UnreadyError);
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Ok(Async::Ready(())) = self.cancel.poll() {
+        if self.cancel.poll().expect("cancel sender lost").is_ready() {
             let key = self.key.take().expect("polled after ready");
             return Err((key, UnreadyError::Canceled));
         }
