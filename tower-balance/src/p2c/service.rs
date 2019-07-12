@@ -83,14 +83,15 @@ where
                 Change::Remove(key) => {
                     trace!("remove");
                     if let Some(idx) = self.ready_services.evict(&key) {
+                        // If a service was removed from the ready set, update
+                        // the ready index accordingly.
                         self.repair_next_ready_index(idx);
                     }
                 }
                 Change::Insert(key, svc) => {
                     trace!("insert");
-                    if let Some(idx) = self.ready_services.evict(&key) {
-                        self.repair_next_ready_index(idx);
-                    }
+                    // If this service already existed in the set, it will be
+                    // replaced as the new one becomes ready.
                     self.ready_services.push_unready(key, svc);
                 }
             }
@@ -98,6 +99,7 @@ where
     }
 
     fn poll_unready(&mut self) {
+        // Note: this cannot perturb the order of ready services.
         self.ready_services.poll_unready();
         trace!(
             "ready={}; unready={}",
