@@ -1,5 +1,5 @@
-use crate::error;
 use super::Balance;
+use crate::error;
 use futures::{try_ready, Future, Poll};
 use rand::{rngs::SmallRng, FromEntropy};
 use std::marker::PhantomData;

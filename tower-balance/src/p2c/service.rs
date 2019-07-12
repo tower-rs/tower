@@ -226,7 +226,7 @@ where
     fn call(&mut self, request: Req) -> Self::Future {
         let index = self.next_ready_index.take().expect("not ready");
         self.ready_services
-            .process_ready_index(index, move |svc| svc.call(request))
+            .call_ready_index(index, request)
             .map_err(Into::into)
     }
 }

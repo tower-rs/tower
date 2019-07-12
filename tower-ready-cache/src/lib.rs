@@ -153,7 +153,7 @@ where
     ///
     /// Returns `Async::Ready` when there are no remaining unready services.
     /// `poll_ready` should be called again after `push_unready` or
-    /// `process_ready_index` are invoked.
+    /// `call_ready_index` are invoked.
     pub fn poll_unready(&mut self) -> Async<()> {
         loop {
             match self.unready_services.poll() {
@@ -224,16 +224,13 @@ where
     /// Swap-removes the indexed service from the ready set.
     ///
     /// Panics if the provided `index` is out of range.
-    pub fn process_ready_index<T, P>(&mut self, index: usize, process: P) -> T
-    where
-        P: FnOnce(&mut S) -> T,
-    {
+    pub fn call_ready_index(&mut self, index: usize, req: Req) -> S::Future {
         let (key, mut svc) = self
             .ready_services
             .swap_remove_index(index)
             .expect("index out of range");
 
-        let t = (process)(&mut svc);
+        let fut = svc.call(req);
 
         // If a new version of this service has been added to the
         // unready set, don't overwrite it.
@@ -241,7 +238,7 @@ where
             self.push_unready(key, svc);
         }
 
-        t
+        fut
     }
 }
 
