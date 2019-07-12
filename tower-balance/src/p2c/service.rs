@@ -150,7 +150,7 @@ where
                 Err((key, Error::Canceled)) => debug_assert!(!self.cancelations.contains_key(&key)),
                 Err((key, Error::Inner(e))) => {
                     let error = e.into();
-                    info!({ %error }, "dropping failed endpoint");
+                    debug!({ %error }, "dropping failed endpoint");
                     let _cancel = self.cancelations.swap_remove(&key);
                     debug_assert!(_cancel.is_some());
                 }
@@ -227,7 +227,7 @@ where
             Err(e) => {
                 // failed, so drop it.
                 let error = e.into();
-                info!({ %error }, "evicting failed endpoint");
+                debug!({ %error }, "evicting failed endpoint");
                 self.ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
