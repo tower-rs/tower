@@ -73,7 +73,10 @@ where
                     return Ok(Async::NotReady);
                 }
 
-                tracing::trace!("decided to add service to loaded pool");
+                tracing::trace!(
+                    pool.services = self.services,
+                    message = "decided to add service to loaded pool"
+                );
                 try_ready!(self.maker.poll_ready());
                 tracing::trace!("making new service");
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
@@ -83,7 +86,10 @@ where
 
         if let Some(mut fut) = self.making.take() {
             if let Async::Ready(s) = fut.poll()? {
-                tracing::trace!("finished creating new service");
+                tracing::trace!(
+                    pool.services = self.services,
+                    message = "finished creating new service"
+                );
                 self.services += 1;
                 self.load = Level::Normal;
                 return Ok(Async::Ready(Change::Insert(self.services, s)));
@@ -100,10 +106,13 @@ where
             Level::Normal => Ok(Async::NotReady),
             Level::Low if self.services == 1 => Ok(Async::NotReady),
             Level::Low => {
-                tracing::trace!("removing service for over-provisioned pool");
                 self.load = Level::Normal;
                 let rm = self.services;
                 self.services -= 1;
+                tracing::trace!(
+                    pool.services = self.services,
+                    message = "removing service for over-provisioned pool"
+                );
                 Ok(Async::Ready(Change::Remove(rm)))
             }
         }

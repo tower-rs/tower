@@ -168,7 +168,7 @@ where
                 Some((msg, first)) => {
                     let _guard = msg.span.enter();
                     if let Some(ref failed) = self.failed {
-                        tracing::trace!("notifying about worker failure");
+                        tracing::trace!("notifying caller about worker failure");
                         let _ = msg.tx.send(Err(failed.clone()));
                         continue;
                     }
@@ -180,7 +180,7 @@ where
                     );
                     match self.service.poll_ready() {
                         Ok(Async::Ready(())) => {
-                            tracing::debug!("processing request");
+                            tracing::debug!(service.ready = true, message = "processing request");
                             let response = self.service.call(msg.request);
 
                             // Send the response future back to the sender.
@@ -191,7 +191,7 @@ where
                             let _ = msg.tx.send(Ok(response));
                         }
                         Ok(Async::NotReady) => {
-                            tracing::trace!("service not ready; delay");
+                            tracing::trace!(service.ready = false, message = "delay");
                             // Put out current message back in its slot.
                             drop(_guard);
                             self.current_message = Some(msg);
