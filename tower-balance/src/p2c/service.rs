@@ -1,13 +1,11 @@
 use crate::error;
-use futures::{future, stream, try_ready, Async, Future, Poll, Stream};
-use indexmap::IndexMap;
+use crate::ready_services::ReadyServices;
+use futures::{future, try_ready, Async, Future, Poll};
 use log::{debug, trace};
 use rand::{rngs::SmallRng, FromEntropy};
-use tokio_sync::oneshot;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
-use tower_util::Ready;
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
 ///
@@ -26,31 +24,13 @@ use tower_util::Ready;
 pub struct Balance<D: Discover, Req> {
     discover: D,
 
-    ready_services: IndexMap<D::Key, D::Service>,
-
-    unready_services: stream::FuturesUnordered<UnreadyService<D::Key, D::Service, Req>>,
-    cancelations: IndexMap<D::Key, oneshot::Sender<()>>,
+    ready_services: ReadyServices<D::Key, D::Service, Req>,
 
     /// Holds an index into `endpoints`, indicating the service that has been
     /// chosen to dispatch the next request.
     next_ready_index: Option<usize>,
 
     rng: SmallRng,
-}
-
-/// A Future that becomes satisfied when an `S`-typed service is ready.
-///
-/// May fail due to cancelation, i.e. if the service is removed from discovery.
-#[derive(Debug)]
-struct UnreadyService<K, S, Req> {
-    key: Option<K>,
-    cancel: oneshot::Receiver<()>,
-    ready: tower_util::Ready<S, Req>,
-}
-
-enum Error<E> {
-    Inner(E),
-    Canceled,
 }
 
 impl<D, Req> Balance<D, Req>
@@ -63,9 +43,7 @@ where
         Self {
             rng,
             discover,
-            ready_services: IndexMap::default(),
-            cancelations: IndexMap::default(),
-            unready_services: stream::FuturesUnordered::new(),
+            ready_services: ReadyServices::default(),
             next_ready_index: None,
         }
     }
@@ -77,12 +55,7 @@ where
 
     /// Returns the number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
-        self.ready_services.len() + self.unready_services.len()
-    }
-
-    // XXX `pool::Pool` requires direct access to this... Not ideal.
-    pub(crate) fn discover_mut(&mut self) -> &mut D {
-        &mut self.discover
+        self.ready_services.ready_len() + self.ready_services.unready_len()
     }
 }
 
@@ -104,84 +77,33 @@ where
             match try_ready!(self.discover.poll().map_err(|e| error::Discover(e.into()))) {
                 Change::Remove(key) => {
                     trace!("remove");
-                    self.evict(&key)
+                    if let Some(idx) = self.ready_services.swap_evict_ready(&key) {
+                        self.repair_next_ready_index(idx);
+                    }
                 }
                 Change::Insert(key, svc) => {
                     trace!("insert");
-                    self.evict(&key);
-                    self.push_unready(key, svc);
+                    if let Some(idx) = self.ready_services.swap_evict_ready(&key) {
+                        self.repair_next_ready_index(idx);
+                    }
+                    self.ready_services.push_unready(key, svc);
                 }
             }
-        }
-    }
-
-    fn push_unready(&mut self, key: D::Key, svc: D::Service) {
-        let (tx, rx) = oneshot::channel();
-        self.cancelations.insert(key.clone(), tx);
-        self.unready_services.push(UnreadyService {
-            key: Some(key),
-            ready: Ready::new(svc),
-            cancel: rx,
-        });
-    }
-
-    fn evict(&mut self, key: &D::Key) {
-        // Update the ready index to account for reordering of ready.
-        if let Some((idx, _, _)) = self.ready_services.swap_remove_full(key) {
-            self.next_ready_index = self
-                .next_ready_index
-                .and_then(|i| Self::repair_index(i, idx, self.ready_services.len()));
-            debug_assert!(!self.cancelations.contains_key(key));
-        } else if let Some(cancel) = self.cancelations.remove(key) {
-            let _ = cancel.send(());
         }
     }
 
     fn poll_unready(&mut self) {
-        loop {
-            match self.unready_services.poll() {
-                Ok(Async::NotReady) | Ok(Async::Ready(None)) => return,
-                Ok(Async::Ready(Some((key, svc)))) => {
-                    trace!("endpoint ready");
-                    let _cancel = self.cancelations.remove(&key);
-                    debug_assert!(_cancel.is_some(), "missing cancelation");
-                    self.ready_services.insert(key, svc);
-                }
-                Err((key, Error::Canceled)) => debug_assert!(!self.cancelations.contains_key(&key)),
-                Err((key, Error::Inner(e))) => {
-                    debug!("dropping failed endpoint: {:?}", e.into());
-                    let _cancel = self.cancelations.swap_remove(&key);
-                    debug_assert!(_cancel.is_some());
-                }
-            }
-        }
-    }
-
-    // Returns the updated index of `orig_idx` after the entry at `rm_idx` was
-    // swap-removed from an IndexMap with `orig_sz` items.
-    //
-    // If `orig_idx` is the same as `rm_idx`, None is returned to indicate that
-    // index cannot be repaired.
-    fn repair_index(orig_idx: usize, rm_idx: usize, new_sz: usize) -> Option<usize> {
-        debug_assert!(orig_idx <= new_sz && rm_idx <= new_sz);
-        let repaired = match orig_idx {
-            i if i == rm_idx => None,         // removed
-            i if i == new_sz => Some(rm_idx), // swapped
-            i => Some(i),                     // uneffected
-        };
+        self.ready_services.poll_unready();
         trace!(
-            "repair_index: orig={}; rm={}; sz={}; => {:?}",
-            orig_idx,
-            rm_idx,
-            new_sz,
-            repaired,
+            "ready={}; unready={}",
+            self.ready_services.ready_len(),
+            self.ready_services.unready_len(),
         );
-        repaired
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
     fn p2c_next_ready_index(&mut self) -> Option<usize> {
-        match self.ready_services.len() {
+        match self.ready_services.ready_len() {
             0 => None,
             1 => Some(0),
             len => {
@@ -212,36 +134,32 @@ where
 
     /// Accesses a ready endpoint by index and returns its current load.
     fn ready_index_load(&self, index: usize) -> <D::Service as Load>::Metric {
-        let (_, svc) = self.ready_services.get_index(index).expect("invalid index");
+        let (_, svc) = self
+            .ready_services
+            .get_ready_index(index)
+            .expect("invalid index");
         svc.load()
     }
 
-    fn poll_ready_index_or_evict(&mut self, index: usize) -> Poll<(), ()> {
-        let (_, svc) = self
-            .ready_services
-            .get_index_mut(index)
-            .expect("invalid index");
-
-        match svc.poll_ready() {
-            Ok(Async::Ready(())) => Ok(Async::Ready(())),
-            Ok(Async::NotReady) => {
-                // became unready; so move it back there.
-                let (key, svc) = self
-                    .ready_services
-                    .swap_remove_index(index)
-                    .expect("invalid ready index");
-                self.push_unready(key, svc);
-                Ok(Async::NotReady)
-            }
-            Err(e) => {
-                // failed, so drop it.
-                debug!("evicting failed endpoint: {:?}", e.into());
-                self.ready_services
-                    .swap_remove_index(index)
-                    .expect("invalid ready index");
-                Err(())
-            }
-        }
+    // Updates `next_ready_index_idx` after the entry at `rm_idx` was evicted.
+    fn repair_next_ready_index(&mut self, rm_idx: usize) {
+        self.next_ready_index = self.next_ready_index.take().and_then(|idx| {
+            let new_sz = self.ready_services.ready_len();
+            debug_assert!(idx <= new_sz && rm_idx <= new_sz);
+            let repaired = match idx {
+                i if i == rm_idx => None,         // removed
+                i if i == new_sz => Some(rm_idx), // swapped
+                i => Some(i),                     // uneffected
+            };
+            trace!(
+                "repair_index: orig={}; rm={}; sz={}; => {:?}",
+                idx,
+                rm_idx,
+                new_sz,
+                repaired,
+            );
+            repaired
+        });
     }
 }
 
@@ -272,11 +190,6 @@ where
 
         // Drive new or busy services to readiness.
         self.poll_unready();
-        trace!(
-            "ready={}; unready={}",
-            self.ready_services.len(),
-            self.unready_services.len()
-        );
 
         loop {
             // If a node has already been selected, ensure that it is ready.
@@ -286,9 +199,13 @@ where
             // from the ready set so that P2C can be performed again.
             if let Some(index) = self.next_ready_index {
                 trace!("preselected ready_index={}", index);
-                debug_assert!(index < self.ready_services.len());
+                debug_assert!(index < self.ready_services.ready_len());
 
-                if let Ok(Async::Ready(())) = self.poll_ready_index_or_evict(index) {
+                if let Ok(Async::Ready(())) = self
+                    .ready_services
+                    .poll_ready_index(index)
+                    .expect("invalid ready index")
+                {
                     return Ok(Async::Ready(()));
                 }
 
@@ -297,7 +214,7 @@ where
 
             self.next_ready_index = self.p2c_next_ready_index();
             if self.next_ready_index.is_none() {
-                debug_assert!(self.ready_services.is_empty());
+                debug_assert_eq!(self.ready_services.ready_len(), 0);
                 return Ok(Async::NotReady);
             }
         }
@@ -305,39 +222,9 @@ where
 
     fn call(&mut self, request: Req) -> Self::Future {
         let index = self.next_ready_index.take().expect("not ready");
-        let (key, mut svc) = self
-            .ready_services
-            .swap_remove_index(index)
-            .expect("invalid ready index");
-        // no need to repair since the ready_index has been cleared.
-
-        let fut = svc.call(request);
-        self.push_unready(key, svc);
-
-        fut.map_err(Into::into)
-    }
-}
-
-impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
-    type Item = (K, S);
-    type Error = (K, Error<S::Error>);
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Ok(Async::Ready(())) = self.cancel.poll() {
-            let key = self.key.take().expect("polled after ready");
-            return Err((key, Error::Canceled));
-        }
-
-        match self.ready.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(svc)) => {
-                let key = self.key.take().expect("polled after ready");
-                Ok((key, svc).into())
-            }
-            Err(e) => {
-                let key = self.key.take().expect("polled after ready");
-                Err((key, Error::Inner(e)))
-            }
-        }
+        self.ready_services
+            .swap_process_ready_index(index, move |svc| svc.call(request))
+            .expect("invalid ready index")
+            .map_err(Into::into)
     }
 }
