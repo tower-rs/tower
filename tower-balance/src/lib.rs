@@ -8,6 +8,4 @@
 
 pub mod error;
 pub mod p2c;
-// FIXME
-//pub mod pool;
-mod ready_services;
+pub mod pool;

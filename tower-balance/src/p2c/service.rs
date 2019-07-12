@@ -1,10 +1,10 @@
 use crate::error;
-use crate::ready_services::ReadyServices;
 use futures::{future, try_ready, Async, Future, Poll};
 use log::{debug, trace};
 use rand::{rngs::SmallRng, FromEntropy};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
+use tower_ready_cache::ReadyCache;
 use tower_service::Service;
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
@@ -24,7 +24,7 @@ use tower_service::Service;
 pub struct Balance<D: Discover, Req> {
     discover: D,
 
-    ready_services: ReadyServices<D::Key, D::Service, Req>,
+    ready_services: ReadyCache<D::Key, D::Service, Req>,
 
     /// Holds an index into `endpoints`, indicating the service that has been
     /// chosen to dispatch the next request.
@@ -37,13 +37,14 @@ impl<D, Req> Balance<D, Req>
 where
     D: Discover,
     D::Service: Service<Req>,
+    <D::Service as Service<Req>>::Error: Into<error::Error>,
 {
     /// Initializes a P2C load balancer from the provided randomization source.
     pub fn new(discover: D, rng: SmallRng) -> Self {
         Self {
             rng,
             discover,
-            ready_services: ReadyServices::default(),
+            ready_services: ReadyCache::default(),
             next_ready_index: None,
         }
     }
@@ -68,6 +69,10 @@ where
     <D::Service as Load>::Metric: std::fmt::Debug,
     <D::Service as Service<Req>>::Error: Into<error::Error>,
 {
+    pub(crate) fn discover_mut(&mut self) -> &mut D {
+        &mut self.discover
+    }
+
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
@@ -77,13 +82,13 @@ where
             match try_ready!(self.discover.poll().map_err(|e| error::Discover(e.into()))) {
                 Change::Remove(key) => {
                     trace!("remove");
-                    if let Some(idx) = self.ready_services.swap_evict_ready(&key) {
+                    if let Some(idx) = self.ready_services.evict(&key) {
                         self.repair_next_ready_index(idx);
                     }
                 }
                 Change::Insert(key, svc) => {
                     trace!("insert");
-                    if let Some(idx) = self.ready_services.swap_evict_ready(&key) {
+                    if let Some(idx) = self.ready_services.evict(&key) {
                         self.repair_next_ready_index(idx);
                     }
                     self.ready_services.push_unready(key, svc);
@@ -201,11 +206,7 @@ where
                 trace!("preselected ready_index={}", index);
                 debug_assert!(index < self.ready_services.ready_len());
 
-                if let Ok(Async::Ready(())) = self
-                    .ready_services
-                    .poll_ready_index(index)
-                    .expect("invalid ready index")
-                {
+                if let Ok(Async::Ready(())) = self.ready_services.poll_ready_index(index) {
                     return Ok(Async::Ready(()));
                 }
 
@@ -223,8 +224,7 @@ where
     fn call(&mut self, request: Req) -> Self::Future {
         let index = self.next_ready_index.take().expect("not ready");
         self.ready_services
-            .swap_process_ready_index(index, move |svc| svc.call(request))
-            .expect("invalid ready index")
+            .process_ready_index(index, move |svc| svc.call(request))
             .map_err(Into::into)
     }
 }
