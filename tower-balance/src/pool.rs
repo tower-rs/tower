@@ -86,11 +86,11 @@ where
 
         if let Some(mut fut) = self.making.take() {
             if let Async::Ready(s) = fut.poll()? {
+                self.services += 1;
                 tracing::trace!(
                     pool.services = self.services,
                     message = "finished creating new service"
                 );
-                self.services += 1;
                 self.load = Level::Normal;
                 return Ok(Async::Ready(Change::Insert(self.services, s)));
             } else {
