@@ -93,6 +93,9 @@ where
         // outside of task context.
         let (tx, rx) = oneshot::channel();
 
+        // get the current Span so that we can explicitly propagate it to the worker
+        // if we didn't do this, events on the worker related to this span wouldn't be counted
+        // towards that span since the worker would have no way of entering it.
         let span = tracing::Span::current();
         tracing::trace!(parent: &span, "sending request to buffer worker");
         match self.tx.try_send(Message { request, span, tx }) {
