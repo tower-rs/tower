@@ -171,8 +171,8 @@ where
             i => Some(i),                     // uneffected
         };
         trace!(
-            { orig = orig_idx, rm = rm_idx, sz = new_sz, i = ?repaired },
-            "repair_index"
+            { next.idx = orig_idx, removed.idx = rm_idx, length = new_sz, repaired.idx = ?repaired },
+            "repairing index"
         );
         repaired
     }
@@ -273,7 +273,7 @@ where
             // detector has changed the state of the service, it may be evicted
             // from the ready set so that P2C can be performed again.
             if let Some(index) = self.next_ready_index {
-                trace!({ index }, "preselected ready_index");
+                trace!({ next.idx = index }, "preselected ready_index");
                 debug_assert!(index < self.ready_services.len());
 
                 if let Ok(Async::Ready(())) = self.poll_ready_index_or_evict(index) {
