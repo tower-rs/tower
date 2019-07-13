@@ -69,10 +69,6 @@ where
     <D::Service as Load>::Metric: std::fmt::Debug,
     <D::Service as Service<Req>>::Error: Into<error::Error>,
 {
-    pub(crate) fn discover_mut(&mut self) -> &mut D {
-        &mut self.discover
-    }
-
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.

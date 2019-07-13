@@ -56,6 +56,11 @@ impl<K, S, Req> ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
 {
+    /// Returns the total number of services in the cache.
+    pub fn len(&self) -> usize {
+        self.ready_len() + self.unready_len()
+    }
+
     /// Returns the number of services in the ready set.
     pub fn ready_len(&self) -> usize {
         self.ready_services.len()
