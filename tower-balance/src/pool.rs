@@ -21,7 +21,7 @@ use tower_ready_cache::ReadyCache;
 use tower_service::Service;
 use tower_util::MakeService;
 
-/// A dynamically sized, load-balanced pool of `Service` instances.
+/// A dynamically sized pool of `Service` instances.
 pub struct Pool<MS, Request>
 where
     MS: MakeService<(), Request, Error = error::Error>,
@@ -32,8 +32,6 @@ where
     make_service: MS,
     pending_service: Option<MS::Future>,
     cache: ReadyCache<usize, MS::Service, Request>,
-    //options: Builder,
-    //ewma: f64,
 }
 
 impl<MS, Request> Pool<MS, Request>

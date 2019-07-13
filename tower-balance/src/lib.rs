@@ -6,6 +6,7 @@
 #![allow(elided_lifetimes_in_paths)]
 #![deny(warnings)]
 
+pub mod circuit_breaker;
 pub mod error;
 pub mod p2c;
 pub mod pool;
