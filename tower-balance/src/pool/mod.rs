@@ -26,6 +26,7 @@ use tower_util::MakeService;
 #[cfg(test)]
 mod test;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum Level {
     /// Load is low -- remove a service instance.
     Low,
@@ -69,10 +70,15 @@ where
             .expect("cannot be closed as we hold tx too")
         {
             self.services.remove(sid);
+            tracing::trace!(
+                pool.services = self.services.len(),
+                message = "removing dropped service"
+            );
         }
 
         if self.services.len() == 0 && self.making.is_none() {
             let _ = try_ready!(self.maker.poll_ready());
+            tracing::trace!("construct initial pool connection");
             self.making = Some(self.maker.make_service(self.target.clone()));
         }
 
@@ -86,7 +92,12 @@ where
                     return Ok(Async::NotReady);
                 }
 
+                tracing::trace!(
+                    pool.services = self.services.len(),
+                    message = "decided to add service to loaded pool"
+                );
                 try_ready!(self.maker.poll_ready());
+                tracing::trace!("making new service");
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
                 self.making = Some(self.maker.make_service(self.target.clone()));
             }
@@ -100,6 +111,10 @@ where
                     id,
                     notify: self.died_tx.clone(),
                 };
+                tracing::trace!(
+                    pool.services = self.services.len(),
+                    message = "finished creating new service"
+                );
                 self.load = Level::Normal;
                 return Ok(Async::Ready(Change::Insert(id, svc)));
             } else {
@@ -120,6 +135,10 @@ where
                 let rm = self.services.iter().next().unwrap().0;
                 // note that we _don't_ remove from self.services here
                 // that'll happen automatically on drop
+                tracing::trace!(
+                    pool.services = self.services.len(),
+                    message = "removing service for over-provisioned pool"
+                );
                 Ok(Async::Ready(Change::Remove(rm)))
             }
         }
@@ -309,6 +328,9 @@ where
 
             let discover = self.balance.discover_mut();
             if self.ewma < self.options.low {
+                if discover.load != Level::Low {
+                    tracing::trace!({ ewma = %self.ewma }, "pool is over-provisioned");
+                }
                 discover.load = Level::Low;
 
                 if discover.services.len() > 1 {
@@ -316,6 +338,9 @@ where
                     self.ewma = self.options.init;
                 }
             } else {
+                if discover.load != Level::Normal {
+                    tracing::trace!({ ewma = %self.ewma }, "pool is appropriately provisioned");
+                }
                 discover.load = Level::Normal;
             }
 
@@ -329,6 +354,9 @@ where
             self.ewma = self.options.alpha + (1.0 - self.options.alpha) * self.ewma;
 
             if self.ewma > self.options.high {
+                if discover.load != Level::High {
+                    tracing::trace!({ ewma = %self.ewma }, "pool is under-provisioned");
+                }
                 discover.load = Level::High;
 
                 // don't reset the EWMA -- in theory, poll_ready should now start returning

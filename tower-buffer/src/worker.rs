@@ -82,33 +82,41 @@ where
     }
 
     /// Return the next queued Message that hasn't been canceled.
-    fn poll_next_msg(&mut self) -> Poll<Option<Message<Request, T::Future>>, ()> {
+    ///
+    /// If a `Message` is returned, the `bool` is true if this is the first time we received this
+    /// message, and false otherwise (i.e., we tried to forward it to the backing service before).
+    fn poll_next_msg(&mut self) -> Poll<Option<(Message<Request, T::Future>, bool)>, ()> {
         if self.finish {
             // We've already received None and are shutting down
             return Ok(Async::Ready(None));
         }
 
+        tracing::trace!("worker polling for next message");
         if let Some(mut msg) = self.current_message.take() {
             // poll_cancel returns Async::Ready is the receiver is dropped.
             // Returning NotReady means it is still alive, so we should still
             // use it.
             if msg.tx.poll_close()?.is_not_ready() {
-                return Ok(Async::Ready(Some(msg)));
+                tracing::trace!("resuming buffered request");
+                return Ok(Async::Ready(Some((msg, false))));
             }
+            tracing::trace!("dropping cancelled buffered request");
         }
 
         // Get the next request
         while let Some(mut msg) = try_ready!(self.rx.poll().map_err(|_| ())) {
             if msg.tx.poll_close()?.is_not_ready() {
-                return Ok(Async::Ready(Some(msg)));
+                tracing::trace!("processing new request");
+                return Ok(Async::Ready(Some((msg, true))));
             }
             // Otherwise, request is canceled, so pop the next one.
+            tracing::trace!("dropping cancelled request");
         }
 
         Ok(Async::Ready(None))
     }
 
-    fn failed(&mut self, error: T::Error) {
+    fn failed(&mut self, error: Error) {
         // The underlying service failed when we called `poll_ready` on it with the given `error`. We
         // need to communicate this to all the `Buffer` handles. To do so, we wrap up the error in
         // an `Arc`, send that `Arc<E>` to all pending requests, and store it so that subsequent
@@ -121,7 +129,7 @@ where
         // request. We do this by *first* exposing the error, *then* closing the channel used to
         // send more requests (so the client will see the error when the send fails), and *then*
         // sending the error to all outstanding requests.
-        let error = ServiceError::new(error.into());
+        let error = ServiceError::new(error);
 
         let mut inner = self.handle.inner.lock().unwrap();
 
@@ -157,30 +165,43 @@ where
 
         loop {
             match try_ready!(self.poll_next_msg()) {
-                Some(msg) => {
+                Some((msg, first)) => {
+                    let _guard = msg.span.enter();
                     if let Some(ref failed) = self.failed {
+                        tracing::trace!("notifying caller about worker failure");
                         let _ = msg.tx.send(Err(failed.clone()));
                         continue;
                     }
 
                     // Wait for the service to be ready
+                    tracing::trace!(
+                        resumed = !first,
+                        message = "worker received request; waiting for service readiness"
+                    );
                     match self.service.poll_ready() {
                         Ok(Async::Ready(())) => {
+                            tracing::debug!(service.ready = true, message = "processing request");
                             let response = self.service.call(msg.request);
 
                             // Send the response future back to the sender.
                             //
                             // An error means the request had been canceled in-between
                             // our calls, the response future will just be dropped.
+                            tracing::trace!("returning response future");
                             let _ = msg.tx.send(Ok(response));
                         }
                         Ok(Async::NotReady) => {
+                            tracing::trace!(service.ready = false, message = "delay");
                             // Put out current message back in its slot.
+                            drop(_guard);
                             self.current_message = Some(msg);
                             return Ok(Async::NotReady);
                         }
                         Err(e) => {
-                            self.failed(e);
+                            let error = e.into();
+                            tracing::debug!({ %error }, "service failed");
+                            drop(_guard);
+                            self.failed(error);
                             let _ = msg.tx.send(Err(self
                                 .failed
                                 .as_ref()
