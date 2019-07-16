@@ -15,7 +15,7 @@
 #![deny(missing_docs)]
 
 use crate::error;
-use futures::{Async, Future, Poll};
+use futures::{future, try_ready, Async, Future, Poll};
 use tower_load::Load;
 use tower_ready_cache::ReadyCache;
 use tower_service::Service;
@@ -56,21 +56,6 @@ where
             cache: ReadyCache::default(),
         }
     }
-
-    fn poll_pending_service(&mut self, mut fut: MS::Future) -> Poll<(), error::Error> {
-        match fut.poll().map_err(Into::into)? {
-            Async::NotReady => {
-                self.pending_service = Some(fut);
-                Ok(Async::NotReady)
-            }
-            Async::Ready(svc) => {
-                let id = self.next_id;
-                self.next_id += 1;
-                self.cache.push_unready(id, svc);
-                Ok(Async::Ready(()))
-            }
-        }
-    }
 }
 
 impl<MS, Req> Service<Req> for Pool<MS, Req>
@@ -82,49 +67,38 @@ where
 {
     type Response = <MS::Service as Service<Req>>::Response;
     type Error = error::Error;
-    type Future = <MS::Service as Service<Req>>::Future;
+    type Future = future::MapErr<
+        <MS::Service as Service<Req>>::Future,
+        fn(<MS::Service as Service<Req>>::Error) -> error::Error,
+    >;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        let adding = match self.pending_service.take() {
-            None => false,
-            Some(fut) => {
-                self.poll_pending_service(fut)?;
-                true
-            }
-        };
-
-        // Drive pending services, including any just-added services, to ready.
-        // If there are ready services, we're ready to dispatch a request
-        // without doing any more work.
-        self.cache.poll_unready();
-        if self.cache.ready_len() > 0 {
+        if self.cache.poll_ready()?.is_ready() {
             return Ok(Async::Ready(()));
         }
 
-        if adding {
-            // A service is already pending or was just added to the cache, so
-            // defer until an unready service notifies availability.
-            return Ok(Async::NotReady);
-        }
-        debug_assert!(self.pending_service.is_none());
+        loop {
+            if let Some(fut) = self.pending_service.as_mut() {
+                let svc = try_ready!(fut.poll().map_err(Into::into));
+                self.pending_service = None;
 
-        if self.cache.len() == self.max_services {
-            // The cache is at capacity so we're stuck waiting until new an
-            // existing service is available.
-            return Ok(Async::NotReady);
-        }
+                let id = self.next_id;
+                self.next_id += 1;
+                self.cache.push_service(id, svc);
 
-        let fut = self.make_service.make_service(());
-        if self.poll_pending_service(fut)?.is_ready() {
-            return Ok(self.cache.poll_unready());
-        }
+                return self.cache.poll_ready();
+            }
 
-        Ok(Async::NotReady)
+            if self.cache.len() == self.max_services {
+                return Ok(Async::NotReady);
+            }
+
+            self.pending_service = Some(self.make_service.make_service(()));
+        }
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
-        let n = self.cache.ready_len();
-        debug_assert!(n > 0);
-        self.cache.call_ready_index(n - 1, req)
+        debug_assert!(self.cache.ready_len() > 0);
+        self.cache.call_next_ready(req).map_err(Into::into)
     }
 }

@@ -59,7 +59,7 @@ fn main() {
             d,
             DEFAULT_RTT,
             decay,
-            load::NoInstrument,
+            (),
         ));
         run("P2C+PeakEWMA...", pe)
     });
@@ -68,7 +68,7 @@ fn main() {
         let d = gen_disco();
         let ll = lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(
             d,
-            load::NoInstrument,
+            (),
         ));
         run("P2C+LeastLoaded...", ll)
     });

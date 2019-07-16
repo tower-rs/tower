@@ -1,7 +1,6 @@
 //! A `Load` implementation that PeakEWMA on response latency.
 
-use super::{Instrument, InstrumentFuture, NoInstrument};
-use crate::Load;
+use crate::{instrument, Load};
 use futures::{try_ready, Async, Poll};
 use log::trace;
 use std::{
@@ -37,7 +36,7 @@ use tower_service::Service;
 ///
 /// [finagle]:
 /// https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
-pub struct PeakEwma<S, I = NoInstrument> {
+pub struct PeakEwma<S, I = ()> {
     service: S,
     decay_ns: f64,
     rtt_estimate: Arc<Mutex<RttEstimate>>,
@@ -45,9 +44,9 @@ pub struct PeakEwma<S, I = NoInstrument> {
 }
 
 /// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
-pub struct PeakEwmaDiscover<D, I = NoInstrument> {
+pub struct PeakEwmaDiscover<D, I = ()> {
     discover: D,
-    decay_ns: f64,
+    decay: Duration,
     default_rtt: Duration,
     instrument: I,
 }
@@ -88,11 +87,11 @@ impl<D, I> PeakEwmaDiscover<D, I> {
     where
         D: Discover,
         D::Service: Service<Request>,
-        I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
+        I: instrument::Instrument<Handle, <D::Service as Service<Request>>::Response>,
     {
         PeakEwmaDiscover {
             discover,
-            decay_ns: nanos(decay),
+            decay,
             default_rtt,
             instrument,
         }
@@ -112,12 +111,8 @@ where
         let change = match try_ready!(self.discover.poll()) {
             Change::Remove(k) => Change::Remove(k),
             Change::Insert(k, svc) => {
-                let peak_ewma = PeakEwma::new(
-                    svc,
-                    self.default_rtt,
-                    self.decay_ns,
-                    self.instrument.clone(),
-                );
+                let peak_ewma =
+                    PeakEwma::new(svc, self.default_rtt, self.decay, self.instrument.clone());
                 Change::Insert(k, peak_ewma)
             }
         };
@@ -129,10 +124,11 @@ where
 // ===== impl PeakEwma =====
 
 impl<S, I> PeakEwma<S, I> {
-    fn new(service: S, default_rtt: Duration, decay_ns: f64, instrument: I) -> Self {
+    /// Wrap a service with a PeakEWMA load instrument.
+    pub fn new(service: S, default_rtt: Duration, decay: Duration, instrument: I) -> Self {
         Self {
             service,
-            decay_ns,
+            decay_ns: nanos(decay),
             rtt_estimate: Arc::new(Mutex::new(RttEstimate::new(nanos(default_rtt)))),
             instrument,
         }
@@ -150,18 +146,18 @@ impl<S, I> PeakEwma<S, I> {
 impl<S, I, Request> Service<Request> for PeakEwma<S, I>
 where
     S: Service<Request>,
-    I: Instrument<Handle, S::Response>,
+    I: instrument::Instrument<Handle, S::Response>,
 {
     type Response = I::Output;
     type Error = S::Error;
-    type Future = InstrumentFuture<S::Future, I, Handle>;
+    type Future = instrument::InstrumentFuture<S::Future, I, Handle>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        InstrumentFuture::new(
+        instrument::InstrumentFuture::new(
             self.instrument.clone(),
             self.handle(),
             self.service.call(req),
@@ -194,6 +190,15 @@ impl<S, I> PeakEwma<S, I> {
     fn update_estimate(&self) -> f64 {
         let mut rtt = self.rtt_estimate.lock().expect("peak ewma prior_estimate");
         rtt.decay(self.decay_ns)
+    }
+}
+
+// === impl Cost ===
+
+/// Constructs a `Cost` from a RTT estimate and number of pending requests.
+impl From<(Duration, u32)> for Cost {
+    fn from((rtt_estimate, pending): (Duration, u32)) -> Self {
+        Cost(nanos(rtt_estimate) * f64::from(pending + 1))
     }
 }
 
@@ -268,13 +273,21 @@ impl RttEstimate {
 
 // ===== impl Handle =====
 
-impl Drop for Handle {
-    fn drop(&mut self) {
+impl Handle {
+    fn decay(&mut self) {
         let recv_at = clock::now();
 
         if let Ok(mut rtt) = self.rtt_estimate.lock() {
             rtt.update(self.sent_at, recv_at, self.decay_ns);
         }
+    }
+}
+
+impl instrument::Handle for Handle {}
+
+impl Drop for Handle {
+    fn drop(&mut self) {
+        self.decay();
     }
 }
 
@@ -337,8 +350,8 @@ mod tests {
             let svc = PeakEwma::new(
                 Svc,
                 Duration::from_millis(10),
-                NANOS_PER_MILLI * 1_000.0,
-                NoInstrument,
+                Duration::from_secs(1),
+                (),
             );
             let Cost(load) = svc.load();
             assert_eq!(load, 10.0 * NANOS_PER_MILLI);
@@ -365,8 +378,8 @@ mod tests {
             let mut svc = PeakEwma::new(
                 Svc,
                 Duration::from_millis(20),
-                NANOS_PER_MILLI * 1_000.0,
-                NoInstrument,
+                Duration::from_secs(1),
+                (),
             );
             assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 

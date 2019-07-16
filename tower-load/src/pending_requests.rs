@@ -1,7 +1,6 @@
 //! A `Load` implementation that uses the count of in-flight requests.
 
-use super::{Instrument, InstrumentFuture, NoInstrument};
-use crate::Load;
+use crate::{instrument, Load};
 use futures::{try_ready, Async, Poll};
 use std::sync::Arc;
 use tower_discover::{Change, Discover};
@@ -9,7 +8,7 @@ use tower_service::Service;
 
 /// Expresses load based on the number of currently-pending requests.
 #[derive(Debug)]
-pub struct PendingRequests<S, I = NoInstrument> {
+pub struct PendingRequests<S, I = ()> {
     service: S,
     ref_count: RefCount,
     instrument: I,
@@ -22,7 +21,7 @@ struct RefCount(Arc<()>);
 
 /// Wraps `inner`'s services with `PendingRequests`.
 #[derive(Debug)]
-pub struct PendingRequestsDiscover<D, I = NoInstrument> {
+pub struct PendingRequestsDiscover<D, I = ()> {
     discover: D,
     instrument: I,
 }
@@ -63,22 +62,36 @@ impl<S, I> Load for PendingRequests<S, I> {
 impl<S, I, Request> Service<Request> for PendingRequests<S, I>
 where
     S: Service<Request>,
-    I: Instrument<Handle, S::Response>,
+    I: instrument::Instrument<Handle, S::Response>,
 {
     type Response = I::Output;
     type Error = S::Error;
-    type Future = InstrumentFuture<S::Future, I, Handle>;
+    type Future = instrument::InstrumentFuture<S::Future, I, Handle>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.service.poll_ready()
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        InstrumentFuture::new(
+        instrument::InstrumentFuture::new(
             self.instrument.clone(),
             self.handle(),
             self.service.call(req),
         )
+    }
+}
+
+// === impl Count ===
+
+impl From<usize> for Count {
+    fn from(count: usize) -> Self {
+        Count(count)
+    }
+}
+
+impl Into<usize> for Count {
+    fn into(self) -> usize {
+        self.0
     }
 }
 
@@ -90,7 +103,7 @@ impl<D, I> PendingRequestsDiscover<D, I> {
     where
         D: Discover,
         D::Service: Service<Request>,
-        I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
+        I: instrument::Instrument<Handle, <D::Service as Service<Request>>::Response>,
     {
         Self {
             discover,
@@ -129,6 +142,14 @@ impl RefCount {
     }
 }
 
+// impl === Handle ===
+
+impl instrument::Handle for Handle {}
+
+impl Drop for Handle {
+    fn drop(&mut self) {}
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,7 +172,7 @@ mod tests {
 
     #[test]
     fn default() {
-        let mut svc = PendingRequests::new(Svc, NoInstrument);
+        let mut svc = PendingRequests::new(Svc, ());
         assert_eq!(svc.load(), Count(0));
 
         let rsp0 = svc.call(());
@@ -171,7 +192,7 @@ mod tests {
     fn instrumented() {
         #[derive(Clone)]
         struct IntoHandle;
-        impl Instrument<Handle, ()> for IntoHandle {
+        impl instrument::Instrument<Handle, ()> for IntoHandle {
             type Output = Handle;
             fn instrument(&self, i: Handle, (): ()) -> Handle {
                 i

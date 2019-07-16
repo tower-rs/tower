@@ -1,26 +1,39 @@
-#![allow(missing_docs)]
+//! A middleware that blocks readiness based on an inner service's load.
 
 use crate::error;
-use futures::{future, try_ready, Async, Future, Poll};
+use futures::{future, try_ready, Future, Poll};
 use tower_load::Load;
-use tower_service::Service;
+use tower_service as svc;
 
-pub trait Breaker<M> {
-    type Future: Future<Item = (), Error = error::Error>;
-
-    fn close_for(&self, load: M) -> Option<Self::Future>;
+/// Determmines readiness based on an `M`-typed load metric.
+pub trait Breaker<M: PartialOrd> {
+    /// Checks to see whether the breaker is open, given a load metric.
+    ///
+    /// If the breaker is closed, NotReady is returned and the task ust be
+    /// notified when the breaker should be polled again with an updated load
+    /// metric.
+    fn poll_breaker(&mut self, load: M) -> Poll<(), error::Error>;
 }
 
-pub struct CicruitBreaker<B, C, S> {
+/// Wraps a load-bearing service with a load-dependent circuit-breaker.
+pub struct Service<B, S> {
     breaker: B,
-    closed: Option<C>,
     inner: S,
 }
 
-impl<B, S, Req> Service<Req> for CicruitBreaker<B, B::Future, S>
+// === impl CircuitBreaker ===
+
+impl<B, S> Service<B, S> {
+    /// Wraps an `S` typed service with `B`-typed breaker.
+    pub fn new(breaker: B, inner: S) -> Self {
+        Self { breaker, inner }
+    }
+}
+
+impl<B, S, Req> svc::Service<Req> for Service<B, S>
 where
     B: Breaker<S::Metric>,
-    S: Load + Service<Req>,
+    S: Load + svc::Service<Req>,
     S::Error: Into<error::Error>,
 {
     type Response = S::Response;
@@ -28,30 +41,57 @@ where
     type Future = future::MapErr<S::Future, fn(S::Error) -> error::Error>;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        // Poll the inner service first so that errors break through.
-        let inner_ready = self.inner.poll_ready().map_err(Into::into)?;
+        try_ready!(self.inner.poll_ready().map_err(Into::into));
+        let load = self.inner.load();
 
-        // If a delay is already active, don't proceed until it completes.
-        if let Some(ref mut fut) = self.closed.as_mut() {
-            try_ready!(fut.poll());
-        }
-        self.closed = None;
-
-        // Determine if the breaker should close given the current inner service
-        // load. If it should close, wait until it reopens..
-        if let Some(mut fut) = self.breaker.close_for(self.inner.load()) {
-            if fut.poll()?.is_not_ready() {
-                self.closed = Some(fut);
-                return Ok(Async::NotReady);
-            }
-        }
-
-        // Finally, when the service is not closed, defer to the inner service's
-        // state.
-        Ok(inner_ready)
+        // Update the breaker with the current load and only advertise readiness
+        // when the breaker is open.
+        self.breaker.poll_breaker(load)
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
         self.inner.call(req).map_err(Into::into)
+    }
+}
+
+#[allow(missing_docs)]
+pub mod delay {
+    use crate::error;
+    use futures::{try_ready, Async, Future, Poll};
+    use std::time::Instant;
+    use tokio_timer::Delay;
+
+    pub trait BreakUntil<M: PartialOrd> {
+        fn break_until(&mut self, load: M) -> Option<Instant>;
+    }
+
+    pub struct Breaker<B> {
+        break_until: B,
+        delay: Option<Delay>,
+    }
+
+    impl<M: PartialOrd, B: BreakUntil<M>> super::Breaker<M> for Breaker<B> {
+        fn poll_breaker(&mut self, load: M) -> Poll<(), error::Error> {
+            // Even if there's already a delay, update the inner breaker with
+            // the new load and reset any pre-existing delay.
+            //
+            // The `delay` is stored so that the breaker task is notified after
+            // the delay expires.
+            self.delay = self.break_until.break_until(load).map(Delay::new);
+
+            if let Some(delay) = self.delay.as_mut() {
+                try_ready!(delay.poll());
+                self.delay = None;
+            }
+
+            Ok(Async::Ready(()))
+        }
+    }
+
+    #[allow(unused_imports)]
+    pub mod peak_ewma {
+        use tower_load::peak_ewma;
+
+        pub struct Breaker {}
     }
 }
