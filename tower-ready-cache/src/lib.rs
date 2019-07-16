@@ -325,14 +325,15 @@ where
                 }
             }
 
-            // Otherwise, try to choose a new ready index by using the last
-            // service in the ready set. This minimizes the work of dequeuing
-            // the service and biases to using a recently-used service so that
-            // earlier services may idle out.
-            self.next_ready_index = match self.ready_len() {
-                0 => return Ok(Async::NotReady),
-                n => Some(n - 1),
+            // If there are no ready services, defer until there are.
+            if self.ready_services.is_empty() {
+                return Ok(Async::NotReady);
             };
+
+            // If there are ready services use the first one in the ready set.
+            // This will tend to favor more-recently added services, since the
+            // last and first are swapped after each use.
+            self.next_ready_index = Some(0);
         }
     }
 
