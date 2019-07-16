@@ -220,6 +220,11 @@ where
         }
     }
 
+    /// Consume the `next_ready_index`.
+    pub fn take_next_ready_index(&mut self) -> Option<usize> {
+        self.next_ready_index.take()
+    }
+
     /// Configures the ready service to be used by `call`.
     ///
     /// This may be called instead of `Service::poll_ready`.
@@ -268,11 +273,10 @@ where
         }
     }
 
-    /// COnsume the `next_ready_index`.
-    pub fn take_next_ready_index(&mut self) -> Option<usize> {
-        self.next_ready_index.take()
-    }
-
+    /// Calls the next ready service.
+    ///
+    /// `poll_next_ready_index` must have returned Ready before this is invoked;
+    /// otherwise, this method panics.
     pub fn call_next_ready(&mut self, req: Req) -> S::Future {
         let index = self
             .next_ready_index

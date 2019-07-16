@@ -99,6 +99,6 @@ where
 
     fn call(&mut self, req: Req) -> Self::Future {
         debug_assert!(self.cache.ready_len() > 0);
-        self.cache.call_next_ready(req).map_err(Into::into)
+        self.cache.call(req)
     }
 }
