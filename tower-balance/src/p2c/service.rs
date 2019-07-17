@@ -24,7 +24,7 @@ use tower_service::Service;
 pub struct Balance<D: Discover, Req> {
     discover: D,
 
-    ready_services: ReadyCache<D::Key, D::Service, Req>,
+    services: ReadyCache<D::Key, D::Service, Req>,
 
     rng: SmallRng,
 }
@@ -40,7 +40,7 @@ where
         Self {
             rng,
             discover,
-            ready_services: ReadyCache::default(),
+            services: ReadyCache::default(),
         }
     }
 
@@ -51,7 +51,7 @@ where
 
     /// Returns the number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
-        self.ready_services.len()
+        self.services.len()
     }
 }
 
@@ -73,13 +73,13 @@ where
             match try_ready!(self.discover.poll().map_err(|e| error::Discover(e.into()))) {
                 Change::Remove(key) => {
                     trace!("remove");
-                    self.ready_services.evict(&key);
+                    self.services.evict(&key);
                 }
                 Change::Insert(key, svc) => {
                     trace!("insert");
                     // If this service already existed in the set, it will be
                     // replaced as the new one becomes ready.
-                    self.ready_services.push_service(key, svc);
+                    self.services.push_service(key, svc);
                 }
             }
         }
@@ -88,7 +88,7 @@ where
     fn poll_unready(&mut self) {
         // Note: this cannot perturb the order of ready services.
         loop {
-            if let Err(e) = self.ready_services.poll_pending() {
+            if let Err(e) = self.services.poll_pending() {
                 debug!("dropping endpoint: {:?}", e);
             } else {
                 break;
@@ -96,14 +96,14 @@ where
         }
         trace!(
             "ready={}; pending={}",
-            self.ready_services.ready_len(),
-            self.ready_services.pending_len(),
+            self.services.ready_len(),
+            self.services.pending_len(),
         );
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
     fn p2c_next_ready_index(&mut self) -> Option<usize> {
-        match self.ready_services.ready_len() {
+        match self.services.ready_len() {
             0 => None,
             1 => Some(0),
             len => {
@@ -134,10 +134,7 @@ where
 
     /// Accesses a ready endpoint by index and returns its current load.
     fn ready_index_load(&self, index: usize) -> <D::Service as Load>::Metric {
-        let (_, svc) = self
-            .ready_services
-            .get_ready_index(index)
-            .expect("invalid index");
+        let (_, svc) = self.services.get_ready_index(index).expect("invalid index");
         svc.load()
     }
 }
@@ -170,7 +167,7 @@ where
         // Drive new or busy services to readiness.
         self.poll_unready();
 
-        let mut index = self.ready_services.take_next_ready_index();
+        let mut index = self.services.take_next_ready_index();
         loop {
             // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
@@ -178,22 +175,20 @@ where
             // detector has changed the state of the service, it may be evicted
             // from the ready set so that another service can be selected.
             if let Some(index) = index {
-                if let Ok(Async::Ready(())) = self.ready_services.poll_next_ready_index(index) {
+                if let Ok(Async::Ready(())) = self.services.poll_next_ready_index(index) {
                     return Ok(Async::Ready(()));
                 }
             }
 
             index = self.p2c_next_ready_index();
             if index.is_none() {
-                debug_assert_eq!(self.ready_services.ready_len(), 0);
+                debug_assert_eq!(self.services.ready_len(), 0);
                 return Ok(Async::NotReady);
             }
         }
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
-        self.ready_services
-            .call_next_ready(request)
-            .map_err(Into::into)
+        self.services.call_next_ready(request).map_err(Into::into)
     }
 }

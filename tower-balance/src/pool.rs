@@ -56,6 +56,12 @@ where
             cache: ReadyCache::default(),
         }
     }
+
+    fn push_service(&mut self, svc: MS::Service) {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.cache.push_service(id, svc);
+    }
 }
 
 impl<MS, Req> Service<Req> for Pool<MS, Req>
@@ -81,11 +87,7 @@ where
             if let Some(fut) = self.pending_service.as_mut() {
                 let svc = try_ready!(fut.poll().map_err(Into::into));
                 self.pending_service = None;
-
-                let id = self.next_id;
-                self.next_id += 1;
-                self.cache.push_service(id, svc);
-
+                self.push_service(svc);
                 return self.cache.poll_ready();
             }
 

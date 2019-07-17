@@ -55,21 +55,14 @@ fn main() {
     let fut = future::lazy(move || {
         let decay = Duration::from_secs(10);
         let d = gen_disco();
-        let pe = lb::p2c::Balance::from_entropy(load::PeakEwmaDiscover::new(
-            d,
-            DEFAULT_RTT,
-            decay,
-            (),
-        ));
+        let pe =
+            lb::p2c::Balance::from_entropy(load::PeakEwmaDiscover::new(d, DEFAULT_RTT, decay, ()));
         run("P2C+PeakEWMA...", pe)
     });
 
     let fut = fut.then(move |_| {
         let d = gen_disco();
-        let ll = lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(
-            d,
-            (),
-        ));
+        let ll = lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(d, ()));
         run("P2C+LeastLoaded...", ll)
     });
 

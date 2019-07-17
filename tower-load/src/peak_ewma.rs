@@ -347,12 +347,7 @@ mod tests {
 
         let mut enter = enter().expect("enter");
         clock::with_default(&clock, &mut enter, |_| {
-            let svc = PeakEwma::new(
-                Svc,
-                Duration::from_millis(10),
-                Duration::from_secs(1),
-                (),
-            );
+            let svc = PeakEwma::new(Svc, Duration::from_millis(10), Duration::from_secs(1), ());
             let Cost(load) = svc.load();
             assert_eq!(load, 10.0 * NANOS_PER_MILLI);
 
@@ -375,12 +370,7 @@ mod tests {
 
         let mut enter = enter().expect("enter");
         clock::with_default(&clock, &mut enter, |_| {
-            let mut svc = PeakEwma::new(
-                Svc,
-                Duration::from_millis(20),
-                Duration::from_secs(1),
-                (),
-            );
+            let mut svc = PeakEwma::new(Svc, Duration::from_millis(20), Duration::from_secs(1), ());
             assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 
             *time.lock().unwrap() += Duration::from_millis(100);
