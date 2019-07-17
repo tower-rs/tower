@@ -15,8 +15,8 @@ where
     K: Eq + Hash,
 {
     next_ready_index: Option<usize>,
-    ready_services: IndexMap<K, S>,
-    pending_services: stream::FuturesUnordered<Pending<K, S, Req>>,
+    ready: IndexMap<K, S>,
+    pending: stream::FuturesUnordered<Pending<K, S, Req>>,
     cancelations: IndexMap<K, oneshot::Sender<()>>,
 }
 
@@ -46,9 +46,9 @@ where
     fn default() -> Self {
         Self {
             next_ready_index: None,
-            ready_services: IndexMap::default(),
+            ready: IndexMap::default(),
             cancelations: IndexMap::default(),
-            pending_services: stream::FuturesUnordered::new(),
+            pending: stream::FuturesUnordered::new(),
         }
     }
 }
@@ -64,12 +64,12 @@ where
 
     /// Returns the number of services in the ready set.
     pub fn ready_len(&self) -> usize {
-        self.ready_services.len()
+        self.ready.len()
     }
 
     /// Returns the number of services in the unready set.
     pub fn pending_len(&self) -> usize {
-        self.pending_services.len()
+        self.pending.len()
     }
 
     /// Returns true iff the given key is in the unready set.
@@ -79,7 +79,7 @@ where
 
     /// Obtains a reference to a service in the ready set by key.
     pub fn get_ready<Q: Hash + Equivalent<K>>(&self, key: &Q) -> Option<(usize, &K, &S)> {
-        self.ready_services.get_full(key)
+        self.ready.get_full(key)
     }
 
     /// Obtains a mutable reference to a service in the ready set by key.
@@ -87,17 +87,17 @@ where
         &mut self,
         key: &Q,
     ) -> Option<(usize, &K, &mut S)> {
-        self.ready_services.get_full_mut(key)
+        self.ready.get_full_mut(key)
     }
 
     /// Obtains a reference to a service in the ready set by index.
     pub fn get_ready_index(&self, idx: usize) -> Option<(&K, &S)> {
-        self.ready_services.get_index(idx)
+        self.ready.get_index(idx)
     }
 
     /// Obtains a mutable reference to a service in the ready set by index.
     pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&mut K, &mut S)> {
-        self.ready_services.get_index_mut(idx)
+        self.ready.get_index_mut(idx)
     }
 
     /// Evicts an item from the cache.
@@ -109,7 +109,7 @@ where
             false
         };
 
-        match self.ready_services.swap_remove_full(key) {
+        match self.ready.swap_remove_full(key) {
             None => canceled,
             Some((idx, _, _)) => {
                 self.repair_next_ready_index(idx);
@@ -121,7 +121,7 @@ where
     // Updates `next_ready_index_idx` after the entry at `rm_idx` was evicted.
     fn repair_next_ready_index(&mut self, rm_idx: usize) {
         self.next_ready_index = self.next_ready_index.take().and_then(|idx| {
-            let new_sz = self.ready_services.len();
+            let new_sz = self.ready.len();
             debug_assert!(idx <= new_sz && rm_idx <= new_sz);
             let repaired = match idx {
                 i if i == rm_idx => None,         // removed
@@ -160,7 +160,7 @@ where
             // If there is already a pending service for this key, cancel it.
             c.send(()).expect("cancel receiver lost");
         }
-        self.pending_services.push(Pending {
+        self.pending.push(Pending {
             key: Some(key),
             ready: Ready::new(svc),
             cancel,
@@ -174,13 +174,13 @@ where
     /// `call_ready_index` are invoked.
     pub fn poll_pending(&mut self) -> Poll<(), error::Failed<K>> {
         loop {
-            match self.pending_services.poll() {
+            match self.pending.poll() {
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Ok(Async::Ready(None)) => return Ok(Async::Ready(())),
                 Ok(Async::Ready(Some((key, svc)))) => {
                     trace!("endpoint ready");
                     self.cancelations.remove(&key).expect("cancel sender lost");
-                    self.ready_services.insert(key, svc);
+                    self.ready.insert(key, svc);
                 }
                 Err(PendingError::Canceled(_)) => {
                     debug!("endpoint canceled");
@@ -204,7 +204,7 @@ where
         &mut self,
         key: &Q,
     ) -> Poll<(), error::Failed<K>> {
-        match self.ready_services.get_full_mut(key) {
+        match self.ready.get_full_mut(key) {
             None => Ok(Async::NotReady),
             Some((index, _, _)) => self.poll_next_ready_index(index),
         }
@@ -227,10 +227,7 @@ where
     ///
     /// Otherwise, `Async::Ready` is returned.
     pub fn poll_next_ready_index(&mut self, index: usize) -> Poll<(), error::Failed<K>> {
-        let (_, svc) = self
-            .ready_services
-            .get_index_mut(index)
-            .expect("index out of range");
+        let (_, svc) = self.ready.get_index_mut(index).expect("index out of range");
 
         match svc.poll_ready() {
             Ok(Async::Ready(())) => {
@@ -240,7 +237,7 @@ where
             Ok(Async::NotReady) => {
                 // became unready; so move it back there.
                 let (key, svc) = self
-                    .ready_services
+                    .ready
                     .swap_remove_index(index)
                     .expect("invalid ready index");
 
@@ -255,7 +252,7 @@ where
             Err(e) => {
                 // failed, so drop it.
                 let (key, _) = self
-                    .ready_services
+                    .ready
                     .swap_remove_index(index)
                     .expect("invalid ready index");
                 Err(error::Failed(key, e.into()))
@@ -274,7 +271,7 @@ where
             .expect("poll_next_ready_index was not ready");
 
         let (key, mut svc) = self
-            .ready_services
+            .ready
             .swap_remove_index(index)
             .expect("index out of range");
 
