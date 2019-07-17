@@ -12,19 +12,21 @@
 //! more services, then the latest added service is removed. In either case, the load estimate is
 //! reset to its initial value (see [`Builder::initial`] to prevent services from being rapidly
 //! added or removed.
-#![deny(missing_docs)]
 
+mod make_ready;
+
+use self::make_ready::MakeReady;
 use crate::error;
-use futures::{future, try_ready, Async, Future, Poll};
+use futures::{future, Async, Poll};
 use tower_load::Load;
 use tower_ready_cache::ReadyCache;
 use tower_service::Service;
 use tower_util::MakeService;
 
 /// A dynamically sized pool of `Service` instances.
-pub struct Pool<MS, Request>
+pub struct Pool<MS, Req>
 where
-    MS: MakeService<(), Request>,
+    MS: MakeService<(), Req>,
     MS::Error: Into<error::Error>,
     MS::MakeError: Into<error::Error>,
 {
@@ -32,22 +34,12 @@ where
     min_services: usize,
     max_services: usize,
     make_service: MS,
-    cache: ReadyCache<usize, MakeReady<MS, Request>, Request>,
+    cache: ReadyCache<usize, MakeReady<MS, (), Req>, Req>,
 }
 
-enum MakeReady<MS, Request>
+impl<MS, Req> Pool<MS, Req>
 where
-    MS: MakeService<(), Request>,
-    MS::Error: Into<error::Error>,
-    MS::MakeError: Into<error::Error>,
-{
-    Make(MS::Future),
-    Ready(Option<MS::Service>),
-}
-
-impl<MS, Request> Pool<MS, Request>
-where
-    MS: MakeService<(), Request>,
+    MS: MakeService<(), Req>,
     MS::Service: Load,
     <MS::Service as Load>::Metric: std::fmt::Debug,
     MS::Error: Into<error::Error>,
@@ -74,7 +66,7 @@ where
         self.next_id += 1;
 
         let fut = self.make_service.make_service(());
-        self.cache.push_service(id, MakeReady::Make(fut));
+        self.cache.push_service(id, MakeReady::from_future(fut));
     }
 }
 
@@ -94,23 +86,28 @@ where
     >;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        loop {
-            let _ = self.cache.poll_pending();
+        while self.cache.len() < self.min_services {
+            self.push_new_service();
+        }
 
-            if self.cache.len() < self.min_services {
+        loop {
+            while self.cache.poll_pending().is_err() {
+                // If a service was dropped from the cache, backfill any missing
+                // services it may need.
                 while self.cache.len() < self.min_services {
                     self.push_new_service();
                 }
-                let _ = self.cache.poll_pending();
             }
 
-            if self.cache.ready_len() > 0 {
+            // As long as there are ready nodes, try to use one of them.
+            while self.cache.ready_len() > 0 {
                 if let Ok(Async::Ready(())) = self.cache.poll_next_ready_index(0) {
                     return Ok(Async::Ready(()));
                 }
             }
 
-            if self.cache.len() == self.max_services {
+            debug_assert!(self.cache.ready_len() == 0);
+            if self.cache.pending_len() == self.max_services {
                 return Ok(Async::NotReady);
             }
 
@@ -121,77 +118,5 @@ where
     fn call(&mut self, req: Req) -> Self::Future {
         debug_assert!(self.cache.ready_len() > 0);
         self.cache.call_next_ready(req)
-    }
-}
-
-impl<MS, Request> Future for MakeReady<MS, Request>
-where
-    MS: MakeService<(), Request>,
-    MS::Error: Into<error::Error>,
-    MS::MakeError: Into<error::Error>,
-{
-    type Item = MS::Service;
-    type Error = error::Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        loop {
-            *self = match *self {
-                MakeReady::Make(ref mut fut) => {
-                    let svc = try_ready!(fut.poll().map_err(Into::into));
-                    MakeReady::Ready(Some(svc))
-                }
-                MakeReady::Ready(ref mut svc) => {
-                    try_ready!(svc
-                        .as_mut()
-                        .expect("polled after ready")
-                        .poll_ready()
-                        .map_err(Into::into));
-                    return Ok(Async::Ready(svc.take().expect("polled after ready")));
-                }
-            };
-        }
-    }
-}
-
-impl<MS, Request> Service<Request> for MakeReady<MS, Request>
-where
-    MS: MakeService<(), Request>,
-    MS::Error: Into<error::Error>,
-    MS::MakeError: Into<error::Error>,
-{
-    type Response = MS::Response;
-    type Error = error::Error;
-    type Future =
-        future::MapErr<<MS::Service as Service<Request>>::Future, fn(MS::Error) -> Self::Error>;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        loop {
-            *self = match self {
-                MakeReady::Make(ref mut fut) => {
-                    let svc = try_ready!(fut.poll().map_err(Into::into));
-                    MakeReady::Ready(Some(svc))
-                }
-                MakeReady::Ready(ref mut svc) => {
-                    return svc
-                        .as_mut()
-                        .expect("invalid state: missing service")
-                        .poll_ready()
-                        .map_err(Into::into);
-                }
-            };
-        }
-    }
-
-    fn call(&mut self, req: Request) -> Self::Future {
-        match self {
-            MakeReady::Make(_) => panic!("not ready"),
-            MakeReady::Ready(ref mut svc) => {
-                return svc
-                    .as_mut()
-                    .expect("missing service")
-                    .call(req)
-                    .map_err(Into::into);
-            }
-        }
     }
 }
