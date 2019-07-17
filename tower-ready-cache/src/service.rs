@@ -320,7 +320,7 @@ where
 
             if self.ready_len() == 0 {
                 if pending.is_ready() {
-                    // If the service
+                    // If the cache is totally exhausted, we have no means to notify the
                     return Err(error::Exhausted.into());
                 }
 
