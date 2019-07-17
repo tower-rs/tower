@@ -1,11 +1,11 @@
 use crate::error;
 use futures::{future, try_ready, Async, Future, Poll};
-use log::{debug, trace};
 use rand::{rngs::SmallRng, FromEntropy};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_ready_cache::ReadyCache;
 use tower_service::Service;
+use tracing::{debug, trace};
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
 ///

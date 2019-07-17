@@ -1,6 +1,5 @@
 //! Exercises load balancers with mocked services.
 
-use env_logger;
 use futures::{future, stream, Async, Future, Poll, Stream};
 use hdrhistogram::Histogram;
 use rand::{self, Rng};
@@ -38,7 +37,7 @@ struct Summary {
 }
 
 fn main() {
-    env_logger::init();
+    tracing::subscriber::set_global_default(tracing_fmt::FmtSubscriber::default()).unwrap();
 
     println!("REQUESTS={}", REQUESTS);
     println!("CONCURRENCY={}", CONCURRENCY);
