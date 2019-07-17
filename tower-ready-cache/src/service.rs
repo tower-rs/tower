@@ -227,8 +227,9 @@ where
     ///
     /// Otherwise, `Async::Ready` is returned.
     pub fn poll_next_ready_index(&mut self, index: usize) -> Poll<(), error::Failed<K>> {
-        let (_, svc) = self.ready.get_index_mut(index).expect("index out of range");
+        self.next_ready_index = None;
 
+        let (_, svc) = self.ready.get_index_mut(index).expect("index out of range");
         match svc.poll_ready() {
             Ok(Async::Ready(())) => {
                 self.next_ready_index = Some(index);
