@@ -1,6 +1,7 @@
 //! A middleware that blocks readiness based on an inner service's load.
 
-use crate::error;
+pub mod error;
+
 use futures::{future, try_ready, Future, Poll};
 use tower_load::Load;
 use tower_service as svc;
