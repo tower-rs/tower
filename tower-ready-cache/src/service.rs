@@ -361,18 +361,18 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if self.cancel.poll().expect("cancel sender lost").is_ready() {
-            let key = self.key.take().expect("polled after ready");
+            let key = self.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key));
         }
 
         match self.ready.poll() {
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Ok(Async::Ready(svc)) => {
-                let key = self.key.take().expect("polled after ready");
+                let key = self.key.take().expect("polled after complete");
                 Ok((key, svc).into())
             }
             Err(e) => {
-                let key = self.key.take().expect("polled after ready");
+                let key = self.key.take().expect("polled after compete");
                 Err(PendingError::Inner(key, e))
             }
         }
