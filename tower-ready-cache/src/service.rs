@@ -101,6 +101,9 @@ where
     }
 
     /// Evicts an item from the cache.
+    ///
+    /// Returns true if a service was marked for eviction. The inner service may
+    /// be retained until `poll_pending` is called.
     pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
         let canceled = if let Some(c) = self.cancelations.swap_remove(key) {
             c.send(()).expect("cancel receiver lost");
