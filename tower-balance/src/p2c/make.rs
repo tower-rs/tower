@@ -1,4 +1,5 @@
 use super::Balance;
+use crate::error;
 use futures::{try_ready, Future, Poll};
 use rand::{rngs::SmallRng, FromEntropy};
 use std::marker::PhantomData;
@@ -40,6 +41,7 @@ where
     S: Service<Target>,
     S::Response: Discover,
     <S::Response as Discover>::Service: Service<Req>,
+    <<S::Response as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
 {
     type Response = Balance<S::Response, Req>;
     type Error = S::Error;
@@ -63,6 +65,7 @@ where
     F: Future,
     F::Item: Discover,
     <F::Item as Discover>::Service: Service<Req>,
+    <<F::Item as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
 {
     type Item = Balance<F::Item, Req>;
     type Error = F::Error;
