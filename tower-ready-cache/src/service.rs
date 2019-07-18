@@ -16,7 +16,7 @@ where
 {
     next_ready_index: Option<usize>,
     ready: IndexMap<K, S>,
-    pending: stream::FuturesUnordered<Pending<K, S, Req>>,
+    pending: stream::FuturesUnordered<EvictableReady<K, S, Req>>,
     cancelations: IndexMap<K, oneshot::Sender<()>>,
 }
 
@@ -30,7 +30,7 @@ enum PendingError<K, E> {
 ///
 /// May fail due to cancelation, i.e. if the service is removed from discovery.
 #[derive(Debug)]
-struct Pending<K, S, Req> {
+struct EvictableReady<K, S, Req> {
     key: Option<K>,
     cancel: oneshot::Receiver<()>,
     ready: tower_util::Ready<S, Req>,
@@ -160,7 +160,7 @@ where
             // If there is already a pending service for this key, cancel it.
             c.send(()).expect("cancel receiver lost");
         }
-        self.pending.push(Pending {
+        self.pending.push(EvictableReady {
             key: Some(key),
             ready: Ready::new(svc),
             cancel,
@@ -349,7 +349,7 @@ where
 
 // === Pending ===
 
-impl<K, S, Req> Future for Pending<K, S, Req>
+impl<K, S, Req> Future for EvictableReady<K, S, Req>
 where
     S: Service<Req>,
 {
