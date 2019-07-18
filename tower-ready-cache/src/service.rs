@@ -225,7 +225,8 @@ where
     ///
     /// If the service errors, it is removed and dropped and the error is returned.
     ///
-    /// Otherwise, `Async::Ready` is returned.
+    /// Otherwise, the `next_ready_index` is set with the provided index and
+    /// `Async::Ready` is returned.
     pub fn poll_next_ready_index(&mut self, index: usize) -> Poll<(), error::Failed<K>> {
         self.next_ready_index = None;
 

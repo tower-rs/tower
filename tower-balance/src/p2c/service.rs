@@ -90,10 +90,9 @@ where
     }
 
     fn poll_unready(&mut self) {
-        // Note: this cannot perturb the order of ready services.
         loop {
             if let Err(e) = self.services.poll_pending() {
-                debug!("dropping endpoint: {:?}", e);
+                debug!("dropping failed endpoint: {:?}", e);
             } else {
                 break;
             }
@@ -123,7 +122,7 @@ where
 
                 let aload = self.ready_index_load(aidx);
                 let bload = self.ready_index_load(bidx);
-                let ready = if aload <= bload { aidx } else { bidx };
+                let chosen = if aload <= bload { aidx } else { bidx };
 
                 trace!(
                     {
@@ -131,11 +130,11 @@ where
                         a.load = ?aload,
                         b.index = bidx,
                         b.load = ?bload,
-                        ready = if ready == aidx { "a" } else { "b" },
+                        chosen = if chosen == aidx { "a" } else { "b" },
                     },
                     "p2c",
                 );
-                Some(ready)
+                Some(chosen)
             }
         }
     }
@@ -163,11 +162,6 @@ where
         fn(<D::Service as Service<Req>>::Error) -> error::Error,
     >;
 
-    /// Prepares the balancer to process a request.
-    ///
-    /// When `Async::Ready` is returned, `next_ready_index` is set with a valid
-    /// index into `ready` referring to a `Service` that is ready to disptach a
-    /// request.
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         // First and foremost, process discovery updates. This removes or updates a
         // previously-selected `ready_index` if appropriate.
