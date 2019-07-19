@@ -8,12 +8,14 @@ use tower_service as svc;
 
 /// Determmines readiness based on an `M`-typed load metric.
 pub trait Breaker<M> {
+    type Error;
+
     /// Checks to see whether the breaker is open, given a load metric.
     ///
     /// If the breaker is closed, NotReady is returned and the task ust be
     /// notified when the breaker should be polled again with an updated load
     /// metric.
-    fn poll_breaker(&mut self, load: M) -> Poll<(), error::Error>;
+    fn poll_breaker(&mut self, load: M) -> Poll<(), Self::Error>;
 }
 
 /// Wraps a load-bearing service with a load-dependent circuit-breaker.
@@ -35,6 +37,7 @@ impl<B, S, Req> svc::Service<Req> for Service<B, S>
 where
     B: Breaker<S::Metric>,
     S: Load + svc::Service<Req>,
+    B::Error: Into<error::Error>,
     S::Error: Into<error::Error>,
 {
     type Response = S::Response;
@@ -46,7 +49,9 @@ where
 
         // Update the breaker with the current load and only advertise readiness
         // when the breaker is open.
-        self.breaker.poll_breaker(self.inner.load())
+        self.breaker
+            .poll_breaker(self.inner.load())
+            .map_err(Into::into)
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
@@ -56,10 +61,9 @@ where
 
 #[allow(missing_docs)]
 pub mod delay {
-    use crate::error;
     use futures::{try_ready, Async, Future, Poll};
     use std::time::Instant;
-    use tokio_timer::Delay;
+    use tokio_timer::{self as timer, Delay};
 
     pub trait BreakUntil<M> {
         fn break_until(&mut self, load: M) -> Option<Instant>;
@@ -71,7 +75,9 @@ pub mod delay {
     }
 
     impl<M, B: BreakUntil<M>> super::Breaker<M> for Breaker<B> {
-        fn poll_breaker(&mut self, load: M) -> Poll<(), error::Error> {
+        type Error = timer::Error;
+
+        fn poll_breaker(&mut self, load: M) -> Poll<(), Self::Error> {
             // Even if there's already a delay, update the inner breaker with
             // the new load and reset any pre-existing delay.
             //
