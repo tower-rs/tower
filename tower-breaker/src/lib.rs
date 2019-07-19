@@ -7,7 +7,7 @@ use tower_load::Load;
 use tower_service as svc;
 
 /// Determmines readiness based on an `M`-typed load metric.
-pub trait Breaker<M: PartialOrd> {
+pub trait Breaker<M> {
     /// Checks to see whether the breaker is open, given a load metric.
     ///
     /// If the breaker is closed, NotReady is returned and the task ust be
@@ -62,7 +62,7 @@ pub mod delay {
     use std::time::Instant;
     use tokio_timer::Delay;
 
-    pub trait BreakUntil<M: PartialOrd> {
+    pub trait BreakUntil<M> {
         fn break_until(&mut self, load: M) -> Option<Instant>;
     }
 
@@ -71,7 +71,7 @@ pub mod delay {
         delay: Option<Delay>,
     }
 
-    impl<M: PartialOrd, B: BreakUntil<M>> super::Breaker<M> for Breaker<B> {
+    impl<M, B: BreakUntil<M>> super::Breaker<M> for Breaker<B> {
         fn poll_breaker(&mut self, load: M) -> Poll<(), error::Error> {
             // Even if there's already a delay, update the inner breaker with
             // the new load and reset any pre-existing delay.
