@@ -43,11 +43,10 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         try_ready!(self.inner.poll_ready().map_err(Into::into));
-        let load = self.inner.load();
 
         // Update the breaker with the current load and only advertise readiness
         // when the breaker is open.
-        self.breaker.poll_breaker(load)
+        self.breaker.poll_breaker(self.inner.load())
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
