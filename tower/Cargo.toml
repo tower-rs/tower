@@ -24,12 +24,13 @@ keywords = ["io", "async", "non-blocking", "futures", "service"]
 edition = "2018"
 
 [features]
-default = ["full"]
+default = ["std-log-support", "full"]
+std-log-support = ["tower-buffer/log"]
 full = []
 
 [dependencies]
 futures = "0.1.26"
-tower-buffer = "0.1.0"
+tower-buffer = { version = "0.1.0", default-features = false }
 tower-discover = "0.1.0"
 tower-layer = "0.1.0"
 tower-limit = "0.1.0"
