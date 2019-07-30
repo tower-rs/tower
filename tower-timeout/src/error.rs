@@ -8,6 +8,13 @@ pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 #[derive(Debug)]
 pub struct Elapsed(pub(super) ());
 
+impl Elapsed {
+    /// Construct a new elapsed error
+    pub fn new() -> Self {
+        Elapsed(())
+    }
+}
+
 impl fmt::Display for Elapsed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad("request timed out")
