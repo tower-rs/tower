@@ -38,11 +38,11 @@ fn poll_ready_inner_failure() {
 
     let (service0, mut handle0) = mock::pair::<Req, Req>();
     handle0.send_error("doom");
-    cache.push_service(0, service0);
+    cache.push(0, service0);
 
     let (service1, mut handle1) = mock::pair::<Req, Req>();
     handle1.allow(1);
-    cache.push_service(1, service1);
+    cache.push(1, service1);
 
     with_task(|| {
         let ready = cache
@@ -65,11 +65,11 @@ fn poll_ready_not_ready() {
 
     let (service0, mut handle0) = mock::pair::<Req, Req>();
     handle0.allow(0);
-    cache.push_service(0, service0);
+    cache.push(0, service0);
 
     let (service1, mut handle1) = mock::pair::<Req, Req>();
     handle1.allow(0);
-    cache.push_service(1, service1);
+    cache.push(1, service1);
 
     with_task(|| {
         assert!(cache.poll_ready().expect("must succeed").is_not_ready());
@@ -86,11 +86,11 @@ fn poll_ready_promotes_inner() {
 
     let (service0, mut handle0) = mock::pair::<Req, Req>();
     handle0.allow(1);
-    cache.push_service(0, service0);
+    cache.push(0, service0);
 
     let (service1, mut handle1) = mock::pair::<Req, Req>();
     handle1.allow(1);
-    cache.push_service(1, service1);
+    cache.push(1, service1);
 
     assert_eq!(cache.ready_len(), 0);
     assert_eq!(cache.pending_len(), 2);

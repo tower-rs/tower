@@ -15,7 +15,7 @@ where
     K: Eq + Hash,
 {
     next_ready_index: Option<usize>,
-    ready: IndexMap<K, S>,
+    ready: IndexMap<K, (S, oneshot::Receiver<()>)>,
     pending: stream::FuturesUnordered<EvictableReady<K, S, Req>>,
     cancelations: IndexMap<K, oneshot::Sender<()>>,
 }
@@ -32,7 +32,7 @@ enum PendingError<K, E> {
 #[derive(Debug)]
 struct EvictableReady<K, S, Req> {
     key: Option<K>,
-    cancel: oneshot::Receiver<()>,
+    cancel: Option<oneshot::Receiver<()>>,
     ready: tower_util::Ready<S, Req>,
 }
 
@@ -79,7 +79,7 @@ where
 
     /// Obtains a reference to a service in the ready set by key.
     pub fn get_ready<Q: Hash + Equivalent<K>>(&self, key: &Q) -> Option<(usize, &K, &S)> {
-        self.ready.get_full(key)
+        self.ready.get_full(key).map(|(i, k, v)| (i, k, &v.0))
     }
 
     /// Obtains a mutable reference to a service in the ready set by key.
@@ -87,17 +87,17 @@ where
         &mut self,
         key: &Q,
     ) -> Option<(usize, &K, &mut S)> {
-        self.ready.get_full_mut(key)
+        self.ready.get_full_mut(key).map(|(i, k, v)| (i, k, &mut v.0))
     }
 
     /// Obtains a reference to a service in the ready set by index.
     pub fn get_ready_index(&self, idx: usize) -> Option<(&K, &S)> {
-        self.ready.get_index(idx)
+        self.ready.get_index(idx).map(|(k, v)| (k, &v.0))
     }
 
     /// Obtains a mutable reference to a service in the ready set by index.
     pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&mut K, &mut S)> {
-        self.ready.get_index_mut(idx)
+        self.ready.get_index_mut(idx).map(|(k, v)| (k, &mut v.0))
     }
 
     /// Evicts an item from the cache.
@@ -150,27 +150,31 @@ where
     <S as Service<Req>>::Error: Into<error::Error>,
     S::Error: Into<error::Error>,
 {
-    /// Pushes a new service onto the unready set.
+    /// Pushes a new service onto the pending set.
     ///
     /// The service will be promoted to the ready set as `poll_pending` is invoked.
     ///
     /// Note that this does not replace a service currently in the ready set with
     /// an equivalent key until this service becomes ready or the existing
     /// service becomes unready.
-    pub fn push_service(&mut self, key: K, svc: S) {
+    pub fn push(&mut self, key: K, svc: S) {
         let (tx, cancel) = oneshot::channel();
         if let Some(c) = self.cancelations.insert(key.clone(), tx) {
             // If there is already a pending service for this key, cancel it.
             c.send(()).expect("cancel receiver lost");
         }
+        self.push_evictable(key, svc, cancel);
+    }
+
+    fn push_evictable(&mut self, key: K, svc: S, cancel: oneshot::Receiver<()>) {
         self.pending.push(EvictableReady {
             key: Some(key),
+            cancel: Some(cancel),
             ready: Ready::new(svc),
-            cancel,
         });
     }
 
-    /// Polls unready services to readiness.
+    /// Polls services pending readiness, adding ready services to the ready set.
     ///
     /// Returns `Async::Ready` when there are no remaining unready services.
     /// `poll_ready` should be called again after `push_service` or
@@ -180,10 +184,11 @@ where
             match self.pending.poll() {
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Ok(Async::Ready(None)) => return Ok(Async::Ready(())),
-                Ok(Async::Ready(Some((key, svc)))) => {
+                Ok(Async::Ready(Some((key, svc, cancel)))) => {
                     trace!("endpoint ready");
-                    self.cancelations.remove(&key).expect("cancel sender lost");
-                    self.ready.insert(key, svc);
+                    // Keep track of the cancelation so that it need not be
+                    // recreated after the service is used.
+                    self.ready.insert(key, (svc, cancel));
                 }
                 Err(PendingError::Canceled(_)) => {
                     debug!("endpoint canceled");
@@ -233,7 +238,7 @@ where
     pub fn poll_next_ready_index(&mut self, index: usize) -> Poll<(), error::Failed<K>> {
         self.next_ready_index = None;
 
-        let (_, svc) = self.ready.get_index_mut(index).expect("index out of range");
+        let (_, (svc, _)) = self.ready.get_index_mut(index).expect("index out of range");
         match svc.poll_ready() {
             Ok(Async::Ready(())) => {
                 self.next_ready_index = Some(index);
@@ -241,7 +246,7 @@ where
             }
             Ok(Async::NotReady) => {
                 // became unready; so move it back there.
-                let (key, svc) = self
+                let (key, (svc, cancel)) = self
                     .ready
                     .swap_remove_index(index)
                     .expect("invalid ready index");
@@ -249,7 +254,7 @@ where
                 // If a new version of this service has been added to the
                 // unready set, don't overwrite it.
                 if !self.pending_contains(&key) {
-                    self.push_service(key, svc);
+                    self.push_evictable(key, svc, cancel);
                 }
 
                 Ok(Async::NotReady)
@@ -275,7 +280,7 @@ where
             .take()
             .expect("poll_next_ready_index was not ready");
 
-        let (key, mut svc) = self
+        let (key, (mut svc, cancel)) = self
             .ready
             .swap_remove_index(index)
             .expect("index out of range");
@@ -285,7 +290,7 @@ where
         // If a new version of this service has been added to the
         // unready set, don't overwrite it.
         if !self.pending_contains(&key) {
-            self.push_service(key, svc);
+            self.push_evictable(key, svc, cancel);
         }
 
         fut
@@ -356,11 +361,18 @@ impl<K, S, Req> Future for EvictableReady<K, S, Req>
 where
     S: Service<Req>,
 {
-    type Item = (K, S);
+    type Item = (K, S, oneshot::Receiver<()>);
     type Error = PendingError<K, S::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if self.cancel.poll().expect("cancel sender lost").is_ready() {
+        if self
+            .cancel
+            .as_mut()
+            .expect("polled after compete")
+            .poll()
+            .expect("cacel sender lost")
+            .is_ready()
+        {
             let key = self.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key));
         }
@@ -369,7 +381,8 @@ where
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Ok(Async::Ready(svc)) => {
                 let key = self.key.take().expect("polled after complete");
-                Ok((key, svc).into())
+                let cancel = self.cancel.take().expect("polled after complete");
+                Ok((key, svc, cancel).into())
             }
             Err(e) => {
                 let key = self.key.take().expect("polled after compete");
