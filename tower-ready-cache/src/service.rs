@@ -6,7 +6,6 @@ use log::{debug, trace};
 use std::hash::Hash;
 use tokio_sync::oneshot;
 use tower_service::Service;
-use tower_util::Ready;
 
 /// Caches services, segregating ready and unready services.
 #[derive(Debug)]
@@ -15,10 +14,14 @@ where
     K: Eq + Hash,
 {
     next_ready_index: Option<usize>,
-    ready: IndexMap<K, (S, oneshot::Receiver<()>)>,
+    ready: IndexMap<K, (S, CancelPair)>,
     pending: stream::FuturesUnordered<EvictableReady<K, S, Req>>,
-    cancelations: IndexMap<K, oneshot::Sender<()>>,
+    pending_cancel_txs: IndexMap<K, CancelTx>,
 }
+
+type CancelRx = oneshot::Receiver<()>;
+type CancelTx = oneshot::Sender<()>;
+type CancelPair = (CancelTx, CancelRx);
 
 #[derive(Debug)]
 enum PendingError<K, E> {
@@ -32,7 +35,7 @@ enum PendingError<K, E> {
 #[derive(Debug)]
 struct EvictableReady<K, S, Req> {
     key: Option<K>,
-    cancel: Option<oneshot::Receiver<()>>,
+    cancel: Option<CancelRx>,
     ready: tower_util::Ready<S, Req>,
 }
 
@@ -47,8 +50,8 @@ where
         Self {
             next_ready_index: None,
             ready: IndexMap::default(),
-            cancelations: IndexMap::default(),
             pending: stream::FuturesUnordered::new(),
+            pending_cancel_txs: IndexMap::default(),
         }
     }
 }
@@ -74,7 +77,7 @@ where
 
     /// Returns true iff the given key is in the unready set.
     pub fn pending_contains<Q: Hash + Equivalent<K>>(&self, key: &Q) -> bool {
-        self.cancelations.contains_key(key)
+        self.pending_cancel_txs.contains_key(key)
     }
 
     /// Obtains a reference to a service in the ready set by key.
@@ -87,7 +90,9 @@ where
         &mut self,
         key: &Q,
     ) -> Option<(usize, &K, &mut S)> {
-        self.ready.get_full_mut(key).map(|(i, k, v)| (i, k, &mut v.0))
+        self.ready
+            .get_full_mut(key)
+            .map(|(i, k, v)| (i, k, &mut v.0))
     }
 
     /// Obtains a reference to a service in the ready set by index.
@@ -105,7 +110,7 @@ where
     /// Returns true if a service was marked for eviction. The inner service may
     /// be retained until `poll_pending` is called.
     pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
-        let canceled = if let Some(c) = self.cancelations.swap_remove(key) {
+        let canceled = if let Some(c) = self.pending_cancel_txs.swap_remove(key) {
             c.send(()).expect("cancel receiver lost");
             true
         } else {
@@ -158,19 +163,19 @@ where
     /// an equivalent key until this service becomes ready or the existing
     /// service becomes unready.
     pub fn push(&mut self, key: K, svc: S) {
-        let (tx, cancel) = oneshot::channel();
-        if let Some(c) = self.cancelations.insert(key.clone(), tx) {
-            // If there is already a pending service for this key, cancel it.
-            c.send(()).expect("cancel receiver lost");
-        }
-        self.push_evictable(key, svc, cancel);
+        let cancel = oneshot::channel();
+        self.push_pending(key, svc, cancel);
     }
 
-    fn push_evictable(&mut self, key: K, svc: S, cancel: oneshot::Receiver<()>) {
+    fn push_pending(&mut self, key: K, svc: S, (cancel_tx, cancel_rx): CancelPair) {
+        if let Some(c) = self.pending_cancel_txs.insert(key.clone(), cancel_tx) {
+            // If there is already a service for this key, cancel it.
+            c.send(()).expect("cancel receiver lost");
+        }
         self.pending.push(EvictableReady {
             key: Some(key),
-            cancel: Some(cancel),
-            ready: Ready::new(svc),
+            cancel: Some(cancel_rx),
+            ready: tower_util::Ready::new(svc),
         });
     }
 
@@ -184,11 +189,15 @@ where
             match self.pending.poll() {
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Ok(Async::Ready(None)) => return Ok(Async::Ready(())),
-                Ok(Async::Ready(Some((key, svc, cancel)))) => {
+                Ok(Async::Ready(Some((key, svc, cancel_rx)))) => {
                     trace!("endpoint ready");
+                    let cancel_tx = self
+                        .pending_cancel_txs
+                        .swap_remove(&key)
+                        .expect("missing cancelation");
                     // Keep track of the cancelation so that it need not be
                     // recreated after the service is used.
-                    self.ready.insert(key, (svc, cancel));
+                    self.ready.insert(key, (svc, (cancel_tx, cancel_rx)));
                 }
                 Err(PendingError::Canceled(_)) => {
                     debug!("endpoint canceled");
@@ -196,7 +205,7 @@ where
                     // replacement unready service has already been pushed.
                 }
                 Err(PendingError::Inner(key, e)) => {
-                    self.cancelations
+                    self.pending_cancel_txs
                         .swap_remove(&key)
                         .expect("missing cancelation");
                     return Err(error::Failed(key, e.into()));
@@ -254,7 +263,7 @@ where
                 // If a new version of this service has been added to the
                 // unready set, don't overwrite it.
                 if !self.pending_contains(&key) {
-                    self.push_evictable(key, svc, cancel);
+                    self.push_pending(key, svc, cancel);
                 }
 
                 Ok(Async::NotReady)
@@ -290,7 +299,7 @@ where
         // If a new version of this service has been added to the
         // unready set, don't overwrite it.
         if !self.pending_contains(&key) {
-            self.push_evictable(key, svc, cancel);
+            self.push_pending(key, svc, cancel);
         }
 
         fut
@@ -368,9 +377,9 @@ where
         if self
             .cancel
             .as_mut()
-            .expect("polled after compete")
+            .expect("polled after complete")
             .poll()
-            .expect("cacel sender lost")
+            .expect("cancel sender lost")
             .is_ready()
         {
             let key = self.key.take().expect("polled after complete");

@@ -83,7 +83,7 @@ where
                     trace!("insert");
                     // If this service already existed in the set, it will be
                     // replaced as the new one becomes ready.
-                    self.services.push_service(key, svc);
+                    self.services.push(key, svc);
                 }
             }
         }
