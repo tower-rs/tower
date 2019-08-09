@@ -1,5 +1,6 @@
 use crate::sealed::Sealed;
-use futures::{Future, Poll};
+use std::future::Future;
+use std::task::{Context, Poll};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tower_service::Service;
 
@@ -16,10 +17,10 @@ pub trait MakeConnection<Target>: Sealed<(Target,)> {
     type Error;
 
     /// The future that eventually produces the transport
-    type Future: Future<Item = Self::Connection, Error = Self::Error>;
+    type Future: Future<Output = Result<Self::Connection, Self::Error>>;
 
     /// Returns `Ready` when it is able to make more connections.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Connect and return a transport asynchronously
     fn make_connection(&mut self, target: Target) -> Self::Future;
@@ -36,8 +37,8 @@ where
     type Error = C::Error;
     type Future = C::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Service::poll_ready(self)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Service::poll_ready(self, cx)
     }
 
     fn make_connection(&mut self, target: Target) -> Self::Future {

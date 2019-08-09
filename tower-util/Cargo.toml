@@ -23,10 +23,10 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [features]
-io = ["tokio-io"]
+# io = ["tokio-io"]
 
 [dependencies]
-tokio-io = { version = "0.1.12", optional = true }
+tokio-io = "=0.2.0-alpha.1"
 tower-service = { path = "../tower-service" }
 tower-layer = { path = "../tower-layer" }
 

@@ -9,7 +9,7 @@
 // mod either;
 // pub mod layer;
 // #[cfg(feature = "io")]
-// mod make_connection;
+mod make_connection;
 mod make_service;
 // mod oneshot;
 // mod optional;
@@ -17,6 +17,7 @@ mod ready;
 mod sealed;
 // mod service_fn;
 
+pub use crate::make_connection::MakeConnection;
 pub use crate::{make_service::MakeService, ready::Ready};
 
 // #[cfg(feature = "io")]
