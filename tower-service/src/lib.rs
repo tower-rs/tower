@@ -3,15 +3,15 @@
 
 //! Definition of the core `Service` trait to Tower
 //!
-//! The [`Service`] trait provides the necessary abstractions for defining a
-//! request / response clients and servers. It is simple but powerul and is
+//! The [`Service`] trait provides the necessary abstractions for defining
+//! request / response clients and servers. It is simple but powerful and is
 //! used as the foundation for the rest of Tower.
 
 extern crate futures;
 
 use futures::{Future, Poll};
 
-/// An asynchronous function from `Request` to a `Response`.
+/// An asynchronous function from a `Request` to a `Response`.
 ///
 /// The `Service` trait is a simplified interface making it easy to write
 /// network applications in a modular and reusable way, decoupled from the
@@ -26,13 +26,13 @@ use futures::{Future, Poll};
 /// other services. At some point in the future, the processing will complete,
 /// and the `Future` will resolve to a response or error.
 ///
-/// At a high level, the `Service::call` represents an RPC request. The
+/// At a high level, the `Service::call` function represents an RPC request. The
 /// `Service` value can be a server or a client.
 ///
 /// # Server
 ///
 /// An RPC server *implements* the `Service` trait. Requests received by the
-/// server over the network are deserialized then passed as an argument to the
+/// server over the network are deserialized and then passed as an argument to the
 /// server value. The returned response is sent back over the network.
 ///
 /// As an example, here is how an HTTP request is processed by a server:
