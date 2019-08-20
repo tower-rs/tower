@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/tower-service/0.2.0")]
+#![doc(html_root_url = "https://docs.rs/tower-service/0.3.0-alpha.1")]
 
 //! Definition of the core `Service` trait to Tower
 //!
@@ -7,9 +7,8 @@
 //! request / response clients and servers. It is simple but powerful and is
 //! used as the foundation for the rest of Tower.
 
-extern crate futures;
-
-use futures::{Future, Poll};
+use std::future::Future;
+use std::task::{Context, Poll};
 
 /// An asynchronous function from a `Request` to a `Response`.
 ///
@@ -41,9 +40,9 @@ use futures::{Future, Poll};
 /// impl Service<http::Request> for HelloWorld {
 ///     type Response = http::Response;
 ///     type Error = http::Error;
-///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+///     type Future = Box<Future<Output = Result<Self::Response, Self::Error>>>;
 ///
-///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<(), Self::Error> {
 ///         Ok(Async::Ready(()))
 ///     }
 ///
@@ -90,7 +89,8 @@ use futures::{Future, Poll};
 /// ```rust,ignore
 /// use tower_service::Service;
 /// use tower_layer::Layer;
-/// use futures::Future;
+/// use std::future::Future;
+/// use std::task::{Context, Poll};
 /// use std::time::Duration;
 ///
 ///
@@ -122,10 +122,10 @@ use futures::{Future, Poll};
 /// {
 ///     type Response = T::Response;
 ///     type Error = T::Error;
-///     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+///     type Future = Box<Future<Output = Result<Self::Response, Self::Error>>>;
 ///
-///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-///        self.inner.poll_ready().map_err(Into::into)
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///        self.inner.poll_ready(cx).map_err(Into::into)
 ///     }
 ///
 ///     fn call(&mut self, req: Request) -> Self::Future {
@@ -182,7 +182,7 @@ pub trait Service<Request> {
     type Error;
 
     /// The future response value.
-    type Future: Future<Item = Self::Response, Error = Self::Error>;
+    type Future: Future<Output = Result<Self::Response, Self::Error>>;
 
     /// Returns `Ready` when the service is able to process requests.
     ///
@@ -196,7 +196,7 @@ pub trait Service<Request> {
     /// Once `poll_ready` returns `Ready`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Ready` or `Err`.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Process the request and return the response asynchronously.
     ///
@@ -221,8 +221,8 @@ where
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), S::Error> {
-        (**self).poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
+        (**self).poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> S::Future {
@@ -238,8 +238,8 @@ where
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), S::Error> {
-        (**self).poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
+        (**self).poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> S::Future {
