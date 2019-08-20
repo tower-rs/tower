@@ -8,7 +8,6 @@
 //! used as the foundation for the rest of
 
 use std::future::Future;
-use std::marker::Unpin;
 use std::task::{Context, Poll};
 
 /// An asynchronous function from `Request` to a `Response`.
@@ -174,7 +173,7 @@ use std::task::{Context, Poll};
 /// `Service` provides a mechanism by which the caller is able to coordinate
 /// readiness. `Service::poll_ready` returns `Ready` if the service expects that
 /// it is able to process a request.
-pub trait Service<Request>: Unpin {
+pub trait Service<Request> {
     /// Responses given by the service.
     type Response;
 
@@ -182,7 +181,7 @@ pub trait Service<Request>: Unpin {
     type Error;
 
     /// The future response value.
-    type Future: Future<Output = Result<Self::Response, Self::Error>> + Unpin;
+    type Future: Future<Output = Result<Self::Response, Self::Error>>;
 
     /// Returns `Ready` when the service is able to process requests.
     ///
