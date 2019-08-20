@@ -1,3 +1,7 @@
+# 0.3.0 (Aug 20, 2019)
+
+* Switch to `std::future::Future`
+
 # 0.2.0 (Dec 12, 2018)
 
 * Change `Service`'s `Request` associated type to be a generic instead.
