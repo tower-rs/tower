@@ -1,5 +1,9 @@
 # Tower
 
+_NOTE_: Tower's [`master`](https://github.com/tower-rs/tower) branch is currently using [`futures 0.1`](https://docs.rs/futures/0.1.28/futures/), please refer to the [`v0.3.x`](https://github.com/tower-rs/tower/tree/v0.3.x) branch to use
+any of the new [`std::future::Future`](https://doc.rust-lang.org/std/future/trait.Future.html) based libraries. This will stay in effect until we have fully upgraded
+to [`std::future::Future`](https://doc.rust-lang.org/std/future/trait.Future.html).
+
 Tower is a library of modular and reusable components for building robust
 networking clients and servers.
 
