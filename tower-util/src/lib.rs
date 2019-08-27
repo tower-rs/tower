@@ -8,17 +8,12 @@ mod boxed;
 mod call_all;
 mod either;
 pub mod layer;
-#[cfg(feature = "io")]
-mod make_connection;
-mod make_service;
 mod oneshot;
 mod optional;
 mod ready;
 mod sealed;
 mod service_fn;
 
-#[cfg(feature = "io")]
-pub use crate::make_connection::MakeConnection;
 pub use crate::{
     boxed::{BoxService, UnsyncBoxService},
     call_all::{CallAll, CallAllUnordered},

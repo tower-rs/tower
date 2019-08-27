@@ -22,16 +22,11 @@ Utilities for working with `Service`.
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
-[features]
-io = ["tokio-io"]
-
 [dependencies]
-futures = "0.1.23"
-tokio-io = { version = "0.1.12", optional = true }
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
+tower-service = "=0.3.0-alpha.1"
+# tower-layer = "0.1.0"
 
-[dev-dependencies]
-tokio-mock-task = "0.1.1"
-tower = { version = "0.1.0", path = "../tower" }
-tower-test = { version = "0.1.0", path = "../tower-test" }
+# [dev-dependencies]
+# tokio-mock-task = "0.1.1"
+# tower = { version = "0.1.0", path = "../tower" }
+# tower-test = { version = "0.1.0", path = "../tower-test" }

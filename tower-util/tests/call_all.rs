@@ -1,3 +1,5 @@
+#![cfg(feature = "broken")]
+
 use futures::{
     self,
     future::{ok, FutureResult},
