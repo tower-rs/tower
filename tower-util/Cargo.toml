@@ -22,11 +22,7 @@ Utilities for working with `Service`.
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
-[features]
-io = ["tokio-io"]
-
 [dependencies]
-tokio-io = { version = "=0.2.0-alpha.2", optional = true }
 tower-service = "=0.3.0-alpha.1"
 # tower-layer = "0.1.0"
 
