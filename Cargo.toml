@@ -17,5 +17,5 @@ members = [
   # "tower-spawn-ready",
   # "tower-test",
   # "tower-timeout",
-  # "tower-util",
+  "tower-util",
 ]

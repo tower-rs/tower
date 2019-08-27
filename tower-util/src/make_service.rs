@@ -1,5 +1,6 @@
 use crate::sealed::Sealed;
-use futures::{Future, Poll};
+use std::future::Future;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// Creates new `Service` values.
@@ -25,7 +26,7 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     type MakeError;
 
     /// The future of the `Service` instance.
-    type Future: Future<Item = Self::Service, Error = Self::MakeError>;
+    type Future: Future<Output = Result<Self::Service, Self::MakeError>>;
 
     /// Returns `Ready` when the factory is able to create more services.
     ///
@@ -36,7 +37,7 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// This is a **best effort** implementation. False positives are permitted.
     /// It is permitted for the service to return `Ready` from a `poll_ready`
     /// call and for the next invocation of `call` to result in an error.
-    fn poll_ready(&mut self) -> Poll<(), Self::MakeError>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::MakeError>>;
 
     /// Create and return a new service value asynchronously.
     fn make_service(&mut self, target: Target) -> Self::Future;
@@ -60,8 +61,8 @@ where
     type MakeError = M::Error;
     type Future = M::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::MakeError> {
-        Service::poll_ready(self)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::MakeError>> {
+        Service::poll_ready(self, cx)
     }
 
     fn make_service(&mut self, target: Target) -> Self::Future {
