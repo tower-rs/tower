@@ -1,4 +1,7 @@
-/// Trait aliases for Services that produce specific types of Responses.
+#![doc(html_root_url = "https://docs.rs/tower-make/0.1.0-alpha.1")]
+#![deny(rust_2018_idioms)]
+
+//! Trait aliases for Services that produce specific types of Responses.
 
 #[cfg(feature = "io")]
 mod make_connection;
