@@ -17,5 +17,5 @@ edition = "2018"
 io = ["tokio-io"]
 
 [dependencies]
-tokio-io = { version = "=0.2.0-alpha.2", optional = true }
+tokio-io = { version = "=0.2.0-alpha.4", optional = true }
 tower-service = "=0.3.0-alpha.1"
