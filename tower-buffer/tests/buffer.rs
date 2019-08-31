@@ -1,3 +1,5 @@
+#![cfg(feature = "broken")]
+
 use futures::prelude::*;
 use std::{cell::RefCell, thread};
 use tokio_executor::{SpawnError, TypedExecutor};

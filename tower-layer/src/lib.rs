@@ -20,7 +20,7 @@
 ///
 /// Take request logging as an example:
 ///
-/// ```rust
+/// ```rust,ignore
 /// # extern crate futures;
 /// # extern crate tower_service;
 /// # extern crate void;

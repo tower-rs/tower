@@ -5,9 +5,9 @@ use crate::{
     worker::{Handle, Worker, WorkerExecutor},
 };
 
-use futures::Poll;
+use std::task::{Context, Poll};
+use tokio::sync::{mpsc, oneshot};
 use tokio_executor::DefaultExecutor;
-use tokio_sync::{mpsc, oneshot};
 use tower_service::Service;
 
 /// Adds a buffer in front of an inner service.
@@ -81,9 +81,9 @@ where
     type Error = Error;
     type Future = ResponseFuture<T::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // If the inner service has errored, then we error here.
-        self.tx.poll_ready().map_err(|_| self.get_worker_error())
+        self.tx.poll_ready(cx).map_err(|_| self.get_worker_error())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

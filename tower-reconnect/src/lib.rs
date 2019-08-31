@@ -5,11 +5,15 @@
 pub mod future;
 
 use crate::future::ResponseFuture;
-use futures::{Async, Future, Poll};
-use log::trace;
-use std::fmt;
+use std::{
+    fmt,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tower_make::MakeService;
 use tower_service::Service;
-use tower_util::MakeService;
+use tracing::trace;
 
 pub struct Reconnect<M, Target>
 where
@@ -51,6 +55,7 @@ where
 impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
     M: Service<Target, Response = S>,
+    M::Future: Unpin,
     S: Service<Request>,
     Error: From<M::Error> + From<S::Error>,
     Target: Clone,
@@ -59,7 +64,7 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let ret;
         let mut state;
 
@@ -67,11 +72,11 @@ where
             match self.state {
                 State::Idle => {
                     trace!("poll_ready; idle");
-                    match self.mk_service.poll_ready()? {
-                        Async::Ready(()) => (),
-                        Async::NotReady => {
+                    match self.mk_service.poll_ready(cx)? {
+                        Poll::Ready(()) => (),
+                        Poll::Pending => {
                             trace!("poll_ready; MakeService not ready");
-                            return Ok(Async::NotReady);
+                            return Poll::Pending;
                         }
                     }
 
@@ -81,36 +86,36 @@ where
                 }
                 State::Connecting(ref mut f) => {
                     trace!("poll_ready; connecting");
-                    match f.poll() {
-                        Ok(Async::Ready(service)) => {
+                    match Pin::new(f).poll(cx) {
+                        Poll::Ready(Ok(service)) => {
                             state = State::Connected(service);
                         }
-                        Ok(Async::NotReady) => {
-                            trace!("poll_ready; not ready");
-                            return Ok(Async::NotReady);
-                        }
-                        Err(e) => {
+                        Poll::Ready(Err(e)) => {
                             trace!("poll_ready; error");
                             state = State::Idle;
                             ret = Err(e.into());
                             break;
                         }
+                        Poll::Pending => {
+                            trace!("poll_ready; not ready");
+                            return Poll::Pending;
+                        }
                     }
                 }
                 State::Connected(ref mut inner) => {
                     trace!("poll_ready; connected");
-                    match inner.poll_ready() {
-                        Ok(Async::Ready(_)) => {
+                    match inner.poll_ready(cx) {
+                        Poll::Ready(Ok(_)) => {
                             trace!("poll_ready; ready");
-                            return Ok(Async::Ready(()));
+                            return Poll::Ready(Ok(()));
                         }
-                        Ok(Async::NotReady) => {
-                            trace!("poll_ready; not ready");
-                            return Ok(Async::NotReady);
-                        }
-                        Err(_) => {
+                        Poll::Ready(Err(_)) => {
                             trace!("poll_ready; error");
                             state = State::Idle;
+                        }
+                        Poll::Pending => {
+                            trace!("poll_ready; not ready");
+                            return Poll::Pending;
                         }
                     }
                 }
@@ -120,7 +125,7 @@ where
         }
 
         self.state = state;
-        ret
+        ret.into()
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

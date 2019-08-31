@@ -26,13 +26,13 @@ log = ["tracing/log"]
 default = ["log"]
 
 [dependencies]
-futures = "0.1.25"
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
-tokio-executor = "0.1.7"
-tokio-sync = "0.1.0"
+tower-service = "0.3.0-alpha.1"
+# tower-layer = "0.1.0"
+tokio = { version = "=0.2.0-alpha.4", default-features = false, features = ["sync"] }
+tokio-executor = "=0.2.0-alpha.4"
 tracing = "0.1.2"
+futures-util-preview = "=0.3.0-alpha.18"
 
-[dev-dependencies]
-tower = { version = "0.1.0", path = "../tower" }
-tower-test = { version = "0.1.0", path = "../tower-test" }
+# [dev-dependencies]
+# tower = { version = "0.1.0", path = "../tower" }
+# tower-test = { version = "0.1.0", path = "../tower-test" }
