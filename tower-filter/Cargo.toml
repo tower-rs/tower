@@ -24,9 +24,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-futures = "0.1.26"
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
+#futures = "0.1.26"
+tower-service = { path = "../" }
+tower-layer = { path = "../" }
 
 [dev-dependencies]
 tower-test = { version = "0.1", path = "../tower-test" }

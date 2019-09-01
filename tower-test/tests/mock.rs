@@ -1,4 +1,4 @@
-use futures::Future;
+use std::task::Future;
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 

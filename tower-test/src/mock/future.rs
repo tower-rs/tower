@@ -1,7 +1,9 @@
 //! Future types
 
 use crate::mock::error::{self, Error};
-use futures::{Async, Future, Poll};
+use std::future::Future;
+use std::task::{Poll, Context};
+use std::pin::Pin;
 use tokio_sync::oneshot;
 
 /// Future of the `Mock` response.
@@ -23,18 +25,21 @@ impl<T> ResponseFuture<T> {
 }
 
 impl<T> Future for ResponseFuture<T> {
-    type Item = T;
-    type Error = Error;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    type Output = Result<T, Error>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+
+        use futures_util::future::FutureExt;
+
         match self.rx {
-            Some(ref mut rx) => match rx.poll() {
-                Ok(Async::Ready(Ok(v))) => Ok(v.into()),
-                Ok(Async::Ready(Err(e))) => Err(e),
-                Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(_) => Err(error::Closed::new().into()),
+            Some(ref mut rx) => match rx.poll_unpin(cx) {
+                Poll::Ready(Ok(Ok(v))) => Poll::Ready(Ok(v.into())),
+                Poll::Ready(Ok(Err(e))) => Poll::Ready(Err(e)),
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(Err(_)) => Poll::Ready(Err(error::Closed::new().into())),
             },
-            None => Err(error::Closed::new().into()),
+            None => Poll::Ready(Err(error::Closed::new().into())),
         }
     }
 }
