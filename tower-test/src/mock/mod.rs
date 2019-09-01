@@ -5,17 +5,16 @@ pub mod future;
 
 use crate::mock::{error::Error, future::ResponseFuture};
 use core::task::Waker;
-use std::task::{Context, Poll};
 
 use tokio_sync::{mpsc, oneshot};
 use tower_service::Service;
 
-use std::future::Future;
-use std::pin::Pin;
-
 use std::{
     collections::HashMap,
+    future::Future,
+    pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
     u64,
 };
 

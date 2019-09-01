@@ -8,13 +8,13 @@ name = "tower-test"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.1.0"
+version = "0.3.0-alpha.1"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-test/0.1.0"
+documentation = "https://docs.rs/tower-test/0.3.0-alpha.1"
 description = """
 Utilities for writing client and server `Service` tests.
 """
@@ -25,6 +25,4 @@ edition = "2018"
 futures-util-preview = "0.3.0-alpha.18"
 futures-executor-preview = "0.3.0-alpha.18"
 tokio-sync = "0.2.0-alpha.2"
-
-#tower-service = "0.2.0"
-tower-service = { path = "../tower-service" }
+tower-service = "0.3.0-alpha.1"

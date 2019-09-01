@@ -1,10 +1,13 @@
 //! Future types
 
 use crate::mock::error::{self, Error};
-use std::future::Future;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tokio_sync::oneshot;
+
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Future of the `Mock` response.
 #[derive(Debug)]
@@ -28,10 +31,8 @@ impl<T> Future for ResponseFuture<T> {
     type Output = Result<T, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        use futures_util::future::FutureExt;
-
         match self.rx {
-            Some(ref mut rx) => match rx.poll_unpin(cx) {
+            Some(ref mut rx) => match Box::pin(rx).as_mut().poll(cx) {
                 Poll::Ready(Ok(Ok(v))) => Poll::Ready(Ok(v)),
                 Poll::Ready(Ok(Err(e))) => Poll::Ready(Err(e)),
                 Poll::Pending => Poll::Pending,

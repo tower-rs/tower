@@ -1,8 +1,8 @@
 use core::task::Context;
+use futures_executor::block_on;
 use std::future::Future;
 use tower_service::Service;
-use tower_test::{assert_request_eq, mock}; 
-use futures_executor::block_on;
+use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn single_request_ready() {

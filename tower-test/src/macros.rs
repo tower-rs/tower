@@ -15,10 +15,10 @@
 /// use tower_test::mock;
 /// use std::task::{Poll, Context};
 /// use futures_executor::block_on;
-/// 
+///
 /// fn with_task<F: FnOnce(&mut Context<'_>) -> U, U>(f: F) -> U {
 ///     use futures_util::future::lazy;
-/// 
+///
 ///     block_on(lazy(|cx| Ok::<_, ()>(f(cx)))).unwrap()
 /// }
 ///
