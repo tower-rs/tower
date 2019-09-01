@@ -4,11 +4,14 @@ pub mod error;
 pub mod future;
 
 use crate::mock::{error::Error, future::ResponseFuture};
-use std::task::{Poll, Context};
 use core::task::Waker;
+use std::task::{Context, Poll};
 
 use tokio_sync::{mpsc, oneshot};
 use tower_service::Service;
+
+use std::future::Future;
+use std::pin::Pin;
 
 use std::{
     collections::HashMap,
@@ -86,7 +89,6 @@ impl<T, U> Service<T> for Mock<T, U> {
     type Future = ResponseFuture<U>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-
         let mut state = self.state.lock().unwrap();
 
         if state.is_closed {
@@ -98,7 +100,7 @@ impl<T, U> Service<T> for Mock<T, U> {
         }
 
         if self.can_send {
-            return Poll::Ready(Ok(().into()));
+            return Poll::Ready(Ok(()));
         }
 
         if state.rem > 0 {
@@ -196,22 +198,21 @@ impl<T, U> Drop for Mock<T, U> {
 
 impl<T, U> Handle<T, U> {
     /// Asynchronously gets the next request
-    /*pub fn poll_request(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<Option<Request<T, U>>, Error>> {
-        self.rx.recv().poll(cx).map_err(Into::into)
-    }*/
-
-    pub async fn poll_request(&mut self) -> Option<Request<T, U>> {
-        self.rx.recv().await
+    pub fn poll_request(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Request<T, U>>> {
+        Box::pin(self.rx.recv()).as_mut().poll(cx)
     }
 
     /// Synchronously gets the next request.
     ///
     /// This function blocks the current thread until a request is received.
-    pub fn next_request(&mut self) -> Option<Request<T, U>> {
-
+    pub fn next_request(mut self: Pin<&mut Self>) -> Option<Request<T, U>> {
         use futures_executor::block_on;
+        use futures_util::future::poll_fn;
 
-        block_on(self.poll_request())
+        block_on(poll_fn(|cx| self.as_mut().poll_request(cx)))
     }
 
     /// Allow a certain number of requests

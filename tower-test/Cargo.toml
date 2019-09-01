@@ -23,12 +23,8 @@ edition = "2018"
 
 [dependencies]
 futures-util-preview = "0.3.0-alpha.18"
-futures-core-preview = "0.3.0-alpha.18"
 futures-executor-preview = "0.3.0-alpha.18"
 tokio-sync = "0.2.0-alpha.2"
 
 #tower-service = "0.2.0"
 tower-service = { path = "../tower-service" }
-
-[dev-dependencies]
-#tower = { version = "0.1.0", path = "../tower" }

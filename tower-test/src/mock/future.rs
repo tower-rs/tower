@@ -2,8 +2,8 @@
 
 use crate::mock::error::{self, Error};
 use std::future::Future;
-use std::task::{Poll, Context};
 use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio_sync::oneshot;
 
 /// Future of the `Mock` response.
@@ -25,16 +25,14 @@ impl<T> ResponseFuture<T> {
 }
 
 impl<T> Future for ResponseFuture<T> {
-
     type Output = Result<T, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-
         use futures_util::future::FutureExt;
 
         match self.rx {
             Some(ref mut rx) => match rx.poll_unpin(cx) {
-                Poll::Ready(Ok(Ok(v))) => Poll::Ready(Ok(v.into())),
+                Poll::Ready(Ok(Ok(v))) => Poll::Ready(Ok(v)),
                 Poll::Ready(Ok(Err(e))) => Poll::Ready(Err(e)),
                 Poll::Pending => Poll::Pending,
                 Poll::Ready(Err(_)) => Poll::Ready(Err(error::Closed::new().into())),

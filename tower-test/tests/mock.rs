@@ -1,35 +1,39 @@
+use core::task::Context;
 use std::future::Future;
 use tower_service::Service;
-use tower_test::{assert_request_eq, mock};
+use tower_test::{assert_request_eq, mock}; 
 use futures_executor::block_on;
-use futures_util::future::FutureExt;
-use core::task::Context;
 
 #[test]
 fn single_request_ready() {
-    let (mut mock, mut handle) = new_mock();
+    let (mut mock, handle) = new_mock();
+    let mut handle = Box::pin(handle);
 
     // No pending requests
     with_task(|cx| {
-        //assert!(handle.poll_request().poll_unpin(cx).is_pending());
+        assert!(handle.as_mut().poll_request(cx).is_pending());
     });
 
     // Issue a request
-    /*assert!(mock.poll_ready().is_ready());
-    let mut response = mock.call("hello?".into());
+    with_task(|cx| {
+        assert!(mock.poll_ready(cx).is_ready());
+    });
+
+    let response = mock.call("hello?".into());
+    let mut response = Box::pin(response);
 
     // Get the request from the handle
-    let send_response = assert_request_eq!(handle, "hello?");
+    let send_response = assert_request_eq!(handle.as_mut(), "hello?");
 
     // Response is not ready
     with_task(|cx| {
-        assert!(response.poll(cx).is_pending());
+        assert!(response.as_mut().poll(cx).is_pending());
     });
 
     // Send the response
     send_response.send_response("yes?".into());
 
-    assert_eq!(block_on(response.as_str()), "yes?");*/
+    assert_eq!(block_on(response.as_mut()).unwrap().as_str(), "yes?");
 }
 
 #[test]
@@ -58,7 +62,6 @@ fn new_mock() -> (Mock, Handle) {
 // Helper to run some code within context of a task
 fn with_task<F: FnOnce(&mut Context<'_>) -> U, U>(f: F) -> U {
     use futures_util::future::lazy;
-    use futures_executor::block_on;
 
     block_on(lazy(|cx| Ok::<_, ()>(f(cx)))).unwrap()
 }
