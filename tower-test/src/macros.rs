@@ -14,27 +14,22 @@
 /// use tower_service::Service;
 /// use tower_test::mock;
 /// use std::task::{Poll, Context};
-/// use futures_executor::block_on;
-///
-/// fn with_task<F: FnOnce(&mut Context<'_>) -> U, U>(f: F) -> U {
-///     use futures_util::future::lazy;
-///
-///     block_on(lazy(|cx| Ok::<_, ()>(f(cx)))).unwrap()
-/// }
+/// use tokio_test::{task, assert_ready};
+/// use futures_util::pin_mut;
 ///
 /// # fn main() {
-/// let (mock, handle) = mock::pair();
-/// let mut mock = Box::pin(mock);
-/// let mut handle = Box::pin(handle);
+/// task::mock(|cx|{
+///     let (mut mock, mut handle) = mock::pair();
+///     pin_mut!(mock);
+///     pin_mut!(handle);
 ///
-/// with_task(|cx|{
-///     assert!(mock.as_mut().poll_ready(cx).is_ready());
+///     assert_ready!(mock.poll_ready(cx));
+///
+///     let _response = mock.call("hello");
+///
+///     assert_request_eq!(handle, "hello")
+///         .send_response("world");
 /// });
-///
-/// let _response = mock.as_mut().call("hello");
-///
-/// assert_request_eq!(handle.as_mut(), "hello")
-///     .send_response("world");
 /// # }
 /// ```
 #[macro_export]

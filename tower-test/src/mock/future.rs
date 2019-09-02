@@ -18,7 +18,6 @@ pub struct ResponseFuture<T> {
 type Rx<T> = oneshot::Receiver<Result<T, Error>>;
 
 impl<T> ResponseFuture<T> {
-
     pin_utils::unsafe_pinned!(rx: Option<Rx<T>>);
 
     pub(crate) fn new(rx: Rx<T>) -> ResponseFuture<T> {
