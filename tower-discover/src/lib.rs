@@ -11,12 +11,14 @@
 
 mod error;
 mod list;
-mod stream;
+// mod stream;
 
-pub use crate::{list::ServiceList, stream::ServiceStream};
+// pub use crate::{list::ServiceList, stream::ServiceStream};
+pub use crate::list::ServiceList;
 
-use futures::Poll;
 use std::hash::Hash;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 /// Provide a uniform set of services able to satisfy a request.
 ///
@@ -34,7 +36,10 @@ pub trait Discover {
     type Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error>;
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>>;
 }
 
 /// A change in the service set
