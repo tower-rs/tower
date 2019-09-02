@@ -1,4 +1,6 @@
-use futures::{try_ready, Future, Poll};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 /// Attaches `I`-typed instruments to `V` typed values.
 ///
@@ -32,23 +34,17 @@ pub struct NoInstrument;
 
 /// Attaches a `I`-typed instruments to the result of an `F`-typed `Future`.
 #[derive(Debug)]
-pub struct InstrumentFuture<F, I, H>
-where
-    F: Future,
-    I: Instrument<H, F::Item>,
-{
+pub struct InstrumentFuture<F, I, H> {
     future: F,
     handle: Option<H>,
     instrument: I,
 }
 
+impl<F, I, H> Unpin for InstrumentFuture<F, I, H> {}
+
 // ===== impl InstrumentFuture =====
 
-impl<F, I, H> InstrumentFuture<F, I, H>
-where
-    F: Future,
-    I: Instrument<H, F::Item>,
-{
+impl<F, I, H> InstrumentFuture<F, I, H> {
     /// Wraps a future, instrumenting its value if successful.
     pub fn new(instrument: I, handle: H, future: F) -> Self {
         InstrumentFuture {
@@ -59,18 +55,21 @@ where
     }
 }
 
-impl<F, I, H> Future for InstrumentFuture<F, I, H>
+impl<F, I, H, T, E> Future for InstrumentFuture<F, I, H>
 where
-    F: Future,
-    I: Instrument<H, F::Item>,
+    F: Future<Output = Result<T, E>>,
+    I: Instrument<H, T>,
 {
-    type Item = I::Output;
-    type Error = F::Error;
+    type Output = Result<I::Output, E>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let rsp = try_ready!(self.future.poll());
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let rsp = match unsafe { Pin::new_unchecked(&mut self.future) }.poll(cx) {
+            Poll::Ready(Ok(rsp)) => rsp,
+            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            Poll::Pending => return Poll::Pending,
+        };
         let h = self.handle.take().expect("handle");
-        Ok(self.instrument.instrument(h, rsp).into())
+        Ok(self.instrument.instrument(h, rsp)).into()
     }
 }
 

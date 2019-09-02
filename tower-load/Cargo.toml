@@ -23,11 +23,10 @@ edition = "2018"
 publish = false
 
 [dependencies]
-futures = "0.1.26"
-log = "0.4.1"
-tokio-timer = "0.2.4"
-tower-service = "0.2.0"
-tower-discover = "0.1.0"
+tracing = "0.1"
+tokio-timer = "0.3.0-alpha.4"
+tower-service = "0.3.0-alpha.1"
+tower-discover = { path = "../tower-discover" }
 
-[dev-dependencies]
-tokio-executor = "0.1.2"
+# [dev-dependencies]
+# tokio-executor = "0.1.2"

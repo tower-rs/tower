@@ -1,6 +1,7 @@
 //! A constant `Load` implementation. Primarily useful for testing.
 
-use futures::{try_ready, Async, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
@@ -38,8 +39,8 @@ where
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
@@ -54,14 +55,21 @@ impl<D: Discover, M: Copy> Discover for Constant<D, M> {
     type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
+    fn poll(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;
 
-        let change = match try_ready!(self.inner.poll()) {
-            Insert(k, svc) => Insert(k, Constant::new(svc, self.load)),
-            Remove(k) => Remove(k),
+        let change = match unsafe { Pin::new_unchecked(&mut self.inner) }.poll(cx) {
+            Poll::Ready(Ok(Insert(k, svc))) => Insert(k, Constant::new(svc, self.load)),
+            Poll::Ready(Ok(Remove(k))) => Remove(k),
+            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            Poll::Pending => return Poll::Pending,
         };
 
-        Ok(Async::Ready(change))
+        Poll::Ready(Ok(change))
     }
 }
+
+impl<D, M> Unpin for Constant<D, M> {}
