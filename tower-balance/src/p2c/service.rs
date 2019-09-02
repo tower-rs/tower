@@ -91,6 +91,8 @@ where
     }
 
     // XXX `pool::Pool` requires direct access to this... Not ideal.
+    // TODO: remove this allow once pool is updated
+    #[allow(dead_code)]
     pub(crate) fn discover_mut(&mut self) -> &mut D {
         &mut self.discover
     }
