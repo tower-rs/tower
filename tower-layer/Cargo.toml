@@ -22,8 +22,7 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures = "0.1.26"
 tower-service = "0.2.0"
 
-[dev-dependencies]
-void = "1.0.2"
+# [dev-dependencies]
+# void = "1.0.2"

@@ -2,7 +2,6 @@
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::Load;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower_discover::{Change, Discover};
@@ -111,12 +110,12 @@ where
 
     /// Yields the next discovery change set.
     fn poll(
-        mut self: Pin<&mut Self>,
+        &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;
 
-        let change = match unsafe { Pin::new_unchecked(&mut self.discover) }.poll(cx) {
+        let change = match self.discover.poll(cx) {
             Poll::Ready(Ok(Insert(k, svc))) => {
                 Insert(k, PendingRequests::new(svc, self.instrument.clone()))
             }

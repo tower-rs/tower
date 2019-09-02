@@ -17,7 +17,6 @@ mod list;
 pub use crate::list::ServiceList;
 
 use std::hash::Hash;
-use std::pin::Pin;
 use std::task::{Context, Poll};
 
 /// Provide a uniform set of services able to satisfy a request.
@@ -37,7 +36,7 @@ pub trait Discover {
 
     /// Yields the next discovery change set.
     fn poll(
-        self: Pin<&mut Self>,
+        &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>>;
 }

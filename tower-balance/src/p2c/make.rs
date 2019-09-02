@@ -1,7 +1,10 @@
 use super::Balance;
-use futures::{try_ready, Future, Poll};
+use pin_project::pin_project;
 use rand::{rngs::SmallRng, FromEntropy};
+use std::future::Future;
 use std::marker::PhantomData;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tower_discover::Discover;
 use tower_service::Service;
 
@@ -14,7 +17,9 @@ pub struct BalanceMake<S, Req> {
 }
 
 /// Makes a balancer instance.
+#[pin_project]
 pub struct MakeFuture<F, Req> {
+    #[pin]
     inner: F,
     rng: SmallRng,
     _marker: PhantomData<fn(Req)>,
@@ -45,8 +50,8 @@ where
     type Error = S::Error;
     type Future = MakeFuture<S::Future, Req>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
@@ -58,18 +63,20 @@ where
     }
 }
 
-impl<F, Req> Future for MakeFuture<F, Req>
+impl<F, Req, T, E> Future for MakeFuture<F, Req>
 where
-    F: Future,
-    F::Item: Discover,
-    <F::Item as Discover>::Service: Service<Req>,
+    F: Future<Output = Result<T, E>>,
+    T: Discover,
+    <T as Discover>::Service: Service<Req>,
 {
-    type Item = Balance<F::Item, Req>;
-    type Error = F::Error;
+    type Output = Result<Balance<T, Req>, E>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let inner = try_ready!(self.inner.poll());
-        let svc = Balance::new(inner, self.rng.clone());
-        Ok(svc.into())
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let me = self.project();
+        match me.inner.poll(cx) {
+            Poll::Ready(Ok(inner)) => Poll::Ready(Ok(Balance::new(inner, me.rng.clone()))),
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }

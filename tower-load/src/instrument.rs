@@ -1,3 +1,4 @@
+use pin_project::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -33,14 +34,14 @@ pub trait Instrument<H, V>: Clone {
 pub struct NoInstrument;
 
 /// Attaches a `I`-typed instruments to the result of an `F`-typed `Future`.
+#[pin_project]
 #[derive(Debug)]
 pub struct InstrumentFuture<F, I, H> {
+    #[pin]
     future: F,
     handle: Option<H>,
     instrument: I,
 }
-
-impl<F, I, H> Unpin for InstrumentFuture<F, I, H> {}
 
 // ===== impl InstrumentFuture =====
 
@@ -63,13 +64,15 @@ where
     type Output = Result<I::Output, E>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let rsp = match unsafe { Pin::new_unchecked(&mut self.future) }.poll(cx) {
+        let me = self.project();
+
+        let rsp = match me.future.poll(cx) {
             Poll::Ready(Ok(rsp)) => rsp,
             Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
             Poll::Pending => return Poll::Pending,
         };
-        let h = self.handle.take().expect("handle");
-        Ok(self.instrument.instrument(h, rsp)).into()
+        let h = me.handle.take().expect("handle");
+        Ok(me.instrument.instrument(h, rsp)).into()
     }
 }
 

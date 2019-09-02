@@ -27,6 +27,7 @@ tracing = "0.1"
 tokio-timer = "0.3.0-alpha.4"
 tower-service = "0.3.0-alpha.1"
 tower-discover = { path = "../tower-discover" }
+pin-project = "0.4.0-alpha.6"
 
 # [dev-dependencies]
 # tokio-executor = "0.1.2"

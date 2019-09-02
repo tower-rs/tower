@@ -1,3 +1,5 @@
+#![cfg(feature = "broken")]
+
 use futures::{Async, Future};
 use tower_discover::ServiceList;
 use tower_load as load;

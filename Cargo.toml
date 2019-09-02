@@ -2,12 +2,12 @@
 
 members = [
   # "tower",
-  # "tower-balance",
+  "tower-balance",
   # "tower-buffer",
   "tower-discover",
   # "tower-filter",
   # "tower-hedge",
-  # "tower-layer",
+  "tower-layer",
   # "tower-limit",
   "tower-load",
   # "tower-load-shed",

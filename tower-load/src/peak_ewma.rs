@@ -2,8 +2,6 @@
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::Load;
-// use std::future::Future;
-use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{
     sync::{Arc, Mutex},
@@ -111,10 +109,10 @@ where
     type Error = D::Error;
 
     fn poll(
-        mut self: Pin<&mut Self>,
+        &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
-        let change = match unsafe { Pin::new_unchecked(&mut self.discover) }.poll(cx) {
+        let change = match self.discover.poll(cx) {
             Poll::Ready(Ok(Change::Remove(k))) => Change::Remove(k),
             Poll::Ready(Ok(Change::Insert(k, svc))) => {
                 let peak_ewma = PeakEwma::new(

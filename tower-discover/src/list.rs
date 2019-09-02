@@ -1,6 +1,5 @@
 use crate::{error::Never, Change, Discover};
 use std::iter::{Enumerate, IntoIterator};
-use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
@@ -40,7 +39,7 @@ where
     type Error = Never;
 
     fn poll(
-        mut self: Pin<&mut Self>,
+        &mut self,
         _cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         match self.inner.next() {
