@@ -4,16 +4,17 @@ pub mod error;
 pub mod future;
 
 use crate::mock::{error::Error, future::ResponseFuture};
-use futures::{
-    task::{self, Task},
-    Async, Future, Poll, Stream,
-};
+use core::task::Waker;
+
 use tokio_sync::{mpsc, oneshot};
 use tower_service::Service;
 
 use std::{
     collections::HashMap,
+    future::Future,
+    pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
     u64,
 };
 
@@ -47,7 +48,7 @@ struct State {
     rem: u64,
 
     /// Tasks that are blocked
-    tasks: HashMap<u64, Task>,
+    tasks: HashMap<u64, Waker>,
 
     /// Tracks if the `Handle` dropped
     is_closed: bool,
@@ -86,19 +87,19 @@ impl<T, U> Service<T> for Mock<T, U> {
     type Error = Error;
     type Future = ResponseFuture<U>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let mut state = self.state.lock().unwrap();
 
         if state.is_closed {
-            return Err(error::Closed::new().into());
+            return Poll::Ready(Err(error::Closed::new().into()));
         }
 
         if let Some(e) = state.err_with.take() {
-            return Err(e);
+            return Poll::Ready(Err(e));
         }
 
         if self.can_send {
-            return Ok(().into());
+            return Poll::Ready(Ok(()));
         }
 
         if state.rem > 0 {
@@ -107,15 +108,15 @@ impl<T, U> Service<T> for Mock<T, U> {
             // Returning `Ready` means the next call to `call` must succeed.
             self.can_send = true;
 
-            Ok(Async::Ready(()))
+            Poll::Ready(Ok(()))
         } else {
             // Bit weird... but whatevz
             *state
                 .tasks
                 .entry(self.id)
-                .or_insert_with(|| task::current()) = task::current();
+                .or_insert_with(|| cx.waker().clone()) = cx.waker().clone();
 
-            Ok(Async::NotReady)
+            Poll::Pending
         }
     }
 
@@ -196,16 +197,21 @@ impl<T, U> Drop for Mock<T, U> {
 
 impl<T, U> Handle<T, U> {
     /// Asynchronously gets the next request
-    pub fn poll_request(&mut self) -> Poll<Option<Request<T, U>>, Error> {
-        self.rx.poll().map_err(Into::into)
+    pub fn poll_request(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Request<T, U>>> {
+        Box::pin(self.rx.recv()).as_mut().poll(cx)
     }
 
     /// Synchronously gets the next request.
     ///
     /// This function blocks the current thread until a request is received.
-    pub fn next_request(&mut self) -> Option<Request<T, U>> {
-        use futures::future::poll_fn;
-        poll_fn(|| self.poll_request()).wait().unwrap()
+    pub fn next_request(mut self: Pin<&mut Self>) -> Option<Request<T, U>> {
+        use futures_executor::block_on;
+        use futures_util::future::poll_fn;
+
+        block_on(poll_fn(|cx| self.as_mut().poll_request(cx)))
     }
 
     /// Allow a certain number of requests
@@ -215,7 +221,7 @@ impl<T, U> Handle<T, U> {
 
         if num > 0 {
             for (_, task) in state.tasks.drain() {
-                task.notify();
+                task.wake();
             }
         }
     }
@@ -226,7 +232,7 @@ impl<T, U> Handle<T, U> {
         state.err_with = Some(e.into());
 
         for (_, task) in state.tasks.drain() {
-            task.notify();
+            task.wake();
         }
     }
 }
@@ -247,7 +253,7 @@ impl<T, U> Drop for Handle<T, U> {
         state.is_closed = true;
 
         for (_, task) in state.tasks.drain() {
-            task.notify();
+            task.wake();
         }
     }
 }

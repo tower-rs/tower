@@ -7,21 +7,29 @@
 /// # Examples
 ///
 /// ```rust
-/// extern crate tower;
 /// #[macro_use]
 /// extern crate tower_test;
+/// extern crate tower_service;
 ///
-/// use tower::Service;
+/// use tower_service::Service;
 /// use tower_test::mock;
+/// use std::task::{Poll, Context};
+/// use tokio_test::{task, assert_ready};
+/// use futures_util::pin_mut;
 ///
 /// # fn main() {
-/// let (mut mock, mut handle) = mock::pair();
+/// task::mock(|cx|{
+///     let (mut mock, mut handle) = mock::pair();
+///     pin_mut!(mock);
+///     pin_mut!(handle);
 ///
-/// assert!(mock.poll_ready().is_ok());
-/// let _response = mock.call("hello");
+///     assert_ready!(mock.poll_ready(cx));
 ///
-/// assert_request_eq!(handle, "hello")
-///     .send_response("world");
+///     let _response = mock.call("hello");
+///
+///     assert_request_eq!(handle, "hello")
+///         .send_response("world");
+/// });
 /// # }
 /// ```
 #[macro_export]
