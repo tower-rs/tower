@@ -18,5 +18,5 @@ members = [
   # "tower-test",
   # "tower-timeout",
   "tower-make",
-  # "tower-util",
+  "tower-util",
 ]
