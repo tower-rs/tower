@@ -2,6 +2,7 @@
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::Load;
+use futures_core::ready;
 use std::task::{Context, Poll};
 use std::{
     sync::{Arc, Mutex},
@@ -112,9 +113,9 @@ where
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
-        let change = match self.discover.poll(cx) {
-            Poll::Ready(Ok(Change::Remove(k))) => Change::Remove(k),
-            Poll::Ready(Ok(Change::Insert(k, svc))) => {
+        let change = match ready!(self.discover.poll(cx))? {
+            Change::Remove(k) => Change::Remove(k),
+            Change::Insert(k, svc) => {
                 let peak_ewma = PeakEwma::new(
                     svc,
                     self.default_rtt,
@@ -123,8 +124,6 @@ where
                 );
                 Change::Insert(k, peak_ewma)
             }
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => return Poll::Pending,
         };
 
         Poll::Ready(Ok(change))

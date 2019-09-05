@@ -1,3 +1,4 @@
+use futures_core::ready;
 use pin_project::pin_project;
 use std::future::Future;
 use std::pin::Pin;
@@ -66,11 +67,8 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = self.project();
 
-        let rsp = match me.future.poll(cx) {
-            Poll::Ready(Ok(rsp)) => rsp,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => return Poll::Pending,
-        };
+        let rsp = ready!(me.future.poll(cx))?;
+
         let h = me.handle.take().expect("handle");
         Ok(me.instrument.instrument(h, rsp)).into()
     }

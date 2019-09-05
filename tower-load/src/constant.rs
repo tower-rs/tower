@@ -1,5 +1,6 @@
 //! A constant `Load` implementation. Primarily useful for testing.
 
+use futures_core::ready;
 use std::task::{Context, Poll};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
@@ -58,13 +59,9 @@ impl<D: Discover, M: Copy> Discover for Constant<D, M> {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
-        use self::Change::*;
-
-        let change = match self.inner.poll(cx) {
-            Poll::Ready(Ok(Insert(k, svc))) => Insert(k, Constant::new(svc, self.load)),
-            Poll::Ready(Ok(Remove(k))) => Remove(k),
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            Poll::Pending => return Poll::Pending,
+        let change = match ready!(self.inner.poll(cx))? {
+            Change::Insert(k, svc) => Change::Insert(k, Constant::new(svc, self.load)),
+            Change::Remove(k) => Change::Remove(k),
         };
 
         Poll::Ready(Ok(change))
