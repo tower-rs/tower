@@ -30,5 +30,7 @@ tower-discover = { path = "../tower-discover" }
 futures-core-preview = "=0.3.0-alpha.18"
 pin-project = "0.4.0-alpha.7"
 
-# [dev-dependencies]
+[dev-dependencies]
+tokio-test = "=0.2.0-alpha.4"
+futures-util-preview = "=0.3.0-alpha.18"
 # tokio-executor = "0.1.2"

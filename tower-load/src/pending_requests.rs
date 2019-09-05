@@ -135,72 +135,75 @@ impl RefCount {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use futures::{future, Future, Poll};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_util::future;
+    use tokio_test::block_on;
 
-//     struct Svc;
-//     impl Service<()> for Svc {
-//         type Response = ();
-//         type Error = ();
-//         type Future = future::FutureResult<(), ()>;
+    struct Svc;
+    impl Service<()> for Svc {
+        type Response = ();
+        type Error = ();
+        type Future = future::Ready<Result<(), ()>>;
 
-//         fn poll_ready(&mut self) -> Poll<(), ()> {
-//             Ok(().into())
-//         }
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Ok(()).into()
+        }
 
-//         fn call(&mut self, (): ()) -> Self::Future {
-//             future::ok(())
-//         }
-//     }
+        fn call(&mut self, (): ()) -> Self::Future {
+            future::ok(())
+        }
+    }
 
-//     #[test]
-//     fn default() {
-//         let mut svc = PendingRequests::new(Svc, NoInstrument);
-//         assert_eq!(svc.load(), Count(0));
+    #[test]
+    fn default() {
+        let mut svc = PendingRequests::new(Svc, NoInstrument);
+        assert_eq!(svc.load(), Count(0));
 
-//         let rsp0 = svc.call(());
-//         assert_eq!(svc.load(), Count(1));
+        let rsp0 = svc.call(());
+        assert_eq!(svc.load(), Count(1));
 
-//         let rsp1 = svc.call(());
-//         assert_eq!(svc.load(), Count(2));
+        let rsp1 = svc.call(());
+        assert_eq!(svc.load(), Count(2));
 
-//         let () = rsp0.wait().unwrap();
-//         assert_eq!(svc.load(), Count(1));
+        block_on(rsp0).unwrap();
+        assert_eq!(svc.load(), Count(1));
 
-//         let () = rsp1.wait().unwrap();
-//         assert_eq!(svc.load(), Count(0));
-//     }
+        block_on(rsp1).unwrap();
+        assert_eq!(svc.load(), Count(0));
+    }
 
-//     #[test]
-//     fn instrumented() {
-//         #[derive(Clone)]
-//         struct IntoHandle;
-//         impl Instrument<Handle, ()> for IntoHandle {
-//             type Output = Handle;
-//             fn instrument(&self, i: Handle, (): ()) -> Handle {
-//                 i
-//             }
-//         }
+    #[test]
+    fn instrumented() {
+        #[derive(Clone)]
+        struct IntoHandle;
+        impl Instrument<Handle, ()> for IntoHandle {
+            type Output = Handle;
+            fn instrument(&self, i: Handle, (): ()) -> Handle {
+                i
+            }
+        }
 
-//         let mut svc = PendingRequests::new(Svc, IntoHandle);
-//         assert_eq!(svc.load(), Count(0));
+        let mut svc = PendingRequests::new(Svc, IntoHandle);
+        assert_eq!(svc.load(), Count(0));
 
-//         let rsp = svc.call(());
-//         assert_eq!(svc.load(), Count(1));
-//         let i0 = rsp.wait().unwrap();
-//         assert_eq!(svc.load(), Count(1));
+        let rsp = svc.call(());
+        assert_eq!(svc.load(), Count(1));
 
-//         let rsp = svc.call(());
-//         assert_eq!(svc.load(), Count(2));
-//         let i1 = rsp.wait().unwrap();
-//         assert_eq!(svc.load(), Count(2));
+        let i0 = block_on(rsp).unwrap();
+        assert_eq!(svc.load(), Count(1));
 
-//         drop(i1);
-//         assert_eq!(svc.load(), Count(1));
+        let rsp = svc.call(());
+        assert_eq!(svc.load(), Count(2));
 
-//         drop(i0);
-//         assert_eq!(svc.load(), Count(0));
-//     }
-// }
+        let i1 = block_on(rsp).unwrap();
+        assert_eq!(svc.load(), Count(2));
+
+        drop(i1);
+        assert_eq!(svc.load(), Count(1));
+
+        drop(i0);
+        assert_eq!(svc.load(), Count(0));
+    }
+}
