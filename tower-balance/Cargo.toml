@@ -41,7 +41,7 @@ slab = "0.4"
 
 futures-core-preview = "=0.3.0-alpha.18"
 futures-util-preview = "=0.3.0-alpha.18"
-pin-project = "0.4.0-alpha.7"
+pin-project = "0.4.0-alpha.9"
 
 [dev-dependencies]
 tracing-fmt = { git = "https://github.com/tokio-rs/tracing.git" }
