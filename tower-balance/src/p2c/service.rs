@@ -282,7 +282,7 @@ where
         // previously-selected `ready_index` if appropriate.
         let _ = self.poll_discover(cx)?;
 
-        //Drive new or busy services to readiness.
+        // Drive new or busy services to readiness.
         self.poll_unready(cx);
 
         trace!({ nready = self.ready_services.len(), nunready = self.unready_services.len() }, "poll_ready");
