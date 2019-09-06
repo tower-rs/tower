@@ -1,7 +1,7 @@
 use crate::{error::Never, Change, Discover};
+use pin_project::pin_project;
 use std::iter::{Enumerate, IntoIterator};
 use std::{
-    marker::Unpin,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -11,15 +11,13 @@ use tower_service::Service;
 ///
 /// `ServiceList` is created with an initial list of services. The discovery
 /// process will yield this list once and do nothing after.
+#[pin_project]
 pub struct ServiceList<T>
 where
     T: IntoIterator,
 {
     inner: Enumerate<T::IntoIter>,
 }
-
-// NOTE: we should remove this impl once https://github.com/taiki-e/pin-project/issues/76 is fixed
-impl<T> Unpin for ServiceList<T> where T: IntoIterator {}
 
 impl<T, U> ServiceList<T>
 where
@@ -47,7 +45,7 @@ where
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
-        match self.inner.next() {
+        match self.project().inner.next() {
             Some((i, service)) => Poll::Ready(Ok(Change::Insert(i, service))),
             None => Poll::Pending,
         }
