@@ -1,6 +1,9 @@
 use crate::{error::Never, Change, Discover};
-use futures::{Async, Poll};
 use std::iter::{Enumerate, IntoIterator};
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_service::Service;
 
 /// Static service discovery based on a predetermined list of services.
@@ -31,15 +34,19 @@ where
 impl<T, U> Discover for ServiceList<T>
 where
     T: IntoIterator<Item = U>,
+    Enumerate<T::IntoIter>: Unpin,
 {
     type Key = usize;
     type Service = U;
     type Error = Never;
 
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
+    fn poll(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         match self.inner.next() {
-            Some((i, service)) => Ok(Change::Insert(i, service).into()),
-            None => Ok(Async::NotReady),
+            Some((i, service)) => Poll::Ready(Ok(Change::Insert(i, service))),
+            None => Poll::Pending,
         }
     }
 }

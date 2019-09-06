@@ -1,41 +1,49 @@
 use crate::{Change, Discover};
-use futures::{try_ready, Async, Poll, Stream};
+use futures_core::{ready, TryStream};
+use pin_project::pin_project;
 use std::hash::Hash;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_service::Service;
 
 /// Dynamic service discovery based on a stream of service changes.
+#[pin_project]
 pub struct ServiceStream<S> {
-    inner: futures::stream::Fuse<S>,
+    #[pin]
+    inner: S,
 }
 
 impl<S> ServiceStream<S> {
     pub fn new<K, Svc, Request>(services: S) -> Self
     where
-        S: Stream<Item = Change<K, Svc>>,
+        S: TryStream<Ok = Change<K, Svc>>,
         K: Hash + Eq,
         Svc: Service<Request>,
     {
-        ServiceStream {
-            inner: services.fuse(),
-        }
+        ServiceStream { inner: services }
     }
 }
 
 impl<S, K, Svc> Discover for ServiceStream<S>
 where
     K: Hash + Eq,
-    S: Stream<Item = Change<K, Svc>>,
+    S: TryStream<Ok = Change<K, Svc>>,
 {
     type Key = K;
     type Service = Svc;
     type Error = S::Error;
 
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        match try_ready!(self.inner.poll()) {
-            Some(c) => Ok(Async::Ready(c)),
+    fn poll(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+        match ready!(self.project().inner.try_poll_next(cx)).transpose()? {
+            Some(c) => Poll::Ready(Ok(c)),
             None => {
                 // there are no more service changes coming
-                Ok(Async::NotReady)
+                Poll::Pending
             }
         }
     }
