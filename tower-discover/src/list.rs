@@ -1,6 +1,7 @@
 use crate::{error::Never, Change, Discover};
 use std::iter::{Enumerate, IntoIterator};
 use std::{
+    marker::Unpin,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -16,6 +17,9 @@ where
 {
     inner: Enumerate<T::IntoIter>,
 }
+
+// NOTE: we should remove this impl once https://github.com/taiki-e/pin-project/issues/76 is fixed
+impl<T> Unpin for ServiceList<T> where T: IntoIterator {}
 
 impl<T, U> ServiceList<T>
 where
@@ -34,7 +38,6 @@ where
 impl<T, U> Discover for ServiceList<T>
 where
     T: IntoIterator<Item = U>,
-    Enumerate<T::IntoIter>: Unpin,
 {
     type Key = usize;
     type Service = U;
