@@ -7,7 +7,7 @@ members = [
   # "tower-discover",
   # "tower-filter",
   # "tower-hedge",
-  # "tower-layer",
+  "tower-layer",
   # "tower-limit",
   # "tower-load",
   # "tower-load-shed",
