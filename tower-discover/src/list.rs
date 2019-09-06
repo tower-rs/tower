@@ -40,7 +40,7 @@ where
     type Service = U;
     type Error = Never;
 
-    fn poll(
+    fn poll_discover(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {

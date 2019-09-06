@@ -35,7 +35,7 @@ where
     type Service = Svc;
     type Error = S::Error;
 
-    fn poll(
+    fn poll_discover(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {

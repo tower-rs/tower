@@ -37,7 +37,7 @@ pub trait Discover {
     type Error;
 
     /// Yields the next discovery change set.
-    fn poll(
+    fn poll_discover(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>>;
