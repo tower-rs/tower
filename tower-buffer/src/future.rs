@@ -4,7 +4,12 @@ use crate::{
     error::{Closed, Error},
     message,
 };
-use futures::{Async, Future, Poll};
+use futures_core::ready;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Future eventually completed with the response to the original request.
 pub struct ResponseFuture<T> {
@@ -17,11 +22,7 @@ enum ResponseState<T> {
     Poll(T),
 }
 
-impl<T> ResponseFuture<T>
-where
-    T: Future,
-    T::Error: Into<Error>,
-{
+impl<T> ResponseFuture<T> {
     pub(crate) fn new(rx: message::Rx<T>) -> Self {
         ResponseFuture {
             state: ResponseState::Rx(rx),
@@ -35,36 +36,34 @@ where
     }
 }
 
-impl<T> Future for ResponseFuture<T>
+impl<F, T, E> Future for ResponseFuture<F>
 where
-    T: Future,
-    T::Error: Into<Error>,
+    F: Future<Output = Result<T, E>>,
+    E: Into<Error>,
 {
-    type Item = T::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use self::ResponseState::*;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // we only ever give out Pin to what's inside state when it is ResponseState::Poll
+        // we only give it out once state has been set to ResponseState::Poll
+        // once state has been set to ResponseState::Poll, we never move it again
+        let this = unsafe { self.get_unchecked_mut() };
 
         loop {
-            let fut;
-
-            match self.state {
-                Failed(ref mut e) => {
-                    return Err(e.take().expect("polled after error"));
+            match this.state {
+                ResponseState::Failed(ref mut e) => {
+                    return Poll::Ready(Err(e.take().expect("polled after error")));
                 }
-                Rx(ref mut rx) => match rx.poll() {
-                    Ok(Async::Ready(Ok(f))) => fut = f,
-                    Ok(Async::Ready(Err(e))) => return Err(e.into()),
-                    Ok(Async::NotReady) => return Ok(Async::NotReady),
-                    Err(_) => return Err(Closed::new().into()),
+                ResponseState::Rx(ref mut rx) => match ready!(Pin::new(rx).poll(cx)) {
+                    Ok(Ok(f)) => this.state = ResponseState::Poll(f),
+                    Ok(Err(e)) => return Poll::Ready(Err(e.into())),
+                    Err(_) => return Poll::Ready(Err(Closed::new().into())),
                 },
-                Poll(ref mut fut) => {
-                    return fut.poll().map_err(Into::into);
+                ResponseState::Poll(ref mut fut) => {
+                    let fut = unsafe { Pin::new_unchecked(fut) };
+                    return fut.poll(cx).map_err(Into::into);
                 }
             }
-
-            self.state = Poll(fut);
         }
     }
 }
