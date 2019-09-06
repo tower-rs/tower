@@ -2,8 +2,13 @@
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::Load;
-use futures::{try_ready, Async, Poll};
+use futures_core::ready;
 use log::trace;
+use pin_project::pin_project;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -45,7 +50,9 @@ pub struct PeakEwma<S, I = NoInstrument> {
 }
 
 /// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
+#[pin_project]
 pub struct PeakEwmaDiscover<D, I = NoInstrument> {
+    #[pin]
     discover: D,
     decay_ns: f64,
     default_rtt: Duration,
@@ -108,21 +115,25 @@ where
     type Service = PeakEwma<D::Service, I>;
     type Error = D::Error;
 
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
-        let change = match try_ready!(self.discover.poll()) {
+    fn poll(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
+        let this = self.project();
+        let change = match ready!(this.discover.poll(cx))? {
             Change::Remove(k) => Change::Remove(k),
             Change::Insert(k, svc) => {
                 let peak_ewma = PeakEwma::new(
                     svc,
-                    self.default_rtt,
-                    self.decay_ns,
-                    self.instrument.clone(),
+                    *this.default_rtt,
+                    *this.decay_ns,
+                    this.instrument.clone(),
                 );
                 Change::Insert(k, peak_ewma)
             }
         };
 
-        Ok(Async::Ready(change))
+        Poll::Ready(Ok(change))
     }
 }
 
@@ -156,8 +167,8 @@ where
     type Error = S::Error;
     type Future = InstrumentFuture<S::Future, I, Handle>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
@@ -293,12 +304,16 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use futures::{future, Future, Poll};
+    use futures_util::future;
+    use std::{
+        future::Future,
+        task::{Context, Poll},
+    };
     use std::{
         sync::{Arc, Mutex},
         time::{Duration, Instant},
     };
-    use tokio_executor::enter;
+    use tokio_test::{assert_ready, assert_ready_ok};
     use tokio_timer::clock;
 
     use super::*;
@@ -307,10 +322,10 @@ mod tests {
     impl Service<()> for Svc {
         type Response = ();
         type Error = ();
-        type Future = future::FutureResult<(), ()>;
+        type Future = future::Ready<Result<(), ()>>;
 
-        fn poll_ready(&mut self) -> Poll<(), ()> {
-            Ok(().into())
+        fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
         }
 
         fn call(&mut self, (): ()) -> Self::Future {
@@ -332,8 +347,7 @@ mod tests {
         let time = Arc::new(Mutex::new(Instant::now()));
         let clock = clock::Clock::new_with_now(Now(time.clone()));
 
-        let mut enter = enter().expect("enter");
-        clock::with_default(&clock, &mut enter, |_| {
+        clock::with_default(&clock, || {
             let svc = PeakEwma::new(
                 Svc,
                 Duration::from_millis(10),
@@ -360,38 +374,39 @@ mod tests {
         let time = Arc::new(Mutex::new(Instant::now()));
         let clock = clock::Clock::new_with_now(Now(time.clone()));
 
-        let mut enter = enter().expect("enter");
-        clock::with_default(&clock, &mut enter, |_| {
-            let mut svc = PeakEwma::new(
-                Svc,
-                Duration::from_millis(20),
-                NANOS_PER_MILLI * 1_000.0,
-                NoInstrument,
-            );
-            assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
+        clock::with_default(&clock, || {
+            tokio_test::task::mock(|cx| {
+                let mut svc = PeakEwma::new(
+                    Svc,
+                    Duration::from_millis(20),
+                    NANOS_PER_MILLI * 1_000.0,
+                    NoInstrument,
+                );
+                assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 
-            *time.lock().unwrap() += Duration::from_millis(100);
-            let rsp0 = svc.call(());
-            assert!(svc.load() > Cost(20.0 * NANOS_PER_MILLI));
+                *time.lock().unwrap() += Duration::from_millis(100);
+                let mut rsp0 = svc.call(());
+                assert!(svc.load() > Cost(20.0 * NANOS_PER_MILLI));
 
-            *time.lock().unwrap() += Duration::from_millis(100);
-            let rsp1 = svc.call(());
-            assert!(svc.load() > Cost(40.0 * NANOS_PER_MILLI));
+                *time.lock().unwrap() += Duration::from_millis(100);
+                let mut rsp1 = svc.call(());
+                assert!(svc.load() > Cost(40.0 * NANOS_PER_MILLI));
 
-            *time.lock().unwrap() += Duration::from_millis(100);
-            let () = rsp0.wait().unwrap();
-            assert_eq!(svc.load(), Cost(400_000_000.0));
+                *time.lock().unwrap() += Duration::from_millis(100);
+                let () = assert_ready_ok!(Pin::new(&mut rsp0).poll(cx));
+                assert_eq!(svc.load(), Cost(400_000_000.0));
 
-            *time.lock().unwrap() += Duration::from_millis(100);
-            let () = rsp1.wait().unwrap();
-            assert_eq!(svc.load(), Cost(200_000_000.0));
+                *time.lock().unwrap() += Duration::from_millis(100);
+                let () = assert_ready_ok!(Pin::new(&mut rsp1).poll(cx));
+                assert_eq!(svc.load(), Cost(200_000_000.0));
 
-            // Check that values decay as time elapses
-            *time.lock().unwrap() += Duration::from_secs(1);
-            assert!(svc.load() < Cost(100_000_000.0));
+                // Check that values decay as time elapses
+                *time.lock().unwrap() += Duration::from_secs(1);
+                assert!(svc.load() < Cost(100_000_000.0));
 
-            *time.lock().unwrap() += Duration::from_secs(10);
-            assert!(svc.load() < Cost(100_000.0));
+                *time.lock().unwrap() += Duration::from_secs(10);
+                assert!(svc.load() < Cost(100_000.0));
+            })
         });
     }
 
