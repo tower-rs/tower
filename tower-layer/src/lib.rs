@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-layer/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-layer/0.3.0-alpha.1")]
 #![deny(missing_docs, rust_2018_idioms)]
 
 //! Layer traits and extensions.
@@ -21,11 +21,8 @@
 /// Take request logging as an example:
 ///
 /// ```rust
-/// # extern crate futures;
-/// # extern crate tower_service;
-/// # extern crate void;
 /// # use tower_service::Service;
-/// # use futures::{Poll, Async};
+/// # use std::task::{Poll, Context};
 /// # use tower_layer::Layer;
 /// # use std::fmt;
 /// # use void::Void;
@@ -60,8 +57,8 @@
 ///     type Error = S::Error;
 ///     type Future = S::Future;
 ///
-///     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-///         self.service.poll_ready()
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///         self.service.poll_ready(cx)
 ///     }
 ///
 ///     fn call(&mut self, request: Request) -> Self::Future {
