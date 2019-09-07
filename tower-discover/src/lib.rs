@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-discover/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-discover/0.3.0-alpha.1")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
@@ -15,8 +15,11 @@ mod stream;
 
 pub use crate::{list::ServiceList, stream::ServiceStream};
 
-use futures::Poll;
 use std::hash::Hash;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Provide a uniform set of services able to satisfy a request.
 ///
@@ -34,7 +37,10 @@ pub trait Discover {
     type Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error>;
+    fn poll_discover(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>>;
 }
 
 /// A change in the service set
