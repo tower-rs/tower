@@ -144,9 +144,7 @@ impl RefCount {
 mod tests {
     use super::*;
     use futures_util::future;
-    use std::{
-        task::{Context, Poll},
-    };
+    use std::task::{Context, Poll};
 
     struct Svc;
     impl Service<()> for Svc {
@@ -163,8 +161,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn default() {
+    #[test]
+    fn default() {
         let mut svc = PendingRequests::new(Svc, NoInstrument);
         assert_eq!(svc.load(), Count(0));
 
@@ -174,15 +172,15 @@ mod tests {
         let rsp1 = svc.call(());
         assert_eq!(svc.load(), Count(2));
 
-        let () = rsp0.await.unwrap();
+        let () = tokio_test::block_on(rsp0).unwrap();
         assert_eq!(svc.load(), Count(1));
 
-        let () = rsp1.await.unwrap();
+        let () = tokio_test::block_on(rsp1).unwrap();
         assert_eq!(svc.load(), Count(0));
     }
 
-    #[tokio::test]
-    async fn instrumented() {
+    #[test]
+    fn instrumented() {
         #[derive(Clone)]
         struct IntoHandle;
         impl Instrument<Handle, ()> for IntoHandle {
@@ -197,12 +195,12 @@ mod tests {
 
         let rsp = svc.call(());
         assert_eq!(svc.load(), Count(1));
-        let i0 = rsp.await.unwrap();
+        let i0 = tokio_test::block_on(rsp).unwrap();
         assert_eq!(svc.load(), Count(1));
 
         let rsp = svc.call(());
         assert_eq!(svc.load(), Count(2));
-        let i1 = rsp.await.unwrap();
+        let i1 = tokio_test::block_on(rsp).unwrap();
         assert_eq!(svc.load(), Count(2));
 
         drop(i1);
