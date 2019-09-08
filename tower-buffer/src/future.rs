@@ -5,6 +5,7 @@ use crate::{
     message,
 };
 use futures_core::ready;
+use pin_project::{pin_project, project};
 use std::{
     future::Future,
     pin::Pin,
@@ -12,14 +13,17 @@ use std::{
 };
 
 /// Future eventually completed with the response to the original request.
+#[pin_project]
 pub struct ResponseFuture<T> {
+    #[pin]
     state: ResponseState<T>,
 }
 
+#[pin_project]
 enum ResponseState<T> {
     Failed(Option<Error>),
-    Rx(message::Rx<T>),
-    Poll(T),
+    Rx(#[pin] message::Rx<T>),
+    Poll(#[pin] T),
 }
 
 impl<T> ResponseFuture<T> {
@@ -43,25 +47,23 @@ where
 {
     type Output = Result<T, Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // we only ever give out Pin to what's inside state when it is ResponseState::Poll
-        // we only give it out once state has been set to ResponseState::Poll
-        // once state has been set to ResponseState::Poll, we never move it again
-        let this = unsafe { self.get_unchecked_mut() };
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
 
         loop {
-            match this.state {
-                ResponseState::Failed(ref mut e) => {
+            #[project]
+            match this.state.project() {
+                ResponseState::Failed(e) => {
                     return Poll::Ready(Err(e.take().expect("polled after error")));
                 }
-                ResponseState::Rx(ref mut rx) => match ready!(Pin::new(rx).poll(cx)) {
-                    Ok(Ok(f)) => this.state = ResponseState::Poll(f),
+                ResponseState::Rx(rx) => match ready!(rx.poll(cx)) {
+                    Ok(Ok(f)) => this.state.set(ResponseState::Poll(f)),
                     Ok(Err(e)) => return Poll::Ready(Err(e.into())),
                     Err(_) => return Poll::Ready(Err(Closed::new().into())),
                 },
-                ResponseState::Poll(ref mut fut) => {
-                    let fut = unsafe { Pin::new_unchecked(fut) };
-                    return fut.poll(cx).map_err(Into::into);
+                ResponseState::Poll(fut) => {
+                    return fut.poll(cx).map_err(Into::into)
                 }
             }
         }
