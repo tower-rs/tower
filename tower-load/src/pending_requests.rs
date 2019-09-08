@@ -116,14 +116,14 @@ where
     type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(
+    fn poll_discover(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;
 
         let this = self.project();
-        let change = match ready!(this.discover.poll(cx))? {
+        let change = match ready!(this.discover.poll_discover(cx))? {
             Insert(k, svc) => Insert(k, PendingRequests::new(svc, this.instrument.clone())),
             Remove(k) => Remove(k),
         };

@@ -60,14 +60,14 @@ impl<D: Discover + Unpin, M: Copy> Discover for Constant<D, M> {
     type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(
+    fn poll_discover(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;
 
         let this = self.project();
-        let change = match ready!(Pin::new(this.inner).poll(cx))? {
+        let change = match ready!(Pin::new(this.inner).poll_discover(cx))? {
             Insert(k, svc) => Insert(k, Constant::new(svc, *this.load)),
             Remove(k) => Remove(k),
         };

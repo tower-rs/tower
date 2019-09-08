@@ -115,12 +115,12 @@ where
     type Service = PeakEwma<D::Service, I>;
     type Error = D::Error;
 
-    fn poll(
+    fn poll_discover(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         let this = self.project();
-        let change = match ready!(this.discover.poll(cx))? {
+        let change = match ready!(this.discover.poll_discover(cx))? {
             Change::Remove(k) => Change::Remove(k),
             Change::Insert(k, svc) => {
                 let peak_ewma = PeakEwma::new(
