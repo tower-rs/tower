@@ -10,7 +10,7 @@ members = [
   "tower-layer",
   # "tower-limit",
   "tower-load",
-  # "tower-load-shed",
+  "tower-load-shed",
   # "tower-reconnect",
   # "tower-retry",
   "tower-service",

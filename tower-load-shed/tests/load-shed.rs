@@ -1,42 +1,42 @@
-use futures::Future;
+use futures_util::pin_mut;
+use std::future::Future;
+use tokio_test::{assert_ready_err, assert_ready_ok, task::mock};
 use tower_load_shed::{self, LoadShed};
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 
 #[test]
 fn when_ready() {
-    let (mut service, mut handle) = new_service();
+    mock(|cx| {
+        let (mut service, handle) = new_service();
+        pin_mut!(handle);
 
-    with_task(|| {
-        assert!(
-            service.poll_ready().unwrap().is_ready(),
-            "overload always reports ready",
-        );
+        assert_ready_ok!(service.poll_ready(cx), "overload always reports ready");
+
+        let response = service.call("hello");
+        pin_mut!(response);
+
+        assert_request_eq!(handle, "hello").send_response("world");
+        assert_eq!(assert_ready_ok!(response.poll(cx)), "world");
     });
-
-    let response = service.call("hello");
-
-    assert_request_eq!(handle, "hello").send_response("world");
-    assert_eq!(response.wait().unwrap(), "world");
 }
 
 #[test]
 fn when_not_ready() {
-    let (mut service, mut handle) = new_service();
+    mock(|cx| {
+        let (mut service, handle) = new_service();
+        pin_mut!(handle);
 
-    handle.allow(0);
+        handle.allow(0);
 
-    with_task(|| {
-        assert!(
-            service.poll_ready().unwrap().is_ready(),
-            "overload always reports ready",
-        );
+        assert_ready_ok!(service.poll_ready(cx), "overload always reports ready");
+
+        let fut = service.call("hello");
+        pin_mut!(fut);
+
+        let err = assert_ready_err!(fut.poll(cx));
+        assert!(err.is::<tower_load_shed::error::Overloaded>());
     });
-
-    let fut = service.call("hello");
-
-    let err = fut.wait().unwrap_err();
-    assert!(err.is::<tower_load_shed::error::Overloaded>());
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;
@@ -46,9 +46,4 @@ fn new_service() -> (LoadShed<Mock>, Handle) {
     let (service, handle) = mock::pair();
     let service = LoadShed::new(service);
     (service, handle)
-}
-
-fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
-    use futures::future::lazy;
-    lazy(|| Ok::<_, ()>(f())).wait().unwrap()
 }

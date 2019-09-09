@@ -1,11 +1,11 @@
-#![doc(html_root_url = "https://docs.rs/tower-load-shed/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-load-shed/0.3.0-alpha.1")]
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware for shedding load when inner services aren't ready.
 
-use futures::Poll;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 pub mod error;
@@ -44,14 +44,17 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // We check for readiness here, so that we can know in `call` if
         // the inner service is overloaded or not.
-        self.is_ready = self.inner.poll_ready().map_err(Into::into)?.is_ready();
+        self.is_ready = match self.inner.poll_ready(cx) {
+            Poll::Ready(Err(e)) => return Poll::Ready(Err(e.into())),
+            r => r.is_ready(),
+        };
 
         // But we always report Ready, so that layers above don't wait until
         // the inner service is ready (the entire point of this layer!)
-        Ok(().into())
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
