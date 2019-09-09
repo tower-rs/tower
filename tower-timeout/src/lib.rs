@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-timeout/0.1.1")]
+#![doc(html_root_url = "https://docs.rs/tower-timeout/0.3.0-alpha.1")]
 #![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 #![cfg_attr(test, deny(warnings))]
@@ -15,8 +15,8 @@ mod layer;
 pub use crate::layer::TimeoutLayer;
 
 use crate::{error::Error, future::ResponseFuture};
-use futures::Poll;
-use tokio_timer::{clock, Delay};
+use std::task::{Context, Poll};
+use tokio_timer::{clock, delay};
 
 use tower_service::Service;
 
@@ -47,13 +47,16 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready().map_err(Into::into)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        match self.inner.poll_ready(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(r) => Poll::Ready(r.map_err(Into::into)),
+        }
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         let response = self.inner.call(request);
-        let sleep = Delay::new(clock::now() + self.timeout);
+        let sleep = delay(clock::now() + self.timeout);
 
         ResponseFuture::new(response, sleep)
     }

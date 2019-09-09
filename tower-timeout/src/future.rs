@@ -1,13 +1,21 @@
 //! Future types
 
 use crate::error::{Elapsed, Error};
-use futures::{Async, Future, Poll};
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_timer::Delay;
 
 /// `Timeout` response future
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
+    #[pin]
     response: T,
+    #[pin]
     sleep: Delay,
 }
 
@@ -17,25 +25,26 @@ impl<T> ResponseFuture<T> {
     }
 }
 
-impl<T> Future for ResponseFuture<T>
+impl<F, T, E> Future for ResponseFuture<F>
 where
-    T: Future,
-    Error: From<T::Error>,
+    F: Future<Output = Result<T, E>>,
+    Error: From<E>,
 {
-    type Item = T::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
         // First, try polling the future
-        match self.response.poll()? {
-            Async::Ready(v) => return Ok(Async::Ready(v)),
-            Async::NotReady => {}
+        match this.response.poll(cx) {
+            Poll::Ready(v) => return Poll::Ready(v.map_err(Error::from)),
+            Poll::Pending => {}
         }
 
         // Now check the sleep
-        match self.sleep.poll()? {
-            Async::NotReady => Ok(Async::NotReady),
-            Async::Ready(_) => Err(Elapsed(()).into()),
+        match this.sleep.poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(_) => Poll::Ready(Err(Elapsed(()).into())),
         }
     }
 }
