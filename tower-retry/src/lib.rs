@@ -14,14 +14,17 @@ pub use crate::layer::RetryLayer;
 pub use crate::policy::Policy;
 
 use crate::future::ResponseFuture;
+use pin_project::pin_project;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// Configure retrying requests of "failed" responses.
 ///
 /// A `Policy` classifies what is a "failed" response.
+#[pin_project]
 #[derive(Clone, Debug)]
 pub struct Retry<P, S> {
+    #[pin]
     policy: P,
     service: S,
 }
@@ -37,7 +40,7 @@ impl<P, S> Retry<P, S> {
 
 impl<P, S, Request> Service<Request> for Retry<P, S>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone + Unpin,
+    P: Policy<Request, S::Response, S::Error> + Clone,
     S: Service<Request> + Clone,
 {
     type Response = S::Response;
@@ -45,6 +48,9 @@ where
     type Future = ResponseFuture<P, S, Request>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // NOTE: the Future::poll impl for ResponseFuture assumes that Retry::poll_ready is
+        // equivalent to Ready.service.poll_ready. If this ever changes, that code must be updated
+        // as well.
         self.service.poll_ready(cx)
     }
 
