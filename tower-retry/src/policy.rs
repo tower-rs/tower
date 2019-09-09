@@ -1,14 +1,12 @@
-use futures::Future;
+use std::future::Future;
 
 /// A "retry policy" to classify if a request should be retried.
 ///
 /// # Example
 ///
 /// ```
-/// extern crate futures;
-/// extern crate tower_retry;
-///
 /// use tower_retry::Policy;
+/// use futures_util::future;
 ///
 /// type Req = String;
 /// type Res = String;
@@ -16,7 +14,7 @@ use futures::Future;
 /// struct Attempts(usize);
 ///
 /// impl<E> Policy<Req, Res, E> for Attempts {
-///     type Future = futures::future::FutureResult<Self, ()>;
+///     type Future = future::Ready<Self>;
 ///
 ///     fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future> {
 ///         match result {
@@ -30,7 +28,7 @@ use futures::Future;
 ///                 // But we limit the number of attempts...
 ///                 if self.0 > 0 {
 ///                     // Try again!
-///                     Some(futures::future::ok(Attempts(self.0 - 1)))
+///                     Some(future::ready(Attempts(self.0 - 1)))
 ///                 } else {
 ///                     // Used all our attempts, no retry...
 ///                     None
@@ -46,7 +44,7 @@ use futures::Future;
 /// ```
 pub trait Policy<Req, Res, E>: Sized {
     /// The `Future` type returned by `Policy::retry()`.
-    type Future: Future<Item = Self, Error = ()>;
+    type Future: Future<Output = Self>;
     /// Check the policy if a certain request should be retried.
     ///
     /// This method is passed a reference to the original request, and either
@@ -56,9 +54,6 @@ pub trait Policy<Req, Res, E>: Sized {
     ///
     /// If the request *should* be retried, return `Some` future of a new
     /// policy that would apply for the next request attempt.
-    ///
-    /// If the returned `Future` errors, the request will **not** be retried
-    /// after all.
     fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future>;
     /// Tries to clone a request before being passed to the inner service.
     ///

@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-retry/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-retry/0.3.0-alpha.1")]
 #![deny(missing_docs, missing_debug_implementations, rust_2018_idioms)]
 #![cfg_attr(test, deny(warnings))]
 #![allow(elided_lifetimes_in_paths)]
@@ -14,14 +14,17 @@ pub use crate::layer::RetryLayer;
 pub use crate::policy::Policy;
 
 use crate::future::ResponseFuture;
-use futures::Poll;
+use pin_project::pin_project;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// Configure retrying requests of "failed" responses.
 ///
 /// A `Policy` classifies what is a "failed" response.
+#[pin_project]
 #[derive(Clone, Debug)]
 pub struct Retry<P, S> {
+    #[pin]
     policy: P,
     service: S,
 }
@@ -44,8 +47,11 @@ where
     type Error = S::Error;
     type Future = ResponseFuture<P, S, Request>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // NOTE: the Future::poll impl for ResponseFuture assumes that Retry::poll_ready is
+        // equivalent to Ready.service.poll_ready. If this ever changes, that code must be updated
+        // as well.
+        self.service.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
