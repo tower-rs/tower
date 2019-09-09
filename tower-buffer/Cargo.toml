@@ -8,13 +8,13 @@ name = "tower-buffer"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.1.1"
+version = "0.3.0-alpha.1"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-buffer/0.1.1"
+documentation = "https://docs.rs/tower-buffer/0.3.0-alpha.1"
 description = """
 Buffer requests before dispatching to a `Service`.
 """
@@ -26,13 +26,15 @@ log = ["tracing/log"]
 default = ["log"]
 
 [dependencies]
-futures = "0.1.25"
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
-tokio-executor = "0.1.7"
-tokio-sync = "0.1.0"
+futures-core-preview = "0.3.0-alpha.18"
+pin-project = { version = "0.4.0-alpha.9", features = ["project_attr"] }
+tower-service = "0.3.0-alpha.1"
+tower-layer = { version = "0.3.0-alpha.1", path = "../tower-layer" }
+tokio-executor = "0.2.0-alpha.4"
+tokio-sync = "0.2.0-alpha.4"
 tracing = "0.1.2"
 
 [dev-dependencies]
-tower = { version = "0.1.0", path = "../tower" }
-tower-test = { version = "0.1.0", path = "../tower-test" }
+tower-test = { version = "0.3.0-alpha.1", path = "../tower-test" }
+tokio-test = { version = "0.2.0-alpha.4" }
+futures-util-preview = "0.3.0-alpha.18"

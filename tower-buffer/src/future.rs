@@ -4,24 +4,29 @@ use crate::{
     error::{Closed, Error},
     message,
 };
-use futures::{Async, Future, Poll};
+use futures_core::ready;
+use pin_project::{pin_project, project};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Future eventually completed with the response to the original request.
+#[pin_project]
 pub struct ResponseFuture<T> {
+    #[pin]
     state: ResponseState<T>,
 }
 
+#[pin_project]
 enum ResponseState<T> {
     Failed(Option<Error>),
-    Rx(message::Rx<T>),
-    Poll(T),
+    Rx(#[pin] message::Rx<T>),
+    Poll(#[pin] T),
 }
 
-impl<T> ResponseFuture<T>
-where
-    T: Future,
-    T::Error: Into<Error>,
-{
+impl<T> ResponseFuture<T> {
     pub(crate) fn new(rx: message::Rx<T>) -> Self {
         ResponseFuture {
             state: ResponseState::Rx(rx),
@@ -35,36 +40,32 @@ where
     }
 }
 
-impl<T> Future for ResponseFuture<T>
+impl<F, T, E> Future for ResponseFuture<F>
 where
-    T: Future,
-    T::Error: Into<Error>,
+    F: Future<Output = Result<T, E>>,
+    E: Into<Error>,
 {
-    type Item = T::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use self::ResponseState::*;
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
 
         loop {
-            let fut;
-
-            match self.state {
-                Failed(ref mut e) => {
-                    return Err(e.take().expect("polled after error"));
+            #[project]
+            match this.state.project() {
+                ResponseState::Failed(e) => {
+                    return Poll::Ready(Err(e.take().expect("polled after error")));
                 }
-                Rx(ref mut rx) => match rx.poll() {
-                    Ok(Async::Ready(Ok(f))) => fut = f,
-                    Ok(Async::Ready(Err(e))) => return Err(e.into()),
-                    Ok(Async::NotReady) => return Ok(Async::NotReady),
-                    Err(_) => return Err(Closed::new().into()),
+                ResponseState::Rx(rx) => match ready!(rx.poll(cx)) {
+                    Ok(Ok(f)) => this.state.set(ResponseState::Poll(f)),
+                    Ok(Err(e)) => return Poll::Ready(Err(e.into())),
+                    Err(_) => return Poll::Ready(Err(Closed::new().into())),
                 },
-                Poll(ref mut fut) => {
-                    return fut.poll().map_err(Into::into);
+                ResponseState::Poll(fut) => {
+                    return fut.poll(cx).map_err(Into::into)
                 }
             }
-
-            self.state = Poll(fut);
         }
     }
 }

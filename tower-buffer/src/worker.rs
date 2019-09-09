@@ -2,8 +2,14 @@ use crate::{
     error::{Closed, Error, ServiceError},
     message::Message,
 };
-use futures::{try_ready, Async, Future, Poll, Stream};
+use futures_core::{ready, stream::Stream};
+use pin_project::pin_project;
 use std::sync::{Arc, Mutex};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_executor::TypedExecutor;
 use tokio_sync::mpsc;
 use tower_service::Service;
@@ -15,6 +21,7 @@ use tower_service::Service;
 /// as part of the public API. This is the "sealed" pattern to include "private"
 /// types in public traits that are not meant for consumers of the library to
 /// implement (only call).
+#[pin_project]
 pub struct Worker<T, Request>
 where
     T: Service<Request>,
@@ -85,35 +92,39 @@ where
     ///
     /// If a `Message` is returned, the `bool` is true if this is the first time we received this
     /// message, and false otherwise (i.e., we tried to forward it to the backing service before).
-    fn poll_next_msg(&mut self) -> Poll<Option<(Message<Request, T::Future>, bool)>, ()> {
+    fn poll_next_msg(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<(Message<Request, T::Future>, bool)>> {
         if self.finish {
             // We've already received None and are shutting down
-            return Ok(Async::Ready(None));
+            return Poll::Ready(None);
         }
 
         tracing::trace!("worker polling for next message");
         if let Some(mut msg) = self.current_message.take() {
-            // poll_cancel returns Async::Ready is the receiver is dropped.
-            // Returning NotReady means it is still alive, so we should still
+            // poll_closed returns Poll::Ready is the receiver is dropped.
+            // Returning Pending means it is still alive, so we should still
             // use it.
-            if msg.tx.poll_close()?.is_not_ready() {
+            if msg.tx.poll_closed(cx).is_pending() {
                 tracing::trace!("resuming buffered request");
-                return Ok(Async::Ready(Some((msg, false))));
+                return Poll::Ready(Some((msg, false)));
             }
+
             tracing::trace!("dropping cancelled buffered request");
         }
 
         // Get the next request
-        while let Some(mut msg) = try_ready!(self.rx.poll().map_err(|_| ())) {
-            if msg.tx.poll_close()?.is_not_ready() {
+        while let Some(mut msg) = ready!(Pin::new(&mut self.rx).poll_next(cx)) {
+            if msg.tx.poll_closed(cx).is_pending() {
                 tracing::trace!("processing new request");
-                return Ok(Async::Ready(Some((msg, true))));
+                return Poll::Ready(Some((msg, true)));
             }
             // Otherwise, request is canceled, so pop the next one.
             tracing::trace!("dropping cancelled request");
         }
 
-        Ok(Async::Ready(None))
+        Poll::Ready(None)
     }
 
     fn failed(&mut self, error: Error) {
@@ -155,16 +166,15 @@ where
     T: Service<Request>,
     T::Error: Into<Error>,
 {
-    type Item = ();
-    type Error = ();
+    type Output = ();
 
-    fn poll(&mut self) -> Poll<(), ()> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.finish {
-            return Ok(().into());
+            return Poll::Ready(());
         }
 
         loop {
-            match try_ready!(self.poll_next_msg()) {
+            match ready!(self.poll_next_msg(cx)) {
                 Some((msg, first)) => {
                     let _guard = msg.span.enter();
                     if let Some(ref failed) = self.failed {
@@ -178,8 +188,8 @@ where
                         resumed = !first,
                         message = "worker received request; waiting for service readiness"
                     );
-                    match self.service.poll_ready() {
-                        Ok(Async::Ready(())) => {
+                    match self.service.poll_ready(cx) {
+                        Poll::Ready(Ok(())) => {
                             tracing::debug!(service.ready = true, message = "processing request");
                             let response = self.service.call(msg.request);
 
@@ -190,14 +200,14 @@ where
                             tracing::trace!("returning response future");
                             let _ = msg.tx.send(Ok(response));
                         }
-                        Ok(Async::NotReady) => {
+                        Poll::Pending => {
                             tracing::trace!(service.ready = false, message = "delay");
                             // Put out current message back in its slot.
                             drop(_guard);
                             self.current_message = Some(msg);
-                            return Ok(Async::NotReady);
+                            return Poll::Pending;
                         }
-                        Err(e) => {
+                        Poll::Ready(Err(e)) => {
                             let error = e.into();
                             tracing::debug!({ %error }, "service failed");
                             drop(_guard);
@@ -213,7 +223,7 @@ where
                 None => {
                     // No more more requests _ever_.
                     self.finish = true;
-                    return Ok(Async::Ready(()));
+                    return Poll::Ready(());
                 }
             }
         }
