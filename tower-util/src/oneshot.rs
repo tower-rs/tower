@@ -1,19 +1,26 @@
-use std::mem;
-
-use futures::{Async, Future, Poll};
+use futures_util::ready;
+use pin_project::{pin_project, project};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_service::Service;
 
 /// A `Future` consuming a `Service` and request, waiting until the `Service`
 /// is ready, and then calling `Service::call` with the request, and
 /// waiting for that `Future`.
+#[pin_project]
 pub struct Oneshot<S: Service<Req>, Req> {
+    #[pin]
     state: State<S, Req>,
 }
 
+#[pin_project]
 enum State<S: Service<Req>, Req> {
-    NotReady(S, Req),
-    Called(S::Future),
-    Tmp,
+    NotReady(Option<(S, Req)>),
+    Called(#[pin] S::Future),
+    Done,
 }
 
 impl<S, Req> Oneshot<S, Req>
@@ -22,7 +29,7 @@ where
 {
     pub fn new(svc: S, req: Req) -> Self {
         Oneshot {
-            state: State::NotReady(svc, req),
+            state: State::NotReady(Some((svc, req))),
         }
     }
 }
@@ -31,31 +38,25 @@ impl<S, Req> Future for Oneshot<S, Req>
 where
     S: Service<Req>,
 {
-    type Item = S::Response;
-    type Error = S::Error;
+    type Output = Result<S::Response, S::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
         loop {
-            match mem::replace(&mut self.state, State::Tmp) {
-                State::NotReady(mut svc, req) => match svc.poll_ready()? {
-                    Async::Ready(()) => {
-                        self.state = State::Called(svc.call(req));
-                    }
-                    Async::NotReady => {
-                        self.state = State::NotReady(svc, req);
-                        return Ok(Async::NotReady);
-                    }
-                },
-                State::Called(mut fut) => match fut.poll()? {
-                    Async::Ready(res) => {
-                        return Ok(Async::Ready(res));
-                    }
-                    Async::NotReady => {
-                        self.state = State::Called(fut);
-                        return Ok(Async::NotReady);
-                    }
-                },
-                State::Tmp => panic!("polled after complete"),
+            #[project]
+            match this.state.project() {
+                State::NotReady(nr) => {
+                    let (mut svc, req) = nr.take().expect("We immediately transition to ::Called");
+                    let _ = ready!(svc.poll_ready(cx))?;
+                    this.state.set(State::Called(svc.call(req)));
+                }
+                State::Called(fut) => {
+                    let res = ready!(fut.poll(cx))?;
+                    this.state.set(State::Done);
+                    return Poll::Ready(Ok(res));
+                }
+                State::Done => panic!("polled after complete"),
             }
         }
     }

@@ -1,8 +1,16 @@
 use super::{error, Error};
-use futures::{Future, Poll};
+use futures_util::ready;
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Response future returned by `Optional`.
+#[pin_project]
 pub struct ResponseFuture<T> {
+    #[pin]
     inner: Option<T>,
 }
 
@@ -12,18 +20,17 @@ impl<T> ResponseFuture<T> {
     }
 }
 
-impl<T> Future for ResponseFuture<T>
+impl<F, T, E> Future for ResponseFuture<F>
 where
-    T: Future,
-    T::Error: Into<Error>,
+    F: Future<Output = Result<T, E>>,
+    Error: From<E>,
 {
-    type Item = T::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner {
-            Some(ref mut inner) => inner.poll().map_err(Into::into),
-            None => Err(error::None::new().into()),
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.project().inner.as_pin_mut() {
+            Some(inner) => Poll::Ready(Ok(ready!(inner.poll(cx))?)),
+            None => Poll::Ready(Err(error::None::new().into())),
         }
     }
 }

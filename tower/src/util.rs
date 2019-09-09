@@ -1,6 +1,6 @@
 //! Combinators for working with `Service`s
 
-use futures::Stream;
+use futures_core::Stream;
 use tower_service::Service;
 pub use tower_util::{
     BoxService, CallAll, CallAllUnordered, Either, Oneshot, Optional, Ready, UnsyncBoxService,
@@ -38,7 +38,6 @@ pub trait ServiceExt<Request>: Service<Request> {
         Self: Sized,
         Self::Error: Into<Error>,
         S: Stream<Item = Request>,
-        S::Error: Into<Error>,
     {
         CallAll::new(self, reqs)
     }

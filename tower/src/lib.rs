@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.1.1")]
+#![doc(html_root_url = "https://docs.rs/tower/0.3.0-alpha.1")]
 // Allows refining features in the future without breaking backwards
 // compatibility
 #![cfg(feature = "full")]
@@ -30,4 +30,4 @@ pub mod util;
 
 pub use crate::{builder::ServiceBuilder, util::ServiceExt};
 pub use tower_service::Service;
-pub use tower_util::{service_fn, MakeConnection, MakeService};
+pub use tower_util::service_fn;

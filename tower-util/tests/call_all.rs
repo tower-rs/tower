@@ -1,11 +1,11 @@
-#![cfg(feature = "broken")]
-
-use futures::{
-    self,
-    future::{ok, FutureResult},
-    stream, Async, Poll, Stream,
+use futures_core::Stream;
+use futures_util::{
+    future::{ready, Ready},
+    pin_mut,
 };
+use std::task::{Context, Poll};
 use std::{cell::Cell, rc::Rc};
+use tokio_test::{assert_pending, assert_ready, task};
 use tower::ServiceExt;
 use tower_service::*;
 use tower_test::{assert_request_eq, mock};
@@ -20,46 +20,26 @@ struct Srv {
 impl Service<&'static str> for Srv {
     type Response = &'static str;
     type Error = Error;
-    type Future = FutureResult<Self::Response, Error>;
+    type Future = Ready<Result<Self::Response, Error>>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if !self.admit.get() {
-            return Ok(Async::NotReady);
+            return Poll::Pending;
         }
 
         self.admit.set(false);
-        Ok(Async::Ready(()))
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: &'static str) -> Self::Future {
         self.count.set(self.count.get() + 1);
-        ok(req)
+        ready(Ok(req))
     }
-}
-
-macro_rules! assert_ready {
-    ($e:expr) => {{
-        match $e {
-            Ok(futures::Async::Ready(v)) => v,
-            Ok(_) => panic!("not ready"),
-            Err(e) => panic!("error = {:?}", e),
-        }
-    }};
-}
-
-macro_rules! assert_not_ready {
-    ($e:expr) => {{
-        match $e {
-            Ok(futures::Async::NotReady) => {}
-            Ok(futures::Async::Ready(v)) => panic!("ready; value = {:?}", v),
-            Err(e) => panic!("error = {:?}", e),
-        }
-    }};
 }
 
 #[test]
 fn ordered() {
-    let mut mock = tokio_mock_task::MockTask::new();
+    let mut mock = task::MockTask::new();
 
     let admit = Rc::new(Cell::new(false));
     let count = Rc::new(Cell::new(0));
@@ -67,49 +47,60 @@ fn ordered() {
         count: count.clone(),
         admit: admit.clone(),
     };
-    let (tx, rx) = futures::unsync::mpsc::unbounded();
-    let mut ca = srv.call_all(rx.map_err(|_| "nope"));
+    let (mut tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let ca = srv.call_all(rx);
+    pin_mut!(ca);
 
-    assert_not_ready!(mock.enter(|| ca.poll()));
-    tx.unbounded_send("one").unwrap();
-    mock.is_notified();
-    assert_not_ready!(mock.enter(|| ca.poll()));
+    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
+    tx.try_send("one").unwrap();
+    mock.is_woken();
+    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    let v = assert_ready!(mock.enter(|| ca.poll()));
+    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert_eq!(v, Some("one"));
-    assert_not_ready!(mock.enter(|| ca.poll()));
+    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    tx.unbounded_send("two").unwrap();
-    mock.is_notified();
-    tx.unbounded_send("three").unwrap();
-    let v = assert_ready!(mock.enter(|| ca.poll()));
+    tx.try_send("two").unwrap();
+    mock.is_woken();
+    tx.try_send("three").unwrap();
+    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert_eq!(v, Some("two"));
-    assert_not_ready!(mock.enter(|| ca.poll()));
+    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    let v = assert_ready!(mock.enter(|| ca.poll()));
+    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert_eq!(v, Some("three"));
     admit.set(true);
-    assert_not_ready!(mock.enter(|| ca.poll()));
+    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    tx.unbounded_send("four").unwrap();
-    mock.is_notified();
-    let v = assert_ready!(mock.enter(|| ca.poll()));
+    tx.try_send("four").unwrap();
+    mock.is_woken();
+    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert_eq!(v, Some("four"));
-    assert_not_ready!(mock.enter(|| ca.poll()));
+    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
 
     // need to be ready since impl doesn't know it'll get EOF
     admit.set(true);
 
     // When we drop the request stream, CallAll should return None.
     drop(tx);
-    mock.is_notified();
-    let v = assert_ready!(mock.enter(|| ca.poll()));
+    mock.is_woken();
+    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert!(v.is_none());
     assert_eq!(count.get(), 4);
 
     // We should also be able to recover the wrapped Service.
     assert_eq!(
-        ca.into_inner(),
+        ca.take_service(),
         Srv {
             count: count.clone(),
             admit
@@ -119,27 +110,37 @@ fn ordered() {
 
 #[test]
 fn unordered() {
-    let (mock, mut handle) = mock::pair::<_, &'static str>();
-    let mut task = tokio_mock_task::MockTask::new();
-    let requests = stream::iter_ok::<_, Error>(&["one", "two"]);
+    let (mock, handle) = mock::pair::<_, &'static str>();
+    pin_mut!(handle);
 
-    let mut svc = mock.call_all(requests).unordered();
-    assert_not_ready!(task.enter(|| svc.poll()));
+    let mut task = task::MockTask::new();
+    let requests = futures_util::stream::iter(&["one", "two"]);
+
+    let svc = mock.call_all(requests).unordered();
+    pin_mut!(svc);
+
+    assert_pending!(task.enter(|cx| svc.as_mut().poll_next(cx)));
 
     let resp1 = assert_request_eq!(handle, &"one");
     let resp2 = assert_request_eq!(handle, &"two");
 
     resp2.send_response("resp 1");
 
-    let v = assert_ready!(task.enter(|| svc.poll()));
+    let v = assert_ready!(task.enter(|cx| svc.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert_eq!(v, Some("resp 1"));
-    assert_not_ready!(task.enter(|| svc.poll()));
+    assert_pending!(task.enter(|cx| svc.as_mut().poll_next(cx)));
 
     resp1.send_response("resp 2");
 
-    let v = assert_ready!(task.enter(|| svc.poll()));
+    let v = assert_ready!(task.enter(|cx| svc.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert_eq!(v, Some("resp 2"));
 
-    let v = assert_ready!(task.enter(|| svc.poll()));
+    let v = assert_ready!(task.enter(|cx| svc.as_mut().poll_next(cx)))
+        .transpose()
+        .unwrap();
     assert!(v.is_none());
 }

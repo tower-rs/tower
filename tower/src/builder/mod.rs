@@ -65,7 +65,7 @@ use std::{fmt, time::Duration};
 /// # fn dox<T>(my_service: T)
 /// # where T: Service<()> + Send + 'static,
 /// # T::Future: Send,
-/// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
+/// # T::Error: Into<Box<dyn ::std::error::Error + Send + Sync>>,
 /// # {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(10)
@@ -84,28 +84,9 @@ use std::{fmt, time::Duration};
 /// A `Service` stack with a single layer:
 ///
 /// ```
-/// # extern crate tower;
-/// # extern crate tower_limit;
-/// # extern crate futures;
-/// # extern crate void;
-/// # use void::Void;
-/// # use tower::Service;
+/// # use tower_test::MyService;
 /// # use tower::builder::ServiceBuilder;
 /// # use tower_limit::concurrency::ConcurrencyLimitLayer;
-/// # use futures::{Poll, future::{self, FutureResult}};
-/// # #[derive(Debug)]
-/// # struct MyService;
-/// # impl Service<()> for MyService {
-/// #    type Response = ();
-/// #    type Error = Void;
-/// #    type Future = FutureResult<Self::Response, Self::Error>;
-/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-/// #        Ok(().into())
-/// #    }
-/// #    fn call(&mut self, _: ()) -> Self::Future {
-/// #        future::ok(())
-/// #    }
-/// # }
 /// ServiceBuilder::new()
 ///     .concurrency_limit(5)
 ///     .service(MyService);
@@ -115,27 +96,9 @@ use std::{fmt, time::Duration};
 /// in-flight request limits, and a channel-backed, clonable `Service`:
 ///
 /// ```
-/// # extern crate tower;
-/// # extern crate futures;
-/// # extern crate void;
-/// # use void::Void;
-/// # use tower::Service;
+/// # use tower_test::MyService;
 /// # use tower::builder::ServiceBuilder;
 /// # use std::time::Duration;
-/// # use futures::{Poll, future::{self, FutureResult}};
-/// # #[derive(Debug)]
-/// # struct MyService;
-/// # impl Service<()> for MyService {
-/// #    type Response = ();
-/// #    type Error = Void;
-/// #    type Future = FutureResult<Self::Response, Self::Error>;
-/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-/// #        Ok(().into())
-/// #    }
-/// #    fn call(&mut self, _: ()) -> Self::Future {
-/// #        future::ok(())
-/// #    }
-/// # }
 /// ServiceBuilder::new()
 ///     .buffer(5)
 ///     .concurrency_limit(5)
