@@ -1,11 +1,19 @@
 //! Future types
 
 use super::error::Error;
-use futures::{Future, Poll};
+use futures_core::ready;
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// Future for the `RateLimit` service.
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
+    #[pin]
     inner: T,
 }
 
@@ -15,15 +23,14 @@ impl<T> ResponseFuture<T> {
     }
 }
 
-impl<T> Future for ResponseFuture<T>
+impl<F, T, E> Future for ResponseFuture<F>
 where
-    T: Future,
-    Error: From<T::Error>,
+    F: Future<Output = Result<T, E>>,
+    Error: From<E>,
 {
-    type Item = T::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll().map_err(Into::into)
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Poll::Ready(Ok(ready!(self.project().inner.poll(cx))?))
     }
 }

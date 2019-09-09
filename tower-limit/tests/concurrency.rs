@@ -1,134 +1,106 @@
-use futures::{
-    self,
-    future::{poll_fn, Future},
-};
-use tokio_mock_task::MockTask;
+use futures_util::{future::poll_fn, pin_mut};
+use tokio_test::{assert_pending, assert_ready, assert_ready_ok, block_on, task::MockTask};
 use tower_limit::concurrency::ConcurrencyLimit;
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
-
-macro_rules! assert_ready {
-    ($e:expr) => {{
-        use futures::Async::*;
-        match $e {
-            Ok(Ready(v)) => v,
-            Ok(NotReady) => panic!("not ready"),
-            Err(e) => panic!("err = {:?}", e),
-        }
-    }};
-}
-
-macro_rules! assert_not_ready {
-    ($e:expr) => {{
-        use futures::Async::*;
-        match $e {
-            Ok(NotReady) => {}
-            r => panic!("unexpected poll status = {:?}", r),
-        }
-    }};
-}
 
 #[test]
 fn basic_service_limit_functionality_with_poll_ready() {
     let mut task = MockTask::new();
 
-    let (mut service, mut handle) = new_service(2);
+    let (mut service, handle) = new_service(2);
+    pin_mut!(handle);
 
-    poll_fn(|| service.poll_ready()).wait().unwrap();
+    block_on(poll_fn(|cx| service.poll_ready(cx))).unwrap();
     let r1 = service.call("hello 1");
 
-    poll_fn(|| service.poll_ready()).wait().unwrap();
+    block_on(poll_fn(|cx| service.poll_ready(cx))).unwrap();
     let r2 = service.call("hello 2");
 
-    task.enter(|| {
-        assert!(service.poll_ready().unwrap().is_not_ready());
+    task.enter(|cx| {
+        assert_pending!(service.poll_ready(cx));
     });
 
-    assert!(!task.is_notified());
+    assert!(!task.is_woken());
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 1").send_response("world 1");
+    assert_request_eq!(handle.as_mut(), "hello 1").send_response("world 1");
 
     // The next request gets passed through
-    assert_request_eq!(handle, "hello 2").send_response("world 2");
+    assert_request_eq!(handle.as_mut(), "hello 2").send_response("world 2");
 
     // There are no more requests
-    task.enter(|| {
-        assert!(handle.poll_request().unwrap().is_not_ready());
+    task.enter(|cx| {
+        assert_pending!(handle.as_mut().poll_request(cx));
     });
 
-    assert_eq!(r1.wait().unwrap(), "world 1");
-    assert!(task.is_notified());
+    assert_eq!(block_on(r1).unwrap(), "world 1");
+    assert!(task.is_woken());
 
     // Another request can be sent
-    task.enter(|| {
-        assert!(service.poll_ready().unwrap().is_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(service.poll_ready(cx));
     });
 
     let r3 = service.call("hello 3");
 
-    task.enter(|| {
-        assert!(service.poll_ready().unwrap().is_not_ready());
+    task.enter(|cx| {
+        assert_pending!(service.poll_ready(cx));
     });
 
-    assert_eq!(r2.wait().unwrap(), "world 2");
+    assert_eq!(block_on(r2).unwrap(), "world 2");
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 3").send_response("world 3");
+    assert_request_eq!(handle.as_mut(), "hello 3").send_response("world 3");
 
-    assert_eq!(r3.wait().unwrap(), "world 3");
+    assert_eq!(block_on(r3).unwrap(), "world 3");
 }
 
 #[test]
 fn basic_service_limit_functionality_without_poll_ready() {
     let mut task = MockTask::new();
 
-    let (mut service, mut handle) = new_service(2);
+    let (mut service, handle) = new_service(2);
+    pin_mut!(handle);
 
-    assert_ready!(service.poll_ready());
+    assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
     let r1 = service.call("hello 1");
 
-    assert_ready!(service.poll_ready());
+    assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
     let r2 = service.call("hello 2");
 
-    task.enter(|| {
-        assert_not_ready!(service.poll_ready());
-    });
+    assert_pending!(task.enter(|cx| service.poll_ready(cx)));
 
     // The request gets passed through
-    assert_request_eq!(handle, "hello 1").send_response("world 1");
+    assert_request_eq!(handle.as_mut(), "hello 1").send_response("world 1");
 
-    assert!(!task.is_notified());
+    assert!(!task.is_woken());
 
     // The next request gets passed through
-    assert_request_eq!(handle, "hello 2").send_response("world 2");
+    assert_request_eq!(handle.as_mut(), "hello 2").send_response("world 2");
 
-    assert!(!task.is_notified());
+    assert!(!task.is_woken());
 
     // There are no more requests
-    task.enter(|| {
-        assert!(handle.poll_request().unwrap().is_not_ready());
-    });
+    assert_pending!(task.enter(|cx| handle.as_mut().poll_request(cx)));
 
-    assert_eq!(r1.wait().unwrap(), "world 1");
+    assert_eq!(block_on(r1).unwrap(), "world 1");
 
-    assert!(task.is_notified());
+    assert!(task.is_woken());
 
     // One more request can be sent
-    assert_ready!(service.poll_ready());
+    assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
     let r4 = service.call("hello 4");
 
-    task.enter(|| {
-        assert_not_ready!(service.poll_ready());
-    });
+    assert_pending!(task.enter(|cx| service.poll_ready(cx)));
 
-    assert_eq!(r2.wait().unwrap(), "world 2");
-    assert!(task.is_notified());
+    assert_eq!(block_on(r2).unwrap(), "world 2");
+    assert!(task.is_woken());
 
     // The request gets passed through
     assert_request_eq!(handle, "hello 4").send_response("world 4");
 
-    assert_eq!(r4.wait().unwrap(), "world 4");
+    assert_eq!(block_on(r4).unwrap(), "world 4");
 }
 
 #[test]
@@ -137,8 +109,8 @@ fn request_without_capacity() {
 
     let (mut service, _) = new_service(0);
 
-    task.enter(|| {
-        assert_not_ready!(service.poll_ready());
+    task.enter(|cx| {
+        assert_pending!(service.poll_ready(cx));
     });
 }
 
@@ -146,18 +118,19 @@ fn request_without_capacity() {
 fn reserve_capacity_without_sending_request() {
     let mut task = MockTask::new();
 
-    let (mut s1, mut handle) = new_service(1);
+    let (mut s1, handle) = new_service(1);
+    pin_mut!(handle);
 
     let mut s2 = s1.clone();
 
     // Reserve capacity in s1
-    task.enter(|| {
-        assert!(s1.poll_ready().unwrap().is_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(s1.poll_ready(cx));
     });
 
     // Service 2 cannot get capacity
-    task.enter(|| {
-        assert!(s2.poll_ready().unwrap().is_not_ready());
+    task.enter(|cx| {
+        assert_pending!(s2.poll_ready(cx));
     });
 
     // s1 sends the request, then s2 is able to get capacity
@@ -165,14 +138,14 @@ fn reserve_capacity_without_sending_request() {
 
     assert_request_eq!(handle, "hello").send_response("world");
 
-    task.enter(|| {
-        assert!(s2.poll_ready().unwrap().is_not_ready());
+    task.enter(|cx| {
+        assert_pending!(s2.poll_ready(cx));
     });
 
-    r1.wait().unwrap();
+    block_on(r1).unwrap();
 
-    task.enter(|| {
-        assert!(s2.poll_ready().unwrap().is_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(s2.poll_ready(cx));
     });
 }
 
@@ -185,30 +158,31 @@ fn service_drop_frees_capacity() {
     let mut s2 = s1.clone();
 
     // Reserve capacity in s1
-    assert_ready!(s1.poll_ready());
+    assert_ready_ok!(task.enter(|cx| s1.poll_ready(cx)));
 
     // Service 2 cannot get capacity
-    task.enter(|| {
-        assert_not_ready!(s2.poll_ready());
+    task.enter(|cx| {
+        assert_pending!(s2.poll_ready(cx));
     });
 
     drop(s1);
 
-    assert!(task.is_notified());
-    assert_ready!(s2.poll_ready());
+    assert!(task.is_woken());
+    assert_ready_ok!(task.enter(|cx| s2.poll_ready(cx)));
 }
 
 #[test]
 fn response_error_releases_capacity() {
     let mut task = MockTask::new();
 
-    let (mut s1, mut handle) = new_service(1);
+    let (mut s1, handle) = new_service(1);
+    pin_mut!(handle);
 
     let mut s2 = s1.clone();
 
     // Reserve capacity in s1
-    task.enter(|| {
-        assert_ready!(s1.poll_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(s1.poll_ready(cx));
     });
 
     // s1 sends the request, then s2 is able to get capacity
@@ -216,10 +190,10 @@ fn response_error_releases_capacity() {
 
     assert_request_eq!(handle, "hello").send_error("boom");
 
-    r1.wait().unwrap_err();
+    block_on(r1).unwrap_err();
 
-    task.enter(|| {
-        assert!(s2.poll_ready().unwrap().is_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(s2.poll_ready(cx));
     });
 }
 
@@ -232,21 +206,21 @@ fn response_future_drop_releases_capacity() {
     let mut s2 = s1.clone();
 
     // Reserve capacity in s1
-    task.enter(|| {
-        assert_ready!(s1.poll_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(s1.poll_ready(cx));
     });
 
     // s1 sends the request, then s2 is able to get capacity
     let r1 = s1.call("hello");
 
-    task.enter(|| {
-        assert_not_ready!(s2.poll_ready());
+    task.enter(|cx| {
+        assert_pending!(s2.poll_ready(cx));
     });
 
     drop(r1);
 
-    task.enter(|| {
-        assert!(s2.poll_ready().unwrap().is_ready());
+    task.enter(|cx| {
+        assert_ready_ok!(s2.poll_ready(cx));
     });
 }
 
@@ -261,20 +235,20 @@ fn multi_waiters() {
     let mut s3 = s1.clone();
 
     // Reserve capacity in s1
-    task1.enter(|| assert_ready!(s1.poll_ready()));
+    task1.enter(|cx| assert_ready_ok!(s1.poll_ready(cx)));
 
     // s2 and s3 are not ready
-    task2.enter(|| assert_not_ready!(s2.poll_ready()));
-    task3.enter(|| assert_not_ready!(s3.poll_ready()));
+    task2.enter(|cx| assert_pending!(s2.poll_ready(cx)));
+    task3.enter(|cx| assert_pending!(s3.poll_ready(cx)));
 
     drop(s1);
 
-    assert!(task2.is_notified());
-    assert!(!task3.is_notified());
+    assert!(task2.is_woken());
+    assert!(!task3.is_woken());
 
     drop(s2);
 
-    assert!(task3.is_notified());
+    assert!(task3.is_woken());
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;

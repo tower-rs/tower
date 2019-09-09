@@ -8,13 +8,13 @@ name = "tower-limit"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.1.0"
+version = "0.3.0-alpha.1"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-limit/0.1.0"
+documentation = "https://docs.rs/tower-limit/0.3.0-alpha.1"
 description = """
 Limit maximum request rate to a `Service`.
 """
@@ -22,13 +22,14 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures = "0.1.26"
-tower-service = "0.2.0"
-tower-layer = "0.1.0"
-tokio-sync = "0.1.3"
-tokio-timer = "0.2.6"
+futures-core-preview = "0.3.0-alpha.18"
+tower-service = "0.3.0-alpha.1"
+tower-layer = { version = "0.3.0-alpha.1", path = "../tower-layer" }
+tokio-sync = "0.2.0-alpha.4"
+tokio-timer = "0.3.0-alpha.4"
+pin-project = "0.4.0-alpha.9"
 
 [dev-dependencies]
-tower-test = { version = "0.1", path = "../tower-test" }
-tokio = "0.1.19"
-tokio-mock-task = "0.1.1"
+tower-test = { version = "0.3.0-alpha.1", path = "../tower-test" }
+tokio-test = "0.2.0-alpha.4"
+futures-util-preview = "0.3.0-alpha.18"

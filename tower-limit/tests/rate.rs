@@ -1,69 +1,41 @@
-use futures::future;
-use tokio::runtime::current_thread::Runtime;
-use tokio_timer::Delay;
+use futures_util::pin_mut;
+use tokio_test::{assert_pending, assert_ready, assert_ready_ok, clock, task::MockTask};
 use tower_limit::rate::*;
 use tower_service::*;
 use tower_test::{assert_request_eq, mock};
 
-use std::time::{Duration, Instant};
-
-macro_rules! assert_ready {
-    ($e:expr) => {{
-        use futures::Async::*;
-        match $e {
-            Ok(Ready(v)) => v,
-            Ok(NotReady) => panic!("not ready"),
-            Err(e) => panic!("err = {:?}", e),
-        }
-    }};
-}
-
-macro_rules! assert_not_ready {
-    ($e:expr) => {{
-        use futures::Async::*;
-        match $e {
-            Ok(NotReady) => {}
-            r => panic!("unexpected poll status = {:?}", r),
-        }
-    }};
-}
+use std::future::Future;
+use std::time::Duration;
 
 #[test]
 fn reaching_capacity() {
-    let mut rt = Runtime::new().unwrap();
-    let (mut service, mut handle) = new_service(Rate::new(1, from_millis(100)));
+    clock::mock(|time| {
+        let mut task = MockTask::new();
 
-    assert_ready!(service.poll_ready());
-    let response = service.call("hello");
+        let (mut service, handle) = new_service(Rate::new(1, from_millis(100)));
+        pin_mut!(handle);
 
-    assert_request_eq!(handle, "hello").send_response("world");
+        assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
+        let response = service.call("hello");
+        pin_mut!(response);
 
-    let response = rt.block_on(response);
-    assert_eq!(response.unwrap(), "world");
+        assert_request_eq!(handle.as_mut(), "hello").send_response("world");
+        assert_ready_ok!(task.enter(|cx| response.poll(cx)), "world");
 
-    rt.block_on(future::lazy(|| {
-        assert_not_ready!(service.poll_ready());
-        Ok::<_, ()>(())
-    }))
-    .unwrap();
+        assert_pending!(task.enter(|cx| service.poll_ready(cx)));
+        assert_pending!(task.enter(|cx| handle.as_mut().poll_request(cx)));
 
-    let poll_request = rt.block_on(future::lazy(|| handle.poll_request()));
-    assert!(poll_request.unwrap().is_not_ready());
+        time.advance(Duration::from_millis(100));
 
-    // Unlike `thread::sleep`, this advances the timer.
-    rt.block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
-        .unwrap();
+        assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
 
-    let poll_ready = rt.block_on(future::lazy(|| service.poll_ready()));
-    assert_ready!(poll_ready);
+        // Send a second request
+        let response = service.call("two");
+        pin_mut!(response);
 
-    // Send a second request
-    let response = service.call("two");
-
-    assert_request_eq!(handle, "two").send_response("done");
-
-    let response = rt.block_on(response);
-    assert_eq!(response.unwrap(), "done");
+        assert_request_eq!(handle.as_mut(), "two").send_response("done");
+        assert_ready_ok!(task.enter(|cx| response.poll(cx)), "done");
+    });
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;

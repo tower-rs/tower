@@ -1,5 +1,10 @@
 use super::{error::Error, future::ResponseFuture, Rate};
-use futures::{try_ready, Future, Poll};
+use futures_core::ready;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_timer::{clock, Delay};
 use tower_service::Service;
 
@@ -61,11 +66,13 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.state {
-            State::Ready { .. } => return self.inner.poll_ready().map_err(Into::into),
+            State::Ready { .. } => {
+                return Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Error::from))
+            }
             State::Limited(ref mut sleep) => {
-                try_ready!(sleep.poll());
+                ready!(Pin::new(sleep).poll(cx));
             }
         }
 
@@ -74,7 +81,7 @@ where
             rem: self.rate.num(),
         };
 
-        self.inner.poll_ready().map_err(Into::into)
+        Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Error::from))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -95,7 +102,7 @@ where
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
-                    let sleep = Delay::new(until);
+                    let sleep = tokio_timer::delay(until);
                     self.state = State::Limited(sleep);
                 }
 
