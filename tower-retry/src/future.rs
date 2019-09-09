@@ -1,10 +1,15 @@
 //! Future types
 
 use crate::{Policy, Retry};
-use futures::{try_ready, Async, Future, Poll};
+use futures_core::ready;
+use pin_project::{pin_project, project};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// The `Future` returned by a `Retry` service.
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<P, S, Request>
 where
@@ -13,15 +18,17 @@ where
 {
     request: Option<Request>,
     retry: Retry<P, S>,
+    #[pin]
     state: State<S::Future, P::Future, S::Response, S::Error>,
 }
 
+#[pin_project]
 #[derive(Debug)]
 enum State<F, P, R, E> {
     /// Polling the future from `Service::call`
-    Called(F),
+    Called(#[pin] F),
     /// Polling the future from `Policy::retry`
-    Checking(P, Option<Result<R, E>>),
+    Checking(#[pin] P, Option<Result<R, E>>),
     /// Polling `Service::poll_ready` after `Checking` was OK.
     Retrying,
 }
@@ -46,59 +53,54 @@ where
 
 impl<P, S, Request> Future for ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: Policy<Request, S::Response, S::Error> + Clone + Unpin,
     S: Service<Request> + Clone,
 {
-    type Item = S::Response;
-    type Error = S::Error;
+    type Output = Result<S::Response, S::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+
         loop {
-            let next = match self.state {
-                State::Called(ref mut future) => {
-                    let result = match future.poll() {
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Ok(Async::Ready(res)) => Ok(res),
-                        Err(err) => Err(err),
-                    };
-
-                    if let Some(ref req) = self.request {
-                        match self.retry.policy.retry(req, result.as_ref()) {
-                            Some(checking) => State::Checking(checking, Some(result)),
-                            None => return result.map(Async::Ready),
+            #[project]
+            match this.state.project() {
+                State::Called(future) => {
+                    let result = ready!(future.poll(cx));
+                    if let Some(ref req) = this.request {
+                        match this.retry.policy.retry(req, result.as_ref()) {
+                            Some(checking) => {
+                                this.state.set(State::Checking(checking, Some(result)));
+                            }
+                            None => return Poll::Ready(result),
                         }
                     } else {
                         // request wasn't cloned, so no way to retry it
-                        return result.map(Async::Ready);
+                        return Poll::Ready(result);
                     }
                 }
-                State::Checking(ref mut future, ref mut result) => {
-                    let policy = match future.poll() {
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
-                        Ok(Async::Ready(policy)) => policy,
-                        Err(()) => {
+                State::Checking(future, result) => {
+                    let policy = match ready!(future.poll(cx)) {
+                        Some(policy) => policy,
+                        None => {
                             // if Policy::retry() fails, return the original
                             // result...
-                            return result
-                                .take()
-                                .expect("polled after complete")
-                                .map(Async::Ready);
+                            return Poll::Ready(result.take().expect("polled after complete"));
                         }
                     };
-                    self.retry.policy = policy;
-                    State::Retrying
+                    this.retry.policy = policy;
+                    this.state.set(State::Retrying);
                 }
                 State::Retrying => {
-                    try_ready!(self.retry.poll_ready());
-                    let req = self
+                    ready!(this.retry.poll_ready(cx))?;
+                    let req = this
                         .request
                         .take()
                         .expect("retrying requires cloned request");
-                    self.request = self.retry.policy.clone_request(&req);
-                    State::Called(self.retry.service.call(req))
+                    *this.request = this.retry.policy.clone_request(&req);
+                    this.state.set(State::Called(this.retry.service.call(req)));
                 }
-            };
-            self.state = next;
+            }
         }
     }
 }

@@ -213,13 +213,8 @@ impl Bucket {
 
 #[cfg(test)]
 mod tests {
-    use self::tokio_executor::enter;
     use super::*;
-    use std::{
-        sync::{Arc, Mutex, MutexGuard},
-        time::Instant,
-    };
-    use tokio_executor;
+    use tokio_test::clock;
 
     #[test]
     fn empty() {
@@ -229,13 +224,11 @@ mod tests {
 
     #[test]
     fn leaky() {
-        let time = MockNow(Arc::new(Mutex::new(Instant::now())));
-        let clock = clock::Clock::new_with_now(time.clone());
-        clock::with_default(&clock, &mut enter().unwrap(), |_| {
+        clock::mock(|time| {
             let bgt = Budget::new(Duration::from_secs(1), 0, 1.0);
             bgt.deposit();
 
-            *time.as_mut() += Duration::from_secs(3);
+            time.advance(Duration::from_secs(3));
 
             bgt.withdraw().unwrap_err();
         });
@@ -243,23 +236,21 @@ mod tests {
 
     #[test]
     fn slots() {
-        let time = MockNow(Arc::new(Mutex::new(Instant::now())));
-        let clock = clock::Clock::new_with_now(time.clone());
-        clock::with_default(&clock, &mut enter().unwrap(), |_| {
+        clock::mock(|time| {
             let bgt = Budget::new(Duration::from_secs(1), 0, 0.5);
             bgt.deposit();
             bgt.deposit();
-            *time.as_mut() += Duration::from_millis(900);
+            time.advance(Duration::from_millis(900));
             // 900ms later, the deposit should still be valid
             bgt.withdraw().unwrap();
 
             // blank slate
-            *time.as_mut() += Duration::from_millis(2000);
+            time.advance(Duration::from_millis(2000));
 
             bgt.deposit();
-            *time.as_mut() += Duration::from_millis(300);
+            time.advance(Duration::from_millis(300));
             bgt.deposit();
-            *time.as_mut() += Duration::from_millis(800);
+            time.advance(Duration::from_millis(800));
             bgt.deposit();
 
             // the first deposit is expired, but the 2nd should still be valid,
@@ -270,9 +261,7 @@ mod tests {
 
     #[test]
     fn reserve() {
-        let time = MockNow(Arc::new(Mutex::new(Instant::now())));
-        let clock = clock::Clock::new_with_now(time.clone());
-        clock::with_default(&clock, &mut enter().unwrap(), |_| {
+        clock::mock(|_| {
             let bgt = Budget::new(Duration::from_secs(1), 5, 1.0);
             bgt.withdraw().unwrap();
             bgt.withdraw().unwrap();
@@ -282,20 +271,5 @@ mod tests {
 
             bgt.withdraw().unwrap_err();
         });
-    }
-
-    #[derive(Clone)]
-    struct MockNow(Arc<Mutex<Instant>>);
-
-    impl MockNow {
-        fn as_mut(&self) -> MutexGuard<Instant> {
-            self.0.lock().unwrap()
-        }
-    }
-
-    impl clock::Now for MockNow {
-        fn now(&self) -> Instant {
-            *self.0.lock().expect("now")
-        }
     }
 }
