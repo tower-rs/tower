@@ -2,8 +2,13 @@
 
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::Load;
-use futures::{try_ready, Async, Poll};
+use futures_core::ready;
+use pin_project::pin_project;
 use std::sync::Arc;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
@@ -21,8 +26,10 @@ pub struct PendingRequests<S, I = NoInstrument> {
 struct RefCount(Arc<()>);
 
 /// Wraps `inner`'s services with `PendingRequests`.
+#[pin_project]
 #[derive(Debug)]
 pub struct PendingRequestsDiscover<D, I = NoInstrument> {
+    #[pin]
     discover: D,
     instrument: I,
 }
@@ -69,8 +76,8 @@ where
     type Error = S::Error;
     type Future = InstrumentFuture<S::Future, I, Handle>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
@@ -109,15 +116,19 @@ where
     type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
+    fn poll_discover(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;
 
-        let change = match try_ready!(self.discover.poll()) {
-            Insert(k, svc) => Insert(k, PendingRequests::new(svc, self.instrument.clone())),
+        let this = self.project();
+        let change = match ready!(this.discover.poll_discover(cx))? {
+            Insert(k, svc) => Insert(k, PendingRequests::new(svc, this.instrument.clone())),
             Remove(k) => Remove(k),
         };
 
-        Ok(Async::Ready(change))
+        Poll::Ready(Ok(change))
     }
 }
 
@@ -132,16 +143,17 @@ impl RefCount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::{future, Future, Poll};
+    use futures_util::future;
+    use std::task::{Context, Poll};
 
     struct Svc;
     impl Service<()> for Svc {
         type Response = ();
         type Error = ();
-        type Future = future::FutureResult<(), ()>;
+        type Future = future::Ready<Result<(), ()>>;
 
-        fn poll_ready(&mut self) -> Poll<(), ()> {
-            Ok(().into())
+        fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
         }
 
         fn call(&mut self, (): ()) -> Self::Future {
@@ -160,10 +172,10 @@ mod tests {
         let rsp1 = svc.call(());
         assert_eq!(svc.load(), Count(2));
 
-        let () = rsp0.wait().unwrap();
+        let () = tokio_test::block_on(rsp0).unwrap();
         assert_eq!(svc.load(), Count(1));
 
-        let () = rsp1.wait().unwrap();
+        let () = tokio_test::block_on(rsp1).unwrap();
         assert_eq!(svc.load(), Count(0));
     }
 
@@ -183,12 +195,12 @@ mod tests {
 
         let rsp = svc.call(());
         assert_eq!(svc.load(), Count(1));
-        let i0 = rsp.wait().unwrap();
+        let i0 = tokio_test::block_on(rsp).unwrap();
         assert_eq!(svc.load(), Count(1));
 
         let rsp = svc.call(());
         assert_eq!(svc.load(), Count(2));
-        let i1 = rsp.wait().unwrap();
+        let i1 = tokio_test::block_on(rsp).unwrap();
         assert_eq!(svc.load(), Count(2));
 
         drop(i1);

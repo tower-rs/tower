@@ -1,12 +1,18 @@
 //! A constant `Load` implementation. Primarily useful for testing.
 
-use futures::{try_ready, Async, Poll};
+use futures_core::ready;
+use pin_project::pin_project;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
 use crate::Load;
 
 /// Wraps a type so that `Load::load` returns a constant value.
+#[pin_project]
 pub struct Constant<T, M> {
     inner: T,
     load: M,
@@ -38,8 +44,8 @@ where
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
@@ -48,20 +54,24 @@ where
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
-impl<D: Discover, M: Copy> Discover for Constant<D, M> {
+impl<D: Discover + Unpin, M: Copy> Discover for Constant<D, M> {
     type Key = D::Key;
     type Service = Constant<D::Service, M>;
     type Error = D::Error;
 
     /// Yields the next discovery change set.
-    fn poll(&mut self) -> Poll<Change<D::Key, Self::Service>, D::Error> {
+    fn poll_discover(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;
 
-        let change = match try_ready!(self.inner.poll()) {
-            Insert(k, svc) => Insert(k, Constant::new(svc, self.load)),
+        let this = self.project();
+        let change = match ready!(Pin::new(this.inner).poll_discover(cx))? {
+            Insert(k, svc) => Insert(k, Constant::new(svc, *this.load)),
             Remove(k) => Remove(k),
         };
 
-        Ok(Async::Ready(change))
+        Poll::Ready(Ok(change))
     }
 }

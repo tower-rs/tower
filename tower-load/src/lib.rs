@@ -1,6 +1,6 @@
 //! Abstractions and utilties for measuring a service's load.
 
-#![doc(html_root_url = "https://docs.rs/tower-load/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-load/0.3.0-alpha.1")]
 #![deny(missing_docs)]
 #![deny(rust_2018_idioms)]
 #![deny(warnings)]
