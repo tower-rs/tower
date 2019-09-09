@@ -2,8 +2,9 @@ use super::{future::ResponseFuture, Error};
 
 use tower_service::Service;
 
-use futures::{try_ready, Poll};
+use futures_core::ready;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use tokio_sync::semaphore::{self, Semaphore};
 
 /// Enforces a limit on the concurrent number of requests the underlying
@@ -57,14 +58,10 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        try_ready!(self
-            .limit
-            .permit
-            .poll_acquire(&self.limit.semaphore)
-            .map_err(Error::from));
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.limit.permit.poll_acquire(cx, &self.limit.semaphore))?;
 
-        self.inner.poll_ready().map_err(Into::into)
+        Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Into::into))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

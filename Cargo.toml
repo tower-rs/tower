@@ -8,7 +8,7 @@ members = [
   # "tower-filter",
   # "tower-hedge",
   "tower-layer",
-  # "tower-limit",
+  "tower-limit",
   "tower-load",
   # "tower-load-shed",
   # "tower-reconnect",
