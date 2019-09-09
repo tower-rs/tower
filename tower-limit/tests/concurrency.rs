@@ -24,10 +24,10 @@ fn basic_service_limit_functionality_with_poll_ready() {
     assert!(!task.is_woken());
 
     // The request gets passed through
-    assert_request_eq!(handle.as_mut(), "hello 1").send_response("world 1");
+    assert_request_eq!(handle, "hello 1").send_response("world 1");
 
     // The next request gets passed through
-    assert_request_eq!(handle.as_mut(), "hello 2").send_response("world 2");
+    assert_request_eq!(handle, "hello 2").send_response("world 2");
 
     // There are no more requests
     task.enter(|cx| {
@@ -51,7 +51,7 @@ fn basic_service_limit_functionality_with_poll_ready() {
     assert_eq!(block_on(r2).unwrap(), "world 2");
 
     // The request gets passed through
-    assert_request_eq!(handle.as_mut(), "hello 3").send_response("world 3");
+    assert_request_eq!(handle, "hello 3").send_response("world 3");
 
     assert_eq!(block_on(r3).unwrap(), "world 3");
 }
@@ -72,12 +72,12 @@ fn basic_service_limit_functionality_without_poll_ready() {
     assert_pending!(task.enter(|cx| service.poll_ready(cx)));
 
     // The request gets passed through
-    assert_request_eq!(handle.as_mut(), "hello 1").send_response("world 1");
+    assert_request_eq!(handle, "hello 1").send_response("world 1");
 
     assert!(!task.is_woken());
 
     // The next request gets passed through
-    assert_request_eq!(handle.as_mut(), "hello 2").send_response("world 2");
+    assert_request_eq!(handle, "hello 2").send_response("world 2");
 
     assert!(!task.is_woken());
 

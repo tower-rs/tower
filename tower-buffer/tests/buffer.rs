@@ -32,7 +32,7 @@ fn clears_canceled_requests() {
         let res1 = service.call("hello");
         pin_mut!(res1);
 
-        let send_response1 = assert_request_eq!(handle.as_mut(), "hello");
+        let send_response1 = assert_request_eq!(handle, "hello");
 
         // don't respond yet, new requests will get buffered
 

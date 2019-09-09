@@ -16,11 +16,11 @@ fn retry_errors() {
         let fut = service.call("hello");
         pin_mut!(fut);
 
-        assert_request_eq!(handle.as_mut(), "hello").send_error("retry me");
+        assert_request_eq!(handle, "hello").send_error("retry me");
 
         assert_pending!(fut.as_mut().poll(cx));
 
-        assert_request_eq!(handle.as_mut(), "hello").send_response("world");
+        assert_request_eq!(handle, "hello").send_response("world");
 
         assert_ready_ok!(fut.poll(cx), "world");
     });
@@ -37,13 +37,13 @@ fn retry_limit() {
         let fut = service.call("hello");
         pin_mut!(fut);
 
-        assert_request_eq!(handle.as_mut(), "hello").send_error("retry 1");
+        assert_request_eq!(handle, "hello").send_error("retry 1");
         assert_pending!(fut.as_mut().poll(cx));
 
-        assert_request_eq!(handle.as_mut(), "hello").send_error("retry 2");
+        assert_request_eq!(handle, "hello").send_error("retry 2");
         assert_pending!(fut.as_mut().poll(cx));
 
-        assert_request_eq!(handle.as_mut(), "hello").send_error("retry 3");
+        assert_request_eq!(handle, "hello").send_error("retry 3");
         assert_eq!(assert_ready_err!(fut.poll(cx)).to_string(), "retry 3");
     });
 }
@@ -58,10 +58,10 @@ fn retry_error_inspection() {
         let fut = service.call("hello");
         pin_mut!(fut);
 
-        assert_request_eq!(handle.as_mut(), "hello").send_error("retry 1");
+        assert_request_eq!(handle, "hello").send_error("retry 1");
         assert_pending!(fut.as_mut().poll(cx));
 
-        assert_request_eq!(handle.as_mut(), "hello").send_error("reject");
+        assert_request_eq!(handle, "hello").send_error("reject");
         assert_eq!(assert_ready_err!(fut.poll(cx)).to_string(), "reject");
     });
 }

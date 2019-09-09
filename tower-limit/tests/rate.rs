@@ -19,7 +19,7 @@ fn reaching_capacity() {
         let response = service.call("hello");
         pin_mut!(response);
 
-        assert_request_eq!(handle.as_mut(), "hello").send_response("world");
+        assert_request_eq!(handle, "hello").send_response("world");
         assert_ready_ok!(task.enter(|cx| response.poll(cx)), "world");
 
         assert_pending!(task.enter(|cx| service.poll_ready(cx)));
@@ -33,7 +33,7 @@ fn reaching_capacity() {
         let response = service.call("two");
         pin_mut!(response);
 
-        assert_request_eq!(handle.as_mut(), "two").send_response("done");
+        assert_request_eq!(handle, "two").send_response("done");
         assert_ready_ok!(task.enter(|cx| response.poll(cx)), "done");
     });
 }
