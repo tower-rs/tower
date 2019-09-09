@@ -109,10 +109,10 @@ type Handle = mock::Handle<Req, Res>;
 struct RetryErrors;
 
 impl Policy<Req, Res, Error> for RetryErrors {
-    type Future = future::Ready<Option<Self>>;
+    type Future = future::Ready<Self>;
     fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
         if result.is_err() {
-            Some(future::ready(Some(RetryErrors)))
+            Some(future::ready(RetryErrors))
         } else {
             None
         }
@@ -127,10 +127,10 @@ impl Policy<Req, Res, Error> for RetryErrors {
 struct Limit(usize);
 
 impl Policy<Req, Res, Error> for Limit {
-    type Future = future::Ready<Option<Self>>;
+    type Future = future::Ready<Self>;
     fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
         if result.is_err() && self.0 > 0 {
-            Some(future::ready(Some(Limit(self.0 - 1))))
+            Some(future::ready(Limit(self.0 - 1)))
         } else {
             None
         }
@@ -145,11 +145,11 @@ impl Policy<Req, Res, Error> for Limit {
 struct UnlessErr(InnerError);
 
 impl Policy<Req, Res, Error> for UnlessErr {
-    type Future = future::Ready<Option<Self>>;
+    type Future = future::Ready<Self>;
     fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
         result.err().and_then(|err| {
             if err.to_string() != self.0 {
-                Some(future::ready(Some(self.clone())))
+                Some(future::ready(self.clone()))
             } else {
                 None
             }
@@ -165,7 +165,7 @@ impl Policy<Req, Res, Error> for UnlessErr {
 struct CannotClone;
 
 impl Policy<Req, Res, Error> for CannotClone {
-    type Future = future::Ready<Option<Self>>;
+    type Future = future::Ready<Self>;
     fn retry(&self, _: &Req, _: Result<&Res, &Error>) -> Option<Self::Future> {
         unreachable!("retry cannot be called since request isn't cloned");
     }

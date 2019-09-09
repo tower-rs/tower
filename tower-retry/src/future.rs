@@ -19,16 +19,16 @@ where
     request: Option<Request>,
     retry: Retry<P, S>,
     #[pin]
-    state: State<S::Future, P::Future, S::Response, S::Error>,
+    state: State<S::Future, P::Future>,
 }
 
 #[pin_project]
 #[derive(Debug)]
-enum State<F, P, R, E> {
+enum State<F, P> {
     /// Polling the future from `Service::call`
     Called(#[pin] F),
     /// Polling the future from `Policy::retry`
-    Checking(#[pin] P, Option<Result<R, E>>),
+    Checking(#[pin] P),
     /// Polling `Service::poll_ready` after `Checking` was OK.
     Retrying,
 }
@@ -70,7 +70,7 @@ where
                     if let Some(ref req) = this.request {
                         match this.retry.policy.retry(req, result.as_ref()) {
                             Some(checking) => {
-                                this.state.set(State::Checking(checking, Some(result)));
+                                this.state.set(State::Checking(checking));
                             }
                             None => return Poll::Ready(result),
                         }
@@ -79,16 +79,8 @@ where
                         return Poll::Ready(result);
                     }
                 }
-                State::Checking(future, result) => {
-                    let policy = match ready!(future.poll(cx)) {
-                        Some(policy) => policy,
-                        None => {
-                            // if Policy::retry() fails, return the original
-                            // result...
-                            return Poll::Ready(result.take().expect("polled after complete"));
-                        }
-                    };
-                    this.retry.policy = policy;
+                State::Checking(future) => {
+                    this.retry.policy = ready!(future.poll(cx));
                     this.state.set(State::Retrying);
                 }
                 State::Retrying => {
