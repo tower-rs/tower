@@ -28,7 +28,7 @@ log = "0.4.1"
 tokio-timer = "0.3.0-alpha.4"
 tower-service = "0.3.0-alpha.1"
 tower-discover = { version = "0.3.0-alpha.1", path = "../tower-discover" }
-pin-project = "0.4.0-alpha.9"
+pin-project = "0.4.0-alpha.10"
 
 [dev-dependencies]
 tokio-test = "0.2.0-alpha.4"
