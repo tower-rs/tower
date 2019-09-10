@@ -39,7 +39,7 @@ tower-discover = { version = "0.3.0-alpha.1", path = "../tower-discover" }
 tower-layer = { version = "0.3.0-alpha.1", path = "../tower-layer" }
 tower-load = { version = "0.3.0-alpha.1", path = "../tower-load" }
 tower-service = "0.3.0-alpha.1"
-tower-make = { version = "0.1.0-alpha.2", path = "../tower-make" }
+tower-make = { version = "0.3.0-alpha.1", path = "../tower-make" }
 tower-util = { version = "0.3.0-alpha.1", path = "../tower-util" }
 slab = "0.4"
 
