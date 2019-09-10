@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-filter/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-filter/0.3.0-alpha.1")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
@@ -13,7 +13,8 @@ mod predicate;
 pub use crate::{layer::FilterLayer, predicate::Predicate};
 
 use crate::{error::Error, future::ResponseFuture};
-use futures::Poll;
+use futures_core::ready;
+use std::task::{Context, Poll};
 use tower_service::Service;
 
 #[derive(Clone, Debug)]
@@ -38,8 +39,8 @@ where
     type Error = Error;
     type Future = ResponseFuture<U::Future, T, Request>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready().map_err(error::Error::inner)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(error::Error::inner))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

@@ -5,7 +5,7 @@ members = [
   # "tower-balance",
   "tower-buffer",
   "tower-discover",
-  # "tower-filter",
+  "tower-filter",
   # "tower-hedge",
   "tower-layer",
   "tower-limit",

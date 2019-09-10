@@ -1,9 +1,9 @@
 use crate::error::Error;
-use futures::{Future, IntoFuture};
+use std::future::Future;
 
 /// Checks a request
 pub trait Predicate<Request> {
-    type Future: Future<Item = (), Error = Error>;
+    type Future: Future<Output = Result<(), Error>>;
 
     fn check(&mut self, request: &Request) -> Self::Future;
 }
@@ -11,11 +11,11 @@ pub trait Predicate<Request> {
 impl<F, T, U> Predicate<T> for F
 where
     F: Fn(&T) -> U,
-    U: IntoFuture<Item = (), Error = Error>,
+    U: Future<Output = Result<(), Error>>,
 {
-    type Future = U::Future;
+    type Future = U;
 
     fn check(&mut self, request: &T) -> Self::Future {
-        self(request).into_future()
+        self(request)
     }
 }
