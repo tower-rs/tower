@@ -1,4 +1,9 @@
-use futures::{Async, Future, Poll};
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_service::Service;
 
 /// A policy which decides which requests can be cloned and sent to the B
@@ -18,9 +23,12 @@ pub struct Select<P, A, B> {
     b: B,
 }
 
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<AF, BF> {
+    #[pin]
     a_fut: AF,
+    #[pin]
     b_fut: Option<BF>,
 }
 
@@ -41,21 +49,20 @@ impl<P, A, B, Request> Service<Request> for Select<P, A, B>
 where
     P: Policy<Request>,
     A: Service<Request>,
-    A::Error: Into<super::Error>,
+    super::Error: From<A::Error>,
     B: Service<Request, Response = A::Response>,
-    B::Error: Into<super::Error>,
+    super::Error: From<B::Error>,
 {
     type Response = A::Response;
     type Error = super::Error;
     type Future = ResponseFuture<A::Future, B::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        let a = self.a.poll_ready().map_err(|e| e.into())?;
-        let b = self.b.poll_ready().map_err(|e| e.into())?;
-        if a.is_ready() && b.is_ready() {
-            Ok(Async::Ready(()))
-        } else {
-            Ok(Async::NotReady)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        match (self.a.poll_ready(cx), self.b.poll_ready(cx)) {
+            (Poll::Ready(Ok(())), Poll::Ready(Ok(()))) => Poll::Ready(Ok(())),
+            (Poll::Ready(Err(e)), _) => Poll::Ready(Err(e.into())),
+            (_, Poll::Ready(Err(e))) => Poll::Ready(Err(e.into())),
+            _ => Poll::Pending,
         }
     }
 
@@ -72,29 +79,26 @@ where
     }
 }
 
-impl<AF, BF> Future for ResponseFuture<AF, BF>
+impl<AF, BF, T, AE, BE> Future for ResponseFuture<AF, BF>
 where
-    AF: Future,
-    AF::Error: Into<super::Error>,
-    BF: Future<Item = AF::Item>,
-    BF::Error: Into<super::Error>,
+    AF: Future<Output = Result<T, AE>>,
+    super::Error: From<AE>,
+    BF: Future<Output = Result<T, BE>>,
+    super::Error: From<BE>,
 {
-    type Item = AF::Item;
-    type Error = super::Error;
+    type Output = Result<T, super::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.a_fut.poll() {
-            Ok(Async::NotReady) => {}
-            Ok(Async::Ready(a)) => return Ok(Async::Ready(a)),
-            Err(e) => return Err(e.into()),
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        if let Poll::Ready(r) = this.a_fut.poll(cx) {
+            return Poll::Ready(Ok(r?));
         }
-        if let Some(ref mut b_fut) = self.b_fut {
-            match b_fut.poll() {
-                Ok(Async::NotReady) => {}
-                Ok(Async::Ready(b)) => return Ok(Async::Ready(b)),
-                Err(e) => return Err(e.into()),
+        if let Some(b_fut) = this.b_fut.as_pin_mut() {
+            if let Poll::Ready(r) = b_fut.poll(cx) {
+                return Poll::Ready(Ok(r?));
             }
         }
-        return Ok(Async::NotReady);
+        return Poll::Pending;
     }
 }

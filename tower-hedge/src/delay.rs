@@ -1,7 +1,12 @@
-use futures::{Async, Future, Poll};
-use tower_service::Service;
-
+use futures_util::ready;
+use pin_project::{pin_project, project};
 use std::time::Duration;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tower_service::Service;
 
 /// A policy which specifies how long each request should be delayed for.
 pub trait Policy<Request> {
@@ -16,16 +21,19 @@ pub struct Delay<P, S> {
     service: S,
 }
 
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<Request, S, F> {
     service: S,
+    #[pin]
     state: State<Request, F>,
 }
 
+#[pin_project]
 #[derive(Debug)]
 enum State<Request, F> {
-    Delaying(tokio_timer::Delay, Option<Request>),
-    Called(F),
+    Delaying(#[pin] tokio_timer::Delay, Option<Request>),
+    Called(#[pin] F),
 }
 
 impl<P, S> Delay<P, S> {
@@ -49,8 +57,8 @@ where
     type Error = super::Error;
     type Future = ResponseFuture<Request, S, S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready().map_err(|e| e.into())
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx).map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -63,37 +71,36 @@ where
         };
         ResponseFuture {
             service: orig,
-            state: State::Delaying(tokio_timer::Delay::new(deadline), Some(request)),
+            state: State::Delaying(tokio_timer::delay(deadline), Some(request)),
         }
     }
 }
 
-impl<Request, S, F> Future for ResponseFuture<Request, S, F>
+impl<Request, S, F, T, E> Future for ResponseFuture<Request, S, F>
 where
-    F: Future,
-    F::Error: Into<super::Error>,
-    S: Service<Request, Future = F, Response = F::Item, Error = F::Error>,
+    F: Future<Output = Result<T, E>>,
+    E: Into<super::Error>,
+    S: Service<Request, Future = F, Response = T, Error = E>,
 {
-    type Item = F::Item;
-    type Error = super::Error;
+    type Output = Result<T, super::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+
         loop {
-            let next = match self.state {
-                State::Delaying(ref mut delay, ref mut req) => match delay.poll() {
-                    Ok(Async::NotReady) => return Ok(Async::NotReady),
-                    Ok(Async::Ready(())) => {
-                        let req = req.take().expect("Missing request in delay");
-                        let fut = self.service.call(req);
-                        State::Called(fut)
-                    }
-                    Err(e) => return Err(e.into()),
-                },
-                State::Called(ref mut fut) => {
-                    return fut.poll().map_err(|e| e.into());
+            #[project]
+            match this.state.project() {
+                State::Delaying(delay, req) => {
+                    ready!(delay.poll(cx));
+                    let req = req.take().expect("Missing request in delay");
+                    let fut = this.service.call(req);
+                    this.state.set(State::Called(fut));
+                }
+                State::Called(fut) => {
+                    return fut.poll(cx).map_err(Into::into);
                 }
             };
-            self.state = next;
         }
     }
 }

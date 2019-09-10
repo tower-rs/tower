@@ -1,18 +1,20 @@
 [package]
 name = "tower-hedge"
-version = "0.1.0"
+version = "0.3.0-alpha.1"
 authors = ["Alex Leong <adlleong@gmail.com>"]
+edition = "2018"
 publish = false
 
 [dependencies]
-futures = "0.1"
 hdrhistogram = "6.0"
 log = "0.4.1"
-tower-service = "0.2.0"
-tower-filter = { version = "0.1", path = "../tower-filter" }
-tokio-mock-task = { git = "https://github.com/carllerche/tokio-mock-task" }
-tokio-timer = "0.2.6"
+tower-service = "0.3.0-alpha.1"
+tower-filter = { version = "0.3.0-alpha.1", path = "../tower-filter" }
+tokio-timer = "0.3.0-alpha.4"
+futures-util-preview = "0.3.0-alpha.18"
+pin-project = "0.4.0-alpha.10"
 
 [dev-dependencies]
-tower-test = { version = "0.1", path = "../tower-test" }
-tokio-executor = "0.1.2"
+tower-test = { version = "0.3.0-alpha.1", path = "../tower-test" }
+tokio-test = "0.2.0-alpha.4"
+tokio-executor = "0.2.0-alpha.4"

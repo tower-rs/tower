@@ -3,18 +3,16 @@
 
 #![deny(warnings)]
 #![deny(missing_docs)]
-extern crate futures;
-extern crate hdrhistogram;
-#[macro_use]
-extern crate log;
-extern crate tokio_timer;
-extern crate tower_filter;
-extern crate tower_service;
 
-use futures::future::FutureResult;
-use futures::{future, Poll};
+use futures_util::future;
+use log::error;
+use pin_project::pin_project;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_filter::Filter;
 
 mod delay;
@@ -38,12 +36,16 @@ type Service<S, P> = select::Select<
 /// future or the retry future completes, that value is used.
 #[derive(Debug)]
 pub struct Hedge<S, P>(Service<S, P>);
+
+#[pin_project]
 /// The Future returned by the hedge Service.
-pub struct Future<S, P, Request>(<Service<S, P> as tower_service::Service<Request>>::Future)
+pub struct Future<S, Request>
 where
-    S: tower_service::Service<Request> + Clone,
-    S::Error: Into<Error>,
-    P: Policy<Request> + Clone;
+    S: tower_service::Service<Request>,
+{
+    #[pin]
+    inner: S::Future,
+}
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -58,15 +60,20 @@ pub trait Policy<Request> {
     fn can_retry(&self, req: &Request) -> bool;
 }
 
+// NOTE: these are pub only because they appear inside a Future<F>
+
+#[doc(hidden)]
 #[derive(Clone, Debug)]
-struct PolicyPredicate<P>(P);
+pub struct PolicyPredicate<P>(P);
+#[doc(hidden)]
 #[derive(Debug)]
-struct DelayPolicy {
+pub struct DelayPolicy {
     histo: Histo,
     latency_percentile: f32,
 }
+#[doc(hidden)]
 #[derive(Debug)]
-struct SelectPolicy<P> {
+pub struct SelectPolicy<P> {
     policy: P,
     histo: Histo,
     min_data_points: u64,
@@ -83,7 +90,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        S::Error: Into<Error>,
+        Error: From<S::Error>,
         P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
@@ -102,7 +109,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        S::Error: Into<Error>,
+        Error: From<S::Error>,
         P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
@@ -124,7 +131,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        S::Error: Into<Error>,
+        Error: From<S::Error>,
         P: Policy<Request> + Clone,
     {
         // Clone the underlying service and wrap both copies in a middleware that
@@ -157,33 +164,33 @@ impl<S, P> Hedge<S, P> {
 impl<S, P, Request> tower_service::Service<Request> for Hedge<S, P>
 where
     S: tower_service::Service<Request> + Clone,
-    S::Error: Into<Error>,
+    Error: From<S::Error>,
     P: Policy<Request> + Clone,
 {
     type Response = S::Response;
     type Error = Error;
-    type Future = Future<S, P, Request>;
+    type Future = Future<Service<S, P>, Request>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.0.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.0.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        Future(self.0.call(request))
+        Future {
+            inner: self.0.call(request),
+        }
     }
 }
 
-impl<S, P, Request> futures::Future for Future<S, P, Request>
+impl<S, Request> std::future::Future for Future<S, Request>
 where
-    S: tower_service::Service<Request> + Clone,
-    S::Error: Into<Error>,
-    P: Policy<Request> + Clone,
+    S: tower_service::Service<Request>,
+    Error: From<S::Error>,
 {
-    type Item = S::Response;
-    type Error = Error;
+    type Output = Result<S::Response, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.project().inner.poll(cx).map_err(Into::into)
     }
 }
 
@@ -213,19 +220,19 @@ where
     P: Policy<Request>,
 {
     type Future = future::Either<
-        FutureResult<(), tower_filter::error::Error>,
-        future::Empty<(), tower_filter::error::Error>,
+        future::Ready<Result<(), tower_filter::error::Error>>,
+        future::Pending<Result<(), tower_filter::error::Error>>,
     >;
 
     fn check(&mut self, request: &Request) -> Self::Future {
         if self.0.can_retry(request) {
-            future::Either::A(future::ok(()))
+            future::Either::Left(future::ready(Ok(())))
         } else {
             // If the hedge retry should not be issued, we simply want to wait
             // for the result of the original request.  Therefore we don't want
-            // to return an error here.  Instead, we use future::empty to ensure
+            // to return an error here.  Instead, we use future::pending to ensure
             // that the original request wins the select.
-            future::Either::B(future::empty())
+            future::Either::Right(future::pending())
         }
     }
 }
