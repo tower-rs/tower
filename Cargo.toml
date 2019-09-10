@@ -14,7 +14,7 @@ members = [
   "tower-reconnect",
   "tower-retry",
   "tower-service",
-  # "tower-spawn-ready",
+  "tower-spawn-ready",
   "tower-test",
   "tower-timeout",
   "tower-make",

@@ -1,5 +1,11 @@
 use crate::SpawnReady;
-use futures::{try_ready, Future, Poll};
+use futures_core::ready;
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_executor::DefaultExecutor;
 use tower_service::Service;
 
@@ -11,8 +17,10 @@ pub struct MakeSpawnReady<S, E = DefaultExecutor> {
 }
 
 /// Builds a SpawnReady with the result of an inner Future.
+#[pin_project]
 #[derive(Debug)]
 pub struct MakeFuture<F, E = DefaultExecutor> {
+    #[pin]
     inner: F,
     executor: E,
 }
@@ -32,8 +40,8 @@ where
     type Error = S::Error;
     type Future = MakeFuture<S::Future, E>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, target: Target) -> Self::Future {
@@ -44,17 +52,17 @@ where
     }
 }
 
-impl<F, E> Future for MakeFuture<F, E>
+impl<F, T, E, X> Future for MakeFuture<F, X>
 where
-    F: Future,
-    E: Clone,
+    F: Future<Output = Result<T, E>>,
+    X: Clone,
 {
-    type Item = SpawnReady<F::Item, E>;
-    type Error = F::Error;
+    type Output = Result<SpawnReady<T, X>, E>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let inner = try_ready!(self.inner.poll());
-        let svc = SpawnReady::with_executor(inner, self.executor.clone());
-        Ok(svc.into())
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let inner = ready!(this.inner.poll(cx))?;
+        let svc = SpawnReady::with_executor(inner, this.executor.clone());
+        Poll::Ready(Ok(svc))
     }
 }

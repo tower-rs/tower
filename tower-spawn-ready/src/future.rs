@@ -1,18 +1,26 @@
 //! Background readiness types
 
 use crate::error::Error;
-use futures::{Async, Future, Poll};
+use futures_core::ready;
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_executor::TypedExecutor;
 use tokio_sync::oneshot;
 use tower_service::Service;
 use tower_util::Ready;
 
+#[pin_project]
 /// Drives a service to readiness.
 pub struct BackgroundReady<T, Request>
 where
     T: Service<Request>,
     T::Error: Into<Error>,
 {
+    #[pin]
     ready: Ready<T, Request>,
     tx: Option<oneshot::Sender<Result<T, Error>>>,
 }
@@ -58,27 +66,22 @@ where
     T: Service<Request>,
     T::Error: Into<Error>,
 {
-    type Item = ();
-    type Error = ();
+    type Output = ();
 
-    fn poll(&mut self) -> Poll<(), ()> {
-        match self.tx.as_mut().expect("illegal state").poll_close() {
-            Ok(Async::Ready(())) | Err(()) => return Err(()),
-            Ok(Async::NotReady) => {}
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        if let Poll::Ready(_) = Pin::new(this.tx.as_mut().expect("illegal state")).poll_closed(cx) {
+            return Poll::Ready(());
         }
 
-        let result = match self.ready.poll() {
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
-            Ok(Async::Ready(svc)) => Ok(svc),
-            Err(e) => Err(e.into()),
-        };
-
-        self.tx
+        let result = ready!(this.ready.poll(cx));
+        let _ = this
+            .tx
             .take()
             .expect("illegal state")
-            .send(result)
-            .map_err(|_| ())?;
+            .send(result.map_err(Into::into));
 
-        Ok(Async::Ready(()))
+        Poll::Ready(())
     }
 }

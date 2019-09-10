@@ -2,7 +2,13 @@ use crate::{
     error::{Error, SpawnError},
     future::{background_ready, BackgroundReadyExecutor},
 };
-use futures::{future, try_ready, Async, Future, Poll};
+use futures_core::ready;
+use futures_util::try_future::{MapErr, TryFutureExt};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_executor::DefaultExecutor;
 use tokio_sync::oneshot;
 use tower_service::Service;
@@ -51,20 +57,14 @@ where
 {
     type Response = T::Response;
     type Error = Error;
-    type Future = future::MapErr<T::Future, fn(T::Error) -> Error>;
+    type Future = MapErr<T::Future, fn(T::Error) -> Error>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
             self.inner = match self.inner {
                 Inner::Service(ref mut svc) => {
-                    if svc
-                        .as_mut()
-                        .expect("illegal state")
-                        .poll_ready()
-                        .map_err(Into::into)?
-                        .is_ready()
-                    {
-                        return Ok(Async::Ready(()));
+                    if let Poll::Ready(r) = svc.as_mut().expect("illegal state").poll_ready(cx) {
+                        return Poll::Ready(r.map_err(Into::into));
                     }
 
                     let (bg, rx) = background_ready(svc.take().expect("illegal state"));
@@ -73,7 +73,7 @@ where
                     Inner::Future(rx)
                 }
                 Inner::Future(ref mut fut) => {
-                    let svc = try_ready!(fut.poll())?;
+                    let svc = ready!(Pin::new(fut).poll(cx))??;
                     Inner::Service(Some(svc))
                 }
             }
