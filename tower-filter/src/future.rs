@@ -72,9 +72,8 @@ where
                         .expect("we either give it back or leave State::Check once we take");
 
                     // Poll predicate
-                    match this.check.as_mut().poll(cx) {
-                        Poll::Ready(r) => {
-                            r?;
+                    match this.check.as_mut().poll(cx)? {
+                        Poll::Ready(_) => {
                             let response = this.service.call(request);
                             this.state.set(State::WaitResponse(response));
                         }
