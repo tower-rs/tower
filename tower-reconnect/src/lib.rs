@@ -1,15 +1,19 @@
-#![doc(html_root_url = "https://docs.rs/tower-load-shed/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-reconnect/0.3.0-alpha.1")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
 pub mod future;
 
 use crate::future::ResponseFuture;
-use futures::{Async, Future, Poll};
 use log::trace;
 use std::fmt;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tower_make::MakeService;
 use tower_service::Service;
-use tower_util::MakeService;
 
 pub struct Reconnect<M, Target>
 where
@@ -52,6 +56,7 @@ impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
     M: Service<Target, Response = S>,
     S: Service<Request>,
+    M::Future: Unpin,
     Error: From<M::Error> + From<S::Error>,
     Target: Clone,
 {
@@ -59,7 +64,7 @@ where
     type Error = Error;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let ret;
         let mut state;
 
@@ -67,11 +72,11 @@ where
             match self.state {
                 State::Idle => {
                     trace!("poll_ready; idle");
-                    match self.mk_service.poll_ready()? {
-                        Async::Ready(()) => (),
-                        Async::NotReady => {
+                    match self.mk_service.poll_ready(cx) {
+                        Poll::Ready(r) => r?,
+                        Poll::Pending => {
                             trace!("poll_ready; MakeService not ready");
-                            return Ok(Async::NotReady);
+                            return Poll::Pending;
                         }
                     }
 
@@ -81,15 +86,15 @@ where
                 }
                 State::Connecting(ref mut f) => {
                     trace!("poll_ready; connecting");
-                    match f.poll() {
-                        Ok(Async::Ready(service)) => {
+                    match Pin::new(f).poll(cx) {
+                        Poll::Ready(Ok(service)) => {
                             state = State::Connected(service);
                         }
-                        Ok(Async::NotReady) => {
+                        Poll::Pending => {
                             trace!("poll_ready; not ready");
-                            return Ok(Async::NotReady);
+                            return Poll::Pending;
                         }
-                        Err(e) => {
+                        Poll::Ready(Err(e)) => {
                             trace!("poll_ready; error");
                             state = State::Idle;
                             ret = Err(e.into());
@@ -99,16 +104,16 @@ where
                 }
                 State::Connected(ref mut inner) => {
                     trace!("poll_ready; connected");
-                    match inner.poll_ready() {
-                        Ok(Async::Ready(_)) => {
+                    match inner.poll_ready(cx) {
+                        Poll::Ready(Ok(())) => {
                             trace!("poll_ready; ready");
-                            return Ok(Async::Ready(()));
+                            return Poll::Ready(Ok(()));
                         }
-                        Ok(Async::NotReady) => {
+                        Poll::Pending => {
                             trace!("poll_ready; not ready");
-                            return Ok(Async::NotReady);
+                            return Poll::Pending;
                         }
-                        Err(_) => {
+                        Poll::Ready(Err(_)) => {
                             trace!("poll_ready; error");
                             state = State::Idle;
                         }
@@ -120,7 +125,7 @@ where
         }
 
         self.state = state;
-        ret
+        Poll::Ready(ret)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

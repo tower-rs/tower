@@ -1,7 +1,14 @@
 use crate::Error;
-use futures::{Future, Poll};
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
+#[pin_project]
 pub struct ResponseFuture<F> {
+    #[pin]
     inner: F,
 }
 
@@ -11,15 +18,14 @@ impl<F> ResponseFuture<F> {
     }
 }
 
-impl<F> Future for ResponseFuture<F>
+impl<F, T, E> Future for ResponseFuture<F>
 where
-    F: Future,
-    F::Error: Into<Error>,
+    F: Future<Output = Result<T, E>>,
+    E: Into<Error>,
 {
-    type Item = F::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.inner.poll().map_err(Into::into)
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.project().inner.poll(cx).map_err(Into::into)
     }
 }

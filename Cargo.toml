@@ -11,7 +11,7 @@ members = [
   "tower-limit",
   "tower-load",
   "tower-load-shed",
-  # "tower-reconnect",
+  "tower-reconnect",
   "tower-retry",
   "tower-service",
   # "tower-spawn-ready",
