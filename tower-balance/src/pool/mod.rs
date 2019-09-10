@@ -2,7 +2,7 @@
 //!
 //! The pool uses `poll_ready` as a signal indicating whether additional services should be spawned
 //! to handle the current level of load. Specifically, every time `poll_ready` on the inner service
-//! returns `Ready`, [`Pool`] consider that a 0, and every time it returns `NotReady`, [`Pool`]
+//! returns `Ready`, [`Pool`] consider that a 0, and every time it returns `Pending`, [`Pool`]
 //! considers it a 1. [`Pool`] then maintains an [exponential moving
 //! average](https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average) over those
 //! samples, which gives an estimate of how often the underlying service has been ready when it was
@@ -16,12 +16,18 @@
 
 use super::p2c::Balance;
 use crate::error;
-use futures::{try_ready, Async, Future, Poll, Stream};
+use futures_core::{ready, Stream};
+use pin_project::pin_project;
 use slab::Slab;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
+use tower_make::MakeService;
 use tower_service::Service;
-use tower_util::MakeService;
 
 #[cfg(test)]
 mod test;
@@ -36,6 +42,7 @@ enum Level {
     High,
 }
 
+#[pin_project]
 /// A wrapper around `MakeService` that discovers a new service when load is high, and removes a
 /// service when load is low. See [`Pool`].
 pub struct PoolDiscoverer<MS, Target, Request>
@@ -43,11 +50,13 @@ where
     MS: MakeService<Target, Request>,
 {
     maker: MS,
+    #[pin]
     making: Option<MS::Future>,
     target: Target,
     load: Level,
     services: Slab<()>,
     died_tx: tokio_sync::mpsc::UnboundedSender<usize>,
+    #[pin]
     died_rx: tokio_sync::mpsc::UnboundedReceiver<usize>,
     limit: Option<usize>,
 }
@@ -63,83 +72,84 @@ where
     type Service = DropNotifyService<MS::Service>;
     type Error = MS::MakeError;
 
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        while let Async::Ready(Some(sid)) = self
-            .died_rx
-            .poll()
-            .expect("cannot be closed as we hold tx too")
-        {
-            self.services.remove(sid);
+    fn poll_discover(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+        let mut this = self.project();
+
+        while let Poll::Ready(Some(sid)) = this.died_rx.as_mut().poll_next(cx) {
+            this.services.remove(sid);
             tracing::trace!(
-                pool.services = self.services.len(),
+                pool.services = this.services.len(),
                 message = "removing dropped service"
             );
         }
 
-        if self.services.len() == 0 && self.making.is_none() {
-            let _ = try_ready!(self.maker.poll_ready());
+        if this.services.len() == 0 && this.making.is_none() {
+            let _ = ready!(this.maker.poll_ready(cx))?;
             tracing::trace!("construct initial pool connection");
-            self.making = Some(self.maker.make_service(self.target.clone()));
+            this.making
+                .set(Some(this.maker.make_service(this.target.clone())));
         }
 
-        if let Level::High = self.load {
-            if self.making.is_none() {
-                if self
+        if let Level::High = this.load {
+            if this.making.is_none() {
+                if this
                     .limit
-                    .map(|limit| self.services.len() >= limit)
+                    .map(|limit| this.services.len() >= limit)
                     .unwrap_or(false)
                 {
-                    return Ok(Async::NotReady);
+                    return Poll::Pending;
                 }
 
                 tracing::trace!(
-                    pool.services = self.services.len(),
+                    pool.services = this.services.len(),
                     message = "decided to add service to loaded pool"
                 );
-                try_ready!(self.maker.poll_ready());
+                ready!(this.maker.poll_ready(cx))?;
                 tracing::trace!("making new service");
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
-                self.making = Some(self.maker.make_service(self.target.clone()));
+                this.making
+                    .set(Some(this.maker.make_service(this.target.clone())));
             }
         }
 
-        if let Some(mut fut) = self.making.take() {
-            if let Async::Ready(svc) = fut.poll()? {
-                let id = self.services.insert(());
-                let svc = DropNotifyService {
-                    svc,
-                    id,
-                    notify: self.died_tx.clone(),
-                };
-                tracing::trace!(
-                    pool.services = self.services.len(),
-                    message = "finished creating new service"
-                );
-                self.load = Level::Normal;
-                return Ok(Async::Ready(Change::Insert(id, svc)));
-            } else {
-                self.making = Some(fut);
-                return Ok(Async::NotReady);
-            }
+        if let Some(fut) = this.making.as_mut().as_pin_mut() {
+            let svc = ready!(fut.poll(cx))?;
+            this.making.set(None);
+
+            let id = this.services.insert(());
+            let svc = DropNotifyService {
+                svc,
+                id,
+                notify: this.died_tx.clone(),
+            };
+            tracing::trace!(
+                pool.services = this.services.len(),
+                message = "finished creating new service"
+            );
+            *this.load = Level::Normal;
+            return Poll::Ready(Ok(Change::Insert(id, svc)));
         }
 
-        match self.load {
+        match this.load {
             Level::High => {
                 unreachable!("found high load but no Service being made");
             }
-            Level::Normal => Ok(Async::NotReady),
-            Level::Low if self.services.len() == 1 => Ok(Async::NotReady),
+            Level::Normal => Poll::Pending,
+            Level::Low if this.services.len() == 1 => Poll::Pending,
             Level::Low => {
-                self.load = Level::Normal;
+                *this.load = Level::Normal;
                 // NOTE: this is a little sad -- we'd prefer to kill short-living services
-                let rm = self.services.iter().next().unwrap().0;
+                let rm = this.services.iter().next().unwrap().0;
                 // note that we _don't_ remove from self.services here
                 // that'll happen automatically on drop
                 tracing::trace!(
-                    pool.services = self.services.len(),
+                    pool.services = this.services.len(),
                     message = "removing service for over-provisioned pool"
                 );
-                Ok(Async::Ready(Change::Remove(rm)))
+                Poll::Ready(Ok(Change::Remove(rm)))
             }
         }
     }
@@ -183,7 +193,7 @@ impl Builder {
     /// threshold, and there are at least two services active, a service is removed.
     ///
     /// The default value is 0.01. That is, when one in every 100 `poll_ready` calls return
-    /// `NotReady`, then the underlying service is considered underutilized.
+    /// `Pending`, then the underlying service is considered underutilized.
     pub fn underutilized_below(&mut self, low: f64) -> &mut Self {
         self.low = low;
         self
@@ -194,7 +204,7 @@ impl Builder {
     /// scheduled to be added to the underlying [`Balance`].
     ///
     /// The default value is 0.5. That is, when every other call to `poll_ready` returns
-    /// `NotReady`, then the underlying service is considered highly loaded.
+    /// `Pending`, then the underlying service is considered highly loaded.
     pub fn loaded_above(&mut self, high: f64) -> &mut Self {
         self.high = high;
         self
@@ -267,7 +277,7 @@ impl Builder {
         };
 
         Pool {
-            balance: Balance::from_entropy(d),
+            balance: Balance::from_entropy(Box::pin(d)),
             options: *self,
             ewma: self.init,
         }
@@ -282,7 +292,8 @@ where
     MS::Error: Into<error::Error>,
     Target: Clone,
 {
-    balance: Balance<PoolDiscoverer<MS, Target, Request>, Request>,
+    // the Pin<Box<_>> here is needed since Balance requires the Service to be Unpin
+    balance: Balance<Pin<Box<PoolDiscoverer<MS, Target, Request>>>, Request>,
     options: Builder,
     ewma: f64,
 }
@@ -298,7 +309,7 @@ where
 {
     /// Construct a new dynamically sized `Pool`.
     ///
-    /// If many calls to `poll_ready` return `NotReady`, `new_service` is used to
+    /// If many calls to `poll_ready` return `Pending`, `new_service` is used to
     /// construct another `Service` that is then added to the load-balanced pool.
     /// If many calls to `poll_ready` succeed, the most recently added `Service`
     /// is dropped from the pool.
@@ -306,6 +317,8 @@ where
         Builder::new().build(make_service, target)
     }
 }
+
+type PinBalance<S, Request> = Balance<Pin<Box<S>>, Request>;
 
 impl<MS, Target, Req> Service<Req> for Pool<MS, Target, Req>
 where
@@ -316,48 +329,50 @@ where
     MS::Error: Into<error::Error>,
     Target: Clone,
 {
-    type Response = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;
-    type Error = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Error;
-    type Future = <Balance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Future;
+    type Response = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;
+    type Error = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Error;
+    type Future = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Future;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        if let Async::Ready(()) = self.balance.poll_ready()? {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if let Poll::Ready(()) = self.balance.poll_ready(cx)? {
             // services was ready -- there are enough services
             // update ewma with a 0 sample
             self.ewma = (1.0 - self.options.alpha) * self.ewma;
 
-            let discover = self.balance.discover_mut();
+            let mut discover = self.balance.discover_mut().as_mut();
+            let discover = discover.project();
             if self.ewma < self.options.low {
-                if discover.load != Level::Low {
+                if *discover.load != Level::Low {
                     tracing::trace!({ ewma = %self.ewma }, "pool is over-provisioned");
                 }
-                discover.load = Level::Low;
+                *discover.load = Level::Low;
 
                 if discover.services.len() > 1 {
                     // reset EWMA so we don't immediately try to remove another service
                     self.ewma = self.options.init;
                 }
             } else {
-                if discover.load != Level::Normal {
+                if *discover.load != Level::Normal {
                     tracing::trace!({ ewma = %self.ewma }, "pool is appropriately provisioned");
                 }
-                discover.load = Level::Normal;
+                *discover.load = Level::Normal;
             }
 
-            return Ok(Async::Ready(()));
+            return Poll::Ready(Ok(()));
         }
 
-        let discover = self.balance.discover_mut();
+        let mut discover = self.balance.discover_mut().as_mut();
+        let discover = discover.project();
         if discover.making.is_none() {
             // no services are ready -- we're overloaded
             // update ewma with a 1 sample
             self.ewma = self.options.alpha + (1.0 - self.options.alpha) * self.ewma;
 
             if self.ewma > self.options.high {
-                if discover.load != Level::High {
+                if *discover.load != Level::High {
                     tracing::trace!({ ewma = %self.ewma }, "pool is under-provisioned");
                 }
-                discover.load = Level::High;
+                *discover.load = Level::High;
 
                 // don't reset the EWMA -- in theory, poll_ready should now start returning
                 // `Ready`, so we won't try to launch another service immediately.
@@ -366,13 +381,13 @@ where
 
                 // we need to call balance again for PoolDiscover to realize
                 // it can make a new service
-                return self.balance.poll_ready();
+                return self.balance.poll_ready(cx);
             } else {
-                discover.load = Level::Normal;
+                *discover.load = Level::Normal;
             }
         }
 
-        Ok(Async::NotReady)
+        Poll::Pending
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
@@ -405,8 +420,8 @@ impl<Request, Svc: Service<Request>> Service<Request> for DropNotifyService<Svc>
     type Future = Svc::Future;
     type Error = Svc::Error;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.svc.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.svc.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {

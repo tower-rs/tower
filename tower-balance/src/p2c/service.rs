@@ -1,7 +1,14 @@
 use crate::error;
-use futures::{future, stream, try_ready, Async, Future, Poll, Stream};
+use futures_core::{ready, Stream};
+use futures_util::{stream, try_future, try_future::TryFutureExt};
 use indexmap::IndexMap;
+use pin_project::pin_project;
 use rand::{rngs::SmallRng, FromEntropy};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_sync::oneshot;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
@@ -20,8 +27,15 @@ use tracing::{debug, trace};
 /// > The maximum load variance between any two servers is bound by `ln(ln(n))` where
 /// > `n` is the number of servers in the cluster.
 ///
+/// Note that `Balance` requires that the `Discover` you use is `Unpin` in order to implement
+/// `Service`. This is because it needs to be accessed from `Service::poll_ready`, which takes
+/// `&mut self`. You can achieve this easily by wrapping your `Discover` in [`Box::pin`] before you
+/// construct the `Balance` instance. For more details, see [#319].
+///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+/// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
+/// [#319]: https://github.com/tower-rs/tower/issues/319
 #[derive(Debug)]
 pub struct Balance<D: Discover, Req> {
     discover: D,
@@ -38,13 +52,16 @@ pub struct Balance<D: Discover, Req> {
     rng: SmallRng,
 }
 
+#[pin_project]
 /// A Future that becomes satisfied when an `S`-typed service is ready.
 ///
 /// May fail due to cancelation, i.e. if the service is removed from discovery.
 #[derive(Debug)]
 struct UnreadyService<K, S, Req> {
     key: Option<K>,
+    #[pin]
     cancel: oneshot::Receiver<()>,
+    #[pin]
     ready: tower_util::Ready<S, Req>,
 }
 
@@ -88,7 +105,7 @@ where
 
 impl<D, Req> Balance<D, Req>
 where
-    D: Discover,
+    D: Discover + Unpin,
     D::Key: Clone,
     D::Error: Into<error::Error>,
     D::Service: Service<Req> + Load,
@@ -98,10 +115,12 @@ where
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn poll_discover(&mut self) -> Poll<(), error::Discover> {
+    fn poll_discover(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), error::Discover>> {
         debug!("updating from discover");
         loop {
-            match try_ready!(self.discover.poll().map_err(|e| error::Discover(e.into()))) {
+            match ready!(Pin::new(&mut self.discover).poll_discover(cx))
+                .map_err(|e| error::Discover(e.into()))?
+            {
                 Change::Remove(key) => {
                     trace!("remove");
                     self.evict(&key)
@@ -132,23 +151,25 @@ where
                 .next_ready_index
                 .and_then(|i| Self::repair_index(i, idx, self.ready_services.len()));
             debug_assert!(!self.cancelations.contains_key(key));
-        } else if let Some(cancel) = self.cancelations.remove(key) {
+        } else if let Some(cancel) = self.cancelations.swap_remove(key) {
             let _ = cancel.send(());
         }
     }
 
-    fn poll_unready(&mut self) {
+    fn poll_unready(&mut self, cx: &mut Context<'_>) {
         loop {
-            match self.unready_services.poll() {
-                Ok(Async::NotReady) | Ok(Async::Ready(None)) => return,
-                Ok(Async::Ready(Some((key, svc)))) => {
+            match Pin::new(&mut self.unready_services).poll_next(cx) {
+                Poll::Pending | Poll::Ready(None) => return,
+                Poll::Ready(Some(Ok((key, svc)))) => {
                     trace!("endpoint ready");
-                    let _cancel = self.cancelations.remove(&key);
+                    let _cancel = self.cancelations.swap_remove(&key);
                     debug_assert!(_cancel.is_some(), "missing cancelation");
                     self.ready_services.insert(key, svc);
                 }
-                Err((key, Error::Canceled)) => debug_assert!(!self.cancelations.contains_key(&key)),
-                Err((key, Error::Inner(e))) => {
+                Poll::Ready(Some(Err((key, Error::Canceled)))) => {
+                    debug_assert!(!self.cancelations.contains_key(&key))
+                }
+                Poll::Ready(Some(Err((key, Error::Inner(e))))) => {
                     let error = e.into();
                     debug!({ %error }, "dropping failed endpoint");
                     let _cancel = self.cancelations.swap_remove(&key);
@@ -207,31 +228,35 @@ where
         svc.load()
     }
 
-    fn poll_ready_index_or_evict(&mut self, index: usize) -> Poll<(), ()> {
+    fn poll_ready_index_or_evict(
+        &mut self,
+        cx: &mut Context<'_>,
+        index: usize,
+    ) -> Poll<Result<(), ()>> {
         let (_, svc) = self
             .ready_services
             .get_index_mut(index)
             .expect("invalid index");
 
-        match svc.poll_ready() {
-            Ok(Async::Ready(())) => Ok(Async::Ready(())),
-            Ok(Async::NotReady) => {
+        match svc.poll_ready(cx) {
+            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+            Poll::Pending => {
                 // became unready; so move it back there.
                 let (key, svc) = self
                     .ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
                 self.push_unready(key, svc);
-                Ok(Async::NotReady)
+                Poll::Pending
             }
-            Err(e) => {
+            Poll::Ready(Err(e)) => {
                 // failed, so drop it.
                 let error = e.into();
                 debug!({ %error }, "evicting failed endpoint");
                 self.ready_services
                     .swap_remove_index(index)
                     .expect("invalid ready index");
-                Err(())
+                Poll::Ready(Err(()))
             }
         }
     }
@@ -239,7 +264,7 @@ where
 
 impl<D, Req> Service<Req> for Balance<D, Req>
 where
-    D: Discover,
+    D: Discover + Unpin,
     D::Key: Clone,
     D::Error: Into<error::Error>,
     D::Service: Service<Req> + Load,
@@ -248,7 +273,7 @@ where
 {
     type Response = <D::Service as Service<Req>>::Response;
     type Error = error::Error;
-    type Future = future::MapErr<
+    type Future = try_future::MapErr<
         <D::Service as Service<Req>>::Future,
         fn(<D::Service as Service<Req>>::Error) -> error::Error,
     >;
@@ -257,13 +282,13 @@ where
     ///
     /// When `Async::Ready` is returned, `ready_index` is set with a valid index
     /// into `ready` referring to a `Service` that is ready to disptach a request.
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // First and foremost, process discovery updates. This removes or updates a
         // previously-selected `ready_index` if appropriate.
-        self.poll_discover()?;
+        let _ = self.poll_discover(cx)?;
 
         // Drive new or busy services to readiness.
-        self.poll_unready();
+        self.poll_unready(cx);
         trace!({ nready = self.ready_services.len(), nunready = self.unready_services.len() }, "poll_ready");
 
         loop {
@@ -276,8 +301,8 @@ where
                 trace!({ next.idx = index }, "preselected ready_index");
                 debug_assert!(index < self.ready_services.len());
 
-                if let Ok(Async::Ready(())) = self.poll_ready_index_or_evict(index) {
-                    return Ok(Async::Ready(()));
+                if let Poll::Ready(Ok(())) = self.poll_ready_index_or_evict(cx, index) {
+                    return Poll::Ready(Ok(()));
                 }
 
                 self.next_ready_index = None;
@@ -286,7 +311,7 @@ where
             self.next_ready_index = self.p2c_next_ready_index();
             if self.next_ready_index.is_none() {
                 debug_assert!(self.ready_services.is_empty());
-                return Ok(Async::NotReady);
+                return Poll::Pending;
             }
         }
     }
@@ -307,24 +332,24 @@ where
 }
 
 impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
-    type Item = (K, S);
-    type Error = (K, Error<S::Error>);
+    type Output = Result<(K, S), (K, Error<S::Error>)>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Ok(Async::Ready(())) = self.cancel.poll() {
-            let key = self.key.take().expect("polled after ready");
-            return Err((key, Error::Canceled));
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        if let Poll::Ready(Ok(())) = this.cancel.poll(cx) {
+            let key = this.key.take().expect("polled after ready");
+            return Poll::Ready(Err((key, Error::Canceled)));
         }
 
-        match self.ready.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(svc)) => {
-                let key = self.key.take().expect("polled after ready");
-                Ok((key, svc).into())
+        match ready!(this.ready.poll(cx)) {
+            Ok(svc) => {
+                let key = this.key.take().expect("polled after ready");
+                Poll::Ready(Ok((key, svc)))
             }
             Err(e) => {
-                let key = self.key.take().expect("polled after ready");
-                Err((key, Error::Inner(e)))
+                let key = this.key.take().expect("polled after ready");
+                Poll::Ready(Err((key, Error::Inner(e))))
             }
         }
     }

@@ -13,6 +13,7 @@ use crate::Load;
 
 /// Wraps a type so that `Load::load` returns a constant value.
 #[pin_project]
+#[derive(Debug)]
 pub struct Constant<T, M> {
     inner: T,
     load: M,

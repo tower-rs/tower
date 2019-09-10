@@ -8,13 +8,13 @@ name = "tower-balance"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.1.0"
+version = "0.3.0-alpha.1"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-balance/0.1.0"
+documentation = "https://docs.rs/tower-balance/0.3.0-alpha.1"
 description = """
 Balance load across a set of uniform services.
 """
@@ -27,26 +27,30 @@ log = ["tracing/log"]
 default = ["log"]
 
 [dependencies]
-futures = "0.1.26"
+futures-util-preview = "0.3.0-alpha.18"
+futures-core-preview = "0.3.0-alpha.18"
+pin-project = "0.4.0-alpha.10"
 indexmap = "1.0.2"
 tracing = "0.1"
 rand = "0.6.5"
-tokio-sync = "0.1.3"
-tokio-timer = "0.2.4"
-tower-discover = "0.1.0"
-tower-layer = "0.1.0"
-tower-load = { version = "0.1.0", path = "../tower-load" }
-tower-service = "0.2.0"
-tower-util = "0.1.0"
+tokio-sync = "0.2.0-alpha.4"
+tokio-timer = "0.3.0-alpha.4"
+tower-discover = { version = "0.3.0-alpha.1", path = "../tower-discover" }
+tower-layer = { version = "0.3.0-alpha.1", path = "../tower-layer" }
+tower-load = { version = "0.3.0-alpha.1", path = "../tower-load" }
+tower-service = "0.3.0-alpha.1"
+tower-make = { version = "0.3.0-alpha.1", path = "../tower-make" }
+tower-util = { version = "0.3.0-alpha.1", path = "../tower-util" }
 slab = "0.4"
 
 [dev-dependencies]
-tracing-fmt = { git = "https://github.com/tokio-rs/tracing.git" }
+tracing-subscriber = "0.1.1"
 hdrhistogram = "6.0"
 quickcheck = { version = "0.6", default-features = false }
-tokio = "0.1.7"
-tokio-executor = "0.1.2"
-tower = { version = "*", path = "../tower" }
-tower-buffer = { version = "*", path = "../tower-buffer" }
-tower-limit = { version = "*", path = "../tower-limit" }
-tower-test = { version = "*", path = "../tower-test" }
+tokio = "0.2.0-alpha.4"
+tokio-executor = "0.2.0-alpha.4"
+tokio-test = "0.2.0-alpha.4"
+tower-buffer = { version = "0.3.0-alpha.1", path = "../tower-buffer" }
+tower-limit = { version = "0.3.0-alpha.1", path = "../tower-limit" }
+tower-test = { version = "0.3.0-alpha.1", path = "../tower-test" }
+tower = { version = "0.3.0-alpha.1", path = "../tower" }
