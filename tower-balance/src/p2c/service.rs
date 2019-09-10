@@ -27,8 +27,15 @@ use tracing::{debug, trace};
 /// > The maximum load variance between any two servers is bound by `ln(ln(n))` where
 /// > `n` is the number of servers in the cluster.
 ///
+/// Note that `Balance` requires that the `Discover` you use is `Unpin` in order to implement
+/// `Service`. This is because it needs to be accessed from `Service::poll_ready`, which takes
+/// `&mut self`. You can achieve this easily by wrapping your `Discover` in [`Box::pin`] before you
+/// construct the `Balance` instance. For more details, see [#319].
+///
 /// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+/// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
+/// [#319]: https://github.com/tower-rs/tower/issues/319
 #[derive(Debug)]
 pub struct Balance<D: Discover, Req> {
     discover: D,
