@@ -318,6 +318,8 @@ where
     }
 }
 
+type PinBalance<S, Request> = Balance<Pin<Box<S>>, Request>;
+
 impl<MS, Target, Req> Service<Req> for Pool<MS, Target, Req>
 where
     MS: MakeService<Target, Req>,
@@ -327,10 +329,9 @@ where
     MS::Error: Into<error::Error>,
     Target: Clone,
 {
-    type Response =
-        <Balance<Pin<Box<PoolDiscoverer<MS, Target, Req>>>, Req> as Service<Req>>::Response;
-    type Error = <Balance<Pin<Box<PoolDiscoverer<MS, Target, Req>>>, Req> as Service<Req>>::Error;
-    type Future = <Balance<Pin<Box<PoolDiscoverer<MS, Target, Req>>>, Req> as Service<Req>>::Future;
+    type Response = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;
+    type Error = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Error;
+    type Future = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if let Poll::Ready(()) = self.balance.poll_ready(cx)? {
