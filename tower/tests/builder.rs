@@ -1,69 +1,52 @@
-use futures::{
-    future::{self, FutureResult},
-    prelude::*,
-};
 use std::time::Duration;
+use futures_util::{pin_mut, future::{Ready, poll_fn}};
 use tower::builder::ServiceBuilder;
+use tower::util::ServiceExt;
 use tower_buffer::BufferLayer;
 use tower_limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer};
 use tower_retry::{Policy, RetryLayer};
 use tower_service::*;
-use void::Void;
+use tower_test::{mock};
 
-#[test]
-fn builder_service() {
-    tokio::run(future::lazy(|| {
+#[tokio::test]
+async fn builder_service() {
+        let (service, handle) = mock::pair();
+        pin_mut!(handle);
+
         let policy = MockPolicy;
-        let mut client = ServiceBuilder::new()
+        let client = ServiceBuilder::new()
             .layer(BufferLayer::new(5))
             .layer(ConcurrencyLimitLayer::new(5))
             .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
             .layer(RetryLayer::new(policy))
             .layer(BufferLayer::new(5))
-            .service(MockSvc);
+            .service(service);
 
-        client.poll_ready().unwrap();
-        client
-            .call(Request)
-            .map(|_| ())
-            .map_err(|_| panic!("this is bad"))
-    }));
-}
+        // allow a request through
+        handle.allow(1);
 
-#[derive(Debug, Clone)]
-struct Request;
-#[derive(Debug, Clone)]
-struct Response;
-#[derive(Debug)]
-struct MockSvc;
-impl Service<Request> for MockSvc {
-    type Response = Response;
-    type Error = Void;
-    type Future = FutureResult<Self::Response, Self::Error>;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        Ok(().into())
-    }
-
-    fn call(&mut self, _: Request) -> Self::Future {
-        future::ok(Response)
-    }
+        let mut client = client.ready().await.unwrap();
+        let fut = client.call("hello");
+        let (request, rsp) = poll_fn(|cx| handle.as_mut().poll_request(cx)).await.unwrap();
+        assert_eq!(request, "hello");
+        rsp.send_response("world");
+        assert_eq!(fut.await.unwrap(), "world");
 }
 
 #[derive(Debug, Clone)]
 struct MockPolicy;
 
-impl<E> Policy<Request, Response, E> for MockPolicy
+impl<E> Policy<&'static str, &'static str, E> for MockPolicy
 where
     E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
 {
-    type Future = FutureResult<Self, ()>;
+    type Future = Ready<Self>;
 
-    fn retry(&self, _req: &Request, _result: Result<&Response, &E>) -> Option<Self::Future> {
+    fn retry(&self, _req: &&'static str, _result: Result<&&'static str, &E>) -> Option<Self::Future> {
         None
     }
 
-    fn clone_request(&self, req: &Request) -> Option<Request> {
+    fn clone_request(&self, req: &&'static str) -> Option<&'static str> {
         Some(req.clone())
     }
 }

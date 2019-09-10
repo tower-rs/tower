@@ -40,15 +40,11 @@ use std::{fmt, time::Duration};
 /// ```
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # fn dox<T>(my_service: T)
-/// # where T: Service<()> + Send + 'static,
-/// # T::Future: Send,
-/// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
-/// # {
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .buffer(100)
 ///     .concurrency_limit(10)
-///     .service(my_service)
+///     .service(svc)
 /// # ;
 /// # }
 /// ```
@@ -62,15 +58,11 @@ use std::{fmt, time::Duration};
 /// ```
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # fn dox<T>(my_service: T)
-/// # where T: Service<()> + Send + 'static,
-/// # T::Future: Send,
-/// # T::Error: Into<Box<::std::error::Error + Send + Sync>>,
-/// # {
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(10)
 ///     .buffer(100)
-///     .service(my_service)
+///     .service(svc)
 /// # ;
 /// # }
 /// ```
@@ -84,63 +76,32 @@ use std::{fmt, time::Duration};
 /// A `Service` stack with a single layer:
 ///
 /// ```
-/// # extern crate tower;
-/// # extern crate tower_limit;
-/// # extern crate futures;
-/// # extern crate void;
-/// # use void::Void;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
 /// # use tower_limit::concurrency::ConcurrencyLimitLayer;
-/// # use futures::{Poll, future::{self, FutureResult}};
-/// # #[derive(Debug)]
-/// # struct MyService;
-/// # impl Service<()> for MyService {
-/// #    type Response = ();
-/// #    type Error = Void;
-/// #    type Future = FutureResult<Self::Response, Self::Error>;
-/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-/// #        Ok(().into())
-/// #    }
-/// #    fn call(&mut self, _: ()) -> Self::Future {
-/// #        future::ok(())
-/// #    }
-/// # }
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(5)
-///     .service(MyService);
+///     .service(svc);
+/// # ;
+/// # }
 /// ```
 ///
 /// A `Service` stack with _multiple_ layers that contain rate limiting,
 /// in-flight request limits, and a channel-backed, clonable `Service`:
 ///
 /// ```
-/// # extern crate tower;
-/// # extern crate futures;
-/// # extern crate void;
-/// # use void::Void;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
 /// # use std::time::Duration;
-/// # use futures::{Poll, future::{self, FutureResult}};
-/// # #[derive(Debug)]
-/// # struct MyService;
-/// # impl Service<()> for MyService {
-/// #    type Response = ();
-/// #    type Error = Void;
-/// #    type Future = FutureResult<Self::Response, Self::Error>;
-/// #    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-/// #        Ok(().into())
-/// #    }
-/// #    fn call(&mut self, _: ()) -> Self::Future {
-/// #        future::ok(())
-/// #    }
-/// # }
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .buffer(5)
 ///     .concurrency_limit(5)
 ///     .rate_limit(5, Duration::from_secs(1))
-///     .service(MyService);
+///     .service(svc);
+/// # ;
+/// # }
 /// ```
 #[derive(Clone)]
 pub struct ServiceBuilder<L> {

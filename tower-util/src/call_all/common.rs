@@ -1,22 +1,31 @@
 use super::Error;
-use futures::{try_ready, Async, Future, Poll, Stream};
+use futures_core::{ready, Stream};
+use pin_project::pin_project;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_service::Service;
 
 /// TODO: Dox
+#[pin_project]
 #[derive(Debug)]
 pub(crate) struct CallAll<Svc, S, Q> {
-    service: Svc,
+    service: Option<Svc>,
+    #[pin]
     stream: S,
     queue: Q,
     eof: bool,
 }
 
-pub(crate) trait Drive<T: Future> {
+pub(crate) trait Drive<F: Future> {
     fn is_empty(&self) -> bool;
 
-    fn push(&mut self, future: T);
+    fn push(&mut self, future: F);
 
-    fn poll(&mut self) -> Poll<Option<T::Item>, T::Error>;
+    // NOTE: this implicitly requires Self: Unpin just like Service does
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<F::Output>>;
 }
 
 impl<Svc, S, Q> CallAll<Svc, S, Q>
@@ -24,12 +33,11 @@ where
     Svc: Service<S::Item>,
     Svc::Error: Into<Error>,
     S: Stream,
-    S::Error: Into<Error>,
     Q: Drive<Svc::Future>,
 {
     pub(crate) fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
         CallAll {
-            service,
+            service: Some(service),
             stream,
             queue,
             eof: false,
@@ -37,59 +45,73 @@ where
     }
 
     /// Extract the wrapped `Service`.
-    pub(crate) fn into_inner(self) -> Svc {
-        self.service
+    pub(crate) fn into_inner(mut self) -> Svc {
+        self.service.take().expect("Service already taken")
     }
 
-    pub(crate) fn unordered(self) -> super::CallAllUnordered<Svc, S> {
+    /// Extract the wrapped `Service`.
+    pub(crate) fn take_service(mut self: Pin<&mut Self>) -> Svc {
+        self.project()
+            .service
+            .take()
+            .expect("Service already taken")
+    }
+
+    pub(crate) fn unordered(mut self) -> super::CallAllUnordered<Svc, S> {
         assert!(self.queue.is_empty() && !self.eof);
 
-        super::CallAllUnordered::new(self.service, self.stream)
+        super::CallAllUnordered::new(self.service.take().unwrap(), self.stream)
     }
 }
 
 impl<Svc, S, Q> Stream for CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<Error>,
+    Error: From<Svc::Error>,
     S: Stream,
-    S::Error: Into<Error>,
     Q: Drive<Svc::Future>,
 {
-    type Item = Svc::Response;
-    type Error = Error;
+    type Item = Result<Svc::Response, Error>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut this = self.project();
+
         loop {
-            let res = self.queue.poll().map_err(Into::into);
-
             // First, see if we have any responses to yield
-            if let Async::Ready(Some(rsp)) = res? {
-                return Ok(Async::Ready(Some(rsp)));
+            if let Poll::Ready(r) = this.queue.poll(cx) {
+                if let Some(rsp) = r.transpose()? {
+                    return Poll::Ready(Some(Ok(rsp)));
+                }
             }
 
             // If there are no more requests coming, check if we're done
-            if self.eof {
-                if self.queue.is_empty() {
-                    return Ok(Async::Ready(None));
+            if *this.eof {
+                if this.queue.is_empty() {
+                    return Poll::Ready(None);
                 } else {
-                    return Ok(Async::NotReady);
+                    return Poll::Pending;
                 }
             }
 
             // Then, see that the service is ready for another request
-            try_ready!(self.service.poll_ready().map_err(Into::into));
+            let svc = this
+                .service
+                .as_mut()
+                .expect("Using CallAll after extracing inner Service");
+            ready!(svc.poll_ready(cx))?;
 
             // If it is, gather the next request (if there is one)
-            match self.stream.poll().map_err(Into::into)? {
-                Async::Ready(Some(req)) => {
-                    self.queue.push(self.service.call(req));
-                }
-                Async::Ready(None) => {
-                    // We're all done once any outstanding requests have completed
-                    self.eof = true;
-                }
-                Async::NotReady => {
+            match this.stream.as_mut().poll_next(cx) {
+                Poll::Ready(r) => match r {
+                    Some(req) => {
+                        this.queue.push(svc.call(req));
+                    }
+                    None => {
+                        // We're all done once any outstanding requests have completed
+                        *this.eof = true;
+                    }
+                },
+                Poll::Pending => {
                     // TODO: We probably want to "release" the slot we reserved in Svc here.
                     // It may be a while until we get around to actually using it.
                 }

@@ -1,7 +1,11 @@
-use futures::{Future, Poll};
 use tower_service::Service;
 
 use std::fmt;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 /// A boxed `Service + Send` trait object.
 ///
@@ -18,7 +22,7 @@ pub struct BoxService<T, U, E> {
 ///
 /// This type alias represents a boxed future that is `Send` and can be moved
 /// across threads.
-type BoxFuture<T, E> = Box<dyn Future<Item = T, Error = E> + Send>;
+type BoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 #[derive(Debug)]
 struct Boxed<S> {
@@ -41,8 +45,8 @@ impl<T, U, E> Service<T> for BoxService<T, U, E> {
     type Error = E;
     type Future = BoxFuture<U, E>;
 
-    fn poll_ready(&mut self) -> Poll<(), E> {
-        self.inner.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), E>> {
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: T) -> BoxFuture<U, E> {
@@ -68,13 +72,13 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Box<dyn Future<Item = S::Response, Error = S::Error> + Send>;
+    type Future = Pin<Box<dyn Future<Output = Result<S::Response, S::Error>> + Send>>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.inner.poll_ready()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        Box::new(self.inner.call(request))
+        Box::pin(self.inner.call(request))
     }
 }

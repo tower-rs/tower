@@ -14,18 +14,14 @@
 //! # Examples
 //!
 //! ```
-//! # extern crate futures;
-//! # extern crate tower_service;
-//! # extern crate tower_util;
-//! # use futures::*;
-//! # use futures::future::FutureResult;
+//! use futures_util::future::ready;
 //! # use tower_service::Service;
 //! # use tower_util::{BoxService, service_fn};
 //! // Respond to requests using a closure, but closures cannot be named...
 //! # pub fn main() {
 //! let svc = service_fn(|mut request: String| {
 //!     request.push_str(" response");
-//!     Ok(request)
+//!     ready(Ok(request))
 //! });
 //!
 //! let service: BoxService<String, String, ()> = BoxService::new(svc);

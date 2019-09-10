@@ -2,7 +2,13 @@
 //!
 //! See `Either` documentation for more details.
 
-use futures::{Future, Poll};
+use futures_util::ready;
+use pin_project::{pin_project, project};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_service::Service;
 
 /// Combine two different service types into a single type.
@@ -10,10 +16,11 @@ use tower_service::Service;
 /// Both services must be of the same request, response, and error types.
 /// `Either` is useful for handling conditional branching in service middleware
 /// to different inner service types.
+#[pin_project]
 #[derive(Clone, Debug)]
 pub enum Either<A, B> {
-    A(A),
-    B(B),
+    A(#[pin] A),
+    B(#[pin] B),
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -21,20 +28,20 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 impl<A, B, Request> Service<Request> for Either<A, B>
 where
     A: Service<Request>,
-    A::Error: Into<Error>,
+    Error: From<A::Error>,
     B: Service<Request, Response = A::Response>,
-    B::Error: Into<Error>,
+    Error: From<B::Error>,
 {
     type Response = A::Response;
     type Error = Error;
     type Future = Either<A::Future, B::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         use self::Either::*;
 
         match self {
-            A(service) => service.poll_ready().map_err(Into::into),
-            B(service) => service.poll_ready().map_err(Into::into),
+            A(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx))?)),
+            B(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx))?)),
         }
     }
 
@@ -48,22 +55,21 @@ where
     }
 }
 
-impl<A, B> Future for Either<A, B>
+impl<A, B, T, AE, BE> Future for Either<A, B>
 where
-    A: Future,
-    A::Error: Into<Error>,
-    B: Future<Item = A::Item>,
-    B::Error: Into<Error>,
+    A: Future<Output = Result<T, AE>>,
+    Error: From<AE>,
+    B: Future<Output = Result<T, BE>>,
+    Error: From<BE>,
 {
-    type Item = A::Item;
-    type Error = Error;
+    type Output = Result<T, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        use self::Either::*;
-
-        match self {
-            A(fut) => fut.poll().map_err(Into::into),
-            B(fut) => fut.poll().map_err(Into::into),
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        #[project]
+        match self.project() {
+            Either::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx))?)),
+            Either::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx))?)),
         }
     }
 }
