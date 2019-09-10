@@ -2,16 +2,21 @@ use crate::{
     error::{Error, SpawnError},
     future::{background_ready, BackgroundReadyExecutor},
 };
-use futures::{future, try_ready, Async, Future, Poll};
-use tokio_executor::DefaultExecutor;
+use futures_core::ready;
+use futures_util::try_future::{MapErr, TryFutureExt};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tokio_executor::{DefaultExecutor, TypedExecutor};
 use tokio_sync::oneshot;
 use tower_service::Service;
 
 /// Spawns tasks to drive an inner service to readiness.
 ///
 /// See crate level documentation for more details.
-pub struct SpawnReady<T, E> {
-    executor: E,
+pub struct SpawnReady<T> {
     inner: Inner<T>,
 }
 
@@ -20,60 +25,42 @@ enum Inner<T> {
     Future(oneshot::Receiver<Result<T, Error>>),
 }
 
-impl<T> SpawnReady<T, DefaultExecutor> {
+impl<T> SpawnReady<T> {
     /// Creates a new `SpawnReady` wrapping `service`.
-    ///
-    /// The default Tokio executor is used to drive service readiness, which
-    /// means that this method must be called while on the Tokio runtime.
     pub fn new(service: T) -> Self {
-        Self::with_executor(service, DefaultExecutor::current())
-    }
-}
-
-impl<T, E> SpawnReady<T, E> {
-    /// Creates a new `SpawnReady` wrapping `service`.
-    ///
-    /// `executor` is used to spawn a new `BackgroundReady` task that is
-    /// dedicated to driving the inner service to readiness.
-    pub fn with_executor(service: T, executor: E) -> Self {
         Self {
-            executor,
             inner: Inner::Service(Some(service)),
         }
     }
 }
 
-impl<T, E, Request> Service<Request> for SpawnReady<T, E>
+impl<T, Request> Service<Request> for SpawnReady<T>
 where
     T: Service<Request> + Send,
     T::Error: Into<Error>,
-    E: BackgroundReadyExecutor<T, Request>,
+    DefaultExecutor: BackgroundReadyExecutor<T, Request>,
 {
     type Response = T::Response;
     type Error = Error;
-    type Future = future::MapErr<T::Future, fn(T::Error) -> Error>;
+    type Future = MapErr<T::Future, fn(T::Error) -> Error>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
             self.inner = match self.inner {
                 Inner::Service(ref mut svc) => {
-                    if svc
-                        .as_mut()
-                        .expect("illegal state")
-                        .poll_ready()
-                        .map_err(Into::into)?
-                        .is_ready()
-                    {
-                        return Ok(Async::Ready(()));
+                    if let Poll::Ready(r) = svc.as_mut().expect("illegal state").poll_ready(cx) {
+                        return Poll::Ready(r.map_err(Into::into));
                     }
 
                     let (bg, rx) = background_ready(svc.take().expect("illegal state"));
-                    self.executor.spawn(bg).map_err(SpawnError::new)?;
+                    DefaultExecutor::current()
+                        .spawn(bg)
+                        .map_err(SpawnError::new)?;
 
                     Inner::Future(rx)
                 }
                 Inner::Future(ref mut fut) => {
-                    let svc = try_ready!(fut.poll())?;
+                    let svc = ready!(Pin::new(fut).poll(cx))??;
                     Inner::Service(Some(svc))
                 }
             }
