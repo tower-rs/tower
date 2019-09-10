@@ -61,6 +61,31 @@ where
         Pin::get_mut(self).as_mut().poll_discover(cx)
     }
 }
+impl<D: ?Sized + Discover + Unpin> Discover for &mut D {
+    type Key = D::Key;
+    type Service = D::Service;
+    type Error = D::Error;
+
+    fn poll_discover(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+        Discover::poll_discover(Pin::new(&mut **self), cx)
+    }
+}
+
+impl<D: ?Sized + Discover + Unpin> Discover for Box<D> {
+    type Key = D::Key;
+    type Service = D::Service;
+    type Error = D::Error;
+
+    fn poll_discover(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+        D::poll_discover(Pin::new(&mut *self), cx)
+    }
+}
 
 /// A change in the service set
 pub enum Change<K, V> {
