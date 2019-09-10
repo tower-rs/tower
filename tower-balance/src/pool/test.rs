@@ -42,7 +42,7 @@ fn high_load() {
         pin_mut!(handle);
 
         let mut pool = Builder::new()
-            .urgency(1.0) // so _any_ NotReady will add a service
+            .urgency(1.0) // so _any_ Pending will add a service
             .underutilized_below(0.0) // so no Ready will remove a service
             .max_services(Some(2))
             .build(mock, ());
@@ -156,7 +156,7 @@ fn failing_service() {
         pin_mut!(handle);
 
         let mut pool = Builder::new()
-            .urgency(1.0) // so _any_ NotReady will add a service
+            .urgency(1.0) // so _any_ Pending will add a service
             .underutilized_below(0.0) // so no Ready will remove a service
             .build(mock, ());
         assert_pending!(pool.poll_ready(cx));
