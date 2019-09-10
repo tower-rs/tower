@@ -6,39 +6,36 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_executor::DefaultExecutor;
 use tower_service::Service;
 
 /// Builds SpawnReady instances with the result of an inner Service.
 #[derive(Clone, Debug)]
-pub struct MakeSpawnReady<S, E = DefaultExecutor> {
+pub struct MakeSpawnReady<S> {
     inner: S,
-    executor: E,
+}
+
+impl<S> MakeSpawnReady<S> {
+    /// Creates a new `MakeSpawnReady` wrapping `service`.
+    pub fn new(service: S) -> Self {
+        Self { inner: service }
+    }
 }
 
 /// Builds a SpawnReady with the result of an inner Future.
 #[pin_project]
 #[derive(Debug)]
-pub struct MakeFuture<F, E = DefaultExecutor> {
+pub struct MakeFuture<F> {
     #[pin]
     inner: F,
-    executor: E,
 }
 
-impl<S, E> MakeSpawnReady<S, E> {
-    pub(crate) fn with_executor(inner: S, executor: E) -> Self {
-        Self { inner, executor }
-    }
-}
-
-impl<S, E, Target> Service<Target> for MakeSpawnReady<S, E>
+impl<S, Target> Service<Target> for MakeSpawnReady<S>
 where
     S: Service<Target>,
-    E: Clone,
 {
-    type Response = SpawnReady<S::Response, E>;
+    type Response = SpawnReady<S::Response>;
     type Error = S::Error;
-    type Future = MakeFuture<S::Future, E>;
+    type Future = MakeFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -47,22 +44,20 @@ where
     fn call(&mut self, target: Target) -> Self::Future {
         MakeFuture {
             inner: self.inner.call(target),
-            executor: self.executor.clone(),
         }
     }
 }
 
-impl<F, T, E, X> Future for MakeFuture<F, X>
+impl<F, T, E> Future for MakeFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    X: Clone,
 {
-    type Output = Result<SpawnReady<T, X>, E>;
+    type Output = Result<SpawnReady<T>, E>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let inner = ready!(this.inner.poll(cx))?;
-        let svc = SpawnReady::with_executor(inner, this.executor.clone());
+        let svc = SpawnReady::new(inner);
         Poll::Ready(Ok(svc))
     }
 }
