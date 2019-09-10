@@ -1,17 +1,22 @@
 //! Exercises load balancers with mocked services.
 
-use futures::{future, stream, Async, Future, Poll, Stream};
+use futures_core::TryStream;
+use futures_util::{stream, stream::StreamExt, try_stream::TryStreamExt};
 use hdrhistogram::Histogram;
+use pin_project::pin_project;
 use rand::{self, Rng};
 use std::time::{Duration, Instant};
-use tokio::{runtime, timer};
-use tower::{
-    discover::{Change, Discover},
-    limit::concurrency::ConcurrencyLimit,
-    Service, ServiceExt,
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
 };
+use tokio::timer;
+use tower::util::ServiceExt;
 use tower_balance as lb;
+use tower_discover::{Change, Discover};
+use tower_limit::concurrency::ConcurrencyLimit;
 use tower_load as load;
+use tower_service::Service;
 
 const REQUESTS: usize = 100_000;
 const CONCURRENCY: usize = 500;
@@ -36,8 +41,9 @@ struct Summary {
     count_by_instance: [usize; 10],
 }
 
-fn main() {
-    tracing::subscriber::set_global_default(tracing_fmt::FmtSubscriber::default()).unwrap();
+#[tokio::main]
+async fn main() {
+    tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::default()).unwrap();
 
     println!("REQUESTS={}", REQUESTS);
     println!("CONCURRENCY={}", CONCURRENCY);
@@ -49,37 +55,27 @@ fn main() {
     }
     println!("]");
 
-    let mut rt = runtime::Runtime::new().unwrap();
+    let decay = Duration::from_secs(10);
+    let d = gen_disco();
+    let pe = lb::p2c::Balance::from_entropy(load::PeakEwmaDiscover::new(
+        d,
+        DEFAULT_RTT,
+        decay,
+        load::NoInstrument,
+    ));
+    run("P2C+PeakEWMA...", pe).await;
 
-    let fut = future::lazy(move || {
-        let decay = Duration::from_secs(10);
-        let d = gen_disco();
-        let pe = lb::p2c::Balance::from_entropy(load::PeakEwmaDiscover::new(
-            d,
-            DEFAULT_RTT,
-            decay,
-            load::NoInstrument,
-        ));
-        run("P2C+PeakEWMA...", pe)
-    });
-
-    let fut = fut.then(move |_| {
-        let d = gen_disco();
-        let ll = lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(
-            d,
-            load::NoInstrument,
-        ));
-        run("P2C+LeastLoaded...", ll)
-    });
-
-    rt.spawn(fut);
-    rt.shutdown_on_idle().wait().unwrap();
+    let d = gen_disco();
+    let ll =
+        lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(d, load::NoInstrument));
+    run("P2C+LeastLoaded...", ll).await;
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
 type Key = usize;
 
+#[pin_project]
 struct Disco<S>(Vec<(Key, S)>);
 
 impl<S> Discover for Disco<S>
@@ -89,10 +85,13 @@ where
     type Key = Key;
     type Service = S;
     type Error = Error;
-    fn poll(&mut self) -> Poll<Change<Self::Key, Self::Service>, Self::Error> {
-        match self.0.pop() {
-            Some((k, service)) => Ok(Change::Insert(k, service).into()),
-            None => Ok(Async::NotReady),
+    fn poll_discover(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+        match self.project().0.pop() {
+            Some((k, service)) => Poll::Ready(Ok(Change::Insert(k, service))),
+            None => Poll::Pending,
         }
     }
 }
@@ -116,12 +115,11 @@ fn gen_disco() -> impl Discover<
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
-                    timer::Delay::new(start + latency)
-                        .map_err(Into::into)
-                        .map(move |_| {
-                            let latency = start.elapsed();
-                            Rsp { latency, instance }
-                        })
+                    async move {
+                        timer::delay(start + latency).await;
+                        let latency = start.elapsed();
+                        Ok(Rsp { latency, instance })
+                    }
                 });
 
                 (instance, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
@@ -130,9 +128,9 @@ fn gen_disco() -> impl Discover<
     )
 }
 
-fn run<D>(name: &'static str, lb: lb::p2c::Balance<D, Req>) -> impl Future<Item = (), Error = ()>
+async fn run<D>(name: &'static str, lb: lb::p2c::Balance<D, Req>)
 where
-    D: Discover + Send + 'static,
+    D: Discover + Unpin + Send + 'static,
     D::Error: Into<Error>,
     D::Key: Clone + Send,
     D::Service: Service<Req, Response = Rsp> + load::Load + Send,
@@ -142,21 +140,22 @@ where
 {
     println!("{}", name);
 
-    let requests = stream::repeat::<_, Error>(Req).take(REQUESTS as u64);
+    let requests = stream::repeat(Req).take(REQUESTS as u64);
     let service = ConcurrencyLimit::new(lb, CONCURRENCY);
     let responses = service.call_all(requests).unordered();
 
-    compute_histo(responses).map(|s| s.report()).map_err(|_| {})
+    compute_histo(responses).await.unwrap().report();
 }
 
-fn compute_histo<S>(times: S) -> impl Future<Item = Summary, Error = Error> + 'static
+async fn compute_histo<S>(mut times: S) -> Result<Summary, Error>
 where
-    S: Stream<Item = Rsp, Error = Error> + 'static,
+    S: TryStream<Ok = Rsp, Error = Error> + 'static + Unpin,
 {
-    times.fold(Summary::new(), |mut summary, rsp| {
+    let mut summary = Summary::new();
+    while let Some(rsp) = times.try_next().await? {
         summary.count(rsp);
-        Ok(summary) as Result<_, Error>
-    })
+    }
+    Ok(summary)
 }
 
 impl Summary {
