@@ -1,6 +1,8 @@
 //! Future types
 
 use crate::mock::error::{self, Error};
+use futures_util::ready;
+use pin_project::pin_project;
 use tokio_sync::oneshot;
 
 use std::{
@@ -10,16 +12,16 @@ use std::{
 };
 
 /// Future of the `Mock` response.
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
+    #[pin]
     rx: Option<Rx<T>>,
 }
 
 type Rx<T> = oneshot::Receiver<Result<T, Error>>;
 
 impl<T> ResponseFuture<T> {
-    pin_utils::unsafe_pinned!(rx: Option<Rx<T>>);
-
     pub(crate) fn new(rx: Rx<T>) -> ResponseFuture<T> {
         ResponseFuture { rx: Some(rx) }
     }
@@ -32,13 +34,11 @@ impl<T> ResponseFuture<T> {
 impl<T> Future for ResponseFuture<T> {
     type Output = Result<T, Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match self.rx().as_pin_mut() {
-            Some(rx) => match rx.poll(cx) {
-                Poll::Ready(Ok(Ok(v))) => Poll::Ready(Ok(v)),
-                Poll::Ready(Ok(Err(e))) => Poll::Ready(Err(e)),
-                Poll::Ready(Err(_)) => Poll::Ready(Err(error::Closed::new().into())),
-                Poll::Pending => Poll::Pending,
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.project().rx.as_pin_mut() {
+            Some(rx) => match ready!(rx.poll(cx)) {
+                Ok(r) => Poll::Ready(r),
+                Err(_) => Poll::Ready(Err(error::Closed::new().into())),
             },
             None => Poll::Ready(Err(error::Closed::new().into())),
         }
