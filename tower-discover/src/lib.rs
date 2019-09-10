@@ -16,6 +16,7 @@ mod stream;
 pub use crate::{list::ServiceList, stream::ServiceStream};
 
 use std::hash::Hash;
+use std::ops;
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -41,6 +42,24 @@ pub trait Discover {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>>;
+}
+
+// delegate through Pin
+impl<P> Discover for Pin<P>
+where
+    P: Unpin + ops::DerefMut,
+    P::Target: Discover,
+{
+    type Key = <<P as ops::Deref>::Target as Discover>::Key;
+    type Service = <<P as ops::Deref>::Target as Discover>::Service;
+    type Error = <<P as ops::Deref>::Target as Discover>::Error;
+
+    fn poll_discover(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+        Pin::get_mut(self).as_mut().poll_discover(cx)
+    }
 }
 
 /// A change in the service set
