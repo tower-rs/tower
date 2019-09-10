@@ -4,7 +4,7 @@
 #![deny(missing_docs)]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
-//#![deny(warnings)]
+#![deny(warnings)]
 
 pub mod error;
 pub mod p2c;
