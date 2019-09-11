@@ -39,6 +39,8 @@ where
 }
 
 #[pinned_drop]
-fn drop_response_future<T>(mut rfut: Pin<&mut ResponseFuture<T>>) {
-    rfut.project().semaphore.add_permits(1);
+impl<T> PinnedDrop for ResponseFuture<T> {
+    fn drop(mut self: Pin<&mut Self>) {
+        self.project().semaphore.add_permits(1);
+    }
 }
