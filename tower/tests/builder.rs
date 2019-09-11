@@ -17,7 +17,7 @@ async fn builder_service() {
     pin_mut!(handle);
 
     let policy = MockPolicy;
-    let client = ServiceBuilder::new()
+    let mut client = ServiceBuilder::new()
         .layer(BufferLayer::new(5))
         .layer(ConcurrencyLimitLayer::new(5))
         .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
@@ -28,7 +28,7 @@ async fn builder_service() {
     // allow a request through
     handle.allow(1);
 
-    let mut client = client.ready().await.unwrap();
+    client.ready().await.unwrap();
     let fut = client.call("hello");
     let (request, rsp) = poll_fn(|cx| handle.as_mut().poll_request(cx))
         .await

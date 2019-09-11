@@ -13,42 +13,38 @@ use tower_service::Service;
 ///
 /// `Ready` values are produced by `ServiceExt::ready`.
 #[pin_project]
-pub struct Ready<T, Request> {
-    inner: Option<T>,
+pub struct Ready<'a, T, Request> {
+    inner: &'a mut T,
     _p: PhantomData<fn() -> Request>,
 }
 
-impl<T, Request> Ready<T, Request>
+impl<'a, T, Request> Ready<'a, T, Request>
 where
     T: Service<Request>,
 {
-    pub fn new(service: T) -> Self {
+    pub fn new(service: &'a mut T) -> Self {
         Ready {
-            inner: Some(service),
+            inner: service,
             _p: PhantomData,
         }
     }
 }
 
-impl<T, Request> Future for Ready<T, Request>
+impl<'a, T, Request> Future for Ready<'a, T, Request>
 where
     T: Service<Request>,
 {
-    type Output = Result<T, T::Error>;
+    type Output = Result<(), T::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        ready!(this
-            .inner
-            .as_mut()
-            .expect("called `poll` after future completed")
-            .poll_ready(cx))?;
+        ready!(this.inner.poll_ready(cx))?;
 
-        Poll::Ready(Ok(this.inner.take().unwrap()))
+        Poll::Ready(Ok(()))
     }
 }
 
-impl<T, Request> fmt::Debug for Ready<T, Request>
+impl<'a, T, Request> fmt::Debug for Ready<'a, T, Request>
 where
     T: fmt::Debug,
 {
