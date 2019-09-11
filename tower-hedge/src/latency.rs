@@ -1,8 +1,13 @@
-use futures::{Async, Future, Poll};
+use futures_util::ready;
+use pin_project::pin_project;
+use std::time::{Duration, Instant};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio_timer::clock;
 use tower_service::Service;
-
-use std::time::{Duration, Instant};
 
 /// Record is the interface for accepting request latency measurements.  When
 /// a request completes, record is called with the elapsed duration between
@@ -19,10 +24,12 @@ pub struct Latency<R, S> {
     service: S,
 }
 
+#[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<R, F> {
     start: Instant,
     rec: R,
+    #[pin]
     inner: F,
 }
 
@@ -42,15 +49,15 @@ where
 impl<S, R, Request> Service<Request> for Latency<R, S>
 where
     S: Service<Request>,
-    S::Error: Into<super::Error>,
+    super::Error: From<S::Error>,
     R: Record + Clone,
 {
     type Response = S::Response;
     type Error = super::Error;
     type Future = ResponseFuture<R, S::Future>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready().map_err(|e| e.into())
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx).map_err(|e| e.into())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -62,24 +69,20 @@ where
     }
 }
 
-impl<R, F> Future for ResponseFuture<R, F>
+impl<R, F, T, E> Future for ResponseFuture<R, F>
 where
     R: Record,
-    F: Future,
-    F::Error: Into<super::Error>,
+    F: Future<Output = Result<T, E>>,
+    super::Error: From<E>,
 {
-    type Item = F::Item;
-    type Error = super::Error;
+    type Output = Result<T, super::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Ok(Async::Ready(rsp)) => {
-                let duration = clock::now() - self.start;
-                self.rec.record(duration);
-                Ok(Async::Ready(rsp))
-            }
-            Err(e) => Err(e.into()),
-        }
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        let rsp = ready!(this.inner.poll(cx))?;
+        let duration = clock::now() - *this.start;
+        this.rec.record(duration);
+        Poll::Ready(Ok(rsp))
     }
 }

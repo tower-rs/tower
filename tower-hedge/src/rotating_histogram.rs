@@ -1,8 +1,8 @@
 extern crate tokio_timer;
 
 use hdrhistogram::Histogram;
+use log::trace;
 use std::time::{Duration, Instant};
-
 use tokio_timer::clock;
 
 /// This represents a "rotating" histogram which stores two histogram, one which
