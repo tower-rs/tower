@@ -20,7 +20,6 @@ Automatically recreate a new `Service` instance when an error is encountered.
 """
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
-publish = false
 
 [dependencies]
 log = "0.4.1"
