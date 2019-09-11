@@ -20,7 +20,6 @@ Strategies for measuring the load of a service
 """
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
-publish = false
 
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.18"
