@@ -16,7 +16,7 @@
 
 use super::p2c::Balance;
 use crate::error;
-use futures_core::{ready, Stream};
+use futures_core::ready;
 use pin_project::pin_project;
 use slab::Slab;
 use std::{
@@ -78,7 +78,7 @@ where
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         let mut this = self.project();
 
-        while let Poll::Ready(Some(sid)) = this.died_rx.as_mut().poll_next(cx) {
+        while let Poll::Ready(Some(sid)) = this.died_rx.as_mut().poll_recv(cx) {
             this.services.remove(sid);
             tracing::trace!(
                 pool.services = this.services.len(),
