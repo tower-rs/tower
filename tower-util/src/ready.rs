@@ -14,7 +14,7 @@ use tower_service::Service;
 /// `Ready` values are produced by `ServiceExt::ready`.
 #[pin_project]
 pub struct Ready<'a, T, Request> {
-    inner: Option<&'a mut T>,
+    inner: &'a mut T,
     _p: PhantomData<fn() -> Request>,
 }
 
@@ -24,7 +24,7 @@ where
 {
     pub fn new(service: &'a mut T) -> Self {
         Ready {
-            inner: Some(service),
+            inner: service,
             _p: PhantomData,
         }
     }
@@ -38,11 +38,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        ready!(this
-            .inner
-            .as_mut()
-            .expect("called `poll` after future completed")
-            .poll_ready(cx))?;
+        ready!(this.inner.poll_ready(cx))?;
 
         Poll::Ready(Ok(()))
     }
