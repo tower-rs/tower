@@ -29,7 +29,7 @@ default = ["log"]
 [dependencies]
 futures-util-preview = "0.3.0-alpha.18"
 futures-core-preview = "0.3.0-alpha.18"
-pin-project = "0.4.0-alpha.11"
+pin-project = "=0.4.0-alpha.11"
 indexmap = "1.0.2"
 tracing = "0.1"
 rand = "0.6.5"
