@@ -4,6 +4,7 @@ use futures_util::{stream, try_future, try_future::TryFutureExt};
 use indexmap::IndexMap;
 use pin_project::pin_project;
 use rand::{rngs::SmallRng, FromEntropy};
+use std::marker::PhantomData;
 use std::{
     future::Future,
     pin::Pin,
@@ -13,7 +14,6 @@ use tokio_sync::oneshot;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_service::Service;
-use tower_util::Ready;
 use tracing::{debug, trace};
 
 /// Distributes requests across inner services using the [Power of Two Choices][p2c].
@@ -50,6 +50,8 @@ pub struct Balance<D: Discover, Req> {
     next_ready_index: Option<usize>,
 
     rng: SmallRng,
+
+    _req: PhantomData<Req>,
 }
 
 #[pin_project]
@@ -61,8 +63,9 @@ struct UnreadyService<K, S, Req> {
     key: Option<K>,
     #[pin]
     cancel: oneshot::Receiver<()>,
-    #[pin]
-    ready: tower_util::Ready<S, Req>,
+    service: Option<S>,
+
+    _req: PhantomData<Req>,
 }
 
 enum Error<E> {
@@ -84,6 +87,8 @@ where
             cancelations: IndexMap::default(),
             unready_services: stream::FuturesUnordered::new(),
             next_ready_index: None,
+
+            _req: PhantomData,
         }
     }
 
@@ -139,8 +144,9 @@ where
         self.cancelations.insert(key.clone(), tx);
         self.unready_services.push(UnreadyService {
             key: Some(key),
-            ready: Ready::new(svc),
+            service: Some(svc),
             cancel: rx,
+            _req: PhantomData,
         });
     }
 
@@ -342,15 +348,18 @@ impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
             return Poll::Ready(Err((key, Error::Canceled)));
         }
 
-        match ready!(this.ready.poll(cx)) {
-            Ok(svc) => {
-                let key = this.key.take().expect("polled after ready");
-                Poll::Ready(Ok((key, svc)))
-            }
-            Err(e) => {
-                let key = this.key.take().expect("polled after ready");
-                Poll::Ready(Err((key, Error::Inner(e))))
-            }
+        let res = ready!(this
+            .service
+            .as_mut()
+            .expect("poll after ready")
+            .poll_ready(cx));
+
+        let key = this.key.take().expect("polled after ready");
+        let svc = this.service.take().expect("polled after ready");
+
+        match res {
+            Ok(()) => Poll::Ready(Ok((key, svc))),
+            Err(e) => Poll::Ready(Err((key, Error::Inner(e)))),
         }
     }
 }

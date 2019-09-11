@@ -28,7 +28,6 @@ futures-util-preview = "=0.3.0-alpha.18"
 pin-project = "=0.4.0-alpha.11"
 tower-service = "=0.3.0-alpha.1"
 tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
-tower-util = { version = "=0.3.0-alpha.1", path = "../tower-util" }
 tokio-executor = "=0.2.0-alpha.4"
 tokio-sync = "=0.2.0-alpha.4"
 

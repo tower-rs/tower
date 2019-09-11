@@ -3,6 +3,7 @@
 use crate::error::Error;
 use futures_core::ready;
 use pin_project::pin_project;
+use std::marker::PhantomData;
 use std::{
     future::Future,
     pin::Pin,
@@ -11,18 +12,13 @@ use std::{
 use tokio_executor::TypedExecutor;
 use tokio_sync::oneshot;
 use tower_service::Service;
-use tower_util::Ready;
 
 #[pin_project]
 /// Drives a service to readiness.
-pub struct BackgroundReady<T, Request>
-where
-    T: Service<Request>,
-    T::Error: Into<Error>,
-{
-    #[pin]
-    ready: Ready<T, Request>,
+pub struct BackgroundReady<T, Request> {
+    service: Option<T>,
     tx: Option<oneshot::Sender<Result<T, Error>>>,
+    _req: PhantomData<Request>,
 }
 
 /// This trait allows you to use either Tokio's threaded runtime's executor or
@@ -55,8 +51,9 @@ where
 {
     let (tx, rx) = oneshot::channel();
     let bg = BackgroundReady {
-        ready: Ready::new(service),
+        service: Some(service),
         tx: Some(tx),
+        _req: PhantomData,
     };
     (bg, rx)
 }
@@ -75,7 +72,9 @@ where
             return Poll::Ready(());
         }
 
-        let result = ready!(this.ready.poll(cx));
+        let result = ready!(this.service.as_mut().expect("illegal state").poll_ready(cx))
+            .map(|()| this.service.take().expect("illegal state"));
+
         let _ = this
             .tx
             .take()

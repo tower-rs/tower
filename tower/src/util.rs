@@ -14,7 +14,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 /// adapters
 pub trait ServiceExt<Request>: Service<Request> {
     /// A future yielding the service when it is ready to accept a request.
-    fn ready(self) -> Ready<Self, Request>
+    fn ready(&mut self) -> Ready<'_, Self, Request>
     where
         Self: Sized,
     {
