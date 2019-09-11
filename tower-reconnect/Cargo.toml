@@ -24,6 +24,6 @@ publish = false
 
 [dependencies]
 log = "0.4.1"
-tower-service = "0.3.0-alpha.1"
-tower-make = { version = "0.3.0-alpha.1", path = "../tower-make" }
+tower-service = "=0.3.0-alpha.1"
+tower-make = { version = "=0.3.0-alpha.1", path = "../tower-make" }
 pin-project = "=0.4.0-alpha.11"

@@ -23,13 +23,13 @@ edition = "2018"
 publish = false
 
 [dependencies]
-futures-core-preview = "0.3.0-alpha.18"
+futures-core-preview = "=0.3.0-alpha.18"
 log = "0.4.1"
-tokio-timer = "0.3.0-alpha.4"
-tower-service = "0.3.0-alpha.1"
-tower-discover = { version = "0.3.0-alpha.1", path = "../tower-discover" }
+tokio-timer = "=0.3.0-alpha.4"
+tower-service = "=0.3.0-alpha.1"
+tower-discover = { version = "=0.3.0-alpha.1", path = "../tower-discover" }
 pin-project = "=0.4.0-alpha.11"
 
 [dev-dependencies]
-tokio-test = "0.2.0-alpha.4"
-futures-util-preview = "0.3.0-alpha.18"
+tokio-test = "=0.2.0-alpha.4"
+futures-util-preview = "=0.3.0-alpha.18"
