@@ -62,9 +62,7 @@ where
                     Ok(Err(e)) => return Poll::Ready(Err(e.into())),
                     Err(_) => return Poll::Ready(Err(Closed::new().into())),
                 },
-                ResponseState::Poll(fut) => {
-                    return fut.poll(cx).map_err(Into::into)
-                }
+                ResponseState::Poll(fut) => return fut.poll(cx).map_err(Into::into),
             }
         }
     }
