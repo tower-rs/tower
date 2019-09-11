@@ -1,4 +1,4 @@
-# 0.3.0-alpha.1
+# 0.3.0-alpha.1 (September 11, 2019)
 
 - Bump version to match all the other crates with `std::future`
 
