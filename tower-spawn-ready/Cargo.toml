@@ -20,7 +20,6 @@ Drives service readiness via a spawned task
 """
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
-publish = false # FIXME
 
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.18"
