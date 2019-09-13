@@ -28,7 +28,7 @@ default = ["full"]
 full = []
 
 [dependencies]
-tower-buffer = { version = "=0.3.0-alpha.1a", path = "../tower-buffer" }
+tower-buffer = { version = "=0.3.0-alpha.1b", path = "../tower-buffer" }
 tower-discover = { version = "=0.3.0-alpha.1", path = "../tower-discover" }
 tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
 tower-limit = { version = "=0.3.0-alpha.1", path = "../tower-limit" }
