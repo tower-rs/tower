@@ -1,5 +1,5 @@
-trigger: ["master"]
-pr: ["master"]
+trigger: ["master", "v0.3.x"]
+pr: ["master", "v0.3.x"]
 
 jobs:
 - template: ci/azure-rustfmt.yml
