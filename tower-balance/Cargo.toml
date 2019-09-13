@@ -48,7 +48,7 @@ quickcheck = { version = "0.6", default-features = false }
 tokio = "=0.2.0-alpha.4"
 tokio-executor = "=0.2.0-alpha.4"
 tokio-test = "=0.2.0-alpha.4"
-tower-buffer = { version = "=0.3.0-alpha.1", path = "../tower-buffer" }
+tower-buffer = { version = "=0.3.0-alpha.1a", path = "../tower-buffer" }
 tower-limit = { version = "=0.3.0-alpha.1", path = "../tower-limit" }
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
-tower = { version = "=0.3.0-alpha.1", path = "../tower" }
+tower = { version = "=0.3.0-alpha.1a", path = "../tower" }
