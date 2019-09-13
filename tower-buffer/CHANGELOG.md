@@ -1,3 +1,7 @@
+# 0.3.0-alpha.1a (September 13, 2019)
+
+- Fix `poll_next` not exisitng.
+
 # 0.3.0-alpha.1 (September 11, 2019)
 
 - Move to `std::future`
