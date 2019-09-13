@@ -115,7 +115,7 @@ where
         }
 
         // Get the next request
-        while let Some(mut msg) = ready!(Pin::new(&mut self.rx).poll_next(cx)) {
+        while let Some(mut msg) = ready!(Pin::new(&mut self.rx).poll_recv(cx)) {
             if msg.tx.poll_closed(cx).is_pending() {
                 tracing::trace!("processing new request");
                 return Poll::Ready(Some((msg, true)));
