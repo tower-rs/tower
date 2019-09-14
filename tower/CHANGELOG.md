@@ -1,6 +1,6 @@
 # 0.3.0-alpha.1a (September 13, 2019)
 
-- Update `tower-buffer` to `0.3.0-alpha.1a`
+- Update `tower-buffer` to `0.3.0-alpha.1b`
 
 # 0.3.0-alpha.1 (September 11, 2019)
 

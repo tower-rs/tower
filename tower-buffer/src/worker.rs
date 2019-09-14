@@ -2,7 +2,7 @@ use crate::{
     error::{Closed, Error, ServiceError},
     message::Message,
 };
-use futures_core::{ready, stream::Stream};
+use futures_core::ready;
 use pin_project::pin_project;
 use std::sync::{Arc, Mutex};
 use std::{

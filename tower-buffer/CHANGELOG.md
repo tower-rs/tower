@@ -1,3 +1,7 @@
+# 0.3.0-alpha.1b (September 13, 2019)
+
+- Remove `Stream` unused warning.
+
 # 0.3.0-alpha.1a (September 13, 2019)
 
 - Fix `poll_next` not exisitng.
