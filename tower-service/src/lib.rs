@@ -40,10 +40,10 @@ use std::task::{Context, Poll};
 /// impl Service<http::Request> for HelloWorld {
 ///     type Response = http::Response;
 ///     type Error = http::Error;
-///     type Future = Box<Future<Output = Result<Self::Response, Self::Error>>>;
+///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
-///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<(), Self::Error> {
-///         Ok(Async::Ready(()))
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///         Poll::Ready(Ok(()))
 ///     }
 ///
 ///     fn call(&mut self, req: http::Request) -> Self::Future {
@@ -52,7 +52,7 @@ use std::task::{Context, Poll};
 ///             .with_body(b"hello world\n");
 ///
 ///         // Return the response as an immediate future
-///         Box::new(futures::finished(resp))
+///         Box::pin(futures::future::ok(resp))
 ///     }
 /// }
 /// ```
