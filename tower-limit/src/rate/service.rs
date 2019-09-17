@@ -95,6 +95,7 @@ where
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
+                    tracing::trace!("rate limit exceeded, disabling service");
                     let sleep = Delay::new(until);
                     self.state = State::Limited(sleep);
                 }
