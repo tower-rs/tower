@@ -37,7 +37,8 @@ struct Summary {
 }
 
 fn main() {
-    tracing::subscriber::set_global_default(tracing_fmt::FmtSubscriber::default()).unwrap();
+    tracing::subscriber::set_global_default(tracing_subscriber::fmt::Subscriber::default())
+        .unwrap();
 
     println!("REQUESTS={}", REQUESTS);
     println!("CONCURRENCY={}", CONCURRENCY);

@@ -41,7 +41,7 @@ tower-util = "0.1.0"
 slab = "0.4"
 
 [dev-dependencies]
-tracing-fmt = { git = "https://github.com/tokio-rs/tracing.git" }
+tracing-subscriber = { git = "https://github.com/tokio-rs/tracing.git" }
 hdrhistogram = "6.0"
 quickcheck = { version = "0.6", default-features = false }
 tokio = "0.1.7"

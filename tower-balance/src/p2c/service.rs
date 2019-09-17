@@ -132,7 +132,7 @@ where
                 .next_ready_index
                 .and_then(|i| Self::repair_index(i, idx, self.ready_services.len()));
             debug_assert!(!self.cancelations.contains_key(key));
-        } else if let Some(cancel) = self.cancelations.remove(key) {
+        } else if let Some(cancel) = self.cancelations.swap_remove(key) {
             let _ = cancel.send(());
         }
     }
@@ -143,7 +143,7 @@ where
                 Ok(Async::NotReady) | Ok(Async::Ready(None)) => return,
                 Ok(Async::Ready(Some((key, svc)))) => {
                     trace!("endpoint ready");
-                    let _cancel = self.cancelations.remove(&key);
+                    let _cancel = self.cancelations.swap_remove(&key);
                     debug_assert!(_cancel.is_some(), "missing cancelation");
                     self.ready_services.insert(key, svc);
                 }
