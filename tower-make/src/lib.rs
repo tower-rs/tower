@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-make/0.3.0-alpha.1")]
+#![doc(html_root_url = "https://docs.rs/tower-make/0.3.0-alpha.2")]
 #![deny(rust_2018_idioms)]
 
 //! Trait aliases for Services that produce specific types of Responses.
