@@ -29,6 +29,6 @@ pin-project = { version = "=0.4.0-alpha.11", features = ["project_attr"] }
 futures-core-preview = "=0.3.0-alpha.18"
 
 [dev-dependencies]
-tokio-test = "=0.2.0-alpha.4"
+tokio-test = "=0.2.0-alpha.5"
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
 futures-util-preview = "=0.3.0-alpha.18"
