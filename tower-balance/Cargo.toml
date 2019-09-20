@@ -32,8 +32,8 @@ pin-project = "=0.4.0-alpha.11"
 indexmap = "1.0.2"
 tracing = "0.1"
 rand = "0.6.5"
-tokio-sync = "=0.2.0-alpha.4"
-tokio-timer = "=0.3.0-alpha.4"
+tokio-sync = "=0.2.0-alpha.5"
+tokio-timer = "=0.3.0-alpha.5"
 tower-discover = { version = "=0.3.0-alpha.1", path = "../tower-discover" }
 tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
 tower-load = { version = "=0.3.0-alpha.1", path = "../tower-load" }
@@ -45,9 +45,9 @@ slab = "0.4"
 tracing-subscriber = "0.1.1"
 hdrhistogram = "6.0"
 quickcheck = { version = "0.6", default-features = false }
-tokio = "=0.2.0-alpha.4"
-tokio-executor = "=0.2.0-alpha.4"
-tokio-test = "=0.2.0-alpha.4"
+tokio = "=0.2.0-alpha.5"
+tokio-executor = "=0.2.0-alpha.5"
+tokio-test = "=0.2.0-alpha.5"
 tower-buffer = { version = "=0.3.0-alpha.1b", path = "../tower-buffer" }
 tower-limit = { version = "=0.3.0-alpha.1", path = "../tower-limit" }
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
