@@ -25,7 +25,6 @@
 /// # use std::task::{Poll, Context};
 /// # use tower_layer::Layer;
 /// # use std::fmt;
-/// # use void::Void;
 ///
 /// pub struct LogLayer {
 ///     target: &'static str,

@@ -22,8 +22,6 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-core-preview = "=0.3.0-alpha.18"
-tower-service = "=0.3.0-alpha.1"
 
 [dev-dependencies]
-void = "1.0.2"
+tower-service = "=0.3.0-alpha.1"
