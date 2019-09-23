@@ -1,5 +1,10 @@
 #![doc(html_root_url = "https://docs.rs/tower-util/0.3.0-alpha.1")]
-#![deny(rust_2018_idioms)]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![allow(elided_lifetimes_in_paths)]
 
 //! Various utility types and functions that are generally with Tower.
@@ -7,12 +12,14 @@
 mod boxed;
 mod call_all;
 mod either;
-pub mod layer;
 mod oneshot;
 mod optional;
 mod ready;
 mod sealed;
 mod service_fn;
+
+/// Different ways to chain service layers.
+pub mod layer;
 
 pub use crate::{
     boxed::{BoxService, UnsyncBoxService},

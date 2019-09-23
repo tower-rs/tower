@@ -22,6 +22,7 @@ impl<'a, T, Request> Ready<'a, T, Request>
 where
     T: Service<Request>,
 {
+    #[allow(missing_docs)]
     pub fn new(service: &'a mut T) -> Self {
         Ready {
             inner: service,

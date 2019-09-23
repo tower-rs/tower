@@ -16,7 +16,7 @@ impl Elapsed {
 }
 
 impl fmt::Display for Elapsed {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.pad("request timed out")
     }
 }

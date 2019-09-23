@@ -9,6 +9,7 @@ use std::{
 
 /// Response future returned by `Optional`.
 #[pin_project]
+#[derive(Debug)]
 pub struct ResponseFuture<T> {
     #[pin]
     inner: Option<T>,

@@ -30,6 +30,7 @@ struct Boxed<S> {
 }
 
 impl<T, U, E> BoxService<T, U, E> {
+    #[allow(missing_docs)]
     pub fn new<S>(inner: S) -> Self
     where
         S: Service<T, Response = U, Error = E> + Send + 'static,

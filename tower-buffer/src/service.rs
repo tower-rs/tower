@@ -14,6 +14,7 @@ use tower_service::Service;
 /// Adds a buffer in front of an inner service.
 ///
 /// See crate level documentation for more details.
+#[derive(Debug)]
 pub struct Buffer<T, Request>
 where
     T: Service<Request>,

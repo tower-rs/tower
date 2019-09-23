@@ -12,6 +12,7 @@ use tower_service::Service;
 /// `ServiceList` is created with an initial list of services. The discovery
 /// process will yield this list once and do nothing after.
 #[pin_project]
+#[derive(Debug)]
 pub struct ServiceList<T>
 where
     T: IntoIterator,
@@ -23,6 +24,7 @@ impl<T, U> ServiceList<T>
 where
     T: IntoIterator<Item = U>,
 {
+    #[allow(missing_docs)]
     pub fn new<Request>(services: T) -> ServiceList<T>
     where
         U: Service<Request>,

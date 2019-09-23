@@ -2,9 +2,12 @@
 // Allows refining features in the future without breaking backwards
 // compatibility
 #![cfg(feature = "full")]
-#![deny(missing_docs, missing_debug_implementations, rust_2018_idioms)]
-#![allow(elided_lifetimes_in_paths)]
-#![cfg_attr(test, deny(warnings))]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 
 //! `fn(Request) -> Future<Response>`
 //!

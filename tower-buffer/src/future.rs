@@ -14,12 +14,14 @@ use std::{
 
 /// Future eventually completed with the response to the original request.
 #[pin_project]
+#[derive(Debug)]
 pub struct ResponseFuture<T> {
     #[pin]
     state: ResponseState<T>,
 }
 
 #[pin_project]
+#[derive(Debug)]
 enum ResponseState<T> {
     Failed(Option<Error>),
     Rx(#[pin] message::Rx<T>),

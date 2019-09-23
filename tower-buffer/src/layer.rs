@@ -12,6 +12,7 @@ pub struct BufferLayer<Request, E = DefaultExecutor> {
 }
 
 impl<Request> BufferLayer<Request, DefaultExecutor> {
+    #[allow(missing_docs)]
     pub fn new(bound: usize) -> Self {
         BufferLayer {
             bound,
@@ -22,6 +23,7 @@ impl<Request> BufferLayer<Request, DefaultExecutor> {
 }
 
 impl<Request, E: Clone> BufferLayer<Request, E> {
+    /// Create a new buffered service layer spawned on the given executor.
     pub fn with_executor(bound: usize, executor: E) -> Self {
         BufferLayer {
             bound,

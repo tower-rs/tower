@@ -1,6 +1,10 @@
 #![doc(html_root_url = "https://docs.rs/tower-retry/0.3.0-alpha.1")]
-#![deny(missing_docs, missing_debug_implementations, rust_2018_idioms)]
-#![cfg_attr(test, deny(warnings))]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware for retrying "failed" requests.

@@ -13,8 +13,9 @@ use tokio_executor::TypedExecutor;
 use tokio_sync::oneshot;
 use tower_service::Service;
 
-#[pin_project]
 /// Drives a service to readiness.
+#[pin_project]
+#[derive(Debug)]
 pub struct BackgroundReady<T, Request> {
     service: Option<T>,
     tx: Option<oneshot::Sender<Result<T, Error>>>,

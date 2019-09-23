@@ -10,12 +10,14 @@ use tower_service::Service;
 
 /// Dynamic service discovery based on a stream of service changes.
 #[pin_project]
+#[derive(Debug)]
 pub struct ServiceStream<S> {
     #[pin]
     inner: S,
 }
 
 impl<S> ServiceStream<S> {
+    #[allow(missing_docs)]
     pub fn new<K, Svc, Request>(services: S) -> Self
     where
         S: TryStream<Ok = Change<K, Svc>>,

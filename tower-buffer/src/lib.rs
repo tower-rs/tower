@@ -1,5 +1,10 @@
 #![doc(html_root_url = "https://docs.rs/tower-buffer/0.3.0-alpha.1a")]
-#![deny(rust_2018_idioms)]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![allow(elided_lifetimes_in_paths)]
 
 //! Buffer requests when the inner service is out of capacity.

@@ -3,8 +3,12 @@ use std::future::Future;
 
 /// Checks a request
 pub trait Predicate<Request> {
+    /// The future returned by `check`.
     type Future: Future<Output = Result<(), Error>>;
 
+    /// Check whether the given request should be forwarded.
+    ///
+    /// If the future resolves with `Ok`, the request is forwarded to the inner service.
     fn check(&mut self, request: &Request) -> Self::Future;
 }
 

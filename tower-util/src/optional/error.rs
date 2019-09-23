@@ -1,5 +1,6 @@
 use std::{error, fmt};
 
+/// Error returned if the inner `Service` has not been set.
 #[derive(Debug)]
 pub struct None(());
 

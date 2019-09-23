@@ -1,7 +1,10 @@
 #![doc(html_root_url = "https://docs.rs/tower-timeout/0.3.0-alpha.1")]
-#![deny(missing_debug_implementations, missing_docs, rust_2018_idioms)]
-#![allow(elided_lifetimes_in_paths)]
-#![cfg_attr(test, deny(warnings))]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 
 //! Tower middleware that applies a timeout to requests.
 //!

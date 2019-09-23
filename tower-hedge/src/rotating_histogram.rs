@@ -1,5 +1,3 @@
-extern crate tokio_timer;
-
 use hdrhistogram::Histogram;
 use log::trace;
 use std::time::{Duration, Instant};

@@ -19,8 +19,9 @@ pub struct BalanceMake<S, Req> {
     _marker: PhantomData<fn(Req)>,
 }
 
-#[pin_project]
 /// Makes a balancer instance.
+#[pin_project]
+#[derive(Debug)]
 pub struct MakeFuture<F, Req> {
     #[pin]
     inner: F,

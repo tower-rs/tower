@@ -20,6 +20,7 @@ use futures_core::ready;
 use pin_project::pin_project;
 use slab::Slab;
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -42,9 +43,9 @@ enum Level {
     High,
 }
 
-#[pin_project]
 /// A wrapper around `MakeService` that discovers a new service when load is high, and removes a
 /// service when load is low. See [`Pool`].
+#[pin_project]
 pub struct PoolDiscoverer<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
@@ -59,6 +60,23 @@ where
     #[pin]
     died_rx: tokio_sync::mpsc::UnboundedReceiver<usize>,
     limit: Option<usize>,
+}
+
+impl<MS, Target, Request> fmt::Debug for PoolDiscoverer<MS, Target, Request>
+where
+    MS: MakeService<Target, Request> + fmt::Debug,
+    Target: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PoolDiscoverer")
+            .field("maker", &self.maker)
+            .field("making", &self.making.is_some())
+            .field("target", &self.target)
+            .field("load", &self.load)
+            .field("services", &self.services)
+            .field("limit", &self.limit)
+            .finish()
+    }
 }
 
 impl<MS, Target, Request> Discover for PoolDiscoverer<MS, Target, Request>
@@ -298,6 +316,23 @@ where
     ewma: f64,
 }
 
+impl<MS, Target, Request> fmt::Debug for Pool<MS, Target, Request>
+where
+    MS: MakeService<Target, Request> + fmt::Debug,
+    MS::MakeError: Into<error::Error>,
+    MS::Error: Into<error::Error>,
+    Target: Clone + fmt::Debug,
+    MS::Service: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Pool")
+            .field("balance", &self.balance)
+            .field("options", &self.options)
+            .field("ewma", &self.ewma)
+            .finish()
+    }
+}
+
 impl<MS, Target, Request> Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
@@ -396,6 +431,7 @@ where
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct DropNotifyService<Svc> {
     svc: Svc,
     id: usize,

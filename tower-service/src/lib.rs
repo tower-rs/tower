@@ -1,5 +1,10 @@
-#![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/tower-service/0.3.0-alpha.1")]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 
 //! Definition of the core `Service` trait to Tower
 //!

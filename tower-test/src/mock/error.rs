@@ -4,6 +4,7 @@ use std::{error, fmt};
 
 pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
 
+/// Error yielded when a mocked service does not yet accept requests.
 #[derive(Debug)]
 pub struct Closed(());
 

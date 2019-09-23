@@ -188,7 +188,7 @@ impl<L> ServiceBuilder<L> {
 }
 
 impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("ServiceBuilder").field(&self.layer).finish()
     }
 }

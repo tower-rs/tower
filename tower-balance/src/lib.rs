@@ -1,10 +1,13 @@
 //! Load balancing middlewares.
 
 #![doc(html_root_url = "https://docs.rs/tower-balance/0.3.0-alpha.1")]
-#![deny(missing_docs)]
-#![deny(rust_2018_idioms)]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![allow(elided_lifetimes_in_paths)]
-#![deny(warnings)]
 
 pub mod error;
 pub mod p2c;
