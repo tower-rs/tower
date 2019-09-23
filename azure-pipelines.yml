@@ -13,23 +13,23 @@ jobs:
     displayName: Test
     vmImage: ubuntu-16.04
     crates:
-      # - tower-balance
-      # - tower-buffer
-      # - tower-discover
-      # - tower-filter
-      # - tower-hedge
-      # - tower-layer
-      # - tower-limit
-      # - tower-load
-      # - tower-load-shed
-      # - tower-reconnect
-      # - tower-retry
+      - tower-balance
+      - tower-buffer
+      - tower-discover
+      - tower-filter
+      - tower-hedge
+      - tower-layer
+      - tower-limit
+      - tower-load
+      - tower-load-shed
+      - tower-reconnect
+      - tower-retry
       - tower-service
-      # - tower-spawn-ready
-      # - tower-test
-      # - tower-timeout
-      # - tower-util
-      # - tower
+      - tower-spawn-ready
+      - tower-test
+      - tower-timeout
+      - tower-util
+      - tower
 
 - template: ci/azure-deploy-docs.yml
   parameters:
