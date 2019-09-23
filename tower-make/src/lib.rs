@@ -5,7 +5,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![cfg_attr(test, deny(warnings))]
 
 //! Trait aliases for Services that produce specific types of Responses.
 

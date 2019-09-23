@@ -7,7 +7,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![cfg_attr(test, deny(warnings))]
 
 use futures_util::future;
 use log::error;

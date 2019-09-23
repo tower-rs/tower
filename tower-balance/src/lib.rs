@@ -7,7 +7,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![cfg_attr(test, deny(warnings))]
 #![allow(elided_lifetimes_in_paths)]
 
 pub mod error;

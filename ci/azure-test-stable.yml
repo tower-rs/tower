@@ -17,6 +17,7 @@ jobs:
     - script: cargo test
       env:
         CI: 'True'
+        RUSTFLAGS: '-D warnings'
       displayName: cargo test -p ${{ crate }}
       workingDirectory: $(Build.SourcesDirectory)/${{ crate }}
       condition: and(succeeded(), ne(variables['isRelease'], 'true'))
@@ -27,5 +28,6 @@ jobs:
     - script: cargo test
       env:
         CI: 'True'
+        RUSTFLAGS: '-D warnings'
       displayName: cargo test -p ${{ crate }}
       workingDirectory: $(Build.SourcesDirectory)/${{ crate }}

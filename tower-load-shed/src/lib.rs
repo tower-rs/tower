@@ -5,7 +5,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![cfg_attr(test, deny(warnings))]
 #![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware for shedding load when inner services aren't ready.

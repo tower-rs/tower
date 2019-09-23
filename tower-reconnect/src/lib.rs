@@ -1,7 +1,6 @@
 #![doc(html_root_url = "https://docs.rs/tower-reconnect/0.3.0-alpha.1")]
 #![warn(missing_debug_implementations, rust_2018_idioms, unreachable_pub)]
 #![allow(missing_docs)] // TODO
-#![cfg_attr(test, deny(warnings))]
 #![allow(elided_lifetimes_in_paths)]
 
 pub mod future;
