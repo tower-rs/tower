@@ -42,6 +42,7 @@ use tower_service::Service;
 ///
 /// [finagle]:
 /// https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
+#[derive(Debug)]
 pub struct PeakEwma<S, I = NoInstrument> {
     service: S,
     decay_ns: f64,
@@ -51,6 +52,7 @@ pub struct PeakEwma<S, I = NoInstrument> {
 
 /// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
 #[pin_project]
+#[derive(Debug)]
 pub struct PeakEwmaDiscover<D, I = NoInstrument> {
     #[pin]
     discover: D,
@@ -67,6 +69,7 @@ pub struct PeakEwmaDiscover<D, I = NoInstrument> {
 pub struct Cost(f64);
 
 /// Tracks an in-flight request and updates the RTT-estimate on Drop.
+#[derive(Debug)]
 pub struct Handle {
     sent_at: Instant,
     decay_ns: f64,
@@ -74,6 +77,7 @@ pub struct Handle {
 }
 
 /// Holds the current RTT estimate and the last time this value was updated.
+#[derive(Debug)]
 struct RttEstimate {
     update_at: Instant,
     rtt_ns: f64,

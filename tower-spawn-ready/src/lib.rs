@@ -1,5 +1,8 @@
 #![doc(html_root_url = "https://docs.rs/tower-spawn-ready/0.3.0-alpha.1")]
-#![deny(missing_docs, rust_2018_idioms, warnings)]
+#![warn(missing_docs)]
+#![warn(rust_2018_idioms)]
+#![warn(missing_debug_implementations)]
+#![cfg_attr(test, deny(warnings))]
 #![allow(elided_lifetimes_in_paths)]
 
 //! When an underlying service is not ready, drive it to readiness on a

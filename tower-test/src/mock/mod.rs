@@ -261,11 +261,13 @@ impl<T, U> Drop for Handle<T, U> {
 // ===== impl SendResponse =====
 
 impl<T> SendResponse<T> {
+    /// Resolve the pending request future for the linked request with the given response.
     pub fn send_response(self, response: T) {
         // TODO: Should the result be dropped?
         let _ = self.tx.send(Ok(response));
     }
 
+    /// Resolve the pending request future for the linked request with the given error.
     pub fn send_error<E: Into<Error>>(self, err: E) {
         // TODO: Should the result be dropped?
         let _ = self.tx.send(Err(err.into()));

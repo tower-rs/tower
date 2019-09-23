@@ -1,5 +1,8 @@
 #![doc(html_root_url = "https://docs.rs/tower-discover/0.3.0-alpha.1")]
-#![deny(rust_2018_idioms)]
+#![warn(missing_docs)]
+#![warn(rust_2018_idioms)]
+#![warn(missing_debug_implementations)]
+#![cfg_attr(test, deny(warnings))]
 #![allow(elided_lifetimes_in_paths)]
 
 //! # Tower service discovery
@@ -32,6 +35,7 @@ pub trait Discover {
     /// NewService key
     type Key: Hash + Eq;
 
+    /// The type of `Service` yielded by this `Discover`.
     type Service;
 
     /// Error produced during discovery
@@ -88,7 +92,10 @@ impl<D: ?Sized + Discover + Unpin> Discover for Box<D> {
 }
 
 /// A change in the service set
+#[derive(Debug)]
 pub enum Change<K, V> {
+    /// A new service identified by key `K` was identified.
     Insert(K, V),
+    /// The service identified by key `K` disappeared.
     Remove(K),
 }

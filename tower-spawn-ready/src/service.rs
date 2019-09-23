@@ -16,10 +16,12 @@ use tower_service::Service;
 /// Spawns tasks to drive an inner service to readiness.
 ///
 /// See crate level documentation for more details.
+#[derive(Debug)]
 pub struct SpawnReady<T> {
     inner: Inner<T>,
 }
 
+#[derive(Debug)]
 enum Inner<T> {
     Service(Option<T>),
     Future(oneshot::Receiver<Result<T, Error>>),

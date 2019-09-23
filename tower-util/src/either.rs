@@ -19,7 +19,9 @@ use tower_service::Service;
 #[pin_project]
 #[derive(Clone, Debug)]
 pub enum Either<A, B> {
+    /// One type of backing `Service`.
     A(#[pin] A),
+    /// The other type of backing `Service`.
     B(#[pin] B),
 }
 

@@ -22,6 +22,7 @@ use tower_service::Service;
 /// types in public traits that are not meant for consumers of the library to
 /// implement (only call).
 #[pin_project]
+#[derive(Debug)]
 pub struct Worker<T, Request>
 where
     T: Service<Request>,
@@ -36,6 +37,7 @@ where
 }
 
 /// Get the error out
+#[derive(Debug)]
 pub(crate) struct Handle {
     inner: Arc<Mutex<Option<ServiceError>>>,
 }

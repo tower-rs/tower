@@ -7,6 +7,7 @@ use std::{
 };
 
 #[pin_project]
+#[derive(Debug)]
 pub struct ResponseFuture<F> {
     #[pin]
     inner: F,

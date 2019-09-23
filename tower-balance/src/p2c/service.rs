@@ -6,6 +6,7 @@ use pin_project::pin_project;
 use rand::{rngs::SmallRng, FromEntropy};
 use std::marker::PhantomData;
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -36,7 +37,6 @@ use tracing::{debug, trace};
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 /// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
 /// [#319]: https://github.com/tower-rs/tower/issues/319
-#[derive(Debug)]
 pub struct Balance<D: Discover, Req> {
     discover: D,
 
@@ -52,6 +52,23 @@ pub struct Balance<D: Discover, Req> {
     rng: SmallRng,
 
     _req: PhantomData<Req>,
+}
+
+impl<D: Discover, Req> fmt::Debug for Balance<D, Req>
+where
+    D: fmt::Debug,
+    D::Key: fmt::Debug,
+    D::Service: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Balance")
+            .field("discover", &self.discover)
+            .field("ready_services", &self.ready_services)
+            .field("unready_services", &self.unready_services)
+            .field("cancelations", &self.cancelations)
+            .field("next_ready_index", &self.next_ready_index)
+            .finish()
+    }
 }
 
 #[pin_project]

@@ -1,8 +1,10 @@
 //! Pre-emptively retry requests which have been outstanding for longer
 //! than a given latency percentile.
 
-#![deny(warnings)]
-#![deny(missing_docs)]
+#![warn(missing_docs)]
+#![warn(rust_2018_idioms)]
+#![warn(missing_debug_implementations)]
+#![cfg_attr(test, deny(warnings))]
 
 use futures_util::future;
 use log::error;
@@ -37,8 +39,9 @@ type Service<S, P> = select::Select<
 #[derive(Debug)]
 pub struct Hedge<S, P>(Service<S, P>);
 
-#[pin_project]
 /// The Future returned by the hedge Service.
+#[pin_project]
+#[derive(Debug)]
 pub struct Future<S, Request>
 where
     S: tower_service::Service<Request>,

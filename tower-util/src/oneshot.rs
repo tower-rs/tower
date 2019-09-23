@@ -1,6 +1,7 @@
 use futures_util::ready;
 use pin_project::{pin_project, project};
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -11,6 +12,7 @@ use tower_service::Service;
 /// is ready, and then calling `Service::call` with the request, and
 /// waiting for that `Future`.
 #[pin_project]
+#[derive(Debug)]
 pub struct Oneshot<S: Service<Req>, Req> {
     #[pin]
     state: State<S, Req>,
@@ -23,10 +25,30 @@ enum State<S: Service<Req>, Req> {
     Done,
 }
 
+impl<S, Req> fmt::Debug for State<S, Req>
+where
+    S: Service<Req> + fmt::Debug,
+    Req: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            State::NotReady(Some((s, req))) => f
+                .debug_tuple("State::NotReady")
+                .field(s)
+                .field(req)
+                .finish(),
+            State::NotReady(None) => unreachable!(),
+            State::Called(_) => f.debug_tuple("State::Called").field(&"S::Future").finish(),
+            State::Done => f.debug_tuple("State::Done").finish(),
+        }
+    }
+}
+
 impl<S, Req> Oneshot<S, Req>
 where
     S: Service<Req>,
 {
+    #[allow(missing_docs)]
     pub fn new(svc: S, req: Req) -> Self {
         Oneshot {
             state: State::NotReady(Some((svc, req))),

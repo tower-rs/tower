@@ -24,6 +24,7 @@ struct UnsyncBoxed<S> {
 }
 
 impl<T, U, E> UnsyncBoxService<T, U, E> {
+    #[allow(missing_docs)]
     pub fn new<S>(inner: S) -> Self
     where
         S: Service<T, Response = U, Error = E> + 'static,

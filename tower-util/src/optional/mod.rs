@@ -3,7 +3,9 @@
 //! See `OptionService` documentation for more details.
 //!
 
+/// Error types for `OptionalService`.
 pub mod error;
+/// Future types for `OptionalService`.
 pub mod future;
 
 use self::{error::Error, future::ResponseFuture};
@@ -13,6 +15,7 @@ use tower_service::Service;
 /// Optionally forwards requests to an inner service.
 ///
 /// If the inner service is `None`, `Error::None` is returned as the response.
+#[derive(Debug)]
 pub struct Optional<T> {
     inner: Option<T>,
 }
