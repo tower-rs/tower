@@ -65,13 +65,12 @@ where
 impl<MS, Target, Request> fmt::Debug for PoolDiscoverer<MS, Target, Request>
 where
     MS: MakeService<Target, Request> + fmt::Debug,
-    MS::Future: fmt::Debug,
     Target: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PoolDiscoverer")
             .field("maker", &self.maker)
-            .field("making", &self.making)
+            .field("making", &self.making.is_some())
             .field("target", &self.target)
             .field("load", &self.load)
             .field("services", &self.services)
@@ -324,7 +323,6 @@ where
     MS::Error: Into<error::Error>,
     Target: Clone + fmt::Debug,
     MS::Service: fmt::Debug,
-    MS::Future: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Pool")
