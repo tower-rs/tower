@@ -9,7 +9,6 @@
     unreachable_pub
 )]
 #![cfg_attr(test, deny(warnings))]
-#![allow(elided_lifetimes_in_paths)]
 
 //! `fn(Request) -> Future<Response>`
 //!

@@ -6,7 +6,6 @@
     unreachable_pub
 )]
 #![cfg_attr(test, deny(warnings))]
-#![allow(elided_lifetimes_in_paths)]
 
 //! Tower middleware that applies a timeout to requests.
 //!
