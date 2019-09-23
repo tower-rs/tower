@@ -1,9 +1,12 @@
 //! Pre-emptively retry requests which have been outstanding for longer
 //! than a given latency percentile.
 
-#![warn(missing_docs)]
-#![warn(rust_2018_idioms)]
-#![warn(missing_debug_implementations)]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![cfg_attr(test, deny(warnings))]
 
 use futures_util::future;

@@ -135,7 +135,7 @@ where
 // ==== RefCount ====
 
 impl RefCount {
-    pub fn ref_count(&self) -> usize {
+    pub(crate) fn ref_count(&self) -> usize {
         Arc::strong_count(&self.0)
     }
 }
