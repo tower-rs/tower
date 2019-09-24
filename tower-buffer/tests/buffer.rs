@@ -7,6 +7,11 @@ use tower_buffer::{error, Buffer};
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 
+fn let_worker_work() {
+    // Allow the Buffer's executor to do work
+    ::std::thread::sleep(::std::time::Duration::from_millis(100));
+}
+
 #[test]
 fn req_and_res() {
     task::mock(|cx| {
@@ -17,6 +22,8 @@ fn req_and_res() {
         pin_mut!(handle);
 
         assert_request_eq!(handle, "hello").send_response("world");
+
+        let_worker_work();
         assert_eq!(assert_ready_ok!(response.as_mut().poll(cx)), "world");
     });
 }
@@ -46,6 +53,8 @@ fn clears_canceled_requests() {
         drop(res2);
 
         send_response1.send_response("world");
+
+        let_worker_work();
         assert_eq!(assert_ready_ok!(res1.poll(cx)), "world");
 
         // res2 was dropped, so it should have been canceled in the buffer
@@ -53,6 +62,7 @@ fn clears_canceled_requests() {
 
         assert_request_eq!(handle, "hello3").send_response("world3");
 
+        let_worker_work();
         assert_eq!(assert_ready_ok!(res3.poll(cx)), "world3");
     });
 }
@@ -69,8 +79,7 @@ fn when_inner_is_not_ready() {
         let res1 = service.call("hello");
         pin_mut!(res1);
 
-        // Allow the Buffer's executor to do work
-        ::std::thread::sleep(::std::time::Duration::from_millis(100));
+        let_worker_work();
         assert_pending!(res1.as_mut().poll(cx));
         assert_pending!(handle.as_mut().poll_request(cx));
 
@@ -78,6 +87,7 @@ fn when_inner_is_not_ready() {
 
         assert_request_eq!(handle, "hello").send_response("world");
 
+        let_worker_work();
         assert_eq!(assert_ready_ok!(res1.poll(cx)), "world");
     });
 }
@@ -96,8 +106,7 @@ fn when_inner_fails() {
         let res1 = service.call("hello");
         pin_mut!(res1);
 
-        // Allow the Buffer's executor to do work
-        ::std::thread::sleep(::std::time::Duration::from_millis(100));
+        let_worker_work();
         let e = assert_ready_err!(res1.poll(cx));
         if let Some(e) = e.downcast_ref::<error::ServiceError>() {
             let e = e.source().unwrap();
@@ -169,6 +178,7 @@ fn response_future_when_worker_is_dropped_early() {
         // drop the worker (like an executor closing up)
         cell.borrow_mut().take();
 
+        let_worker_work();
         let err = assert_ready_err!(response.poll(cx));
         assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
     })

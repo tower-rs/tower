@@ -7,10 +7,9 @@ jobs:
   steps:
     - template: azure-install-rust.yml
       parameters:
-        rust_version: stable
-    - bash: |
-        rustup component add rustfmt
-      displayName: Install rustfmt
+        rust: nightly
+        components:
+          - rustfmt
     - bash: |
         cargo fmt --all -- --check
       displayName: Check formatting

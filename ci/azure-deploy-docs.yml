@@ -13,7 +13,7 @@ jobs:
   - template: azure-install-rust.yml
     parameters:
       platform: ${{parameters.name}}
-      rust_version: stable
+      rust: nightly
   - script: |
       cargo doc --all --no-deps
       cp -R target/doc '$(Build.BinariesDirectory)'
