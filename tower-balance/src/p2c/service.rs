@@ -357,7 +357,7 @@ where
 impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
     type Output = Result<(K, S), (K, Error<S::Error>)>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
         if let Poll::Ready(Ok(())) = this.cancel.poll(cx) {

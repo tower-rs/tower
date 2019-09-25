@@ -12,7 +12,7 @@ tower-service = "0.3.0-alpha.1"
 tower-filter = { version = "0.3.0-alpha.1", path = "../tower-filter" }
 tokio-timer = "0.3.0-alpha.4"
 futures-util-preview = "0.3.0-alpha.18"
-pin-project = "0.4.0-alpha.10"
+pin-project = "0.4"
 
 [dev-dependencies]
 tower-test = { version = "0.3.0-alpha.1", path = "../tower-test" }

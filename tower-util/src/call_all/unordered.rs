@@ -59,7 +59,7 @@ where
     /// # Panics
     ///
     /// Panics if `take_service` was already called.
-    pub fn take_service(mut self: Pin<&mut Self>) -> Svc {
+    pub fn take_service(self: Pin<&mut Self>) -> Svc {
         self.project().inner.take_service()
     }
 }
@@ -72,7 +72,7 @@ where
 {
     type Item = Result<Svc::Response, Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().inner.poll_next(cx)
     }
 }

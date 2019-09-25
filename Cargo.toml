@@ -20,3 +20,15 @@ members = [
   "tower-make",
   "tower-util",
 ]
+
+[patch.crates-io]
+tokio = { git = "https://github.com/tokio-rs/tokio" }
+tokio-codec = { git = "https://github.com/tokio-rs/tokio" }
+tokio-executor = { git = "https://github.com/tokio-rs/tokio" }
+tokio-fs = { git = "https://github.com/tokio-rs/tokio" }
+tokio-io = { git = "https://github.com/tokio-rs/tokio" }
+tokio-macros = { git = "https://github.com/tokio-rs/tokio" }
+tokio-net = { git = "https://github.com/tokio-rs/tokio" }
+tokio-sync = { git = "https://github.com/tokio-rs/tokio" }
+tokio-test = { git = "https://github.com/tokio-rs/tokio" }
+tokio-timer = { git = "https://github.com/tokio-rs/tokio" }

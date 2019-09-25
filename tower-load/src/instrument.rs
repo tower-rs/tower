@@ -66,7 +66,7 @@ where
 {
     type Output = Result<I::Output, E>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let rsp = ready!(this.future.poll(cx))?;
         let h = this.handle.take().expect("handle");

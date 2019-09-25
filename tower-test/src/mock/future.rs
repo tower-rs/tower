@@ -34,7 +34,7 @@ impl<T> ResponseFuture<T> {
 impl<T> Future for ResponseFuture<T> {
     type Output = Result<T, Error>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match self.project().rx.as_pin_mut() {
             Some(rx) => match ready!(rx.poll(cx)) {
                 Ok(r) => Poll::Ready(r),

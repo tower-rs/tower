@@ -85,12 +85,12 @@ where
     type Output = Result<T, super::Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
             #[project]
-            match this.state.project() {
+            match this.state.as_mut().project() {
                 State::Delaying(delay, req) => {
                     ready!(delay.poll(cx));
                     let req = req.take().expect("Missing request in delay");

@@ -67,7 +67,7 @@ where
     type Output = Result<T, Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         #[project]
         match self.project() {
             Either::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx))?)),

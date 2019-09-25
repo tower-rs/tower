@@ -33,14 +33,14 @@ where
 {
     type Output = Result<T, Error>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(ready!(self.project().inner.poll(cx)).map_err(Into::into))
     }
 }
 
 #[pinned_drop]
 impl<T> PinnedDrop for ResponseFuture<T> {
-    fn drop(mut self: Pin<&mut Self>) {
+    fn drop(self: Pin<&mut Self>) {
         self.project().semaphore.add_permits(1);
     }
 }

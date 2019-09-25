@@ -38,7 +38,7 @@ where
     type Error = S::Error;
 
     fn poll_discover(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         match ready!(self.project().inner.try_poll_next(cx)).transpose()? {

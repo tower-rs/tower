@@ -75,7 +75,7 @@ where
 {
     type Output = Result<Balance<T, Req>, E>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let inner = ready!(this.inner.poll(cx))?;
         let svc = Balance::new(inner, this.rng.clone());

@@ -45,11 +45,9 @@ where
     type Output = Result<T, Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
-
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         #[project]
-        match this.state.project() {
+        match self.project().state.project() {
             ResponseState::Called(fut) => Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into)),
             ResponseState::Overloaded => Poll::Ready(Err(Overloaded::new().into())),
         }
