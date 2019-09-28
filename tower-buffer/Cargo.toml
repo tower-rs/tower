@@ -27,14 +27,14 @@ default = ["log"]
 
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.18"
-pin-project = { version = "=0.4.0-alpha.11", features = ["project_attr"] }
+pin-project = "0.4"
 tower-service = "=0.3.0-alpha.1"
 tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
-tokio-executor = "=0.2.0-alpha.5"
-tokio-sync = "=0.2.0-alpha.5"
+tokio-executor = { git = "https://github.com/tokio-rs/tokio"}
+tokio-sync = { git = "https://github.com/tokio-rs/tokio"}
 tracing = "0.1.2"
 
 [dev-dependencies]
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
-tokio-test = { version = "=0.2.0-alpha.5" }
+tokio-test = { git = "https://github.com/tokio-rs/tokio"}
 futures-util-preview = "=0.3.0-alpha.18"

@@ -50,22 +50,28 @@ where
     type Output = Result<T, Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
             #[project]
-            match this.state.project() {
+            let state = match this.state.project() {
                 ResponseState::Failed(e) => {
                     return Poll::Ready(Err(e.take().expect("polled after error")));
                 }
                 ResponseState::Rx(rx) => match ready!(rx.poll(cx)) {
-                    Ok(Ok(f)) => this.state.set(ResponseState::Poll(f)),
+                    Ok(Ok(f)) => ResponseState::Poll(f),
                     Ok(Err(e)) => return Poll::Ready(Err(e.into())),
                     Err(_) => return Poll::Ready(Err(Closed::new().into())),
                 },
                 ResponseState::Poll(fut) => return fut.poll(cx).map_err(Into::into),
-            }
+            };
+
+            // *this.state = state;
+            // self.state =
+            // #[project]
+            // let mut old_state = this.state.project();
+            // *old_state = state;
         }
     }
 }

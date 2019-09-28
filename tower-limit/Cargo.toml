@@ -25,11 +25,11 @@ edition = "2018"
 futures-core-preview = "=0.3.0-alpha.18"
 tower-service = "=0.3.0-alpha.1"
 tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
-tokio-sync = "=0.2.0-alpha.5"
-tokio-timer = "=0.3.0-alpha.5"
-pin-project = "=0.4.0-alpha.11"
+tokio-sync = { git = "https://github.com/tokio-rs/tokio"}
+tokio-timer = { git = "https://github.com/tokio-rs/tokio"}
+pin-project = "0.4.0"
 
 [dev-dependencies]
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
-tokio-test = "=0.2.0-alpha.5"
+tokio-test = { git = "https://github.com/tokio-rs/tokio"}
 futures-util-preview = "=0.3.0-alpha.18"

@@ -43,5 +43,5 @@ futures-core-preview = "=0.3.0-alpha.18"
 env_logger = { version = "0.5.3", default-features = false }
 futures-util-preview = "=0.3.0-alpha.18"
 log = "0.4.1"
-tokio = "=0.2.0-alpha.5"
+tokio = { git = "https://github.com/tokio-rs/tokio"}
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }

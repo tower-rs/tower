@@ -10,7 +10,7 @@ use tower_service::Service;
 
 // NOTE: this is the trait generated for Ready::project() by pin-project.
 // We need it here to be able to go "through" Ready to &mut Service without adding Unpin bounds.
-use crate::__RetryProjectionTrait;
+use crate::__RetryProjectionRef;
 
 /// The `Future` returned by a `Retry` service.
 #[pin_project]
@@ -69,13 +69,13 @@ where
 
         loop {
             #[project]
-            match this.state.project() {
+            match &this.state.project() {
                 State::Called(future) => {
                     let result = ready!(future.poll(cx));
                     if let Some(ref req) = this.request {
-                        match this.retry.policy.retry(req, result.as_ref()) {
+                        match &this.retry.policy.retry(req, result.as_ref()) {
                             Some(checking) => {
-                                this.state.set(State::Checking(checking));
+                                this.state.set(State::Checking(*checking));
                             }
                             None => return Poll::Ready(result),
                         }

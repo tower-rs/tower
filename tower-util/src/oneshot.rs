@@ -67,7 +67,7 @@ where
         let mut this = self.project();
         loop {
             #[project]
-            match this.state.project() {
+            match &this.state.project() {
                 State::NotReady(nr) => {
                     let (mut svc, req) = nr.take().expect("We immediately transition to ::Called");
                     let _ = ready!(svc.poll_ready(cx))?;

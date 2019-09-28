@@ -24,4 +24,4 @@ edition = "2018"
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.18"
 tower-service = "=0.3.0-alpha.1"
-pin-project = "=0.4.0-alpha.11"
+pin-project = "0.4.0"
