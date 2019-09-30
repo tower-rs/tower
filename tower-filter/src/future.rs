@@ -60,12 +60,12 @@ where
     type Output = Result<S::Response, Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
             #[project]
-            match this.state.project() {
+            match this.state.as_mut().project() {
                 State::Check(request) => {
                     let request = request
                         .take()

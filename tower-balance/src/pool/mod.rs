@@ -91,7 +91,7 @@ where
     type Error = MS::MakeError;
 
     fn poll_discover(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         let mut this = self.project();
@@ -374,8 +374,7 @@ where
             // update ewma with a 0 sample
             self.ewma = (1.0 - self.options.alpha) * self.ewma;
 
-            let mut discover = self.balance.discover_mut().as_mut();
-            let discover = discover.project();
+            let discover = self.balance.discover_mut().as_mut().project();
             if self.ewma < self.options.low {
                 if *discover.load != Level::Low {
                     tracing::trace!({ ewma = %self.ewma }, "pool is over-provisioned");
@@ -396,8 +395,7 @@ where
             return Poll::Ready(Ok(()));
         }
 
-        let mut discover = self.balance.discover_mut().as_mut();
-        let discover = discover.project();
+        let discover = self.balance.discover_mut().as_mut().project();
         if discover.making.is_none() {
             // no services are ready -- we're overloaded
             // update ewma with a 1 sample

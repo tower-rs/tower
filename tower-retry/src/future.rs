@@ -8,10 +8,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-// NOTE: this is the trait generated for Ready::project() by pin-project.
-// We need it here to be able to go "through" Ready to &mut Service without adding Unpin bounds.
-use crate::__RetryProjectionTrait;
-
 /// The `Future` returned by a `Retry` service.
 #[pin_project]
 #[derive(Debug)]
@@ -64,12 +60,12 @@ where
     type Output = Result<S::Response, S::Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
             #[project]
-            match this.state.project() {
+            match this.state.as_mut().project() {
                 State::Called(future) => {
                     let result = ready!(future.poll(cx));
                     if let Some(ref req) = this.request {
@@ -85,7 +81,11 @@ where
                     }
                 }
                 State::Checking(future) => {
-                    this.retry.project().policy.set(ready!(future.poll(cx)));
+                    this.retry
+                        .as_mut()
+                        .project()
+                        .policy
+                        .set(ready!(future.poll(cx)));
                     this.state.set(State::Retrying);
                 }
                 State::Retrying => {
@@ -100,14 +100,15 @@ where
                     // we need to make that assumption to avoid adding an Unpin bound to the Policy
                     // in Ready to make it Unpin so that we can get &mut Ready as needed to call
                     // poll_ready on it.
-                    ready!(this.retry.project().service.poll_ready(cx))?;
+                    ready!(this.retry.as_mut().project().service.poll_ready(cx))?;
                     let req = this
                         .request
                         .take()
                         .expect("retrying requires cloned request");
                     *this.request = this.retry.policy.clone_request(&req);
-                    this.state
-                        .set(State::Called(this.retry.project().service.call(req)));
+                    this.state.set(State::Called(
+                        this.retry.as_mut().project().service.call(req),
+                    ));
                 }
             }
         }

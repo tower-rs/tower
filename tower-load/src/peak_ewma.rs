@@ -120,7 +120,7 @@ where
     type Error = D::Error;
 
     fn poll_discover(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         let this = self.project();

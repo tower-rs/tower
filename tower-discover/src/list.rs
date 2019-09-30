@@ -44,7 +44,7 @@ where
     type Error = Never;
 
     fn poll_discover(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         _: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         match self.project().inner.next() {

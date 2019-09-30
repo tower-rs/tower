@@ -63,11 +63,11 @@ where
     type Output = Result<S::Response, S::Error>;
 
     #[project]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
         loop {
             #[project]
-            match this.state.project() {
+            match this.state.as_mut().project() {
                 State::NotReady(nr) => {
                     let (mut svc, req) = nr.take().expect("We immediately transition to ::Called");
                     let _ = ready!(svc.poll_ready(cx))?;

@@ -86,7 +86,7 @@ where
     type Service = S;
     type Error = Error;
     fn poll_discover(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         _: &mut Context<'_>,
     ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
         match self.project().0.pop() {

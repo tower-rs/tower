@@ -117,7 +117,7 @@ where
 
     /// Yields the next discovery change set.
     fn poll_discover(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
         use self::Change::*;

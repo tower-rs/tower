@@ -50,7 +50,7 @@ where
     }
 
     /// Extract the wrapped `Service`.
-    pub(crate) fn take_service(mut self: Pin<&mut Self>) -> Svc {
+    pub(crate) fn take_service(self: Pin<&mut Self>) -> Svc {
         self.project()
             .service
             .take()
@@ -73,7 +73,7 @@ where
 {
     type Item = Result<Svc::Response, Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         loop {

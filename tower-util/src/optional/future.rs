@@ -28,7 +28,7 @@ where
 {
     type Output = Result<T, Error>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().inner.as_pin_mut() {
             Some(inner) => Poll::Ready(Ok(ready!(inner.poll(cx))?)),
             None => Poll::Ready(Err(error::None::new().into())),
