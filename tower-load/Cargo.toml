@@ -22,7 +22,7 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-core-preview = "=0.3.0-alpha.18"
+futures-core-preview = "=0.3.0-alpha.19"
 log = "0.4.1"
 tokio-timer = "=0.3.0-alpha.5"
 tower-service = "=0.3.0-alpha.1"
@@ -31,4 +31,4 @@ pin-project = "0.4"
 
 [dev-dependencies]
 tokio-test = "=0.2.0-alpha.5"
-futures-util-preview = "=0.3.0-alpha.18"
+futures-util-preview = "=0.3.0-alpha.19"

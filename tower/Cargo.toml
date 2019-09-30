@@ -37,11 +37,11 @@ tower-retry = { version = "=0.3.0-alpha.1", path = "../tower-retry" }
 tower-service = "=0.3.0-alpha.1"
 tower-timeout = { version = "=0.3.0-alpha.1", path = "../tower-timeout" }
 tower-util = { version = "=0.3.0-alpha.1", path = "../tower-util" }
-futures-core-preview = "=0.3.0-alpha.18"
+futures-core-preview = "=0.3.0-alpha.19"
 
 [dev-dependencies]
 env_logger = { version = "0.5.3", default-features = false }
-futures-util-preview = "=0.3.0-alpha.18"
+futures-util-preview = "=0.3.0-alpha.19"
 log = "0.4.1"
 tokio = "=0.2.0-alpha.5"
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }

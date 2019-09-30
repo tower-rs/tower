@@ -27,10 +27,10 @@ publish = false
 tower-service = "=0.3.0-alpha.1"
 tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
 pin-project = "0.4"
-futures-core-preview = "=0.3.0-alpha.18"
+futures-core-preview = "=0.3.0-alpha.19"
 
 [dev-dependencies]
 tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
 tokio-test = "=0.2.0-alpha.5"
 tokio = "=0.2.0-alpha.5"
-futures-util-preview = "=0.3.0-alpha.18"
+futures-util-preview = "=0.3.0-alpha.19"
