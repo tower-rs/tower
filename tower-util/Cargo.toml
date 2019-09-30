@@ -9,13 +9,13 @@ name = "tower-util"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.3.x" git tag.
-version = "0.3.0-alpha.1"
+version = "0.3.0-alpha.2"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-util/0.3.0-alpha.1"
+documentation = "https://docs.rs/tower-util/0.3.0-alpha.2"
 description = """
 Utilities for working with `Service`.
 """
@@ -23,15 +23,15 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-tower-service = "=0.3.0-alpha.1"
-tower-layer = { version = "=0.3.0-alpha.1", path = "../tower-layer" }
+tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
+tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
 pin-project = "0.4"
-futures-util-preview = "=0.3.0-alpha.18"
-futures-core-preview = "=0.3.0-alpha.18"
+futures-util-preview = "=0.3.0-alpha.19"
+futures-core-preview = "=0.3.0-alpha.19"
 
 [dev-dependencies]
-futures-util-preview = "=0.3.0-alpha.18"
-tokio-test = "=0.2.0-alpha.5"
-tokio = "=0.2.0-alpha.5"
-tower = { version = "=0.3.0-alpha.1a", path = "../tower" }
-tower-test = { version = "=0.3.0-alpha.1", path = "../tower-test" }
+futures-util-preview = "=0.3.0-alpha.19"
+tokio-test = "=0.2.0-alpha.6"
+tokio = "=0.2.0-alpha.6"
+tower = { version = "=0.3.0-alpha.2", path = "../tower" }
+tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }

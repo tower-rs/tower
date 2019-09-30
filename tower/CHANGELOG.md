@@ -1,3 +1,8 @@
+# 0.3.0-alpha.2 (September 30, 2019)
+
+- Move to `futures-*-preview 0.3.0-alpha.19`
+- Move to `pin-project 0.4`
+
 # 0.3.0-alpha.1a (September 13, 2019)
 
 - Update `tower-buffer` to `0.3.0-alpha.1b`
