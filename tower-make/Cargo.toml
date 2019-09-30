@@ -19,5 +19,5 @@ io = ["tokio-io"]
 [dependencies]
 # we don't use any of the possibly unstable io bits, so we can be loose
 # about the exact alpha version
-tokio-io = { version = "0.2.0-alpha.5", optional = true }
+tokio-io = { version = "0.2.0-alpha.6", optional = true }
 tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }

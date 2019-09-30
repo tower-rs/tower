@@ -27,9 +27,9 @@ futures-util-preview = "=0.3.0-alpha.19"
 pin-project = "0.4"
 tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
 tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
-tokio-executor = "=0.2.0-alpha.5"
-tokio-sync = "=0.2.0-alpha.5"
+tokio-executor = "=0.2.0-alpha.6"
+tokio-sync = "=0.2.0-alpha.6"
 
 [dev-dependencies]
 tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }
-tokio-test = "=0.2.0-alpha.5"
+tokio-test = "=0.2.0-alpha.6"

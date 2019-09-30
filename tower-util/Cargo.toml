@@ -31,7 +31,7 @@ futures-core-preview = "=0.3.0-alpha.19"
 
 [dev-dependencies]
 futures-util-preview = "=0.3.0-alpha.19"
-tokio-test = "=0.2.0-alpha.5"
-tokio = "=0.2.0-alpha.5"
+tokio-test = "=0.2.0-alpha.6"
+tokio = "=0.2.0-alpha.6"
 tower = { version = "=0.3.0-alpha.2", path = "../tower" }
 tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }

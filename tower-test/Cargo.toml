@@ -24,7 +24,7 @@ edition = "2018"
 [dependencies]
 futures-util-preview = "=0.3.0-alpha.19"
 futures-executor-preview = "=0.3.0-alpha.19"
-tokio-test = "=0.2.0-alpha.5"
-tokio-sync = "=0.2.0-alpha.5"
+tokio-test = "=0.2.0-alpha.6"
+tokio-sync = "=0.2.0-alpha.6"
 tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
 pin-project = "0.4"

@@ -24,11 +24,11 @@ edition = "2018"
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.19"
 log = "0.4.1"
-tokio-timer = "=0.3.0-alpha.5"
+tokio-timer = "=0.3.0-alpha.6"
 tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
 tower-discover = { version = "=0.3.0-alpha.2", path = "../tower-discover" }
 pin-project = "0.4"
 
 [dev-dependencies]
-tokio-test = "=0.2.0-alpha.5"
+tokio-test = "=0.2.0-alpha.6"
 futures-util-preview = "=0.3.0-alpha.19"
