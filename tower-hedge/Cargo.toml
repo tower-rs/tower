@@ -1,6 +1,6 @@
 [package]
 name = "tower-hedge"
-version = "0.3.0-alpha.1"
+version = "0.3.0-alpha.2"
 authors = ["Alex Leong <adlleong@gmail.com>"]
 edition = "2018"
 publish = false
@@ -8,13 +8,13 @@ publish = false
 [dependencies]
 hdrhistogram = "6.0"
 log = "0.4.1"
-tower-service = "0.3.0-alpha.1"
-tower-filter = { version = "0.3.0-alpha.1", path = "../tower-filter" }
+tower-service = "0.3.0-alpha.2"
+tower-filter = { version = "0.3.0-alpha.2", path = "../tower-filter" }
 tokio-timer = "0.3.0-alpha.4"
 futures-util-preview = "0.3.0-alpha.19"
 pin-project = "0.4"
 
 [dev-dependencies]
-tower-test = { version = "0.3.0-alpha.1", path = "../tower-test" }
+tower-test = { version = "0.3.0-alpha.2", path = "../tower-test" }
 tokio-test = "0.2.0-alpha.4"
 tokio-executor = "0.2.0-alpha.4"

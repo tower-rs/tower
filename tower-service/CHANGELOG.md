@@ -1,4 +1,8 @@
-# 0.3.0 (Aug 20, 2019)
+# 0.3.0-alpha.2 (September 30, 2019)
+
+- Documentation fixes.
+
+# 0.3.0-alpha.1 (Aug 20, 2019)
 
 * Switch to `std::future::Future`
 

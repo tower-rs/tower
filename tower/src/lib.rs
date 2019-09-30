@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.3.0-alpha.1a")]
+#![doc(html_root_url = "https://docs.rs/tower/0.3.0-alpha.2")]
 // Allows refining features in the future without breaking backwards
 // compatibility
 #![cfg(feature = "full")]

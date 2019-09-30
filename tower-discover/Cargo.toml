@@ -8,13 +8,13 @@ name = "tower-discover"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.3.0-alpha.1"
+version = "0.3.0-alpha.2"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-discover/0.3.0-alpha.1"
+documentation = "https://docs.rs/tower-discover/0.3.0-alpha.2"
 description = """
 Abstracts over service discovery strategies.
 """
@@ -23,5 +23,5 @@ edition = "2018"
 
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.19"
-tower-service = "=0.3.0-alpha.1"
+tower-service = "=0.3.0-alpha.2"
 pin-project = "0.4"
