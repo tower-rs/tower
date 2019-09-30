@@ -37,7 +37,7 @@ tokio-timer = "=0.3.0-alpha.5"
 tower-discover = { version = "=0.3.0-alpha.2", path = "../tower-discover" }
 tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
 tower-load = { version = "=0.3.0-alpha.2", path = "../tower-load" }
-tower-service = "=0.3.0-alpha.2"
+tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
 tower-make = { version = "=0.3.0-alpha.2", path = "../tower-make" }
 slab = "0.4"
 

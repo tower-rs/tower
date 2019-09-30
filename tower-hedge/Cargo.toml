@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 hdrhistogram = "6.0"
 log = "0.4.1"
-tower-service = "0.3.0-alpha.2"
+tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
 tower-filter = { version = "0.3.0-alpha.2", path = "../tower-filter" }
 tokio-timer = "0.3.0-alpha.4"
 futures-util-preview = "0.3.0-alpha.19"

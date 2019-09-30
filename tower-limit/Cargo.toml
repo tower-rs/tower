@@ -23,7 +23,7 @@ edition = "2018"
 
 [dependencies]
 futures-core-preview = "=0.3.0-alpha.19"
-tower-service = "=0.3.0-alpha.2"
+tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
 tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
 tokio-sync = "=0.2.0-alpha.5"
 tokio-timer = "=0.3.0-alpha.5"
