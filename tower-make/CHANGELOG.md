@@ -1,3 +1,8 @@
+# 0.3.0-alpha.2a (September 30, 2019)
+
+- Update `tokio-io` to `alpha.6`
+- Update `tower-service` to `alpha.2`
+
 # 0.3.0-alpha.2 (September 20, 2019)
 
 - Update `tokio-io` to `alpha.5`
