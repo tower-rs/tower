@@ -94,15 +94,16 @@ use std::task::{Context, Poll};
 /// ```rust,ignore
 /// use tower_service::Service;
 /// use tower_layer::Layer;
+/// use futures_util::future::FutureExt;
 /// use std::future::Future;
 /// use std::task::{Context, Poll};
 /// use std::time::Duration;
+/// use std::pin::Pin;
 ///
 ///
 /// pub struct Timeout<T> {
 ///     inner: T,
-///     delay: Duration,
-///     timer: Timer,
+///     timeout: Duration,
 /// }
 ///
 /// pub struct TimeoutLayer(Duration);
@@ -127,21 +128,21 @@ use std::task::{Context, Poll};
 /// {
 ///     type Response = T::Response;
 ///     type Error = T::Error;
-///     type Future = Box<Future<Output = Result<Self::Response, Self::Error>>>;
+///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
 ///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 ///        self.inner.poll_ready(cx).map_err(Into::into)
 ///     }
 ///
 ///     fn call(&mut self, req: Request) -> Self::Future {
-///         let timeout = tokio_timer::sleep(self.timeout)
-///             .then(|_| Err(Self::Error::from(Expired)));
+///         let timeout = tokio_timer::delay_for(self.timeout)
+///             .map(|_| Err(Self::Error::from(Expired)));
 ///
-///         let f = self.inner.call(req).select(timeout)
-///             .map(|(v, _)| v)
-///             .map_err(|(e, _)| e);
+///         let fut = Box::pin(self.inner.call(req));
+///         let f = futures_util::future::select(fut, timeout)
+///             .map(|either| either.factor_first().0);
 ///
-///         Box::new(f)
+///         Box::pin(f)
 ///     }
 /// }
 ///
@@ -151,12 +152,8 @@ use std::task::{Context, Poll};
 ///     }
 /// }
 ///
-/// impl<S, Request> Layer<S, Request> for TimeoutLayer
-/// where
-///     S: Service<Request>,
+/// impl<S> Layer<S> for TimeoutLayer
 /// {
-///     type Response = S::Response;
-///     type Error = S::Error;
 ///     type Service = Timeout<S>;
 ///
 ///     fn layer(&self, service: S) -> Timeout<S> {
