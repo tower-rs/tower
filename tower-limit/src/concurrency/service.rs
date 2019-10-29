@@ -59,7 +59,8 @@ where
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        ready!(self.limit.permit.poll_acquire(cx, &self.limit.semaphore))?;
+        ready!(self.limit.permit.poll_acquire(cx, &self.limit.semaphore))
+            .expect("poll_acquire after semaphore closed ");
 
         Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Into::into))
     }
