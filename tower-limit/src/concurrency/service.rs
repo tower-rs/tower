@@ -1,4 +1,4 @@
-use super::{future::ResponseFuture, Error};
+use super::future::ResponseFuture;
 
 use tower_service::Service;
 
@@ -52,17 +52,16 @@ impl<T> ConcurrencyLimit<T> {
 impl<S, Request> Service<Request> for ConcurrencyLimit<S>
 where
     S: Service<Request>,
-    S::Error: Into<Error>,
 {
     type Response = S::Response;
-    type Error = Error;
+    type Error = S::Error;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         ready!(self.limit.permit.poll_acquire(cx, &self.limit.semaphore))
             .expect("poll_acquire after semaphore closed ");
 
-        Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Into::into))
+        Poll::Ready(ready!(self.inner.poll_ready(cx)))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

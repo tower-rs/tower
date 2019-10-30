@@ -5,5 +5,3 @@ mod layer;
 mod service;
 
 pub use self::{layer::ConcurrencyLimitLayer, service::ConcurrencyLimit};
-
-type Error = Box<dyn std::error::Error + Send + Sync>;

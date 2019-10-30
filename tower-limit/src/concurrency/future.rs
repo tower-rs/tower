@@ -1,6 +1,5 @@
 //! Future types
 //!
-use super::Error;
 use futures_core::ready;
 use pin_project::{pin_project, pinned_drop};
 use std::sync::Arc;
@@ -29,12 +28,11 @@ impl<T> ResponseFuture<T> {
 impl<F, T, E> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    E: Into<Error>,
 {
-    type Output = Result<T, Error>;
+    type Output = Result<T, E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(ready!(self.project().inner.poll(cx)).map_err(Into::into))
+        Poll::Ready(ready!(self.project().inner.poll(cx)))
     }
 }
 
