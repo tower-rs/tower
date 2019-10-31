@@ -1,4 +1,4 @@
-use super::{error::Error, future::ResponseFuture, Rate};
+use super::Rate;
 use futures_core::ready;
 use std::{
     future::Future,
@@ -60,17 +60,14 @@ impl<T> RateLimit<T> {
 impl<S, Request> Service<Request> for RateLimit<S>
 where
     S: Service<Request>,
-    Error: From<S::Error>,
 {
     type Response = S::Response;
-    type Error = Error;
-    type Future = ResponseFuture<S::Future>;
+    type Error = S::Error;
+    type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.state {
-            State::Ready { .. } => {
-                return Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Error::from))
-            }
+            State::Ready { .. } => return Poll::Ready(ready!(self.inner.poll_ready(cx))),
             State::Limited(ref mut sleep) => {
                 ready!(Pin::new(sleep).poll(cx));
             }
@@ -81,7 +78,7 @@ where
             rem: self.rate.num(),
         };
 
-        Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Error::from))
+        Poll::Ready(ready!(self.inner.poll_ready(cx)))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -107,8 +104,7 @@ where
                 }
 
                 // Call the inner future
-                let inner = self.inner.call(request);
-                ResponseFuture::new(inner)
+                self.inner.call(request)
             }
             State::Limited(..) => panic!("service not ready; poll_ready must be called first"),
         }
