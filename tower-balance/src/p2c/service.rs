@@ -98,11 +98,9 @@ where
             }
         }
         trace!(
-            {
-                ready = self.services.ready_len(),
-                pending = self.services.pending_len(),
-            },
-            "poll_unready",
+            ready = %self.services.ready_len(),
+            pending = %self.services.pending_len(),
+            "poll_unready"
         );
     }
 
@@ -125,13 +123,11 @@ where
                 let chosen = if aload <= bload { aidx } else { bidx };
 
                 trace!(
-                    {
-                        a.index = aidx,
-                        a.load = ?aload,
-                        b.index = bidx,
-                        b.load = ?bload,
-                        chosen = if chosen == aidx { "a" } else { "b" },
-                    },
+                    a.index = aidx,
+                    a.load = ?aload,
+                    b.index = bidx,
+                    b.load = ?bload,
+                    chosen = if chosen == aidx { "a" } else { "b" },
                     "p2c",
                 );
                 Some(chosen)

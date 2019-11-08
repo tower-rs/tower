@@ -176,11 +176,11 @@ where
                     // Wait for the service to be ready
                     tracing::trace!(
                         resumed = !first,
-                        message = "worker received request; waiting for service readiness"
+                        "worker received request; waiting for service readiness"
                     );
                     match self.service.poll_ready() {
                         Ok(Async::Ready(())) => {
-                            tracing::debug!(service.ready = true, message = "processing request");
+                            tracing::debug!(service.ready = true, "processing request");
                             let response = self.service.call(msg.request);
 
                             // Send the response future back to the sender.
@@ -191,7 +191,7 @@ where
                             let _ = msg.tx.send(Ok(response));
                         }
                         Ok(Async::NotReady) => {
-                            tracing::trace!(service.ready = false, message = "delay");
+                            tracing::trace!(service.ready = false, "delay");
                             // Put out current message back in its slot.
                             drop(_guard);
                             self.current_message = Some(msg);
@@ -199,7 +199,7 @@ where
                         }
                         Err(e) => {
                             let error = e.into();
-                            tracing::debug!({ %error }, "service failed");
+                            tracing::debug!(%error, "service failed");
                             drop(_guard);
                             self.failed(error);
                             let _ = msg.tx.send(Err(self
