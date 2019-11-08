@@ -1,6 +1,6 @@
 use crate::error;
 use futures::{future, try_ready, Async, Future, Poll};
-use rand::{rngs::SmallRng, FromEntropy};
+use rand::{rngs::SmallRng, SeedableRng};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_ready_cache::ReadyCache;
@@ -91,8 +91,8 @@ where
 
     fn poll_unready(&mut self) {
         loop {
-            if let Err(e) = self.services.poll_pending() {
-                debug!("dropping failed endpoint: {:?}", e);
+            if let Err(error) = self.services.poll_pending() {
+                debug!(%error, "dropping failed endpoint");
             } else {
                 break;
             }

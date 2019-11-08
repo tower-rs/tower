@@ -29,7 +29,7 @@ default = ["log"]
 [dependencies]
 futures = "0.1.26"
 indexmap = "1.0.2"
-rand = "0.6.5"
+rand = { version = "0.7", features = ["small_rng"] }
 slab = "0.4"
 tokio-sync = "0.1.3"
 tokio-timer = "0.2.4"

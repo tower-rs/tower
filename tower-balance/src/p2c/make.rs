@@ -1,7 +1,7 @@
 use super::Balance;
 use crate::error;
 use futures::{try_ready, Future, Poll};
-use rand::{rngs::SmallRng, FromEntropy};
+use rand::{rngs::SmallRng, SeedableRng};
 use std::marker::PhantomData;
 use tower_discover::Discover;
 use tower_service::Service;
