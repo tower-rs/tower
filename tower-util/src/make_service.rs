@@ -5,7 +5,7 @@ use tower_service::Service;
 /// Creates new `Service` values.
 ///
 /// Acts as a service factory. This is useful for cases where new `Service`
-/// values must be produced. One case is a TCP servier listener. The listner
+/// values must be produced. One case is a TCP server listener. The listener
 /// accepts new TCP streams, obtains a new `Service` value using the
 /// `MakeService` trait, and uses that new `Service` value to process inbound
 /// requests on that new TCP stream.
@@ -27,7 +27,7 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// The future of the `Service` instance.
     type Future: Future<Item = Self::Service, Error = Self::MakeError>;
 
-    /// Returns `Ready` when the factory is able to process create more services.
+    /// Returns `Ready` when the factory is able to create more services.
     ///
     /// If the service is at capacity, then `NotReady` is returned and the task
     /// is notified when the service becomes ready again. This function is
@@ -35,7 +35,7 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     ///
     /// This is a **best effort** implementation. False positives are permitted.
     /// It is permitted for the service to return `Ready` from a `poll_ready`
-    /// call and the next invocation of `call` results in an error.
+    /// call and for the next invocation of `call` to result in an error.
     fn poll_ready(&mut self) -> Poll<(), Self::MakeError>;
 
     /// Create and return a new service value asynchronously.

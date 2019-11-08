@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-buffer/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tower-buffer/0.1.2")]
 #![deny(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 
