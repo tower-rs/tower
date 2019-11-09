@@ -1,7 +1,7 @@
 use crate::error;
 use futures::{future, stream, try_ready, Async, Future, Poll, Stream};
 use indexmap::IndexMap;
-use rand::{rngs::SmallRng, FromEntropy};
+use rand::{rngs::SmallRng, SeedableRng};
 use tokio_sync::oneshot;
 use tower_discover::{Change, Discover};
 use tower_load::Load;
