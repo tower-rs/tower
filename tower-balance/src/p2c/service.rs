@@ -73,7 +73,7 @@ where
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn update_from_discover(&mut self) -> Result<(), error::Discover> {
+    fn update_pending_from_discover(&mut self) -> Result<(), error::Discover> {
         debug!("updating from discover");
         loop {
             match self
@@ -166,15 +166,11 @@ where
     >;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        // Each time poll_ready is invoked, clear the ready index
-        let mut index = self.ready_index.take();
-
-        // First and foremost, process discovery updates
-        self.update_from_discover()?;
-
-        // Drive new or busy services to readiness.
+        self.update_pending_from_discover()?;
         self.update_pending_to_ready();
 
+        // Each time poll_ready is invoked, clear the ready index
+        let mut index = self.ready_index.take();
         loop {
             // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
