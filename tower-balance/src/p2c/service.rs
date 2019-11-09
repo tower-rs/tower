@@ -25,6 +25,7 @@ pub struct Balance<D: Discover, Req> {
     discover: D,
 
     services: ReadyCache<D::Key, D::Service, Req>,
+    next_ready_index: Option<usize>,
 
     rng: SmallRng,
 }
@@ -40,6 +41,7 @@ where
         Self {
             rng,
             discover,
+            next_ready_index: None,
             services: ReadyCache::default(),
         }
     }
@@ -166,7 +168,7 @@ where
         // Drive new or busy services to readiness.
         self.poll_unready();
 
-        let mut index = self.services.take_next_ready_index();
+        let mut index = self.next_ready_index.take();
         loop {
             // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
@@ -174,7 +176,8 @@ where
             // detector has changed the state of the service, it may be evicted
             // from the ready set so that another service can be selected.
             if let Some(index) = index {
-                if let Ok(Async::Ready(())) = self.services.poll_next_ready_index(index) {
+                if let Ok(true) = self.services.check_ready_index(index) {
+                    self.next_ready_index = Some(index);
                     return Ok(Async::Ready(()));
                 }
             }
@@ -188,6 +191,9 @@ where
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
-        self.services.call_next_ready(request).map_err(Into::into)
+        let index = self.next_ready_index.take().expect("called before ready");
+        self.services
+            .call_ready_index(index, request)
+            .map_err(Into::into)
     }
 }
