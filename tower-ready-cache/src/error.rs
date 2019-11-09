@@ -1,22 +1,8 @@
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-/// An error indicating that the ready cache has no inner services.
-#[derive(Debug)]
-pub struct Exhausted;
-
 /// An error indicating that the service with a `K`-typed key failed with an
 /// error.
 pub struct Failed<K>(pub K, pub Error);
-
-// === Exhausted ===
-
-impl std::fmt::Display for Exhausted {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "ready cache exhausted")
-    }
-}
-
-impl std::error::Error for Exhausted {}
 
 // === Failed ===
 

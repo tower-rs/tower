@@ -17,22 +17,6 @@ type Mock = mock::Mock<Req, Req>;
 type Handle = mock::Handle<Req, Req>;
 
 #[test]
-fn poll_ready_exhausted() {
-    let mut cache = ReadyCache::<usize, Mock, Req>::default();
-    with_task(|| {
-        let ready = cache
-            .poll_ready()
-            .err()
-            .expect("poll_ready should fail when exhausted");
-        assert!(ready.downcast_ref::<error::Exhausted>().is_some());
-    });
-
-    assert_eq!(cache.ready_len(), 0);
-    assert_eq!(cache.pending_len(), 0);
-    assert_eq!(cache.len(), 0);
-}
-
-#[test]
 fn poll_ready_inner_failure() {
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -45,14 +29,11 @@ fn poll_ready_inner_failure() {
     cache.push(1, service1);
 
     with_task(|| {
-        let ready = cache
-            .poll_ready()
+        let error::Failed(key, err) = cache
+            .poll_pending()
             .err()
             .expect("poll_ready should fail when exhausted");
-        let error::Failed(key, err) = ready
-            .downcast_ref::<error::Failed<usize>>()
-            .expect("invalid error type");
-        assert_eq!(*key, 0);
+        assert_eq!(key, 0);
         assert_eq!(format!("{}", err), "doom");
     });
 
@@ -72,7 +53,7 @@ fn poll_ready_not_ready() {
     cache.push(1, service1);
 
     with_task(|| {
-        assert!(cache.poll_ready().expect("must succeed").is_not_ready());
+        assert!(cache.poll_pending().expect("must succeed").is_not_ready());
     });
 
     assert_eq!(cache.ready_len(), 0);
@@ -97,7 +78,7 @@ fn poll_ready_promotes_inner() {
     assert_eq!(cache.len(), 2);
 
     with_task(|| {
-        assert!(cache.poll_ready().expect("must succeed").is_ready());
+        assert!(cache.poll_pending().expect("must succeed").is_ready());
     });
 
     assert_eq!(cache.ready_len(), 2);

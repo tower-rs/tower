@@ -1,5 +1,5 @@
 use crate::error;
-use futures::{future, stream, Async, Future, Poll, Stream};
+use futures::{stream, Async, Future, Poll, Stream};
 pub use indexmap::Equivalent;
 use indexmap::IndexMap;
 use log::{debug, trace};
@@ -7,16 +7,24 @@ use std::hash::Hash;
 use tokio_sync::oneshot;
 use tower_service::Service;
 
-/// Caches services, segregating ready and unready services.
+/// Caches services, providing access to services that are ready.
 #[derive(Debug)]
 pub struct ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
 {
-    next_ready_index: Option<usize>,
-    ready: IndexMap<K, (S, CancelPair)>,
-    pending: stream::FuturesUnordered<EvictableReady<K, S, Req>>,
+    /// A stream of services that are not yet ready.
+    pending: stream::FuturesUnordered<Pending<K, S, Req>>,
+    /// An index of cancelation handles for pending streams.
     pending_cancel_txs: IndexMap<K, CancelTx>,
+
+    /// Services that have previously become ready. Readiness can become stale,
+    /// so a given service should be polled immediately before use.
+    ///
+    /// The cancelation oneshot is preserved (though unused) while the service is
+    /// ready so that it need not be reallocated each time a request is
+    /// dispatched.
+    ready: IndexMap<K, (S, CancelPair)>,
 }
 
 type CancelRx = oneshot::Receiver<()>;
@@ -31,9 +39,9 @@ enum PendingError<K, E> {
 
 /// A Future that becomes satisfied when an `S`-typed service is ready.
 ///
-/// May fail due to cancelation, i.e. if the service is removed from discovery.
+/// May fail due to cancelation, i.e. if the service is evicted from the balancer.
 #[derive(Debug)]
-struct EvictableReady<K, S, Req> {
+struct Pending<K, S, Req> {
     key: Option<K>,
     cancel: Option<CancelRx>,
     ready: tower_util::Ready<S, Req>,
@@ -48,7 +56,6 @@ where
 {
     fn default() -> Self {
         Self {
-            next_ready_index: None,
             ready: IndexMap::default(),
             pending: stream::FuturesUnordered::new(),
             pending_cancel_txs: IndexMap::default(),
@@ -117,34 +124,10 @@ where
             false
         };
 
-        match self.ready.swap_remove_full(key) {
-            None => canceled,
-            Some((idx, _, _)) => {
-                self.repair_next_ready_index(idx);
-                true
-            }
-        }
-    }
-
-    // Updates `next_ready_index_idx` after the entry at `rm_idx` was evicted.
-    fn repair_next_ready_index(&mut self, rm_idx: usize) {
-        self.next_ready_index = self.next_ready_index.take().and_then(|idx| {
-            let new_sz = self.ready.len();
-            debug_assert!(idx <= new_sz && rm_idx <= new_sz);
-            let repaired = match idx {
-                i if i == rm_idx => None,         // removed
-                i if i == new_sz => Some(rm_idx), // swapped
-                i => Some(i),                     // uneffected
-            };
-            trace!(
-                "repair_index: orig={}; rm={}; sz={}; => {:?}",
-                idx,
-                rm_idx,
-                new_sz,
-                repaired,
-            );
-            repaired
-        });
+        self.ready
+            .swap_remove_full(key)
+            .map(|_| true)
+            .unwrap_or(canceled)
     }
 }
 
@@ -172,7 +155,7 @@ where
             // If there is already a service for this key, cancel it.
             c.send(()).expect("cancel receiver lost");
         }
-        self.pending.push(EvictableReady {
+        self.pending.push(Pending {
             key: Some(key),
             cancel: Some(cancel_rx),
             ready: tower_util::Ready::new(svc),
@@ -214,27 +197,21 @@ where
         }
     }
 
-    /// Configures the ready service to be used by `call`.
+    /// Checks whether the referenced endpoint is ready.
     ///
-    /// This may be called instead of invoking `Service::poll_ready`
-    pub fn poll_next_ready<Q: Hash + Equivalent<K>>(
+    /// Returns true if the endpoint is ready and false if it is not. An error is
+    /// returned if the endpoint fails.
+    pub fn check_ready<Q: Hash + Equivalent<K>>(
         &mut self,
         key: &Q,
-    ) -> Poll<(), error::Failed<K>> {
+    ) -> Result<bool, error::Failed<K>> {
         match self.ready.get_full_mut(key) {
-            None => Ok(Async::NotReady),
-            Some((index, _, _)) => self.poll_next_ready_index(index),
+            Some((index, _, _)) => self.check_ready_index(index),
+            None => Ok(false),
         }
     }
 
-    /// Consume the `next_ready_index`.
-    pub fn take_next_ready_index(&mut self) -> Option<usize> {
-        self.next_ready_index.take()
-    }
-
-    /// Configures the ready service to be used by `call`.
-    ///
-    /// This may be called instead of `Service::poll_ready`.
+    /// Checks whether the referenced endpoint is ready.
     ///
     /// If the service is no longer ready and there are no equivalent unready
     /// services, it is moved back into the ready set and `Async::NotReady` is
@@ -244,15 +221,13 @@ where
     ///
     /// Otherwise, the `next_ready_index` is set with the provided index and
     /// `Async::Ready` is returned.
-    pub fn poll_next_ready_index(&mut self, index: usize) -> Poll<(), error::Failed<K>> {
-        self.next_ready_index = None;
-
-        let (_, (svc, _)) = self.ready.get_index_mut(index).expect("index out of range");
+    pub fn check_ready_index(&mut self, index: usize) -> Result<bool, error::Failed<K>> {
+        let svc = match self.ready.get_index_mut(index) {
+            None => return Ok(false),
+            Some((_, (svc, _))) => svc,
+        };
         match svc.poll_ready() {
-            Ok(Async::Ready(())) => {
-                self.next_ready_index = Some(index);
-                Ok(Async::Ready(()))
-            }
+            Ok(Async::Ready(())) => Ok(true),
             Ok(Async::NotReady) => {
                 // became unready; so move it back there.
                 let (key, (svc, cancel)) = self
@@ -266,7 +241,7 @@ where
                     self.push_pending(key, svc, cancel);
                 }
 
-                Ok(Async::NotReady)
+                Ok(false)
             }
             Err(e) => {
                 // failed, so drop it.
@@ -279,16 +254,11 @@ where
         }
     }
 
-    /// Calls the next ready service.
+    /// Calls a ready service by index
     ///
-    /// `poll_next_ready_index` must have returned Ready before this is invoked;
+    /// `poll_ready_index` must have returned Ready before this is invoked;
     /// otherwise, this method panics.
-    pub fn call_next_ready(&mut self, req: Req) -> S::Future {
-        let index = self
-            .next_ready_index
-            .take()
-            .expect("poll_next_ready_index was not ready");
-
+    pub fn call_ready_index(&mut self, index: usize, req: Req) -> S::Future {
         let (key, (mut svc, cancel)) = self
             .ready
             .swap_remove_index(index)
@@ -306,71 +276,13 @@ where
     }
 }
 
-/// A default Service impleentation for ReadyCache`.
-///
-/// This service's `poll_ready` fails whenever an inner service fails and when
-/// there are no inner services in the cache. If this behavior is not desirable,
-/// users may call `poll_pending`, `poll_next_ready_index`, and `call_next_ready`
-/// directly.
-impl<K, S, Req> Service<Req> for ReadyCache<K, S, Req>
-where
-    K: Clone + Eq + Hash,
-    S: Service<Req>,
-    S::Error: Into<error::Error>,
-    error::Failed<K>: Into<error::Error>,
-{
-    type Response = S::Response;
-    type Error = error::Error;
-    type Future = future::MapErr<S::Future, fn(S::Error) -> Self::Error>;
-
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        // Drive pending endpoints to be ready. If an inner endpoint fails,
-        // propagate the failure.
-        self.poll_pending().map_err(Into::into)?;
-
-        let mut ready_index = self.take_next_ready_index();
-        loop {
-            // If a service has already been selected, ensure that it is ready.
-            // This ensures that the underlying service is ready immediately
-            // before a request is dispatched to it. If, e.g., a failure
-            // detector has changed the state of the service, it may be evicted
-            // from the ready set so that another service can be selected.
-            if let Some(index) = ready_index {
-                match self.poll_next_ready_index(index) {
-                    Ok(Async::NotReady) => {}
-                    Ok(Async::Ready(())) => return Ok(Async::Ready(())),
-                    Err(e) => return Err(e.into()),
-                }
-            }
-
-            if self.ready_len() == 0 {
-                if self.pending_len() == 0 {
-                    // If the cache is totally exhausted, we have no means to notify the
-                    return Err(error::Exhausted.into());
-                }
-
-                return Ok(Async::NotReady);
-            };
-
-            // If there are ready services use the first one in the ready set.
-            // This will tend to favor more-recently added services, since the
-            // last and first are swapped after each use.
-            ready_index = Some(0);
-        }
-    }
-
-    fn call(&mut self, req: Req) -> Self::Future {
-        self.call_next_ready(req).map_err(Into::into)
-    }
-}
-
 // === Pending ===
 
-impl<K, S, Req> Future for EvictableReady<K, S, Req>
+impl<K, S, Req> Future for Pending<K, S, Req>
 where
     S: Service<Req>,
 {
-    type Item = (K, S, oneshot::Receiver<()>);
+    type Item = (K, S, CancelRx);
     type Error = PendingError<K, S::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
