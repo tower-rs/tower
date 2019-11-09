@@ -257,14 +257,10 @@ where
 
     /// Checks whether the referenced endpoint is ready.
     ///
-    /// If the service is no longer ready and there are no equivalent unready
-    /// services, it is moved back into the ready set and `Async::NotReady` is
-    /// returned.
+    /// If the service is no longer ready, it is moved back into the pending set
+    /// and `false` is returned.
     ///
     /// If the service errors, it is removed and dropped and the error is returned.
-    ///
-    /// Otherwise, the `next_ready_index` is set with the provided index and
-    /// `Async::Ready` is returned.
     pub fn check_ready_index(&mut self, index: usize) -> Result<bool, error::Failed<K>> {
         let svc = match self.ready.get_index_mut(index) {
             None => return Ok(false),
