@@ -149,8 +149,11 @@ where
 
     /// Evicts an item from the cache.
     ///
-    /// Returns true if a service was marked for eviction. The inner service may
-    /// be retained until `poll_pending` is called.
+    /// Returns true if a service was marked for eviction.
+    ///
+    /// Services are dropped from the ready set immediately. Services in the
+    /// pending set are marked for cancellation, but `ReadyCache::poll_pending`
+    /// must be called to cause the service to be dropped.
     pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
         let canceled = if let Some(c) = self.pending_cancel_txs.swap_remove(key) {
             c.send(()).expect("cancel receiver lost");
@@ -177,9 +180,10 @@ where
     ///
     /// The service will be promoted to the ready set as `poll_pending` is invoked.
     ///
-    /// Note that this does not replace a service currently in the ready set with
-    /// an equivalent key until this service becomes ready or the existing
-    /// service becomes unready.
+    /// Note that this does **not** remove services from the ready set. Once the
+    /// old service is used, it will be dropped instead of being added back to
+    /// the pending set; OR, when the new service becomes ready, it will replace
+    /// the prior service in the ready set.
     pub fn push(&mut self, key: K, svc: S) {
         let cancel = oneshot::channel();
         self.push_pending(key, svc, cancel);
@@ -224,8 +228,8 @@ where
                 }
                 Err(PendingError::Canceled(_)) => {
                     debug!("endpoint canceled");
-                    // Either the cancelation has already been removed, or a
-                    // replacement unready service has already been pushed.
+                    // The cancellation for this service was removed in order to
+                    // cause this cancellation.
                 }
                 Err(PendingError::Inner(key, e)) => {
                     self.pending_cancel_txs
