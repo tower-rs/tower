@@ -165,7 +165,7 @@ where
     /// Polls services pending readiness, adding ready services to the ready set.
     ///
     /// Returns `Async::Ready` when there are no remaining unready services.
-    /// `poll_ready` should be called again after `push_service` or
+    /// `poll_pending` should be called again after `push_service` or
     /// `call_ready_index` are invoked.
     pub fn poll_pending(&mut self) -> Poll<(), error::Failed<K>> {
         loop {
@@ -254,15 +254,27 @@ where
         }
     }
 
+    /// Calls a ready service by key
+    ///
+    /// Panics if `check_ready` did not return true in the same task invocation
+    /// as this call.
+    pub fn call_ready<Q: Hash + Equivalent<K>>(&mut self, key: &Q, req: Req) -> S::Future {
+        let (index, _, _) = self
+            .ready
+            .get_full_mut(key)
+            .expect("check_ready was not called");
+        self.call_ready_index(index, req)
+    }
+
     /// Calls a ready service by index
     ///
-    /// `poll_ready_index` must have returned Ready before this is invoked;
-    /// otherwise, this method panics.
+    /// Panics if `check_ready_index` did not return true in the same task
+    /// invocation as this call.
     pub fn call_ready_index(&mut self, index: usize, req: Req) -> S::Future {
         let (key, (mut svc, cancel)) = self
             .ready
             .swap_remove_index(index)
-            .expect("index out of range");
+            .expect("check_ready_index was not called");
 
         let fut = svc.call(req);
 

@@ -3,7 +3,7 @@ use futures::{future, Async, Future, Poll};
 use rand::{rngs::SmallRng, SeedableRng};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
-use tower_ready_cache::ReadyCache;
+use tower_ready_cache::{error::Failed, ReadyCache};
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -96,7 +96,7 @@ where
         }
     }
 
-    fn update_pending_to_ready(&mut self) {
+    fn promote_pending_to_ready(&mut self) {
         loop {
             if let Err(error) = self.services.poll_pending() {
                 debug!(%error, "dropping failed endpoint");
@@ -167,25 +167,29 @@ where
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
         self.update_pending_from_discover()?;
-        self.update_pending_to_ready();
-
-        // Each time poll_ready is invoked, clear the ready index
-        let mut index = self.ready_index.take();
+        self.promote_pending_to_ready();
         loop {
             // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
             // before a request is dispatched to it. If, e.g., a failure
             // detector has changed the state of the service, it may be evicted
             // from the ready set so that another service can be selected.
-            if let Some(index) = index {
-                if let Ok(true) = self.services.check_ready_index(index) {
-                    self.ready_index = Some(index);
-                    return Ok(Async::Ready(()));
+            if let Some(index) = self.ready_index.take() {
+                match self.services.check_ready_index(index) {
+                    Err(Failed(_, error)) => {
+                        // If the ready endpoitn fails
+                        debug!(%error, "lost endpoint");
+                    }
+                    Ok(true) => {
+                        self.ready_index = Some(index);
+                        return Ok(Async::Ready(()));
+                    }
+                    Ok(false) => {}
                 }
             }
 
-            index = self.p2c_ready_index();
-            if index.is_none() {
+            self.ready_index = self.p2c_ready_index();
+            if self.ready_index.is_none() {
                 debug_assert_eq!(self.services.ready_len(), 0);
                 return Ok(Async::NotReady);
             }
