@@ -7,7 +7,42 @@ use std::hash::Hash;
 use tokio_sync::oneshot;
 use tower_service::Service;
 
-/// Caches services, providing access to services that are ready.
+/// Drives readiness over a set of services.
+///
+/// The cache maintains two internal data structures:
+///
+/// * a set of  _pending_ services that have not yet become ready; and
+/// * a set of _ready_ services that have previously polled ready.
+///
+/// As each `S` typed `Service` is added to the cache via `ReadyCache::push`, it
+/// added to the _pending set_. As `ReadyCache::poll_pending` is invoked, pending
+/// services are polled and added to the _ready set_.
+///
+/// The ready set can hold services for an abitrarily long time. During this
+/// time, the runtime may process events that invalidate that ready state (for
+/// instance, if a keepalive detects a lost connection). Therfore it is
+/// **required** that a ready service is checked via `ReadyCache::check_ready`
+/// (or `ReadyCache::check_ready_index`); and only when such a call returns
+/// `true` may `ReadyCache::call_ready` (or `ReadyCache::call_ready_index`) be
+/// invoked.
+///
+/// Once `ReadyCache::call_ready*` is invoked, the service is placed back into
+/// the _pending_ set to be driven to readiness again.
+///
+/// When `ReadyCache::check_ready*` returns `false`, it indicates that the
+/// specified service is _not_ ready. If an error is returned, this indicats that
+/// the server failed nad has been removed from the cache entirely.
+///
+/// `ReadyCache::evict` can be used to remove a service from the cache (by key),
+/// though the service may not be dropped (if it is currently pending) until
+/// `ReadyCache::poll_pending` is invoked.
+///
+/// Note that the by-index accessors are provided to support use cases (like
+/// power-of-two-choices load balancing) where the caller does not care to keep
+/// track of each service's key. Instead, it needs only to access _some_ ready
+/// service. In such a case, it should be noted that calls to
+/// `ReadyCache::poll_pending` and `ReadyCache::evict` may perturb the order of
+/// the ready set, so any cached indexes should be discarded after such a call.
 #[derive(Debug)]
 pub struct ReadyCache<K, S, Req>
 where
@@ -167,6 +202,11 @@ where
     /// Returns `Async::Ready` when there are no remaining unready services.
     /// `poll_pending` should be called again after `push_service` or
     /// `call_ready_index` are invoked.
+    ///
+    /// Failures indicate that an individual pending service failed to become
+    /// ready (and has been removed from the cache). In such a case,
+    /// `poll_pending` should typically be called again to continue driving
+    /// pending services to readiness.
     pub fn poll_pending(&mut self) -> Poll<(), error::Failed<K>> {
         loop {
             match self.pending.poll() {
