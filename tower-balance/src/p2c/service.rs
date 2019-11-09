@@ -1,5 +1,5 @@
 use crate::error;
-use futures::{future, try_ready, Async, Future, Poll};
+use futures::{future, Async, Future, Poll};
 use rand::{rngs::SmallRng, SeedableRng};
 use tower_discover::{Change, Discover};
 use tower_load::Load;
@@ -25,7 +25,7 @@ pub struct Balance<D: Discover, Req> {
     discover: D,
 
     services: ReadyCache<D::Key, D::Service, Req>,
-    next_ready_index: Option<usize>,
+    ready_index: Option<usize>,
 
     rng: SmallRng,
 }
@@ -41,7 +41,7 @@ where
         Self {
             rng,
             discover,
-            next_ready_index: None,
+            ready_index: None,
             services: ReadyCache::default(),
         }
     }
@@ -73,15 +73,20 @@ where
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
     /// Removals may alter the order of either `ready` or `not_ready`.
-    fn poll_discover(&mut self) -> Poll<(), error::Discover> {
+    fn update_from_discover(&mut self) -> Result<(), error::Discover> {
         debug!("updating from discover");
         loop {
-            match try_ready!(self.discover.poll().map_err(|e| error::Discover(e.into()))) {
-                Change::Remove(key) => {
+            match self
+                .discover
+                .poll()
+                .map_err(|e| error::Discover(e.into()))?
+            {
+                Async::NotReady => return Ok(()),
+                Async::Ready(Change::Remove(key)) => {
                     trace!("remove");
                     self.services.evict(&key);
                 }
-                Change::Insert(key, svc) => {
+                Async::Ready(Change::Insert(key, svc)) => {
                     trace!("insert");
                     // If this service already existed in the set, it will be
                     // replaced as the new one becomes ready.
@@ -91,7 +96,7 @@ where
         }
     }
 
-    fn poll_unready(&mut self) {
+    fn update_pending_to_ready(&mut self) {
         loop {
             if let Err(error) = self.services.poll_pending() {
                 debug!(%error, "dropping failed endpoint");
@@ -107,7 +112,7 @@ where
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
-    fn p2c_next_ready_index(&mut self) -> Option<usize> {
+    fn p2c_ready_index(&mut self) -> Option<usize> {
         match self.services.ready_len() {
             0 => None,
             1 => Some(0),
@@ -161,14 +166,15 @@ where
     >;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        // First and foremost, process discovery updates. This removes or updates a
-        // previously-selected `ready_index` if appropriate.
-        self.poll_discover()?;
+        // Each time poll_ready is invoked, clear the ready index
+        let mut index = self.ready_index.take();
+
+        // First and foremost, process discovery updates
+        self.update_from_discover()?;
 
         // Drive new or busy services to readiness.
-        self.poll_unready();
+        self.update_pending_to_ready();
 
-        let mut index = self.next_ready_index.take();
         loop {
             // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
@@ -177,12 +183,12 @@ where
             // from the ready set so that another service can be selected.
             if let Some(index) = index {
                 if let Ok(true) = self.services.check_ready_index(index) {
-                    self.next_ready_index = Some(index);
+                    self.ready_index = Some(index);
                     return Ok(Async::Ready(()));
                 }
             }
 
-            index = self.p2c_next_ready_index();
+            index = self.p2c_ready_index();
             if index.is_none() {
                 debug_assert_eq!(self.services.ready_len(), 0);
                 return Ok(Async::NotReady);
@@ -191,7 +197,7 @@ where
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
-        let index = self.next_ready_index.take().expect("called before ready");
+        let index = self.ready_index.take().expect("called before ready");
         self.services
             .call_ready_index(index, request)
             .map_err(Into::into)
