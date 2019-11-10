@@ -8,11 +8,11 @@ publish = false
 futures = "0.1"
 hdrhistogram = "6.0"
 log = "0.4.1"
-tower-service = "0.2.0"
-tower-filter = { version = "0.1", path = "../tower-filter" }
-tokio-mock-task = { git = "https://github.com/carllerche/tokio-mock-task" }
 tokio-timer = "0.2.6"
+tower-filter = { version = "0.1", path = "../tower-filter" }
+tower-service = "0.2.0"
 
 [dev-dependencies]
-tower-test = { version = "0.1", path = "../tower-test" }
 tokio-executor = "0.1.2"
+tokio-mock-task = { git = "https://github.com/carllerche/tokio-mock-task" }
+tower-test = { version = "0.1", path = "../tower-test" }
