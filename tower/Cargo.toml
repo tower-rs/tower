@@ -43,5 +43,4 @@ tower-util = { version = "0.1.0", features = ["io"] }
 futures = "0.1.26"
 log = "0.4.1"
 tokio = "0.1"
-env_logger = { version = "0.5.3", default-features = false }
 void = "1.0.2"
