@@ -1,3 +1,5 @@
+//! A cache of services.
+
 use crate::error;
 use futures::{stream, Async, Future, Poll, Stream};
 pub use indexmap::Equivalent;

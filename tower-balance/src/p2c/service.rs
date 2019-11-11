@@ -98,10 +98,22 @@ where
 
     fn promote_pending_to_ready(&mut self) {
         loop {
-            if let Err(error) = self.services.poll_pending() {
-                debug!(%error, "dropping failed endpoint");
-            } else {
-                break;
+            match self.services.poll_pending() {
+                Ok(Async::Ready(())) => {
+                    // There are no remaining pending services.
+                    debug_assert_eq!(self.services.pending_len(), 0);
+                    break;
+                }
+                Ok(Async::NotReady) => {
+                    // None of the pending services are ready.
+                    debug_assert!(self.services.pending_len() > 0);
+                    break;
+                }
+                Err(error) => {
+                    // An individual service was lost; continue processing
+                    // pending services.
+                    debug!(%error, "dropping failed endpoint");
+                }
             }
         }
         trace!(
@@ -166,14 +178,18 @@ where
     >;
 
     fn poll_ready(&mut self) -> Poll<(), Self::Error> {
+        // `ready_index` may have already been set by a prior invocation. These
+        // updates cannot disturb the order of existing ready services.
         self.update_pending_from_discover()?;
         self.promote_pending_to_ready();
+
         loop {
             // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
-            // before a request is dispatched to it. If, e.g., a failure
-            // detector has changed the state of the service, it may be evicted
-            // from the ready set so that another service can be selected.
+            // before a request is dispatched to it (i.e. in the same task
+            // invocation). If, e.g., a failure detector has changed the state
+            // of the service, it may be evicted from the ready set so that
+            // another service can be selected.
             if let Some(index) = self.ready_index.take() {
                 match self.services.check_ready_index(index) {
                     Err(Failed(_, error)) => {
@@ -184,13 +200,20 @@ where
                         self.ready_index = Some(index);
                         return Ok(Async::Ready(()));
                     }
-                    Ok(false) => {}
+                    Ok(false) => {
+                        // The previously-ready service is no longer ready.
+                        trace!("ready service became pending");
+                    }
                 }
             }
 
+            // Select a new service by comparing two at random and using the
+            // lesser-loaded service.
             self.ready_index = self.p2c_ready_index();
             if self.ready_index.is_none() {
                 debug_assert_eq!(self.services.ready_len(), 0);
+                // We have previously registered interest in updates from
+                // discover and pending services.
                 return Ok(Async::NotReady);
             }
         }
