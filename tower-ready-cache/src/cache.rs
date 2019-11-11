@@ -300,7 +300,7 @@ where
         }
     }
 
-    /// Calls a ready service by key,
+    /// Calls a ready service by key.
     ///
     /// # Panics
     ///
