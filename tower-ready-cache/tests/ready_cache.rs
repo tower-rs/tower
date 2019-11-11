@@ -1,10 +1,5 @@
-#![allow(warnings)]
-
 use futures::prelude::*;
-use std::{thread, time::Duration};
-use tokio_executor::{SpawnError, TypedExecutor};
 use tower_ready_cache::{error, ReadyCache};
-use tower_service::Service;
 use tower_test::mock;
 
 fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
@@ -14,7 +9,6 @@ fn with_task<F: FnOnce() -> U, U>(f: F) -> U {
 
 type Req = &'static str;
 type Mock = mock::Mock<Req, Req>;
-type Handle = mock::Handle<Req, Req>;
 
 #[test]
 fn poll_ready_inner_failure() {
