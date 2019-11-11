@@ -72,7 +72,7 @@ where
             self.services.remove(sid);
             tracing::trace!(
                 pool.services = self.services.len(),
-                "removing dropped service"
+                message = "removing dropped service"
             );
         }
 
@@ -94,7 +94,7 @@ where
 
                 tracing::trace!(
                     pool.services = self.services.len(),
-                    "decided to add service to loaded pool"
+                    message = "decided to add service to loaded pool"
                 );
                 try_ready!(self.maker.poll_ready());
                 tracing::trace!("making new service");
@@ -113,7 +113,7 @@ where
                 };
                 tracing::trace!(
                     pool.services = self.services.len(),
-                    "finished creating new service"
+                    message = "finished creating new service"
                 );
                 self.load = Level::Normal;
                 return Ok(Async::Ready(Change::Insert(id, svc)));
@@ -137,7 +137,7 @@ where
                 // that'll happen automatically on drop
                 tracing::trace!(
                     pool.services = self.services.len(),
-                    "removing service for over-provisioned pool"
+                    message = "removing service for over-provisioned pool"
                 );
                 Ok(Async::Ready(Change::Remove(rm)))
             }
@@ -329,7 +329,7 @@ where
             let discover = self.balance.discover_mut();
             if self.ewma < self.options.low {
                 if discover.load != Level::Low {
-                    tracing::trace!(ewma = %self.ewma, "pool is over-provisioned");
+                    tracing::trace!({ ewma = %self.ewma }, "pool is over-provisioned");
                 }
                 discover.load = Level::Low;
 
@@ -339,7 +339,7 @@ where
                 }
             } else {
                 if discover.load != Level::Normal {
-                    tracing::trace!(ewma = %self.ewma, "pool is appropriately provisioned");
+                    tracing::trace!({ ewma = %self.ewma }, "pool is appropriately provisioned");
                 }
                 discover.load = Level::Normal;
             }
@@ -355,7 +355,7 @@ where
 
             if self.ewma > self.options.high {
                 if discover.load != Level::High {
-                    tracing::trace!(ewma = %self.ewma, "pool is under-provisioned");
+                    tracing::trace!({ ewma = %self.ewma }, "pool is under-provisioned");
                 }
                 discover.load = Level::High;
 
