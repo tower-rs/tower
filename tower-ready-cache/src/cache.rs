@@ -20,13 +20,17 @@ use tower_service::Service;
 /// added to the _pending set_. As `ReadyCache::poll_pending` is invoked, pending
 /// services are polled and added to the _ready set_.
 ///
+/// `ReadyCache::call_ready` (or `ReadyCache::call_ready_index`) dispatch a
+/// request to the specified service, but panic if the specified service is not
+/// in the ready set. The `ReadyCache::check_*` functions can be used to ensure
+/// that a service is ready before dispatching a request.
+///
 /// The ready set can hold services for an abitrarily long time. During this
 /// time, the runtime may process events that invalidate that ready state (for
-/// instance, if a keepalive detects a lost connection). Therfore it is
-/// **required** that a ready service is checked via `ReadyCache::check_ready`
-/// (or `ReadyCache::check_ready_index`); and only when such a call returns
-/// `true` may `ReadyCache::call_ready` (or `ReadyCache::call_ready_index`) be
-/// invoked.
+/// instance, if a keepalive detects a lost connection). In such cases, callers
+/// should use `ReadyCache::check_ready` (or `ReadyCache::check_ready_index`)
+/// immediately before dispatching a request to ensure that the service has not
+/// become unavailable.
 ///
 /// Once `ReadyCache::call_ready*` is invoked, the service is placed back into
 /// the _pending_ set to be driven to readiness again.
@@ -296,10 +300,11 @@ where
         }
     }
 
-    /// Calls a ready service by key
+    /// Calls a ready service by key,
     ///
-    /// Panics if `check_ready` did not return true in the same task invocation
-    /// as this call.
+    /// # Panics
+    ///
+    /// If the specified key does not exist in the ready
     pub fn call_ready<Q: Hash + Equivalent<K>>(&mut self, key: &Q, req: Req) -> S::Future {
         let (index, _, _) = self
             .ready
@@ -308,10 +313,11 @@ where
         self.call_ready_index(index, req)
     }
 
-    /// Calls a ready service by index
+    /// Calls a ready service by index.
     ///
-    /// Panics if `check_ready_index` did not return true in the same task
-    /// invocation as this call.
+    /// # Panics
+    ///
+    /// If the specified index is out of range.
     pub fn call_ready_index(&mut self, index: usize, req: Req) -> S::Future {
         let (key, (mut svc, cancel)) = self
             .ready
