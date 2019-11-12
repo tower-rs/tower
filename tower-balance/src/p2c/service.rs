@@ -192,17 +192,19 @@ where
             // another service can be selected.
             if let Some(index) = self.ready_index.take() {
                 match self.services.check_ready_index(index) {
-                    Err(Failed(_, error)) => {
-                        // If the ready endpoitn fails
-                        debug!(%error, "lost endpoint");
-                    }
                     Ok(true) => {
+                        // The service remains ready.
                         self.ready_index = Some(index);
                         return Ok(Async::Ready(()));
                     }
                     Ok(false) => {
-                        // The previously-ready service is no longer ready.
-                        trace!("ready service became pending");
+                        // The service is no longer ready. Try to find a new one.
+                        trace!("ready service became unavailable");
+                    }
+                    Err(Failed(_, error)) => {
+                        // The ready endpoint failed, so log the error and try
+                        // to find a new one.
+                        debug!(%error, "endpoint failed");
                     }
                 }
             }

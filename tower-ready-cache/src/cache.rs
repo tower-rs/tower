@@ -17,11 +17,11 @@ use tower_service::Service;
 /// * a set of _ready_ services that have previously polled ready.
 ///
 /// As each `S` typed `Service` is added to the cache via `ReadyCache::push`, it
-/// added to the _pending set_. As `ReadyCache::poll_pending` is invoked, pending
-/// services are polled and added to the _ready set_.
+/// is added to the _pending set_. As `ReadyCache::poll_pending` is invoked,
+/// pending services are polled and added to the _ready set_.
 ///
-/// `ReadyCache::call_ready` (or `ReadyCache::call_ready_index`) dispatch a
-/// request to the specified service, but panic if the specified service is not
+/// `ReadyCache::call_ready` (or `ReadyCache::call_ready_index`) dispatches a
+/// request to the specified service, but panics if the specified service is not
 /// in the ready set. The `ReadyCache::check_*` functions can be used to ensure
 /// that a service is ready before dispatching a request.
 ///
