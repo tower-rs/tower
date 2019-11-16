@@ -190,6 +190,15 @@ impl<L> ServiceBuilder<L> {
         self.layer(LoadShedLayer::new())
     }
 
+    /// Map one request type to another.
+    ///
+    /// As an example, when a request requires state to be stored, this layer
+    /// allows to define that state at a specific point while building the
+    /// request.
+    pub fn map<F>(self, func: F) -> ServiceBuilder<Stack<MapLayer<F>, L>> {
+        self.layer(MapLayer::new(func))
+    }
+
     /// Limit requests to at most `num` per the given duration
     pub fn rate_limit(self, num: u64, per: Duration) -> ServiceBuilder<Stack<RateLimitLayer, L>> {
         self.layer(RateLimitLayer::new(num, per))
