@@ -34,7 +34,7 @@ tower-discover = "0.1.0"
 tower-layer = "0.1.0"
 tower-limit = "0.1.0"
 tower-load-shed = "0.1.0"
-tower-map = "0.1.0"
+tower-map = { version = "0.1.0", path = "../tower-map" }
 tower-retry = "0.1.0"
 tower-service = "0.2.0"
 tower-timeout = "0.1.0"
