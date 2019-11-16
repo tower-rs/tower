@@ -4,6 +4,7 @@ use crate::{
     buffer::BufferLayer,
     limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer},
     load_shed::LoadShedLayer,
+    map::MapLayer,
     retry::RetryLayer,
     timeout::TimeoutLayer,
 };
@@ -195,7 +196,7 @@ impl<L> ServiceBuilder<L> {
     /// As an example, when a request requires state to be stored, this layer
     /// allows to define that state at a specific point while building the
     /// request.
-    pub fn map<F>(self, func: F) -> ServiceBuilder<Stack<MapLayer<F>, L>> {
+    pub fn map<F, R1, R2>(self, func: F) -> ServiceBuilder<Stack<MapLayer<F, R1, R2>, L>> {
         self.layer(MapLayer::new(func))
     }
 

@@ -20,6 +20,8 @@ pub use tower_limit as limit;
 #[doc(inline)]
 pub use tower_load_shed as load_shed;
 #[doc(inline)]
+pub use tower_map as map;
+#[doc(inline)]
 pub use tower_retry as retry;
 #[doc(inline)]
 pub use tower_timeout as timeout;
