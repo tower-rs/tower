@@ -1,5 +1,4 @@
 use crate::error;
-<<<<<<< HEAD
 use futures_core::{ready, Stream};
 use futures_util::{stream, try_future, try_future::TryFutureExt};
 use indexmap::IndexMap;
@@ -13,10 +12,6 @@ use std::{
     task::{Context, Poll},
 };
 use tokio_sync::oneshot;
-=======
-use futures::{future, Async, Future, Poll};
-use rand::{rngs::SmallRng, SeedableRng};
->>>>>>> origin/master
 use tower_discover::{Change, Discover};
 use tower_load::Load;
 use tower_ready_cache::{error::Failed, ReadyCache};

@@ -1,13 +1,7 @@
 use super::Balance;
-<<<<<<< HEAD
 use futures_core::ready;
 use pin_project::pin_project;
 use rand::{rngs::SmallRng, FromEntropy};
-=======
-use crate::error;
-use futures::{try_ready, Future, Poll};
-use rand::{rngs::SmallRng, SeedableRng};
->>>>>>> origin/master
 use std::marker::PhantomData;
 use std::{
     future::Future,
