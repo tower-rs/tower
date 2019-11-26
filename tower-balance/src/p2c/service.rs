@@ -1,4 +1,5 @@
 use crate::error;
+<<<<<<< HEAD
 use futures_core::{ready, Stream};
 use futures_util::{stream, try_future, try_future::TryFutureExt};
 use indexmap::IndexMap;
@@ -12,8 +13,13 @@ use std::{
     task::{Context, Poll},
 };
 use tokio_sync::oneshot;
+=======
+use futures::{future, Async, Future, Poll};
+use rand::{rngs::SmallRng, SeedableRng};
+>>>>>>> origin/master
 use tower_discover::{Change, Discover};
 use tower_load::Load;
+use tower_ready_cache::{error::Failed, ReadyCache};
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -40,14 +46,8 @@ use tracing::{debug, trace};
 pub struct Balance<D: Discover, Req> {
     discover: D,
 
-    ready_services: IndexMap<D::Key, D::Service>,
-
-    unready_services: stream::FuturesUnordered<UnreadyService<D::Key, D::Service, Req>>,
-    cancelations: IndexMap<D::Key, oneshot::Sender<()>>,
-
-    /// Holds an index into `endpoints`, indicating the service that has been
-    /// chosen to dispatch the next request.
-    next_ready_index: Option<usize>,
+    services: ReadyCache<D::Key, D::Service, Req>,
+    ready_index: Option<usize>,
 
     rng: SmallRng,
 
@@ -94,6 +94,7 @@ impl<D, Req> Balance<D, Req>
 where
     D: Discover,
     D::Service: Service<Req>,
+    <D::Service as Service<Req>>::Error: Into<error::Error>,
 {
     /// Initializes a P2C load balancer from the provided randomization source.
     pub fn new(discover: D, rng: SmallRng) -> Self {
@@ -116,10 +117,9 @@ where
 
     /// Returns the number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
-        self.ready_services.len() + self.unready_services.len()
+        self.services.len()
     }
 
-    // XXX `pool::Pool` requires direct access to this... Not ideal.
     pub(crate) fn discover_mut(&mut self) -> &mut D {
         &mut self.discover
     }
@@ -145,12 +145,13 @@ where
             {
                 Change::Remove(key) => {
                     trace!("remove");
-                    self.evict(&key)
+                    self.services.evict(&key);
                 }
-                Change::Insert(key, svc) => {
+                Async::Ready(Change::Insert(key, svc)) => {
                     trace!("insert");
-                    self.evict(&key);
-                    self.push_unready(key, svc);
+                    // If this service already existed in the set, it will be
+                    // replaced as the new one becomes ready.
+                    self.services.push(key, svc);
                 }
             }
         }
@@ -200,30 +201,16 @@ where
                 }
             }
         }
-    }
-
-    // Returns the updated index of `orig_idx` after the entry at `rm_idx` was
-    // swap-removed from an IndexMap with `orig_sz` items.
-    //
-    // If `orig_idx` is the same as `rm_idx`, None is returned to indicate that
-    // index cannot be repaired.
-    fn repair_index(orig_idx: usize, rm_idx: usize, new_sz: usize) -> Option<usize> {
-        debug_assert!(orig_idx <= new_sz && rm_idx <= new_sz);
-        let repaired = match orig_idx {
-            i if i == rm_idx => None,         // removed
-            i if i == new_sz => Some(rm_idx), // swapped
-            i => Some(i),                     // uneffected
-        };
         trace!(
-            { next.idx = orig_idx, removed.idx = rm_idx, length = new_sz, repaired.idx = ?repaired },
-            "repairing index"
+            ready = %self.services.ready_len(),
+            pending = %self.services.pending_len(),
+            "poll_unready"
         );
-        repaired
     }
 
     /// Performs P2C on inner services to find a suitable endpoint.
-    fn p2c_next_ready_index(&mut self) -> Option<usize> {
-        match self.ready_services.len() {
+    fn p2c_ready_index(&mut self) -> Option<usize> {
+        match self.services.ready_len() {
             0 => None,
             1 => Some(0),
             len => {
@@ -237,17 +224,24 @@ where
 
                 let aload = self.ready_index_load(aidx);
                 let bload = self.ready_index_load(bidx);
-                let ready = if aload <= bload { aidx } else { bidx };
+                let chosen = if aload <= bload { aidx } else { bidx };
 
-                trace!({ a.idx = aidx, a.load = ?aload, b.idx = bidx, b.load = ?bload, ready = ?ready }, "choosing by load");
-                Some(ready)
+                trace!(
+                    a.index = aidx,
+                    a.load = ?aload,
+                    b.index = bidx,
+                    b.load = ?bload,
+                    chosen = if chosen == aidx { "a" } else { "b" },
+                    "p2c",
+                );
+                Some(chosen)
             }
         }
     }
 
     /// Accesses a ready endpoint by index and returns its current load.
     fn ready_index_load(&self, index: usize) -> <D::Service as Load>::Metric {
-        let (_, svc) = self.ready_services.get_index(index).expect("invalid index");
+        let (_, svc) = self.services.get_ready_index(index).expect("invalid index");
         svc.load()
     }
 
@@ -315,7 +309,7 @@ where
         trace!({ nready = self.ready_services.len(), nunready = self.unready_services.len() }, "poll_ready");
 
         loop {
-            // If a node has already been selected, ensure that it is ready.
+            // If a service has already been selected, ensure that it is ready.
             // This ensures that the underlying service is ready immediately
             // before a request is dispatched to it. If, e.g., a failure
             // detector has changed the state of the service, it may be evicted
@@ -327,8 +321,6 @@ where
                 if let Poll::Ready(Ok(())) = self.poll_ready_index_or_evict(cx, index) {
                     return Poll::Ready(Ok(()));
                 }
-
-                self.next_ready_index = None;
             }
 
             self.next_ready_index = self.p2c_next_ready_index();

@@ -8,7 +8,11 @@ name = "tower-buffer"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
+<<<<<<< HEAD
 version = "0.3.0-alpha.2"
+=======
+version = "0.1.2"
+>>>>>>> origin/master
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
