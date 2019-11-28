@@ -2,7 +2,7 @@
 
 members = [
   "tower",
-  "tower-balance",
+  # "tower-balance",
   "tower-buffer",
   "tower-discover",
   "tower-filter",
