@@ -41,9 +41,18 @@ use std::task::{Context, Poll};
 ///
 /// As an example, here is how an HTTP request is processed by a server:
 ///
-/// ```rust,ignore
-/// impl Service<http::Request> for HelloWorld {
-///     type Response = http::Response;
+/// ```rust
+/// # use std::pin::Pin;
+/// # use std::task::{Poll, Context};
+/// # use std::future::Future;
+/// # use tower_service::Service;
+/// 
+/// use http::{Request, Response, StatusCode};
+/// 
+/// struct HelloWorld;
+/// 
+/// impl Service<Request<Vec<u8>>> for HelloWorld {
+///     type Response = Response<Vec<u8>>;
 ///     type Error = http::Error;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
@@ -51,13 +60,24 @@ use std::task::{Context, Poll};
 ///         Poll::Ready(Ok(()))
 ///     }
 ///
-///     fn call(&mut self, req: http::Request) -> Self::Future {
+///     fn call(&mut self, req: Request<Vec<u8>>) -> Self::Future {
+///         // create the body
+///         let body: Vec<u8> = "hello, world!\n"
+///             .as_bytes()
+///             .to_owned();
 ///         // Create the HTTP response
-///         let resp = http::Response::ok()
-///             .with_body(b"hello world\n");
+///         let resp = Response::builder()
+///             .status(StatusCode::OK)
+///             .body(body)
+///             .expect("Unable to create `http::Response`");
+///         
+///         // create a response in a future.
+///         let fut = async {
+///             Ok(resp)
+///         };
 ///
 ///         // Return the response as an immediate future
-///         Box::pin(async move { Ok(resp) })
+///         Box::pin(fut)
 ///     }
 /// }
 /// ```
