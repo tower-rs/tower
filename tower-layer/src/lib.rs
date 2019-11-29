@@ -15,6 +15,7 @@
 
 mod identity;
 mod stack;
+
 pub use self::{identity::Identity, stack::Stack};
 
 /// Decorates a `Service`, transforming either the request or the response.
