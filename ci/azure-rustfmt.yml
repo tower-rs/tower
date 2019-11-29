@@ -7,7 +7,7 @@ jobs:
   steps:
     - template: azure-install-rust.yml
       parameters:
-        rust: nightly
+        rust: stable
         components:
           - rustfmt
     - bash: |
