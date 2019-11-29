@@ -1,5 +1,5 @@
-use std::fmt;
 use super::Layer;
+use std::fmt;
 
 /// A no-op middleware.
 ///

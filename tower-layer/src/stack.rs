@@ -1,5 +1,5 @@
-use std::fmt;
 use super::Layer;
+use std::fmt;
 
 /// Two middlewares chained together.
 #[derive(Clone)]
