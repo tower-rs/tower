@@ -1,3 +1,8 @@
+# 0.3.0 (November 29, 2019)
+
+- Update to `futures 0.3`.
+- Update documentation for `std::future::Future`.
+
 # 0.3.0-alpha.2 (September 30, 2019)
 
 - Documentation fixes.
