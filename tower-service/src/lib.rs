@@ -46,11 +46,11 @@ use std::task::{Context, Poll};
 /// # use std::task::{Poll, Context};
 /// # use std::future::Future;
 /// # use tower_service::Service;
-/// 
+///
 /// use http::{Request, Response, StatusCode};
-/// 
+///
 /// struct HelloWorld;
-/// 
+///
 /// impl Service<Request<Vec<u8>>> for HelloWorld {
 ///     type Response = Response<Vec<u8>>;
 ///     type Error = http::Error;
