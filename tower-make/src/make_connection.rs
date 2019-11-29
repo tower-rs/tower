@@ -1,10 +1,10 @@
 use crate::sealed::Sealed;
 use std::future::Future;
 use std::task::{Context, Poll};
-use tokio_io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tower_service::Service;
 
-/// The MakeConnection trait is used to create transports
+/// The MakeConnection trait is used to create transports.
 ///
 /// The goal of this service is to allow composable methods for creating
 /// `AsyncRead + AsyncWrite` transports. This could mean creating a TLS
@@ -19,7 +19,7 @@ pub trait MakeConnection<Target>: Sealed<(Target,)> {
     /// The future that eventually produces the transport
     type Future: Future<Output = Result<Self::Connection, Self::Error>>;
 
-    /// Returns `Ready` when it is able to make more connections.
+    /// Returns `Poll::Ready(Ok(()))` when it is able to make more connections.
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Connect and return a transport asynchronously
