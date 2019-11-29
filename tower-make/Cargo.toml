@@ -1,6 +1,6 @@
 [package]
 name = "tower-make"
-version = "0.3.0-alpha.2a"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
@@ -14,10 +14,10 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [features]
-io = ["tokio-io"]
+io = ["tokio"]
 
 [dependencies]
 # we don't use any of the possibly unstable io bits, so we can be loose
 # about the exact alpha version
-tokio-io = { version = "0.2.0-alpha.6", optional = true }
-tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
+tokio = { version = "0.2.1", optional = true }
+tower-service = { version = "0.3.0", path = "../tower-service" }
