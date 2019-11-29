@@ -1,3 +1,7 @@
+# 0.3.0 (November 29, 2019)
+
+- Move layer builder from `tower-util` to tower-layer.
+
 # 0.3.0-alpha.2 (September 30, 2019)
 
 - Move to `futures-*-preview 0.3.0-alpha.19`

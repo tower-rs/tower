@@ -1,5 +1,5 @@
 use std::fmt;
-use tower_layer::Layer;
+use super::Layer;
 
 /// A no-op middleware.
 ///
@@ -27,7 +27,7 @@ impl<S> Layer<S> for Identity {
 }
 
 impl fmt::Debug for Identity {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Identity").finish()
     }
 }
