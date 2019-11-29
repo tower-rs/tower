@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-service/0.3.0-alpha.2")]
+#![doc(html_root_url = "https://docs.rs/tower-service/0.3.0")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
@@ -57,7 +57,7 @@ use std::task::{Context, Poll};
 ///             .with_body(b"hello world\n");
 ///
 ///         // Return the response as an immediate future
-///         Box::pin(futures::future::ok(resp))
+///         Box::pin(async move { Ok(resp) })
 ///     }
 /// }
 /// ```
@@ -75,10 +75,10 @@ use std::task::{Context, Poll};
 ///     .connect("127.0.0.1:6379".parse().unwrap())
 ///     .unwrap();
 ///
-/// let resp = client.call(Cmd::set("foo", "this is the value of foo"));
+/// let resp = client.call(Cmd::set("foo", "this is the value of foo")).await?;
 ///
 /// // Wait for the future to resolve
-/// println!("Redis response: {:?}", await(resp));
+/// println!("Redis response: {:?}", resp);
 /// ```
 ///
 /// # Middleware / Layer
@@ -94,7 +94,7 @@ use std::task::{Context, Poll};
 /// ```rust,ignore
 /// use tower_service::Service;
 /// use tower_layer::Layer;
-/// use futures_util::future::FutureExt;
+/// use futures::FutureExt;
 /// use std::future::Future;
 /// use std::task::{Context, Poll};
 /// use std::time::Duration;
@@ -139,7 +139,7 @@ use std::task::{Context, Poll};
 ///             .map(|_| Err(Self::Error::from(Expired)));
 ///
 ///         let fut = Box::pin(self.inner.call(req));
-///         let f = futures_util::future::select(fut, timeout)
+///         let f = futures::select(fut, timeout)
 ///             .map(|either| either.factor_first().0);
 ///
 ///         Box::pin(f)
@@ -186,18 +186,19 @@ pub trait Service<Request> {
     /// The future response value.
     type Future: Future<Output = Result<Self::Response, Self::Error>>;
 
-    /// Returns `Ready` when the service is able to process requests.
+    /// Returns `Poll::Ready(Ok(()))` when the service is able to process requests.
     ///
-    /// If the service is at capacity, then `NotReady` is returned and the task
+    /// If the service is at capacity, then `Poll::Pending` is returned and the task
     /// is notified when the service becomes ready again. This function is
-    /// expected to be called while on a task.
+    /// expected to be called while on a task. Generally, this can be done with
+    /// a simple `futures::future::poll_fn` call.
     ///
-    /// If `Err` is returned, the service is no longer able to service requests
+    /// If `Poll::Ready(Err(_))` is returned, the service is no longer able to service requests
     /// and the caller should discard the service instance.
     ///
-    /// Once `poll_ready` returns `Ready`, a request may be dispatched to the
+    /// Once `poll_ready` returns `Poll::Ready(Ok(()))`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
-    /// `poll_ready` must return either `Ready` or `Err`.
+    /// `poll_ready` must return either `Poll::Ready(Ok(()))` or `Poll::Ready(Err(_))`.
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Process the request and return the response asynchronously.
@@ -206,12 +207,12 @@ pub trait Service<Request> {
     /// implementations should take care to not call `poll_ready`.
     ///
     /// Before dispatching a request, `poll_ready` must be called and return
-    /// `Ready`.
+    /// `Poll::Ready(Ok(()))`.
     ///
     /// # Panics
     ///
     /// Implementations are permitted to panic if `call` is invoked without
-    /// obtaining `Ready` from `poll_ready`.
+    /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
     fn call(&mut self, req: Request) -> Self::Future;
 }
 

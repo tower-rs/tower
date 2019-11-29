@@ -9,7 +9,7 @@ simple, but powerful trait. At its heart, `Service` is just an asynchronous
 function of request to response.
 
 ```
-fn(Request) -> Future<Item = Response>
+async fn(Request) -> Result<Response, Error>
 ```
 
 Implementations of `Service` take a request, the type of which varies per
