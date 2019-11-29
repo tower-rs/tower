@@ -1,5 +1,5 @@
+use super::Layer;
 use std::fmt;
-use tower_layer::Layer;
 
 /// Two middlewares chained together.
 #[derive(Clone)]
@@ -34,7 +34,7 @@ where
     Inner: fmt::Debug,
     Outer: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // The generated output of nested `Stack`s is very noisy and makes
         // it harder to understand what is in a `ServiceBuilder`.
         //

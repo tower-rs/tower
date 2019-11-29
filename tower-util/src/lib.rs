@@ -18,9 +18,6 @@ mod ready;
 mod sealed;
 mod service_fn;
 
-/// Different ways to chain service layers.
-pub mod layer;
-
 pub use crate::{
     boxed::{BoxService, UnsyncBoxService},
     call_all::{CallAll, CallAllUnordered},

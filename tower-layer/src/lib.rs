@@ -13,6 +13,11 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 
+mod identity;
+mod stack;
+
+pub use self::{identity::Identity, stack::Stack};
+
 /// Decorates a `Service`, transforming either the request or the response.
 ///
 /// Often, many of the pieces needed for writing network applications can be
