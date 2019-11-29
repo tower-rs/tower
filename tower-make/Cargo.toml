@@ -18,4 +18,4 @@ connect = ["tokio"]
 
 [dependencies]
 tower-service = { version = "0.3", path = "../tower-service" }
-tokio = { version = "0.2", features = ["io"], optional = true }
+tokio = { version = "0.2", optional = true }
