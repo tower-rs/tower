@@ -25,6 +25,7 @@ jobs:
       # - tower-reconnect
       # - tower-retry
       - tower-service
+      - tower-make
       # - tower-spawn-ready
       # - tower-test
       # - tower-timeout

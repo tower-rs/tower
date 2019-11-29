@@ -30,13 +30,9 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
 
     /// Returns `Ready` when the factory is able to create more services.
     ///
-    /// If the service is at capacity, then `NotReady` is returned and the task
+    /// If the service is at capacity, then `Poll::Pending` is returned and the task
     /// is notified when the service becomes ready again. This function is
     /// expected to be called while on a task.
-    ///
-    /// This is a **best effort** implementation. False positives are permitted.
-    /// It is permitted for the service to return `Ready` from a `poll_ready`
-    /// call and for the next invocation of `call` to result in an error.
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::MakeError>>;
 
     /// Create and return a new service value asynchronously.

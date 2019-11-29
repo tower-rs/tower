@@ -1,3 +1,8 @@
+# 0.3.0 (November 29, 2019)
+
+- Update `tokio` to `0.2`.
+- Rename `io` feature to `connect`.
+
 # 0.3.0-alpha.2a (September 30, 2019)
 
 - Update `tokio-io` to `alpha.6`
