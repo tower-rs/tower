@@ -7,7 +7,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_timer::Delay;
+use tokio::time::Delay;
 
 /// `Timeout` response future
 #[pin_project]
