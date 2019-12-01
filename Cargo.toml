@@ -12,7 +12,7 @@ members = [
   # "tower-load",
   # "tower-load-shed",
   # "tower-ready-cache",
-  # "tower-reconnect",
+  "tower-reconnect",
   # "tower-retry",
   "tower-service",
   # "tower-spawn-ready",
