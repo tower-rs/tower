@@ -1,3 +1,9 @@
+# 0.3.0 (December 1, 2019)
+
+- Remove `futures-executor` dependency
+- Update to non-alpha versions
+- Add `mock::task_fn` util fn
+
 # 0.3.0-alpha.2 (September 30, 2019)
 
 - Move to `futures-*-preview 0.3.0-alpha.19`

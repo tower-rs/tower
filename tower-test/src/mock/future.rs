@@ -3,7 +3,7 @@
 use crate::mock::error::{self, Error};
 use futures_util::ready;
 use pin_project::pin_project;
-use tokio_sync::oneshot;
+use tokio::sync::oneshot;
 
 use std::{
     future::Future,

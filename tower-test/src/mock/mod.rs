@@ -6,7 +6,7 @@ pub mod future;
 use crate::mock::{error::Error, future::ResponseFuture};
 use core::task::Waker;
 
-use tokio_sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot};
 use tower_service::Service;
 
 use std::{
@@ -17,6 +17,21 @@ use std::{
     task::{Context, Poll},
     u64,
 };
+
+/// Mock a task and Service.
+pub fn task_fn<T, U, F>(mut f: F)
+where
+    F: FnMut(&mut Context, &mut Pin<&mut Mock<T, U>>, &mut Pin<&mut Handle<T, U>>),
+{
+    tokio_test::task::spawn(()).enter(|cx, _| {
+        let (mock, handle) = pair();
+
+        futures_util::pin_mut!(mock);
+        futures_util::pin_mut!(handle);
+
+        f(cx, &mut mock, &mut handle)
+    })
+}
 
 /// A mock service
 #[derive(Debug)]
@@ -142,7 +157,7 @@ impl<T, U> Service<T> for Mock<T, U> {
         let (tx, rx) = oneshot::channel();
         let send_response = SendResponse { tx };
 
-        match self.tx.lock().unwrap().try_send((request, send_response)) {
+        match self.tx.lock().unwrap().send((request, send_response)) {
             Ok(_) => {}
             Err(_) => {
                 // TODO: Can this be reached
@@ -208,8 +223,8 @@ impl<T, U> Handle<T, U> {
     ///
     /// This function blocks the current thread until a request is received.
     pub fn next_request(mut self: Pin<&mut Self>) -> Option<Request<T, U>> {
-        use futures_executor::block_on;
         use futures_util::future::poll_fn;
+        use tokio_test::block_on;
 
         block_on(poll_fn(|cx| self.as_mut().poll_request(cx)))
     }
