@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-reconnect/0.3.0-alpha.2")]
+#![doc(html_root_url = "https://docs.rs/tower-reconnect/0.3.0")]
 #![warn(missing_debug_implementations, rust_2018_idioms, unreachable_pub)]
 #![allow(missing_docs)] // TODO
 #![allow(elided_lifetimes_in_paths)]
@@ -16,6 +16,7 @@ use std::{
 use tower_make::MakeService;
 use tower_service::Service;
 
+/// Reconnect to failed services.
 pub struct Reconnect<M, Target>
 where
     M: Service<Target>,
@@ -38,6 +39,7 @@ impl<M, Target> Reconnect<M, Target>
 where
     M: Service<Target>,
 {
+    /// Lazily connect and reconnect to a Service.
     pub fn new<S, Request>(mk_service: M, target: Target) -> Self
     where
         M: Service<Target, Response = S>,
@@ -48,6 +50,15 @@ where
         Reconnect {
             mk_service,
             state: State::Idle,
+            target,
+        }
+    }
+
+    /// Reconnect to a already connected Service.
+    pub fn with_connection(init_conn: M::Response, mk_service: M, target: Target) -> Self {
+        Reconnect {
+            mk_service,
+            state: State::Connected(init_conn),
             target,
         }
     }

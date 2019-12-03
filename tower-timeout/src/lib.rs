@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-timeout/0.3.0-alpha.2")]
+#![doc(html_root_url = "https://docs.rs/tower-timeout/0.3.0")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
@@ -19,11 +19,8 @@ pub use crate::layer::TimeoutLayer;
 
 use crate::{error::Error, future::ResponseFuture};
 use std::task::{Context, Poll};
-use tokio_timer::{clock, delay};
-
-use tower_service::Service;
-
 use std::time::Duration;
+use tower_service::Service;
 
 /// Applies a timeout to requests.
 #[derive(Debug, Clone)]
@@ -59,7 +56,7 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         let response = self.inner.call(request);
-        let sleep = delay(clock::now() + self.timeout);
+        let sleep = tokio::time::delay_for(self.timeout);
 
         ResponseFuture::new(response, sleep)
     }

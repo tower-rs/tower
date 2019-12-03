@@ -14,15 +14,11 @@
 /// use tower_service::Service;
 /// use tower_test::mock;
 /// use std::task::{Poll, Context};
-/// use tokio_test::{task, assert_ready};
+/// use tokio_test::assert_ready;
 /// use futures_util::pin_mut;
 ///
 /// # fn main() {
-/// task::mock(|cx|{
-///     let (mut mock, mut handle) = mock::pair();
-///     pin_mut!(mock);
-///     pin_mut!(handle);
-///
+/// mock::task_fn(|cx, mock, handle|{
 ///     assert_ready!(mock.poll_ready(cx));
 ///
 ///     let _response = mock.call("hello");

@@ -6,6 +6,7 @@ use std::{
     task::{Context, Poll},
 };
 
+/// Future that resolves to the response or failure to connect.
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<F> {
