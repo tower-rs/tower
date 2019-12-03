@@ -1,3 +1,5 @@
+#![cfg(feature = "broken")]
+
 use futures_util::{future::poll_fn, pin_mut};
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok, block_on, task::MockTask};
 use tower_limit::concurrency::ConcurrencyLimit;

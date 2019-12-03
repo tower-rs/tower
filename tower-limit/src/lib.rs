@@ -9,10 +9,9 @@
 
 //! Tower middleware for limiting requests.
 
-pub mod concurrency;
+// pub mod concurrency;
 pub mod rate;
 
-pub use crate::{
-    concurrency::{ConcurrencyLimit, ConcurrencyLimitLayer},
-    rate::{RateLimit, RateLimitLayer},
-};
+pub use crate::rate::{RateLimit, RateLimitLayer};
+
+// concurrency::{ConcurrencyLimit, ConcurrencyLimitLayer},

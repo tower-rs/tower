@@ -2,8 +2,9 @@
 
 pub mod error;
 pub mod future;
+pub mod spawn;
 
-use crate::mock::{error::Error, future::ResponseFuture};
+use crate::mock::{error::Error, future::ResponseFuture, spawn::Spawn};
 use core::task::Waker;
 
 use tokio::sync::{mpsc, oneshot};
@@ -31,6 +32,10 @@ where
 
         f(cx, &mut mock, &mut handle)
     })
+}
+
+pub fn spawn<T>(inner: T) -> Spawn<T> {
+    Spawn::new(inner)
 }
 
 /// A mock service

@@ -5,10 +5,8 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_timer::{clock, Delay};
+use tokio::time::{Delay, Instant};
 use tower_service::Service;
-
-use std::time::Instant;
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
@@ -30,7 +28,7 @@ impl<T> RateLimit<T> {
     /// Create a new rate limiter
     pub fn new(inner: T, rate: Rate) -> Self {
         let state = State::Ready {
-            until: clock::now(),
+            until: Instant::now(),
             rem: rate.num(),
         };
 
@@ -74,7 +72,7 @@ where
         }
 
         self.state = State::Ready {
-            until: clock::now() + self.rate.per(),
+            until: Instant::now() + self.rate.per(),
             rem: self.rate.num(),
         };
 
@@ -84,7 +82,7 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         match self.state {
             State::Ready { mut until, mut rem } => {
-                let now = clock::now();
+                let now = Instant::now();
 
                 // If the period has elapsed, reset it.
                 if now >= until {
@@ -99,7 +97,7 @@ where
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
-                    let sleep = tokio_timer::delay(until);
+                    let sleep = tokio::time::delay_until(until);
                     self.state = State::Limited(sleep);
                 }
 
