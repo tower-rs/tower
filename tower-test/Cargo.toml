@@ -24,6 +24,10 @@ edition = "2018"
 [dependencies]
 futures-util = "0.3"
 tokio = { version = "0.2", features = ["sync"]}
+tower-layer = { version = "0.3", path = "../tower-layer" }
 tokio-test = "0.2"
 tower-service = { version = "0.3", path = "../tower-service" }
 pin-project = "0.4"
+
+[dev-dependencies]
+tokio = { version = "0.2", features = ["macros"] }

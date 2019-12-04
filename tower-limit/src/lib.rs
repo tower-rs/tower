@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower-limit/0.3.0-alpha.2")]
+#![doc(html_root_url = "https://docs.rs/tower-limit/0.3.0")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
@@ -9,9 +9,10 @@
 
 //! Tower middleware for limiting requests.
 
-// pub mod concurrency;
+pub mod concurrency;
 pub mod rate;
 
-pub use crate::rate::{RateLimit, RateLimitLayer};
-
-// concurrency::{ConcurrencyLimit, ConcurrencyLimitLayer},
+pub use crate::{
+    concurrency::{ConcurrencyLimit, ConcurrencyLimitLayer},
+    rate::{RateLimit, RateLimitLayer},
+};

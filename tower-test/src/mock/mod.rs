@@ -8,34 +8,33 @@ use crate::mock::{error::Error, future::ResponseFuture, spawn::Spawn};
 use core::task::Waker;
 
 use tokio::sync::{mpsc, oneshot};
+use tower_layer::Layer;
 use tower_service::Service;
 
 use std::{
     collections::HashMap,
     future::Future,
-    pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll},
     u64,
 };
 
-/// Mock a task and Service.
-pub fn task_fn<T, U, F>(mut f: F)
+/// Spawn a layer onto a mock service.
+pub fn spawn_layer<T, U, L>(layer: L) -> (Spawn<L::Service>, Handle<T, U>)
 where
-    F: FnMut(&mut Context, &mut Pin<&mut Mock<T, U>>, &mut Pin<&mut Handle<T, U>>),
+    L: Layer<Mock<T, U>>,
 {
-    tokio_test::task::spawn(()).enter(|cx, _| {
-        let (mock, handle) = pair();
+    let (inner, handle) = pair();
+    let svc = layer.layer(inner);
 
-        futures_util::pin_mut!(mock);
-        futures_util::pin_mut!(handle);
-
-        f(cx, &mut mock, &mut handle)
-    })
+    (Spawn::new(svc), handle)
 }
 
-pub fn spawn<T>(inner: T) -> Spawn<T> {
-    Spawn::new(inner)
+/// Spawn a Service onto a mock task.
+pub fn spawn<T, U>() -> (Spawn<Mock<T, U>>, Handle<T, U>) {
+    let (svc, handle) = pair();
+
+    (Spawn::new(svc), handle)
 }
 
 /// A mock service
@@ -217,21 +216,13 @@ impl<T, U> Drop for Mock<T, U> {
 
 impl<T, U> Handle<T, U> {
     /// Asynchronously gets the next request
-    pub fn poll_request(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Request<T, U>>> {
-        Box::pin(self.rx.recv()).as_mut().poll(cx)
+    pub fn poll_request(&mut self) -> Poll<Option<Request<T, U>>> {
+        tokio_test::task::spawn(()).enter(|cx, _| Box::pin(self.rx.recv()).as_mut().poll(cx))
     }
 
-    /// Synchronously gets the next request.
-    ///
-    /// This function blocks the current thread until a request is received.
-    pub fn next_request(mut self: Pin<&mut Self>) -> Option<Request<T, U>> {
-        use futures_util::future::poll_fn;
-        use tokio_test::block_on;
-
-        block_on(poll_fn(|cx| self.as_mut().poll_request(cx)))
+    /// Gets the next request.
+    pub async fn next_request(&mut self) -> Option<Request<T, U>> {
+        self.rx.recv().await
     }
 
     /// Allow a certain number of requests

@@ -1,44 +1,29 @@
-use futures_util::pin_mut;
-use std::future::Future;
 use tokio_test::{assert_pending, assert_ready};
-use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 
-#[test]
-fn single_request_ready() {
-    mock::task_fn::<String, String, _>(|cx, mock, handle| {
-        // No pending requests
-        assert!(handle.as_mut().poll_request(cx).is_pending());
+#[tokio::test]
+async fn single_request_ready() {
+    let (mut service, mut handle) = mock::spawn();
 
-        // Issue a request
-        assert_ready!(mock.poll_ready(cx)).unwrap();
+    assert_pending!(handle.poll_request());
 
-        let response = mock.call("hello?".into());
-        pin_mut!(response);
+    assert_ready!(service.poll_ready()).unwrap();
 
-        // Get the request from the handle
-        let send_response = assert_request_eq!(handle, "hello?");
+    let response = service.call("hello");
 
-        // Response is not ready
-        assert_pending!(response.as_mut().poll(cx));
+    assert_request_eq!(handle, "hello").send_response("world");
 
-        // Send the response
-        send_response.send_response("yes?".into());
-
-        assert_eq!(tokio_test::block_on(response).unwrap().as_str(), "yes?");
-    });
+    assert_eq!(response.await.unwrap(), "world");
 }
 
-#[test]
+#[tokio::test]
 #[should_panic]
-fn backpressure() {
-    mock::task_fn::<String, String, _>(|cx, mock, handle| {
-        handle.allow(0);
+async fn backpressure() {
+    let (mut service, mut handle) = mock::spawn::<_, ()>();
 
-        // Make sure the mock cannot accept more requests
-        assert_pending!(mock.poll_ready(cx));
+    handle.allow(0);
 
-        // Try to send a request
-        mock.call("hello?".into());
-    });
+    assert_pending!(service.poll_ready());
+
+    service.call("hello").await.unwrap();
 }
