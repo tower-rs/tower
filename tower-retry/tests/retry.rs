@@ -54,26 +54,26 @@ async fn retry_error_inspection() {
 
 #[tokio::test]
 async fn retry_cannot_clone_request() {
-        let (mut service, mut handle) = new_service(CannotClone);
+    let (mut service, mut handle) = new_service(CannotClone);
 
-        assert_ready_ok!(service.poll_ready());
-        let mut fut = task::spawn(service.call("hello"));
+    assert_ready_ok!(service.poll_ready());
+    let mut fut = task::spawn(service.call("hello"));
 
-        assert_request_eq!(handle, "hello").send_error("retry 1");
-        assert_eq!(assert_ready_err!(fut.poll()).to_string(), "retry 1");
+    assert_request_eq!(handle, "hello").send_error("retry 1");
+    assert_eq!(assert_ready_err!(fut.poll()).to_string(), "retry 1");
 }
 
 #[tokio::test]
 async fn success_with_cannot_clone() {
-        // Even though the request couldn't be cloned, if the first request succeeds,
-        // it should succeed overall.
-        let (mut service, mut handle) = new_service(CannotClone);
+    // Even though the request couldn't be cloned, if the first request succeeds,
+    // it should succeed overall.
+    let (mut service, mut handle) = new_service(CannotClone);
 
-        assert_ready_ok!(service.poll_ready());
-        let mut fut = task::spawn(service.call("hello"));
+    assert_ready_ok!(service.poll_ready());
+    let mut fut = task::spawn(service.call("hello"));
 
-        assert_request_eq!(handle, "hello").send_response("world");
-        assert_ready_ok!(fut.poll(), "world");
+    assert_request_eq!(handle, "hello").send_response("world");
+    assert_ready_ok!(fut.poll(), "world");
 }
 
 type Req = &'static str;
