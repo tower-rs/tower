@@ -4,7 +4,9 @@ pub mod error;
 pub mod future;
 pub mod spawn;
 
-use crate::mock::{error::Error, future::ResponseFuture, spawn::Spawn};
+pub use spawn::Spawn;
+
+use crate::mock::{error::Error, future::ResponseFuture};
 use core::task::Waker;
 
 use tokio::sync::{mpsc, oneshot};
@@ -33,6 +35,18 @@ where
 /// Spawn a Service onto a mock task.
 pub fn spawn<T, U>() -> (Spawn<Mock<T, U>>, Handle<T, U>) {
     let (svc, handle) = pair();
+
+    (Spawn::new(svc), handle)
+}
+
+/// Spawn a Service via the provided wrapper closure.
+pub fn spawn_with<T, U, F, S>(f: F) -> (Spawn<S>, Handle<T, U>)
+where
+    F: Fn(Mock<T, U>) -> S,
+{
+    let (svc, handle) = pair();
+
+    let svc = f(svc);
 
     (Spawn::new(svc), handle)
 }

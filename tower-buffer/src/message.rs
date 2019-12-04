@@ -1,5 +1,5 @@
 use crate::error::ServiceError;
-use tokio_sync::oneshot;
+use tokio::sync::oneshot;
 
 /// Message sent over buffer
 #[derive(Debug)]

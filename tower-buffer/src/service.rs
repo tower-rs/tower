@@ -1,14 +1,13 @@
 use crate::{
-    error::{Error, SpawnError},
+    error::Error,
     future::ResponseFuture,
     message::Message,
-    worker::{Handle, Worker, WorkerExecutor},
+    worker::{Handle, Worker},
 };
 
 use futures_core::ready;
 use std::task::{Context, Poll};
-use tokio_executor::DefaultExecutor;
-use tokio_sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot};
 use tower_service::Service;
 
 /// Adds a buffer in front of an inner service.
@@ -20,7 +19,7 @@ where
     T: Service<Request>,
 {
     tx: mpsc::Sender<Message<Request, T::Future>>,
-    worker: Option<Handle>,
+    handle: Handle,
 }
 
 impl<T, Request> Buffer<T, Request>
@@ -42,35 +41,30 @@ where
         T::Error: Send + Sync,
         Request: Send + 'static,
     {
-        Self::with_executor(service, bound, &mut DefaultExecutor::current())
+        let (tx, rx) = mpsc::channel(bound);
+        let (handle, worker) = Worker::new(service, rx);
+        tokio::spawn(worker);
+        Buffer { tx, handle }
     }
 
-    /// Creates a new `Buffer` wrapping `service`.
+    /// Creates a new `Buffer` wrapping `service` but returns the background worker.
     ///
-    /// `executor` is used to spawn a new `Worker` task that is dedicated to
-    /// draining the buffer and dispatching the requests to the internal
-    /// service.
-    ///
-    /// `bound` gives the maximal number of requests that can be queued for the service before
-    /// backpressure is applied to callers.
-    pub fn with_executor<E>(service: T, bound: usize, executor: &mut E) -> Self
+    /// This is useful if you do not want to spawn directly onto the tokio runtime
+    /// but instead want to use your own executor. This will return the `Buffer` and
+    /// the background `Worker` that you can then spawn.
+    pub fn pair(service: T, bound: usize) -> (Buffer<T, Request>, Worker<T, Request>)
     where
-        E: WorkerExecutor<T, Request>,
+        T: Send + 'static,
+        T::Error: Send + Sync,
+        Request: Send + 'static,
     {
         let (tx, rx) = mpsc::channel(bound);
-        let worker = Worker::spawn(service, rx, executor);
-        Buffer { tx, worker }
+        let (handle, worker) = Worker::new(service, rx);
+        (Buffer { tx, handle }, worker)
     }
 
     fn get_worker_error(&self) -> Error {
-        self.worker
-            .as_ref()
-            .map(|w| w.get_error_on_closed())
-            .unwrap_or_else(|| {
-                // If there's no worker handle, that's because spawning it
-                // at the beginning failed.
-                SpawnError::new().into()
-            })
+        self.handle.get_error_on_closed()
     }
 }
 
@@ -105,19 +99,18 @@ where
         let span = tracing::Span::current();
         tracing::trace!(parent: &span, "sending request to buffer worker");
         match self.tx.try_send(Message { request, span, tx }) {
-            Err(e) => {
-                if e.is_closed() {
-                    ResponseFuture::failed(self.get_worker_error())
-                } else {
-                    // When `mpsc::Sender::poll_ready` returns `Ready`, a slot
-                    // in the channel is reserved for the handle. Other `Sender`
-                    // handles may not send a message using that slot. This
-                    // guarantees capacity for `request`.
-                    //
-                    // Given this, the only way to hit this code path is if
-                    // `poll_ready` has not been called & `Ready` returned.
-                    panic!("buffer full; poll_ready must be called first");
-                }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                ResponseFuture::failed(self.get_worker_error())
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                // When `mpsc::Sender::poll_ready` returns `Ready`, a slot
+                // in the channel is reserved for the handle. Other `Sender`
+                // handles may not send a message using that slot. This
+                // guarantees capacity for `request`.
+                //
+                // Given this, the only way to hit this code path is if
+                // `poll_ready` has not been called & `Ready` returned.
+                panic!("buffer full; poll_ready must be called first");
             }
             Ok(_) => ResponseFuture::new(rx),
         }
@@ -131,7 +124,7 @@ where
     fn clone(&self) -> Self {
         Self {
             tx: self.tx.clone(),
-            worker: self.worker.clone(),
+            handle: self.handle.clone(),
         }
     }
 }
