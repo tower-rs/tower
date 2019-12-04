@@ -6,9 +6,9 @@ use std::{
         atomic::{AtomicIsize, Ordering},
         Mutex,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
-use tokio_timer::clock;
+use tokio::time::Instant;
 
 /// Represents a "budget" for retrying requests.
 ///
@@ -102,7 +102,7 @@ impl Budget {
             bucket: Bucket {
                 generation: Mutex::new(Generation {
                     index: 0,
-                    time: clock::now(),
+                    time: Instant::now(),
                 }),
                 reserve,
                 slots: slots.into_boxed_slice(),
@@ -174,7 +174,7 @@ impl Bucket {
     fn expire(&self) {
         let mut gen = self.generation.lock().expect("generation lock");
 
-        let now = clock::now();
+        let now = Instant::now();
         let diff = now - gen.time;
         if diff < self.window {
             // not expired yet
@@ -214,7 +214,7 @@ impl Bucket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio_test::clock;
+    use tokio::time;
 
     #[test]
     fn empty() {
@@ -222,54 +222,52 @@ mod tests {
         bgt.withdraw().unwrap_err();
     }
 
-    #[test]
-    fn leaky() {
-        clock::mock(|time| {
-            let bgt = Budget::new(Duration::from_secs(1), 0, 1.0);
-            bgt.deposit();
+    #[tokio::test]
+    async fn leaky() {
+        time::pause();
 
-            time.advance(Duration::from_secs(3));
+        let bgt = Budget::new(Duration::from_secs(1), 0, 1.0);
+        bgt.deposit();
 
-            bgt.withdraw().unwrap_err();
-        });
+        time::advance(Duration::from_secs(3)).await;
+
+        bgt.withdraw().unwrap_err();
     }
 
-    #[test]
-    fn slots() {
-        clock::mock(|time| {
-            let bgt = Budget::new(Duration::from_secs(1), 0, 0.5);
-            bgt.deposit();
-            bgt.deposit();
-            time.advance(Duration::from_millis(900));
-            // 900ms later, the deposit should still be valid
-            bgt.withdraw().unwrap();
+    #[tokio::test]
+    async fn slots() {
+        time::pause();
 
-            // blank slate
-            time.advance(Duration::from_millis(2000));
+        let bgt = Budget::new(Duration::from_secs(1), 0, 0.5);
+        bgt.deposit();
+        bgt.deposit();
+        time::advance(Duration::from_millis(901)).await;
+        // 900ms later, the deposit should still be valid
+        bgt.withdraw().unwrap();
 
-            bgt.deposit();
-            time.advance(Duration::from_millis(300));
-            bgt.deposit();
-            time.advance(Duration::from_millis(800));
-            bgt.deposit();
+        // blank slate
+        time::advance(Duration::from_millis(2001)).await;
 
-            // the first deposit is expired, but the 2nd should still be valid,
-            // combining with the 3rd
-            bgt.withdraw().unwrap();
-        });
+        bgt.deposit();
+        time::advance(Duration::from_millis(301)).await;
+        bgt.deposit();
+        time::advance(Duration::from_millis(801)).await;
+        bgt.deposit();
+
+        // the first deposit is expired, but the 2nd should still be valid,
+        // combining with the 3rd
+        bgt.withdraw().unwrap();
     }
 
-    #[test]
-    fn reserve() {
-        clock::mock(|_| {
-            let bgt = Budget::new(Duration::from_secs(1), 5, 1.0);
-            bgt.withdraw().unwrap();
-            bgt.withdraw().unwrap();
-            bgt.withdraw().unwrap();
-            bgt.withdraw().unwrap();
-            bgt.withdraw().unwrap();
+    #[tokio::test]
+    async fn reserve() {
+        let bgt = Budget::new(Duration::from_secs(1), 5, 1.0);
+        bgt.withdraw().unwrap();
+        bgt.withdraw().unwrap();
+        bgt.withdraw().unwrap();
+        bgt.withdraw().unwrap();
+        bgt.withdraw().unwrap();
 
-            bgt.withdraw().unwrap_err();
-        });
+        bgt.withdraw().unwrap_err();
     }
 }
