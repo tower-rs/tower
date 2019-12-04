@@ -7,25 +7,20 @@
 /// # Examples
 ///
 /// ```rust
-/// #[macro_use]
-/// extern crate tower_test;
-/// extern crate tower_service;
-///
 /// use tower_service::Service;
-/// use tower_test::mock;
-/// use std::task::{Poll, Context};
+/// use tower_test::{mock, assert_request_eq};
 /// use tokio_test::assert_ready;
-/// use futures_util::pin_mut;
 ///
-/// # fn main() {
-/// mock::task_fn(|cx, mock, handle|{
-///     assert_ready!(mock.poll_ready(cx));
+/// # async fn test() {
+/// let (mut service, mut handle) = mock::spawn();
 ///
-///     let _response = mock.call("hello");
+/// assert_ready!(service.poll_ready());
 ///
-///     assert_request_eq!(handle, "hello")
-///         .send_response("world");
-/// });
+/// let response = service.call("hello");
+///
+/// assert_request_eq!(handle, "hello").send_response("world");
+///
+/// assert_eq!(response.await.unwrap(), "world");
 /// # }
 /// ```
 #[macro_export]
@@ -34,7 +29,7 @@ macro_rules! assert_request_eq {
         assert_request_eq!($mock_handle, $expect,)
     };
     ($mock_handle:expr, $expect:expr, $($arg:tt)*) => {{
-        let (actual, send_response) = match $mock_handle.as_mut().next_request() {
+        let (actual, send_response) = match $mock_handle.next_request().await {
             Some(r) => r,
             None => panic!("expected a request but none was received."),
         };

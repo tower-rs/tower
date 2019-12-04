@@ -1,52 +1,35 @@
-use futures_util::pin_mut;
-use tokio_test::{assert_pending, assert_ready, assert_ready_ok, clock, task::MockTask};
-use tower_limit::rate::*;
-use tower_service::*;
+use std::time::Duration;
+use tokio::time;
+use tokio_test::{assert_pending, assert_ready, assert_ready_ok};
+use tower_limit::rate::RateLimitLayer;
 use tower_test::{assert_request_eq, mock};
 
-use std::future::Future;
-use std::time::Duration;
+#[tokio::test]
+async fn reaching_capacity() {
+    time::pause();
 
-#[test]
-fn reaching_capacity() {
-    clock::mock(|time| {
-        let mut task = MockTask::new();
+    let rate_limit = RateLimitLayer::new(1, Duration::from_millis(100));
 
-        let (mut service, handle) = new_service(Rate::new(1, from_millis(100)));
-        pin_mut!(handle);
+    let (mut service, mut handle) = mock::spawn_layer(rate_limit);
 
-        assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
-        let response = service.call("hello");
-        pin_mut!(response);
+    assert_ready_ok!(service.poll_ready());
 
-        assert_request_eq!(handle, "hello").send_response("world");
-        assert_ready_ok!(task.enter(|cx| response.poll(cx)), "world");
+    let response = service.call("hello");
 
-        assert_pending!(task.enter(|cx| service.poll_ready(cx)));
-        assert_pending!(task.enter(|cx| handle.as_mut().poll_request(cx)));
+    assert_request_eq!(handle, "hello").send_response("world");
 
-        time.advance(Duration::from_millis(100));
+    assert_eq!(response.await.unwrap(), "world");
+    assert_pending!(service.poll_ready());
 
-        assert_ready_ok!(task.enter(|cx| service.poll_ready(cx)));
+    assert_pending!(handle.poll_request());
 
-        // Send a second request
-        let response = service.call("two");
-        pin_mut!(response);
+    time::advance(Duration::from_millis(101)).await;
 
-        assert_request_eq!(handle, "two").send_response("done");
-        assert_ready_ok!(task.enter(|cx| response.poll(cx)), "done");
-    });
-}
+    assert_ready_ok!(service.poll_ready());
 
-type Mock = mock::Mock<&'static str, &'static str>;
-type Handle = mock::Handle<&'static str, &'static str>;
+    let response = service.call("two");
 
-fn new_service(rate: Rate) -> (RateLimit<Mock>, Handle) {
-    let (service, handle) = mock::pair();
-    let service = RateLimit::new(service, rate);
-    (service, handle)
-}
+    assert_request_eq!(handle, "two").send_response("done");
 
-fn from_millis(n: u64) -> Duration {
-    Duration::from_millis(n)
+    assert_eq!(response.await.unwrap(), "done");
 }
