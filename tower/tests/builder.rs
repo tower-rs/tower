@@ -1,3 +1,5 @@
+#![cfg(feature  = "broken")]
+
 use futures_util::{
     future::{poll_fn, Ready},
     pin_mut,

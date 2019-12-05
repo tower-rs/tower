@@ -21,6 +21,7 @@ use tower_service::Service;
 /// # use std::rc::Rc;
 /// #
 /// use futures_util::future::{ready, Ready};
+/// use futures_util::StreamExt;
 /// use tower_service::Service;
 /// use tower::ServiceExt;
 /// use tokio::prelude::*;
@@ -51,9 +52,9 @@ use tower_service::Service;
 ///     let mut rsps = FirstLetter.call_all(rx);
 ///
 ///     // Now, let's send a few requests and then check that we get the corresponding responses.
-///     reqs.try_send("one");
-///     reqs.try_send("two");
-///     reqs.try_send("three");
+///     reqs.send("one");
+///     reqs.send("two");
+///     reqs.send("three");
 ///     drop(reqs);
 ///
 ///     // We then loop over the response Strem that we get back from call_all.

@@ -8,7 +8,7 @@ name = "tower"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.3.0-alpha.2"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
@@ -28,20 +28,20 @@ default = ["full"]
 full = []
 
 [dependencies]
-tower-buffer = { version = "=0.3.0-alpha.2", path = "../tower-buffer" }
-tower-discover = { version = "=0.3.0-alpha.2", path = "../tower-discover" }
-tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
-tower-limit = { version = "=0.3.0-alpha.2", path = "../tower-limit" }
-tower-load-shed = { version = "=0.3.0-alpha.2", path = "../tower-load-shed" }
-tower-retry = { version = "=0.3.0-alpha.2", path = "../tower-retry" }
-tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
-tower-timeout = { version = "=0.3.0-alpha.2", path = "../tower-timeout" }
-tower-util = { version = "=0.3.0-alpha.2", path = "../tower-util" }
-futures-core-preview = "=0.3.0-alpha.19"
+# tower-buffer = { version = "0.3", path = "../tower-buffer" }
+# tower-discover = { version = "0.3", path = "../tower-discover" }
+tower-layer = { version = "0.3", path = "../tower-layer" }
+tower-limit = { version = "0.3", path = "../tower-limit" }
+# tower-load-shed = { version = "0.3", path = "../tower-load-shed" }
+# tower-retry = { version = "0.3", path = "../tower-retry" }
+tower-service = { version = "0.3", path = "../tower-service" }
+tower-timeout = { version = "0.3", path = "../tower-timeout" }
+tower-util = { version = "0.3", path = "../tower-util" }
+futures-core = "0.3"
 
-[dev-dependencies]
-env_logger = { version = "0.5.3", default-features = false }
-futures-util-preview = "=0.3.0-alpha.19"
-log = "0.4.1"
-tokio = "=0.2.0-alpha.6"
-tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }
+# [dev-dependencies]
+# env_logger = { version = "0.5.3", default-features = false }
+# futures-util = "0.3"
+# log = "0.4.1"
+# # tokio = "0.2"
+# tower-test = { version = "0.3", path = "../tower-test" }

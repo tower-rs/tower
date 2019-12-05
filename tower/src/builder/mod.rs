@@ -8,8 +8,7 @@ use crate::{
     timeout::TimeoutLayer,
 };
 
-use tower_layer::Layer;
-use tower_util::layer::{Identity, Stack};
+use tower_layer::{Identity, Layer, Stack};
 
 use std::{fmt, time::Duration};
 
