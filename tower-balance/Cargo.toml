@@ -8,13 +8,13 @@ name = "tower-balance"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.3.0-alpha.2"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-balance/0.3.0-alpha.2"
+documentation = "https://docs.rs/tower-balance/0.3.0"
 description = """
 Balance load across a set of uniform services.
 """

@@ -1,3 +1,9 @@
+# 0.3.0 (December 4, 2019)
+
+- Update to `tower-service 0.3`
+- Update to `tower-ready-cache 0.3`
+- Update to `futures 0.3`
+
 # 0.3.0-alpha.2 (September 30, 2019)
 
 - Move to `futures-*-preview 0.3.0-alpha.19`
