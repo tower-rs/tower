@@ -8,7 +8,7 @@ name = "tower-ready-cache"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.1.0"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
@@ -20,7 +20,6 @@ Caches a set of services
 """
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
-publish = false
 
 [dependencies]
 futures-core = "0.3"
