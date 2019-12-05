@@ -1,16 +1,16 @@
 //! Exercises load balancers with mocked services.
 
 use futures_core::TryStream;
-use futures_util::{stream, stream::StreamExt, try_stream::TryStreamExt};
+use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
 use hdrhistogram::Histogram;
 use pin_project::pin_project;
 use rand::{self, Rng};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::timer;
+use tokio::time::{self, Instant};
 use tower::util::ServiceExt;
 use tower_balance as lb;
 use tower_discover::{Change, Discover};
@@ -116,7 +116,7 @@ fn gen_disco() -> impl Discover<
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
                     async move {
-                        timer::delay(start + latency).await;
+                        time::delay_until(start + latency).await;
                         let latency = start.elapsed();
                         Ok(Rsp { latency, instance })
                     }
@@ -140,7 +140,7 @@ where
 {
     println!("{}", name);
 
-    let requests = stream::repeat(Req).take(REQUESTS as u64);
+    let requests = stream::repeat(Req).take(REQUESTS);
     let service = ConcurrencyLimit::new(lb, CONCURRENCY);
     let responses = service.call_all(requests).unordered();
 

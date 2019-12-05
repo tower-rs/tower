@@ -1,5 +1,5 @@
 use super::BalanceMake;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, FromEntropy, Rng, SeedableRng};
 use std::{fmt, marker::PhantomData};
 use tower_layer::Layer;
 

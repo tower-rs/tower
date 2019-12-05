@@ -8,13 +8,13 @@ name = "tower-load-shed"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.3.0-alpha.2"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-load-shed/0.3.0-alpha.2"
+documentation = "https://docs.rs/tower-load-shed/0.3.0"
 description = """
 Immediately reject requests if the inner service is not ready. This is also
 known as load-shedding.
@@ -23,12 +23,12 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
-tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
+tower-service = { version = "0.3", path = "../tower-service" }
+tower-layer = { version = "0.3", path = "../tower-layer" }
 pin-project = "0.4"
-futures-core-preview = "=0.3.0-alpha.19"
+futures-core = "0.3"
 
 [dev-dependencies]
-tokio-test = "=0.2.0-alpha.6"
-tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }
-futures-util-preview = "=0.3.0-alpha.19"
+tokio-test = "0.2"
+tower-test = { version = "0.3", path = "../tower-test" }
+tokio = { version = "0.2", features = ["macros"] }

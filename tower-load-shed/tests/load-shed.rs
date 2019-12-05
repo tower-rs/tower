@@ -1,49 +1,31 @@
-use futures_util::pin_mut;
-use std::future::Future;
-use tokio_test::{assert_ready_err, assert_ready_ok, task::mock};
-use tower_load_shed::{self, LoadShed};
-use tower_service::Service;
+use tokio_test::{assert_ready_err, assert_ready_ok, task};
+use tower_load_shed::LoadShedLayer;
 use tower_test::{assert_request_eq, mock};
 
-#[test]
-fn when_ready() {
-    mock(|cx| {
-        let (mut service, handle) = new_service();
-        pin_mut!(handle);
+#[tokio::test]
+async fn when_ready() {
+    let layer = LoadShedLayer::new();
+    let (mut service, mut handle) = mock::spawn_layer(layer);
 
-        assert_ready_ok!(service.poll_ready(cx), "overload always reports ready");
+    assert_ready_ok!(service.poll_ready(), "overload always reports ready");
 
-        let response = service.call("hello");
-        pin_mut!(response);
+    let mut response = task::spawn(service.call("hello"));
 
-        assert_request_eq!(handle, "hello").send_response("world");
-        assert_eq!(assert_ready_ok!(response.poll(cx)), "world");
-    });
+    assert_request_eq!(handle, "hello").send_response("world");
+    assert_eq!(assert_ready_ok!(response.poll()), "world");
 }
 
-#[test]
-fn when_not_ready() {
-    mock(|cx| {
-        let (mut service, handle) = new_service();
-        pin_mut!(handle);
+#[tokio::test]
+async fn when_not_ready() {
+    let layer = LoadShedLayer::new();
+    let (mut service, mut handle) = mock::spawn_layer::<_, (), _>(layer);
 
-        handle.allow(0);
+    handle.allow(0);
 
-        assert_ready_ok!(service.poll_ready(cx), "overload always reports ready");
+    assert_ready_ok!(service.poll_ready(), "overload always reports ready");
 
-        let fut = service.call("hello");
-        pin_mut!(fut);
+    let mut fut = task::spawn(service.call("hello"));
 
-        let err = assert_ready_err!(fut.poll(cx));
-        assert!(err.is::<tower_load_shed::error::Overloaded>());
-    });
-}
-
-type Mock = mock::Mock<&'static str, &'static str>;
-type Handle = mock::Handle<&'static str, &'static str>;
-
-fn new_service() -> (LoadShed<Mock>, Handle) {
-    let (service, handle) = mock::pair();
-    let service = LoadShed::new(service);
-    (service, handle)
+    let err = assert_ready_err!(fut.poll());
+    assert!(err.is::<tower_load_shed::error::Overloaded>());
 }

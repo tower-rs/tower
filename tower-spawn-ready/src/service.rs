@@ -1,16 +1,12 @@
-use crate::{
-    error::{Error, SpawnError},
-    future::{background_ready, BackgroundReadyExecutor},
-};
+use crate::{future::background_ready, Error};
 use futures_core::ready;
-use futures_util::try_future::{MapErr, TryFutureExt};
+use futures_util::future::{MapErr, TryFutureExt};
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_executor::{DefaultExecutor, TypedExecutor};
-use tokio_sync::oneshot;
+use tokio::sync::oneshot;
 use tower_service::Service;
 
 /// Spawns tasks to drive an inner service to readiness.
@@ -38,9 +34,9 @@ impl<T> SpawnReady<T> {
 
 impl<T, Request> Service<Request> for SpawnReady<T>
 where
-    T: Service<Request> + Send,
+    T: Service<Request> + Send + 'static,
     T::Error: Into<Error>,
-    DefaultExecutor: BackgroundReadyExecutor<T, Request>,
+    Request: Send + 'static,
 {
     type Response = T::Response;
     type Error = Error;
@@ -55,9 +51,8 @@ where
                     }
 
                     let (bg, rx) = background_ready(svc.take().expect("illegal state"));
-                    DefaultExecutor::current()
-                        .spawn(bg)
-                        .map_err(SpawnError::new)?;
+
+                    tokio::spawn(bg);
 
                     Inner::Future(rx)
                 }

@@ -16,12 +16,12 @@
 
 #[doc(inline)]
 pub use tower_buffer as buffer;
-// #[doc(inline)]
-// pub use tower_discover as discover;
+#[doc(inline)]
+pub use tower_discover as discover;
 #[doc(inline)]
 pub use tower_limit as limit;
 #[doc(inline)]
-// pub use tower_load_shed as load_shed;
+pub use tower_load_shed as load_shed;
 #[doc(inline)]
 pub use tower_retry as retry;
 #[doc(inline)]

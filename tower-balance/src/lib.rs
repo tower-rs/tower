@@ -1,6 +1,6 @@
 //! Load balancing middlewares.
 
-#![doc(html_root_url = "https://docs.rs/tower-balance/0.3.0-alpha.2")]
+#![doc(html_root_url = "https://docs.rs/tower-balance/0.3.0")]
 #![warn(
     missing_debug_implementations,
     missing_docs,

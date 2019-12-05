@@ -1,7 +1,7 @@
 use hdrhistogram::Histogram;
 use log::trace;
-use std::time::{Duration, Instant};
-use tokio_timer::clock;
+use std::time::Duration;
+use tokio::time::Instant;
 
 /// This represents a "rotating" histogram which stores two histogram, one which
 /// should be read and one which should be written to.  Every period, the read
@@ -23,7 +23,7 @@ impl RotatingHistogram {
                 .expect("Invalid histogram params"),
             write: Histogram::<u64>::new_with_bounds(1, 10_000, 3)
                 .expect("Invalid histogram params"),
-            last_rotation: clock::now(),
+            last_rotation: Instant::now(),
             period,
         }
     }
@@ -39,7 +39,7 @@ impl RotatingHistogram {
     }
 
     fn maybe_rotate(&mut self) {
-        let delta = clock::now() - self.last_rotation;
+        let delta = Instant::now() - self.last_rotation;
         // TODO: replace with delta.duration_div when it becomes stable.
         let rotations = (nanos(delta) / nanos(self.period)) as u32;
         if rotations >= 2 {

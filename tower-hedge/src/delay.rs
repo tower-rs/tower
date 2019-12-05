@@ -32,7 +32,7 @@ pub struct ResponseFuture<Request, S, F> {
 #[pin_project]
 #[derive(Debug)]
 enum State<Request, F> {
-    Delaying(#[pin] tokio_timer::Delay, Option<Request>),
+    Delaying(#[pin] tokio::time::Delay, Option<Request>),
     Called(#[pin] F),
 }
 
@@ -62,7 +62,7 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let deadline = tokio_timer::clock::now() + self.policy.delay(&request);
+        let deadline = tokio::time::Instant::now() + self.policy.delay(&request);
         let mut cloned = self.service.clone();
         // Pass the original service to the ResponseFuture and keep the cloned service on self.
         let orig = {
@@ -71,7 +71,7 @@ where
         };
         ResponseFuture {
             service: orig,
-            state: State::Delaying(tokio_timer::delay(deadline), Some(request)),
+            state: State::Delaying(tokio::time::delay_until(deadline), Some(request)),
         }
     }
 }

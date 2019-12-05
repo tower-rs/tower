@@ -29,17 +29,17 @@ full = []
 
 [dependencies]
 tower-buffer = { version = "0.3", path = "../tower-buffer" }
-# tower-discover = { version = "0.3", path = "../tower-discover" }
+tower-discover = { version = "0.3", path = "../tower-discover" }
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tower-limit = { version = "0.3", path = "../tower-limit" }
-# tower-load-shed = { version = "0.3", path = "../tower-load-shed" }
+tower-load-shed = { version = "0.3", path = "../tower-load-shed" }
 tower-retry = { version = "0.3", path = "../tower-retry" }
 tower-service = { version = "0.3", path = "../tower-service" }
 tower-timeout = { version = "0.3", path = "../tower-timeout" }
 tower-util = { version = "0.3", path = "../tower-util" }
 futures-core = "0.3"
 
-# [dev-dependencies]
+[dev-dependencies]
 # env_logger = { version = "0.5.3", default-features = false }
 futures-util = "0.3"
 tokio = { version = "0.2", features = ["macros"] }
