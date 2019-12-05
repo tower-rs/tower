@@ -8,7 +8,7 @@ name = "tower-buffer"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.3.0-alpha.2"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
@@ -26,15 +26,14 @@ log = ["tracing/log"]
 default = ["log"]
 
 [dependencies]
-futures-core-preview = "=0.3.0-alpha.19"
+futures-core = "0.3"
 pin-project = "0.4"
-tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
-tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
-tokio-executor = "=0.2.0-alpha.6"
-tokio-sync = "=0.2.0-alpha.6"
+tower-service = { version = "0.3", path = "../tower-service" }
+tower-layer = { version = "0.3", path = "../tower-layer" }
+tokio = { version = "0.2", features = ["sync"] }
 tracing = "0.1.2"
 
 [dev-dependencies]
-tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }
-tokio-test = { version = "=0.2.0-alpha.6" }
-futures-util-preview = "=0.3.0-alpha.19"
+tower-test = { version = "0.3", path = "../tower-test" }
+tokio-test = { version = "0.2" }
+tokio = { version = "0.2", features = ["macros"] }

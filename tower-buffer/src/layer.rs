@@ -1,56 +1,39 @@
-use crate::{error::Error, service::Buffer, worker::WorkerExecutor};
+use crate::{error::Error, service::Buffer};
 use std::{fmt, marker::PhantomData};
-use tokio_executor::DefaultExecutor;
 use tower_layer::Layer;
 use tower_service::Service;
 
 /// Buffer requests with a bounded buffer
-pub struct BufferLayer<Request, E = DefaultExecutor> {
+pub struct BufferLayer<Request> {
     bound: usize,
-    executor: E,
     _p: PhantomData<fn(Request)>,
 }
 
-impl<Request> BufferLayer<Request, DefaultExecutor> {
-    #[allow(missing_docs)]
+impl<Request> BufferLayer<Request> {
+    /// Create a new `BufferLayer` with the provided `bound`.
     pub fn new(bound: usize) -> Self {
         BufferLayer {
             bound,
-            executor: DefaultExecutor::current(),
             _p: PhantomData,
         }
     }
 }
 
-impl<Request, E: Clone> BufferLayer<Request, E> {
-    /// Create a new buffered service layer spawned on the given executor.
-    pub fn with_executor(bound: usize, executor: E) -> Self {
-        BufferLayer {
-            bound,
-            executor,
-            _p: PhantomData,
-        }
-    }
-}
-
-impl<E, S, Request> Layer<S> for BufferLayer<Request, E>
+impl<S, Request> Layer<S> for BufferLayer<Request>
 where
-    S: Service<Request>,
-    S::Error: Into<Error>,
-    E: WorkerExecutor<S, Request> + Clone,
+    S: Service<Request> + Send + 'static,
+    S::Future: Send,
+    S::Error: Into<Error> + Send + Sync,
+    Request: Send + 'static,
 {
     type Service = Buffer<S, Request>;
 
     fn layer(&self, service: S) -> Self::Service {
-        Buffer::with_executor(service, self.bound, &mut self.executor.clone())
+        Buffer::new(service, self.bound)
     }
 }
 
-impl<Request, E> fmt::Debug for BufferLayer<Request, E>
-where
-    // Require E: Debug in case we want to print the executor at a later date
-    E: fmt::Debug,
-{
+impl<Request> fmt::Debug for BufferLayer<Request> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferLayer")
             .field("bound", &self.bound)
