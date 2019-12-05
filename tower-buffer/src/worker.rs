@@ -10,8 +10,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_executor::TypedExecutor;
-use tokio_sync::mpsc;
+use tokio::sync::mpsc;
 use tower_service::Service;
 
 /// Task that handles processing the buffer. This type should not be used
@@ -42,35 +41,15 @@ pub(crate) struct Handle {
     inner: Arc<Mutex<Option<ServiceError>>>,
 }
 
-/// This trait allows you to use either Tokio's threaded runtime's executor or the `current_thread`
-/// runtime's executor depending on if `T` is `Send` or `!Send`.
-pub trait WorkerExecutor<T, Request>: TypedExecutor<Worker<T, Request>>
-where
-    T: Service<Request>,
-    T::Error: Into<Error>,
-{
-}
-
-impl<T, Request, E: TypedExecutor<Worker<T, Request>>> WorkerExecutor<T, Request> for E
-where
-    T: Service<Request>,
-    T::Error: Into<Error>,
-{
-}
-
 impl<T, Request> Worker<T, Request>
 where
     T: Service<Request>,
     T::Error: Into<Error>,
 {
-    pub(crate) fn spawn<E>(
+    pub(crate) fn new(
         service: T,
         rx: mpsc::Receiver<Message<Request, T::Future>>,
-        executor: &mut E,
-    ) -> Option<Handle>
-    where
-        E: WorkerExecutor<T, Request>,
-    {
+    ) -> (Handle, Worker<T, Request>) {
         let handle = Handle {
             inner: Arc::new(Mutex::new(None)),
         };
@@ -84,10 +63,7 @@ where
             handle: handle.clone(),
         };
 
-        match executor.spawn(worker) {
-            Ok(()) => Some(handle),
-            Err(_) => None,
-        }
+        (handle, worker)
     }
 
     /// Return the next queued Message that hasn't been canceled.

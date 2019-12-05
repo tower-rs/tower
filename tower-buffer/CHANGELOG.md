@@ -1,3 +1,10 @@
+# 0.3.0 (December 4, 2019)
+
+- Update to `tokio 0.2`
+- Update to `futures-core 0.3`
+- Update to `tower-service 0.3`
+- Update to `tower-layer 0.3`
+
 # 0.3.0-alpha.2 (September 30, 2019)
 
 - Move to `futures-*-preview 0.3.0-alpha.19`
