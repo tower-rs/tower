@@ -56,9 +56,9 @@ where
     target: Target,
     load: Level,
     services: Slab<()>,
-    died_tx: tokio_sync::mpsc::UnboundedSender<usize>,
+    died_tx: tokio::sync::mpsc::UnboundedSender<usize>,
     #[pin]
-    died_rx: tokio_sync::mpsc::UnboundedReceiver<usize>,
+    died_rx: tokio::sync::mpsc::UnboundedReceiver<usize>,
     limit: Option<usize>,
 }
 
@@ -282,7 +282,7 @@ impl Builder {
         MS::Error: Into<error::Error>,
         Target: Clone,
     {
-        let (died_tx, died_rx) = tokio_sync::mpsc::unbounded_channel();
+        let (died_tx, died_rx) = tokio::sync::mpsc::unbounded_channel();
         let d = PoolDiscoverer {
             maker: make_service,
             making: None,
@@ -323,6 +323,7 @@ where
     MS::Error: Into<error::Error>,
     Target: Clone + fmt::Debug,
     MS::Service: fmt::Debug,
+    Request: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Pool")
@@ -433,12 +434,12 @@ where
 pub struct DropNotifyService<Svc> {
     svc: Svc,
     id: usize,
-    notify: tokio_sync::mpsc::UnboundedSender<usize>,
+    notify: tokio::sync::mpsc::UnboundedSender<usize>,
 }
 
 impl<Svc> Drop for DropNotifyService<Svc> {
     fn drop(&mut self) {
-        let _ = self.notify.try_send(self.id).is_ok();
+        let _ = self.notify.send(self.id).is_ok();
     }
 }
 

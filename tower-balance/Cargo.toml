@@ -37,6 +37,7 @@ tower-discover = { version = "0.3", path = "../tower-discover" }
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tower-load = { version = "0.3", path = "../tower-load" }
 tower-service = { version = "0.3", path = "../tower-service" }
+tower-ready-cache = { version = "0.3", path = "../tower-ready-cache" }
 tower-make = { version = "0.3", path = "../tower-make" }
 slab = "0.4"
 

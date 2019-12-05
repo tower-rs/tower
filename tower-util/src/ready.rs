@@ -1,7 +1,6 @@
 use std::{fmt, marker::PhantomData};
 
 use futures_util::ready;
-use pin_project::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -39,7 +38,7 @@ where
 {
     type Output = Result<(), T::Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         ready!(self.inner.poll_ready(cx))?;
 
         Poll::Ready(Ok(()))

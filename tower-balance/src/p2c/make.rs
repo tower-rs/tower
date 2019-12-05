@@ -1,4 +1,5 @@
 use super::Balance;
+use crate::error;
 use futures_core::ready;
 use pin_project::pin_project;
 use rand::{rngs::SmallRng, FromEntropy};
@@ -73,6 +74,7 @@ where
     F: Future<Output = Result<T, E>>,
     T: Discover,
     <T as Discover>::Service: Service<Req>,
+    <<T as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
 {
     type Output = Result<Balance<T, Req>, E>;
 
