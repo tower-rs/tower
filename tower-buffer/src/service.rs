@@ -49,7 +49,7 @@ where
 
     /// Creates a new `Buffer` wrapping `service` but returns the background worker.
     ///
-    /// This is useful if you do not want to spawn directly onto the tokio runtime
+    /// This is useful if you do not want to spawn directly onto the `tokio` runtime
     /// but instead want to use your own executor. This will return the `Buffer` and
     /// the background `Worker` that you can then spawn.
     pub fn pair(service: T, bound: usize) -> (Buffer<T, Request>, Worker<T, Request>)
