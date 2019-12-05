@@ -125,7 +125,7 @@ async fn response_future_when_worker_is_dropped_early() {
     handle.allow(0);
     let mut response = task::spawn(service.call("hello"));
 
-    drop(worker); 
+    drop(worker);
 
     let_worker_work();
     let err = assert_ready_err!(response.poll());
