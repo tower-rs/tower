@@ -39,6 +39,18 @@ pub fn spawn<T, U>() -> (Spawn<Mock<T, U>>, Handle<T, U>) {
     (Spawn::new(svc), handle)
 }
 
+/// Spawn a Service via the provided wrapper closure.
+pub fn spawn_with<T, U, F, S>(f: F) -> (Spawn<S>, Handle<T, U>)
+where
+    F: Fn(Mock<T, U>) -> S,
+{
+    let (svc, handle) = pair();
+
+    let svc = f(svc);
+
+    (Spawn::new(svc), handle)
+}
+
 /// A mock service
 #[derive(Debug)]
 pub struct Mock<T, U> {
