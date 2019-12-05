@@ -1,12 +1,12 @@
 use futures_util::ready;
 use pin_project::pin_project;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_timer::clock;
+use tokio::time::Instant;
 use tower_service::Service;
 
 /// Record is the interface for accepting request latency measurements.  When
@@ -62,7 +62,7 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         ResponseFuture {
-            start: clock::now(),
+            start: Instant::now(),
             rec: self.rec.clone(),
             inner: self.service.call(request),
         }
@@ -81,7 +81,7 @@ where
         let this = self.project();
 
         let rsp = ready!(this.inner.poll(cx))?;
-        let duration = clock::now() - *this.start;
+        let duration = Instant::now() - *this.start;
         this.rec.record(duration);
         Poll::Ready(Ok(rsp))
     }

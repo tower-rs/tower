@@ -11,9 +11,9 @@ use std::{
 };
 use std::{
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
-use tokio_timer::clock;
+use tokio::time::Instant;
 use tower_discover::{Change, Discover};
 use tower_service::Service;
 
@@ -156,7 +156,7 @@ impl<S, I> PeakEwma<S, I> {
     fn handle(&self) -> Handle {
         Handle {
             decay_ns: self.decay_ns,
-            sent_at: clock::now(),
+            sent_at: Instant::now(),
             rtt_estimate: self.rtt_estimate.clone(),
         }
     }
@@ -219,14 +219,14 @@ impl RttEstimate {
         debug_assert!(0.0 < rtt_ns, "rtt must be positive");
         Self {
             rtt_ns,
-            update_at: clock::now(),
+            update_at: Instant::now(),
         }
     }
 
     /// Decays the RTT estimate with a decay period of `decay_ns`.
     fn decay(&mut self, decay_ns: f64) -> f64 {
         // Updates with a 0 duration so that the estimate decays towards 0.
-        let now = clock::now();
+        let now = Instant::now();
         self.update(now, now, decay_ns)
     }
 
@@ -242,7 +242,7 @@ impl RttEstimate {
         );
         let rtt = nanos(recv_at - sent_at);
 
-        let now = clock::now();
+        let now = Instant::now();
         debug_assert!(
             self.update_at <= now,
             "update_at={:?} in the future",
@@ -285,7 +285,7 @@ impl RttEstimate {
 
 impl Drop for Handle {
     fn drop(&mut self) {
-        let recv_at = clock::now();
+        let recv_at = Instant::now();
 
         if let Ok(mut rtt) = self.rtt_estimate.lock() {
             rtt.update(self.sent_at, recv_at, self.decay_ns);
@@ -309,16 +309,9 @@ fn nanos(d: Duration) -> f64 {
 #[cfg(test)]
 mod tests {
     use futures_util::future;
-    use std::{
-        future::Future,
-        task::{Context, Poll},
-    };
-    use std::{
-        sync::{Arc, Mutex},
-        time::{Duration, Instant},
-    };
-    use tokio_test::{assert_ready, assert_ready_ok};
-    use tokio_timer::clock;
+    use std::time::Duration;
+    use tokio::time;
+    use tokio_test::{assert_ready, assert_ready_ok, task};
 
     use super::*;
 
@@ -337,81 +330,66 @@ mod tests {
         }
     }
 
-    struct Now(Arc<Mutex<Instant>>);
-    impl clock::Now for Now {
-        fn now(&self) -> Instant {
-            *self.0.lock().expect("now")
-        }
-    }
-
     /// The default RTT estimate decays, so that new nodes are considered if the
     /// default RTT is too high.
-    #[test]
-    fn default_decay() {
-        let time = Arc::new(Mutex::new(Instant::now()));
-        let clock = clock::Clock::new_with_now(Now(time.clone()));
+    #[tokio::test]
+    async fn default_decay() {
+        time::pause();
 
-        clock::with_default(&clock, || {
-            let svc = PeakEwma::new(
-                Svc,
-                Duration::from_millis(10),
-                NANOS_PER_MILLI * 1_000.0,
-                NoInstrument,
-            );
-            let Cost(load) = svc.load();
-            assert_eq!(load, 10.0 * NANOS_PER_MILLI);
+        let svc = PeakEwma::new(
+            Svc,
+            Duration::from_millis(10),
+            NANOS_PER_MILLI * 1_000.0,
+            NoInstrument,
+        );
+        let Cost(load) = svc.load();
+        assert_eq!(load, 10.0 * NANOS_PER_MILLI);
 
-            *time.lock().unwrap() += Duration::from_millis(100);
-            let Cost(load) = svc.load();
-            assert!(9.0 * NANOS_PER_MILLI < load && load < 10.0 * NANOS_PER_MILLI);
+        time::advance(Duration::from_millis(100)).await;
+        let Cost(load) = svc.load();
+        assert!(9.0 * NANOS_PER_MILLI < load && load < 10.0 * NANOS_PER_MILLI);
 
-            *time.lock().unwrap() += Duration::from_millis(100);
-            let Cost(load) = svc.load();
-            assert!(8.0 * NANOS_PER_MILLI < load && load < 9.0 * NANOS_PER_MILLI);
-        });
+        time::advance(Duration::from_millis(100)).await;
+        let Cost(load) = svc.load();
+        assert!(8.0 * NANOS_PER_MILLI < load && load < 9.0 * NANOS_PER_MILLI);
     }
 
-    /// The default RTT estimate decays, so that new nodes are considered if the
-    /// default RTT is too high.
-    #[test]
-    fn compound_decay() {
-        let time = Arc::new(Mutex::new(Instant::now()));
-        let clock = clock::Clock::new_with_now(Now(time.clone()));
+    // /// The default RTT estimate decays, so that new nodes are considered if the
+    // /// default RTT is too high.
+    #[tokio::test]
+    async fn compound_decay() {
+        time::pause();
 
-        clock::with_default(&clock, || {
-            tokio_test::task::mock(|cx| {
-                let mut svc = PeakEwma::new(
-                    Svc,
-                    Duration::from_millis(20),
-                    NANOS_PER_MILLI * 1_000.0,
-                    NoInstrument,
-                );
-                assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
+        let mut svc = PeakEwma::new(
+            Svc,
+            Duration::from_millis(20),
+            NANOS_PER_MILLI * 1_000.0,
+            NoInstrument,
+        );
+        assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 
-                *time.lock().unwrap() += Duration::from_millis(100);
-                let mut rsp0 = svc.call(());
-                assert!(svc.load() > Cost(20.0 * NANOS_PER_MILLI));
+        time::advance(Duration::from_millis(100)).await;
+        let mut rsp0 = task::spawn(svc.call(()));
+        assert!(svc.load() > Cost(20.0 * NANOS_PER_MILLI));
 
-                *time.lock().unwrap() += Duration::from_millis(100);
-                let mut rsp1 = svc.call(());
-                assert!(svc.load() > Cost(40.0 * NANOS_PER_MILLI));
+        time::advance(Duration::from_millis(100)).await;
+        let mut rsp1 = task::spawn(svc.call(()));
+        assert!(svc.load() > Cost(40.0 * NANOS_PER_MILLI));
 
-                *time.lock().unwrap() += Duration::from_millis(100);
-                let () = assert_ready_ok!(Pin::new(&mut rsp0).poll(cx));
-                assert_eq!(svc.load(), Cost(400_000_000.0));
+        time::advance(Duration::from_millis(100)).await;
+        let () = assert_ready_ok!(rsp0.poll());
+        assert_eq!(svc.load(), Cost(400_000_000.0));
 
-                *time.lock().unwrap() += Duration::from_millis(100);
-                let () = assert_ready_ok!(Pin::new(&mut rsp1).poll(cx));
-                assert_eq!(svc.load(), Cost(200_000_000.0));
+        time::advance(Duration::from_millis(100)).await;
+        let () = assert_ready_ok!(rsp1.poll());
+        assert_eq!(svc.load(), Cost(200_000_000.0));
 
-                // Check that values decay as time elapses
-                *time.lock().unwrap() += Duration::from_secs(1);
-                assert!(svc.load() < Cost(100_000_000.0));
+        // Check that values decay as time elapses
+        time::advance(Duration::from_secs(1)).await;
+        assert!(svc.load() < Cost(100_000_000.0));
 
-                *time.lock().unwrap() += Duration::from_secs(10);
-                assert!(svc.load() < Cost(100_000.0));
-            })
-        });
+        time::advance(Duration::from_secs(10)).await;
+        assert!(svc.load() < Cost(100_000.0));
     }
 
     #[test]

@@ -1,6 +1,5 @@
 use futures_util::{future::poll_fn, pin_mut};
-use std::{future::Future, thread};
-use tokio_test::{assert_ready, assert_ready_err, task};
+use std::future::Future;
 use tower_filter::{error::Error, Filter};
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
@@ -9,10 +8,10 @@ use tower_test::{assert_request_eq, mock};
 async fn passthrough_sync() {
     let (mut service, handle) = new_service(|_| async { Ok(()) });
 
-    let th = thread::spawn(move || {
+    let th = tokio::spawn(async move {
         // Receive the requests and respond
         pin_mut!(handle);
-        for i in 0..10 {
+        for i in 0..10usize {
             assert_request_eq!(handle, format!("ping-{}", i)).send_response(format!("pong-{}", i));
         }
     });
@@ -33,18 +32,14 @@ async fn passthrough_sync() {
     }
 
     futures_util::future::join_all(responses).await;
-    th.join().unwrap();
+    th.await.unwrap();
 }
 
-#[test]
-fn rejected_sync() {
-    task::mock(|cx| {
-        let (mut service, _handle) = new_service(|_| async { Err(Error::rejected()) });
+#[tokio::test]
+async fn rejected_sync() {
+    let (mut service, _handle) = new_service(|_| async { Err(Error::rejected()) });
 
-        let fut = service.call("hello".into());
-        pin_mut!(fut);
-        assert_ready_err!(fut.poll(cx));
-    });
+    service.call("hello".into()).await.unwrap_err();
 }
 
 type Mock = mock::Mock<String, String>;

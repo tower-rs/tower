@@ -1,6 +1,6 @@
 //! Background readiness types
 
-use crate::error::Error;
+use crate::Error;
 use futures_core::ready;
 use pin_project::pin_project;
 use std::marker::PhantomData;
@@ -9,8 +9,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_executor::TypedExecutor;
-use tokio_sync::oneshot;
+use tokio::sync::oneshot;
 use tower_service::Service;
 
 /// Drives a service to readiness.
@@ -20,24 +19,6 @@ pub struct BackgroundReady<T, Request> {
     service: Option<T>,
     tx: Option<oneshot::Sender<Result<T, Error>>>,
     _req: PhantomData<Request>,
-}
-
-/// This trait allows you to use either Tokio's threaded runtime's executor or
-/// the `current_thread` runtime's executor depending on if `T` is `Send` or
-/// `!Send`.
-pub trait BackgroundReadyExecutor<T, Request>: TypedExecutor<BackgroundReady<T, Request>>
-where
-    T: Service<Request>,
-    T::Error: Into<Error>,
-{
-}
-
-impl<T, Request, E> BackgroundReadyExecutor<T, Request> for E
-where
-    E: TypedExecutor<BackgroundReady<T, Request>>,
-    T: Service<Request>,
-    T::Error: Into<Error>,
-{
 }
 
 pub(crate) fn background_ready<T, Request>(
