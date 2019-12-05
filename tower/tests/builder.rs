@@ -1,7 +1,4 @@
-use futures_util::{
-    future::{poll_fn, Ready},
-    pin_mut,
-};
+use futures_util::{future::Ready, pin_mut};
 use std::time::Duration;
 use tower::builder::ServiceBuilder;
 use tower::util::ServiceExt;
@@ -9,7 +6,7 @@ use tower_buffer::BufferLayer;
 use tower_limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer};
 use tower_retry::{Policy, RetryLayer};
 use tower_service::*;
-use tower_test::mock;
+use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
 async fn builder_service() {
@@ -30,11 +27,7 @@ async fn builder_service() {
 
     client.ready().await.unwrap();
     let fut = client.call("hello");
-    let (request, rsp) = poll_fn(|cx| handle.as_mut().poll_request(cx))
-        .await
-        .unwrap();
-    assert_eq!(request, "hello");
-    rsp.send_response("world");
+    assert_request_eq!(handle, "hello").send_response("world");
     assert_eq!(fut.await.unwrap(), "world");
 }
 

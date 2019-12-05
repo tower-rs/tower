@@ -3,13 +3,12 @@
 use crate::{
     buffer::BufferLayer,
     limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer},
-    load_shed::LoadShedLayer,
+    // load_shed::LoadShedLayer,
     retry::RetryLayer,
     timeout::TimeoutLayer,
 };
 
-use tower_layer::Layer;
-use tower_util::layer::{Identity, Stack};
+use tower_layer::{Identity, Layer, Stack};
 
 use std::{fmt, time::Duration};
 
@@ -147,9 +146,9 @@ impl<L> ServiceBuilder<L> {
     ///
     /// `load_shed` immediately responds with an error when the next layer is
     /// out of capacity.
-    pub fn load_shed(self) -> ServiceBuilder<Stack<LoadShedLayer, L>> {
-        self.layer(LoadShedLayer::new())
-    }
+    // pub fn load_shed(self) -> ServiceBuilder<Stack<LoadShedLayer, L>> {
+    //     self.layer(LoadShedLayer::new())
+    // }
 
     /// Limit requests to at most `num` per the given duration
     pub fn rate_limit(self, num: u64, per: Duration) -> ServiceBuilder<Stack<RateLimitLayer, L>> {

@@ -39,7 +39,7 @@ impl Service<&'static str> for Srv {
 
 #[test]
 fn ordered() {
-    let mut mock = task::MockTask::new();
+    let mut mock = task::spawn(());
 
     let admit = Rc::new(Cell::new(false));
     let count = Rc::new(Cell::new(0));
@@ -47,44 +47,44 @@ fn ordered() {
         count: count.clone(),
         admit: admit.clone(),
     };
-    let (mut tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let ca = srv.call_all(rx);
     pin_mut!(ca);
 
-    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
-    tx.try_send("one").unwrap();
+    assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    tx.send("one").unwrap();
     mock.is_woken();
-    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
+    assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+    let v = assert_ready!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert_eq!(v, Some("one"));
-    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
+    assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    tx.try_send("two").unwrap();
+    tx.send("two").unwrap();
     mock.is_woken();
-    tx.try_send("three").unwrap();
-    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+    tx.send("three").unwrap();
+    let v = assert_ready!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert_eq!(v, Some("two"));
-    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
+    assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+    let v = assert_ready!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert_eq!(v, Some("three"));
     admit.set(true);
-    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
+    assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
     admit.set(true);
-    tx.try_send("four").unwrap();
+    tx.send("four").unwrap();
     mock.is_woken();
-    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+    let v = assert_ready!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert_eq!(v, Some("four"));
-    assert_pending!(mock.enter(|cx| ca.as_mut().poll_next(cx)));
+    assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
 
     // need to be ready since impl doesn't know it'll get EOF
     admit.set(true);
@@ -92,7 +92,7 @@ fn ordered() {
     // When we drop the request stream, CallAll should return None.
     drop(tx);
     mock.is_woken();
-    let v = assert_ready!(mock.enter(|cx| ca.as_mut().poll_next(cx)))
+    let v = assert_ready!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert!(v.is_none());
@@ -108,38 +108,38 @@ fn ordered() {
     );
 }
 
-#[test]
-fn unordered() {
+#[tokio::test]
+async fn unordered() {
     let (mock, handle) = mock::pair::<_, &'static str>();
     pin_mut!(handle);
 
-    let mut task = task::MockTask::new();
+    let mut task = task::spawn(());
     let requests = futures_util::stream::iter(&["one", "two"]);
 
     let svc = mock.call_all(requests).unordered();
     pin_mut!(svc);
 
-    assert_pending!(task.enter(|cx| svc.as_mut().poll_next(cx)));
+    assert_pending!(task.enter(|cx, _| svc.as_mut().poll_next(cx)));
 
     let resp1 = assert_request_eq!(handle, &"one");
     let resp2 = assert_request_eq!(handle, &"two");
 
     resp2.send_response("resp 1");
 
-    let v = assert_ready!(task.enter(|cx| svc.as_mut().poll_next(cx)))
+    let v = assert_ready!(task.enter(|cx, _| svc.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert_eq!(v, Some("resp 1"));
-    assert_pending!(task.enter(|cx| svc.as_mut().poll_next(cx)));
+    assert_pending!(task.enter(|cx, _| svc.as_mut().poll_next(cx)));
 
     resp1.send_response("resp 2");
 
-    let v = assert_ready!(task.enter(|cx| svc.as_mut().poll_next(cx)))
+    let v = assert_ready!(task.enter(|cx, _| svc.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert_eq!(v, Some("resp 2"));
 
-    let v = assert_ready!(task.enter(|cx| svc.as_mut().poll_next(cx)))
+    let v = assert_ready!(task.enter(|cx, _| svc.as_mut().poll_next(cx)))
         .transpose()
         .unwrap();
     assert!(v.is_none());

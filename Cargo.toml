@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-  # "tower",
+  "tower",
   # "tower-balance",
   "tower-buffer",
   # "tower-discover",
@@ -19,5 +19,5 @@ members = [
   "tower-test",
   "tower-timeout",
   "tower-make",
-  # "tower-util",
+  "tower-util",
 ]
