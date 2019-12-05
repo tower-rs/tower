@@ -4,7 +4,9 @@ pub mod error;
 pub mod future;
 pub mod spawn;
 
-use crate::mock::{error::Error, future::ResponseFuture, spawn::Spawn};
+pub use spawn::Spawn;
+
+use crate::mock::{error::Error, future::ResponseFuture};
 use core::task::Waker;
 
 use tokio::sync::{mpsc, oneshot};

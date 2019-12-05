@@ -8,13 +8,13 @@ name = "tower-retry"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.3.0-alpha.2"
+version = "0.3.0"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower-retry/0.3.0-alpha.2"
+documentation = "https://docs.rs/tower-retry/0.3.0"
 description = """
 Retry failed requests.
 """
@@ -22,13 +22,14 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-tower-service = { version = "=0.3.0-alpha.2", path = "../tower-service" }
-tower-layer = { version = "=0.3.0-alpha.2", path = "../tower-layer" }
-tokio-timer = "=0.3.0-alpha.6"
+tower-service = { version = "0.3", path = "../tower-service" }
+tower-layer = { version = "0.3", path = "../tower-layer" }
+tokio = { version = "0.2", features = ["time"] }
 pin-project = "0.4"
-futures-core-preview = "=0.3.0-alpha.19"
+futures-core = "0.3"
 
 [dev-dependencies]
-tower-test = { version = "=0.3.0-alpha.2", path = "../tower-test" }
-tokio-test = "=0.2.0-alpha.6"
-futures-util-preview = "=0.3.0-alpha.19"
+tower-test = { version = "0.3", path = "../tower-test" }
+tokio = { version  = "0.2", features = ["macros", "test-util"] }
+tokio-test = "0.2"
+futures-util = "0.3"
