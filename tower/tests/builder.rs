@@ -1,4 +1,4 @@
-#![cfg(feature  = "broken")]
+#![cfg(feature = "broken")]
 
 use futures_util::{
     future::{poll_fn, Ready},
