@@ -30,7 +30,7 @@ futures-core = "0.3"
 pin-project = "0.4"
 tower-service = { version = "0.3", path = "../tower-service" }
 tower-layer = { version = "0.3", path = "../tower-layer" }
-tokio = { version = "0.2", features = ["sync"] }
+tokio = { version = "0.2", features = ["rt-core", "sync"] }
 tracing = "0.1.2"
 
 [dev-dependencies]
