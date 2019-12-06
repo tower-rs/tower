@@ -23,6 +23,6 @@ edition = "2018"
 
 [dependencies]
 log = "0.4.1"
-tower-service = { version = "0.3", path = "../tower-service" }
-tower-make = { version = "0.3", path = "../tower-make" }
+tower-service = "0.3"
+tower-make = "0.3"
 pin-project = "0.4"

@@ -23,5 +23,5 @@ edition = "2018"
 
 [dependencies]
 futures-core = "0.3"
-tower-service = { version = "0.3", path = "../tower-service" }
+tower-service = "0.3"
 pin-project = "0.4"
