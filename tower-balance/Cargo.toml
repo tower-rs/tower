@@ -34,11 +34,11 @@ tracing = "0.1"
 rand = "0.6.5"
 tokio = { version = "0.2", features = ["sync", "time"] }
 tower-discover = { version = "0.3", path = "../tower-discover" }
-tower-layer = { version = "0.3", path = "../tower-layer" }
+tower-layer = "0.3"
 tower-load = { version = "0.3", path = "../tower-load" }
-tower-service = { version = "0.3", path = "../tower-service" }
+tower-service = "0.3"
 tower-ready-cache = { version = "0.3", path = "../tower-ready-cache" }
-tower-make = { version = "0.3", path = "../tower-make" }
+tower-make = "0.3"
 slab = "0.4"
 
 [dev-dependencies]

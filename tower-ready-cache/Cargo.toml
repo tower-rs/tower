@@ -27,7 +27,7 @@ futures-util = "0.3"
 indexmap = "1.0.2"
 log = "0.4.1"
 tokio = { version = "0.2", features = ["sync"] } 
-tower-service = { version = "0.3", path = "../tower-service" } 
+tower-service = "0.3"
 
 [dev-dependencies]
 tower-test = { version = "0.3", path = "../tower-test" }

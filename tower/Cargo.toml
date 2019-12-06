@@ -30,11 +30,11 @@ full = []
 [dependencies]
 tower-buffer = { version = "0.3", path = "../tower-buffer" }
 tower-discover = { version = "0.3", path = "../tower-discover" }
-tower-layer = { version = "0.3", path = "../tower-layer" }
+tower-layer = "0.3"
 tower-limit = { version = "0.3", path = "../tower-limit" }
 tower-load-shed = { version = "0.3", path = "../tower-load-shed" }
 tower-retry = { version = "0.3", path = "../tower-retry" }
-tower-service = { version = "0.3", path = "../tower-service" }
+tower-service = "0.3"
 tower-timeout = { version = "0.3", path = "../tower-timeout" }
 tower-util = { version = "0.3", path = "../tower-util" }
 futures-core = "0.3"
