@@ -31,6 +31,8 @@ pub use crate::{
 #[cfg(feature = "call-all")]
 pub use crate::call_all::{CallAll, CallAllUnordered};
 
+type Error = Box<dyn std::error::Error + Send + Sync>;
+
 pub mod error {
     //! Error types
 
@@ -44,3 +46,39 @@ pub mod future {
     pub use crate::either::future as either;
     pub use crate::optional::future as optional;
 }
+
+/// An extension trait for `Service`s that provides a variety of convenient
+/// adapters
+pub trait ServiceExt<Request>: tower_service::Service<Request> {
+    /// A future yielding the service when it is ready to accept a request.
+    fn ready(&mut self) -> Ready<'_, Self, Request>
+    where
+        Self: Sized,
+    {
+        Ready::new(self)
+    }
+
+    /// Consume this `Service`, calling with the providing request once it is ready.
+    fn oneshot(self, req: Request) -> Oneshot<Self, Request>
+    where
+        Self: Sized,
+    {
+        Oneshot::new(self, req)
+    }
+
+    /// Process all requests from the given `Stream`, and produce a `Stream` of their responses.
+    ///
+    /// This is essentially `Stream<Item = Request>` + `Self` => `Stream<Item = Response>`. See the
+    /// documentation for [`CallAll`](struct.CallAll.html) for details.
+    #[cfg(feature = "call-all")]
+    fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
+    where
+        Self: Sized,
+        Self::Error: Into<Error>,
+        S: futures_core::Stream<Item = Request>,
+    {
+        CallAll::new(self, reqs)
+    }
+}
+
+impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Service<Request> {}
