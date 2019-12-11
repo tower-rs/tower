@@ -1,5 +1,6 @@
 //! Future types
 //!
+use super::sync::semaphore::Semaphore;
 use futures_core::ready;
 use pin_project::{pin_project, pinned_drop};
 use std::sync::Arc;
@@ -8,7 +9,6 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio_sync::semaphore::Semaphore;
 
 /// Future for the `ConcurrencyLimit` service.
 #[pin_project(PinnedDrop)]
