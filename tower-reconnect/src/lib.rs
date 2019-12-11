@@ -24,9 +24,10 @@ where
     mk_service: M,
     state: State<M::Future, M::Response>,
     target: Target,
+    error: Option<M::Error>,
 }
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 #[derive(Debug)]
 enum State<F, S> {
@@ -51,6 +52,7 @@ where
             mk_service,
             state: State::Idle,
             target,
+            error: None,
         }
     }
 
@@ -60,6 +62,7 @@ where
             mk_service,
             state: State::Connected(init_conn),
             target,
+            error: None,
         }
     }
 }
@@ -74,14 +77,11 @@ where
 {
     type Response = S::Response;
     type Error = Error;
-    type Future = ResponseFuture<S::Future>;
+    type Future = ResponseFuture<S::Future, M::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let ret;
-        let mut state;
-
         loop {
-            match self.state {
+            match &mut self.state {
                 State::Idle => {
                     trace!("poll_ready; idle");
                     match self.mk_service.poll_ready(cx) {
@@ -100,7 +100,7 @@ where
                     trace!("poll_ready; connecting");
                     match Pin::new(f).poll(cx) {
                         Poll::Ready(Ok(service)) => {
-                            state = State::Connected(service);
+                            self.state = State::Connected(service);
                         }
                         Poll::Pending => {
                             trace!("poll_ready; not ready");
@@ -108,8 +108,8 @@ where
                         }
                         Poll::Ready(Err(e)) => {
                             trace!("poll_ready; error");
-                            state = State::Idle;
-                            ret = Err(e.into());
+                            self.state = State::Idle;
+                            self.error = Some(e.into());
                             break;
                         }
                     }
@@ -127,20 +127,21 @@ where
                         }
                         Poll::Ready(Err(_)) => {
                             trace!("poll_ready; error");
-                            state = State::Idle;
+                            self.state = State::Idle;
                         }
                     }
                 }
             }
-
-            self.state = state;
         }
 
-        self.state = state;
-        Poll::Ready(ret)
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
+        if let Some(error) = self.error.take() {
+            return ResponseFuture::error(error);
+        }
+
         let service = match self.state {
             State::Connected(ref mut service) => service,
             _ => panic!("service not ready; poll_ready must be called first"),
