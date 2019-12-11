@@ -16,7 +16,6 @@ mod either;
 mod oneshot;
 mod optional;
 mod ready;
-mod sealed;
 mod service_fn;
 
 pub use crate::{
@@ -42,8 +41,6 @@ pub mod error {
 pub mod future {
     //! Future types
 
-    #[cfg(feature = "either")]
-    pub use crate::either::future as either;
     pub use crate::optional::future as optional;
 }
 
