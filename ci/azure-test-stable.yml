@@ -9,7 +9,7 @@ jobs:
   steps:
   - template: azure-install-rust.yml
     parameters:
-      rust: nightly
+      rust: stable 
 
   - template: azure-is-release.yml
 
