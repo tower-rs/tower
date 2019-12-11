@@ -10,6 +10,7 @@
 //! Various utility types and functions that are generally with Tower.
 
 mod boxed;
+#[cfg(feature = "call-all")]
 mod call_all;
 mod either;
 mod oneshot;
@@ -20,13 +21,15 @@ mod service_fn;
 
 pub use crate::{
     boxed::{BoxService, UnsyncBoxService},
-    call_all::{CallAll, CallAllUnordered},
     either::Either,
     oneshot::Oneshot,
     optional::Optional,
     ready::Ready,
     service_fn::{service_fn, ServiceFn},
 };
+
+#[cfg(feature = "call-all")]
+pub use crate::call_all::{CallAll, CallAllUnordered};
 
 pub mod error {
     //! Error types

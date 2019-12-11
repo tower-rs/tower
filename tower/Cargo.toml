@@ -36,7 +36,7 @@ tower-load-shed = { version = "0.3", path = "../tower-load-shed" }
 tower-retry = { version = "0.3", path = "../tower-retry" }
 tower-service = "0.3"
 tower-timeout = { version = "0.3", path = "../tower-timeout" }
-tower-util = { version = "0.3", path = "../tower-util" }
+tower-util = { version = "0.3", path = "../tower-util", features = ["call-all"] }
 futures-core = "0.3"
 
 [dev-dependencies]

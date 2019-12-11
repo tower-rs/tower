@@ -2,7 +2,7 @@
 //!
 //! See `Either` documentation for more details.
 
-use futures_util::ready;
+use futures_core::ready;
 use pin_project::{pin_project, project};
 use std::{
     future::Future,

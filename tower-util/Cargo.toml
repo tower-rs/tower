@@ -22,14 +22,20 @@ Utilities for working with `Service`.
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
+[features]
+call-all = ["futures-util"]
+
 [dependencies]
 tower-service = "0.3"
 pin-project = "0.4"
-futures-util = "0.3"
-futures-core = "0.3"
+futures-core = { version = "0.3", default-features = false }
+
+# Optional
+
+futures-util = { version = "0.3", optional = true, default-features = false }
 
 [dev-dependencies]
 tokio-test = "0.2"
-tokio = { version = "0.2", features = ["stream", "sync", "macros"] } 
+tokio = { version = "0.2", features = ["stream", "sync", "macros"] }
 tower = { version = "0.3", path = "../tower" }
 tower-test = { version = "0.3", path = "../tower-test" }

@@ -1,6 +1,6 @@
 use std::{fmt, marker::PhantomData};
 
-use futures_util::ready;
+use futures_core::ready;
 use std::{
     future::Future,
     pin::Pin,
