@@ -2,10 +2,10 @@ use super::future::ResponseFuture;
 
 use tower_service::Service;
 
+use super::sync::semaphore::{self, Semaphore};
 use futures_core::ready;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio_sync::semaphore::{self, Semaphore};
 
 /// Enforces a limit on the concurrent number of requests the underlying
 /// service can handle.

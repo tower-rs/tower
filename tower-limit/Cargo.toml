@@ -25,7 +25,6 @@ edition = "2018"
 futures-core = "0.3"
 tower-service = "0.3"
 tower-layer = "0.3"
-tokio-sync = "0.2.0-alpha.6"
 tokio = { version = "0.2", features = ["time"] }
 pin-project = "0.4"
 
