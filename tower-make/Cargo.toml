@@ -19,3 +19,6 @@ connect = ["tokio"]
 [dependencies]
 tower-service = "0.3"
 tokio = { version = "0.2", optional = true }
+
+[package.metadata.docs.rs]
+features = ["connect"]

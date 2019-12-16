@@ -39,3 +39,6 @@ tokio-test = "0.2"
 tokio = { version = "0.2", features = ["stream", "sync", "macros"] }
 tower = { version = "0.3", path = "../tower" }
 tower-test = { version = "0.3", path = "../tower-test" }
+
+[package.metadata.docs.rs]
+features = ["call-all"]
