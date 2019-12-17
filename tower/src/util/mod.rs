@@ -2,6 +2,7 @@
 
 mod boxed;
 mod call_all;
+mod combinators;
 mod either;
 mod map;
 mod oneshot;
@@ -17,6 +18,7 @@ pub use self::{
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
+    combinators::*
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
@@ -81,6 +83,30 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         S: futures_core::Stream<Item = Request>,
     {
         CallAll::new(self, reqs)
+    }
+
+    fn map_ok<F, Response>(self, f: F) -> MapOk<Self, F>
+    where
+        Self: Sized,
+        F: FnOnce(Self::Response) -> Response + Clone,
+    {
+        MapOk::new(self, f)
+    }
+
+    fn map_err<F, Error>(self, f: F) -> MapErr<Self, F>
+    where
+        Self: Sized,
+        F: FnOnce(Self::Error) -> Error + Clone,
+    {
+        MapErr::new(self, f)
+    }
+
+    fn with<F, NewRequest>(self, f: F) -> With<Self, F>
+    where
+        Self: Sized,
+        F: FnOnce(NewRequest) -> Request + Clone,
+    {
+        With::new(self, f)
     }
 }
 
