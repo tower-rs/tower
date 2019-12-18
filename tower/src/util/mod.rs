@@ -228,7 +228,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     ///     async {
     ///         let id = "13";
-    ///         let code = new_service.call(id).await.unwrap_err();
+    ///         let response = new_service.call(id).await;
     ///     };
     /// }
     /// ```
