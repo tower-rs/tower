@@ -12,10 +12,7 @@ pub struct MapErr<S, F> {
 
 impl<S, F> MapErr<S, F> {
     pub fn new(inner: S, f: F) -> Self {
-        MapErr {
-            f,
-            inner,
-        }
+        MapErr { f, inner }
     }
 }
 
@@ -71,37 +68,5 @@ where
             f: self.f.clone(),
             inner,
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use tower_layer::Layer;
-
-    struct MockService;
-
-    impl Service<String> for MockService {
-        type Response = String;
-        type Error = u8;
-        type Future = futures_util::future::Ready<Result<String, u8>>;
-
-        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-            Poll::Ready(Ok(()))
-        }
-
-        fn call(&mut self, request: String) -> Self::Future {
-            futures_util::future::ready(Ok(request))
-        }
-    }
-
-    #[test]
-    fn api() {
-        let s = MockService;
-        let layer = MapErrLayer::new(|x| format!("{}", x));
-        let mut new_service = layer.layer(s);
-        async {
-            let new_error: Result<_, String> = new_service.call("test".to_string()).await;
-        };
     }
 }

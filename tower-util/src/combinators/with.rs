@@ -1,7 +1,7 @@
-use std::task::{Context, Poll};
 use std::marker::PhantomData;
-use tower_service::Service;
+use std::task::{Context, Poll};
 use tower_layer::Layer;
+use tower_service::Service;
 
 pub struct With<S, F> {
     inner: S,
@@ -10,10 +10,7 @@ pub struct With<S, F> {
 
 impl<S, F> With<S, F> {
     pub fn new(inner: S, f: F) -> Self {
-        With {
-            inner,
-            f
-        }
+        With { inner, f }
     }
 }
 
@@ -40,7 +37,7 @@ where
 pub struct WithLayer<F, OldRequest, NewRequest> {
     f: F,
     old_request: PhantomData<OldRequest>,
-    new_request: PhantomData<NewRequest>
+    new_request: PhantomData<NewRequest>,
 }
 
 impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest>
@@ -51,7 +48,7 @@ where
         WithLayer {
             f,
             old_request: PhantomData::default(),
-            new_request: PhantomData::default()
+            new_request: PhantomData::default(),
         }
     }
 }
@@ -69,39 +66,5 @@ where
             f: self.f.clone(),
             inner,
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use tower_layer::Layer;
-
-    struct MockService;
-
-    impl Service<String> for MockService {
-        type Response = String;
-        type Error = u8;
-        type Future = futures_util::future::Ready<Result<String, u8>>;
-
-        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-            Poll::Ready(Ok(()))
-        }
-
-        fn call(&mut self, request: String) -> Self::Future {
-            futures_util::future::ready(Ok(request))
-        }
-    }
-
-    #[test]
-    fn api() {
-        let s = MockService;
-        let layer = WithLayer::new(|x| {
-            format!("{}", x)
-        });
-        let mut new_service = layer.layer(s);
-
-        let new_request: u32 = 3;
-        new_service.call(3);
     }
 }
