@@ -12,13 +12,13 @@ mod service_fn;
 
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
+    combinators::*,
     either::Either,
     map::{MapRequest, MapRequestLayer, MapResponse, MapResponseLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
-    combinators::*
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
@@ -85,6 +85,51 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         CallAll::new(self, reqs)
     }
 
+    /// # Example
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower_service::Service;
+    /// use tower_util::ServiceExt;
+    ///
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService  
+    /// #   }
+    /// # }
+    /// #
+    /// struct Record {
+    ///    pub name: String,
+    ///    pub age: u16
+    /// }
+    ///
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = u8;
+    /// #   type Future = futures_util::future::Ready<Result<Record, u8>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
+    /// #   }
+    /// # }
+    /// #
+    /// fn main() {
+    ///     // A service returning Result<Record, _>
+    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    ///     // Map the response into a new response
+    ///     let mut new_service = service.map_ok(|record| record.name);
+    ///
+    ///     async {
+    ///         let id = 13;
+    ///         let name = new_service.call(id).await.unwrap();
+    ///     };
+    /// }
+    /// ```
     fn map_ok<F, Response>(self, f: F) -> MapOk<Self, F>
     where
         Self: Sized,
@@ -93,6 +138,51 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapOk::new(self, f)
     }
 
+    /// # Example
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower_service::Service;
+    /// use tower_util::ServiceExt;
+    ///
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService  
+    /// #   }
+    /// # }
+    /// #
+    /// struct Error {
+    ///    pub code: u32,
+    ///    pub message: String
+    /// }
+    ///
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = String;
+    /// #   type Error = Error;
+    /// #   type Future = futures_util::future::Ready<Result<String, Error>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(String::new()))
+    /// #   }
+    /// # }
+    /// #
+    /// fn main() {
+    ///     // A service returning Result<_, Error>
+    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    ///     // Map the error into a new error
+    ///     let mut new_service = service.map_err(|err| err.code);
+    ///
+    ///     async {
+    ///         let id = 13;
+    ///         let code = new_service.call(id).await.unwrap_err();
+    ///     };
+    /// }
+    /// ```
     fn map_err<F, Error>(self, f: F) -> MapErr<Self, F>
     where
         Self: Sized,
@@ -101,6 +191,47 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapErr::new(self, f)
     }
 
+    /// # Example
+    /// ```
+    /// # use std::convert::TryFrom;
+    /// # use std::task::{Poll, Context};
+    /// # use tower_service::Service;
+    /// use tower_util::ServiceExt;
+    ///
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService  
+    /// #   }
+    /// # }
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = String;
+    /// #   type Error = u8;
+    /// #   type Future = futures_util::future::Ready<Result<String, u8>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(String::new()))
+    /// #   }
+    /// # }
+    /// #
+    /// fn main() {
+    ///     // A service taking an u32 as a request
+    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    ///     // Map the request into a new request
+    ///     let mut new_service = service.with(|id_str: &str| id_str.parse().unwrap());
+    ///
+    ///     async {
+    ///         let id = "13";
+    ///         let code = new_service.call(id).await.unwrap_err();
+    ///     };
+    /// }
+    /// ```
     fn with<F, NewRequest>(self, f: F) -> With<Self, F>
     where
         Self: Sized,
