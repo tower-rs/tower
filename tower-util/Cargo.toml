@@ -37,5 +37,4 @@ futures-util = { version = "0.3", optional = true, default-features = false, fea
 [dev-dependencies]
 tokio-test = "0.2"
 tokio = { version = "0.2", features = ["stream", "sync", "macros"] }
-tower = { version = "0.3", path = "../tower" }
 tower-test = { version = "0.3", path = "../tower-test" }

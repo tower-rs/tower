@@ -6,9 +6,9 @@ use futures_util::{
 use std::task::{Context, Poll};
 use std::{cell::Cell, rc::Rc};
 use tokio_test::{assert_pending, assert_ready, task};
-use tower::ServiceExt;
 use tower_service::*;
 use tower_test::{assert_request_eq, mock};
+use tower_util::ServiceExt;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
