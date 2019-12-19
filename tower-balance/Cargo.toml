@@ -31,7 +31,7 @@ futures-core = "0.3"
 pin-project = "0.4"
 indexmap = "1.0.2"
 tracing = "0.1"
-rand = "0.6.5"
+rand = { version = "0.7", features = ["small_rng"] } 
 tokio = { version = "0.2", features = ["sync", "time"] }
 tower-discover = { version = "0.3", path = "../tower-discover" }
 tower-layer = "0.3"
