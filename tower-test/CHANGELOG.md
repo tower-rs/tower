@@ -1,4 +1,4 @@
-# 0.3.0 (December 1, 2019)
+# 0.3.0 (December 19, 2019)
 
 - Remove `futures-executor` dependency
 - Update to non-alpha versions

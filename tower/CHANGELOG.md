@@ -1,4 +1,4 @@
-# 0.3.0 (December 4, 2019)
+# 0.3.0 (December 19, 2019)
 
 - Update all tower based crates to `0.3`.
 - Update to `tokio 0.2`

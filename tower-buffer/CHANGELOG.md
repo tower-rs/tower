@@ -1,4 +1,4 @@
-# 0.3.0 (December 4, 2019)
+# 0.3.0 (December 19, 2019)
 
 - Update to `tokio 0.2`
 - Update to `futures-core 0.3`

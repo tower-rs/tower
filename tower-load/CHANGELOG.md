@@ -1,4 +1,4 @@
-# 0.3.0 (December 4, 2019)
+# 0.3.0 (December 19, 2019)
 
 - Update to `tower-service 0.3`
 - Update to `tower-discover 0.3`
