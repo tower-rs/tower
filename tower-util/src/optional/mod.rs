@@ -34,7 +34,7 @@ impl<T> Optional<T> {
 impl<T, Request> Service<Request> for Optional<T>
 where
     T: Service<Request>,
-    Error: From<T::Error>,
+    T::Error: Into<Error>,
 {
     type Response = T::Response;
     type Error = Error;

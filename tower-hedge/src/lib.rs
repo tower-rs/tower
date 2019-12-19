@@ -95,7 +95,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        Error: From<S::Error>,
+        S::Error: Into<Error>,
         P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
@@ -114,7 +114,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        Error: From<S::Error>,
+        S::Error: Into<Error>,
         P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
@@ -136,7 +136,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        Error: From<S::Error>,
+        S::Error: Into<Error>,
         P: Policy<Request> + Clone,
     {
         // Clone the underlying service and wrap both copies in a middleware that
@@ -169,7 +169,7 @@ impl<S, P> Hedge<S, P> {
 impl<S, P, Request> tower_service::Service<Request> for Hedge<S, P>
 where
     S: tower_service::Service<Request> + Clone,
-    Error: From<S::Error>,
+    S::Error: Into<Error>,
     P: Policy<Request> + Clone,
 {
     type Response = S::Response;
@@ -190,7 +190,7 @@ where
 impl<S, Request> std::future::Future for Future<S, Request>
 where
     S: tower_service::Service<Request>,
-    Error: From<S::Error>,
+    S::Error: Into<Error>,
 {
     type Output = Result<S::Response, Error>;
 

@@ -49,7 +49,7 @@ where
 impl<S, R, Request> Service<Request> for Latency<R, S>
 where
     S: Service<Request>,
-    super::Error: From<S::Error>,
+    S::Error: Into<super::Error>,
     R: Record + Clone,
 {
     type Response = S::Response;
@@ -57,7 +57,7 @@ where
     type Future = ResponseFuture<R, S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(cx).map_err(|e| e.into())
+        self.service.poll_ready(cx).map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
@@ -73,14 +73,14 @@ impl<R, F, T, E> Future for ResponseFuture<R, F>
 where
     R: Record,
     F: Future<Output = Result<T, E>>,
-    super::Error: From<E>,
+    E: Into<super::Error>,
 {
     type Output = Result<T, super::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
-        let rsp = ready!(this.inner.poll(cx))?;
+        let rsp = ready!(this.inner.poll(cx)).map_err(Into::into)?;
         let duration = Instant::now() - *this.start;
         this.rec.record(duration);
         Poll::Ready(Ok(rsp))
