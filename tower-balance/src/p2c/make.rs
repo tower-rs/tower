@@ -2,7 +2,7 @@ use super::Balance;
 use crate::error;
 use futures_core::ready;
 use pin_project::pin_project;
-use rand::{rngs::SmallRng, FromEntropy};
+use rand::{rngs::SmallRng, SeedableRng};
 use std::marker::PhantomData;
 use std::{
     future::Future,
