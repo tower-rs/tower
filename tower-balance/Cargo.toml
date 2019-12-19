@@ -26,7 +26,7 @@ log = ["tracing/log"]
 default = ["log"]
 
 [dependencies]
-futures-util = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] } 
 futures-core = "0.3"
 pin-project = "0.4"
 indexmap = "1.0.2"
