@@ -31,5 +31,5 @@ futures-core = { version = "0.3", default-features = false }
 
 [dev-dependencies]
 tower-test = { version = "0.3", path = "../tower-test" }
-futures-util = { version = "0.3", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 tokio = { version = "0.2", features = ["macros", "sync"] }
