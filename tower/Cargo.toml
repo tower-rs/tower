@@ -37,11 +37,11 @@ tower-retry = { version = "0.3", path = "../tower-retry" }
 tower-service = "0.3"
 tower-timeout = { version = "0.3", path = "../tower-timeout" }
 tower-util = { version = "0.3", path = "../tower-util", features = ["call-all"] }
-futures-core = "0.3"
+futures-core = { version = "0.3", default-features = false }
 
 [dev-dependencies]
 # env_logger = { version = "0.5.3", default-features = false }
-futures-util = "0.3"
+futures-util = { version = "0.3", default-features = false }
 tokio = { version = "0.2", features = ["macros"] }
 # log = "0.4.1"
 # # tokio = "0.2"

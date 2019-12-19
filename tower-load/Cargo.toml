@@ -22,7 +22,7 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-core = "0.3"
+futures-core = { version = "0.3", default-features = false }
 log = "0.4.1"
 tokio = { version = "0.2", features = ["time"] }
 tower-service = "0.3"
@@ -32,4 +32,4 @@ pin-project = "0.4"
 [dev-dependencies]
 tokio-test = "0.2"
 tokio = { version = "0.2", features = ["macros", "test-util" ] }
-futures-util = "0.3"
+futures-util = { version = "0.3", default-features = false }

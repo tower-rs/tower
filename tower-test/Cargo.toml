@@ -22,7 +22,7 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-util = "0.3"
+futures-util = { version = "0.3", default-features = false }
 tokio = { version = "0.2", features = ["sync"]}
 tower-layer = "0.3"
 tokio-test = "0.2"

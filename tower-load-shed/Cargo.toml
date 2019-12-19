@@ -26,7 +26,7 @@ edition = "2018"
 tower-service = "0.3"
 tower-layer = "0.3"
 pin-project = "0.4"
-futures-core = "0.3"
+futures-core = { version = "0.3", default-features = false }
 
 [dev-dependencies]
 tokio-test = "0.2"

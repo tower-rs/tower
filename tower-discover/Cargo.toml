@@ -22,6 +22,6 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-core = "0.3"
+futures-core = { version = "0.3", default-features = false }
 tower-service = "0.3"
 pin-project = "0.4"

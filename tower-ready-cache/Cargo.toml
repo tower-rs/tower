@@ -22,8 +22,8 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-core = "0.3"
-futures-util = "0.3"
+futures-core = { version = "0.3", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 indexmap = "1.0.2"
 log = "0.4.1"
 tokio = { version = "0.2", features = ["sync"] } 
