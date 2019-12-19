@@ -30,7 +30,8 @@ pub use crate::{
 #[cfg(feature = "call-all")]
 pub use crate::call_all::{CallAll, CallAllUnordered};
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
+#[doc(hidden)]
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub mod error {
     //! Error types
