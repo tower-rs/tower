@@ -32,7 +32,7 @@ futures-core = { version = "0.3", default-features = false }
 
 # Optional
 
-futures-util = { version = "0.3", optional = true, default-features = false }
+futures-util = { version = "0.3", optional = true, default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 tokio-test = "0.2"
