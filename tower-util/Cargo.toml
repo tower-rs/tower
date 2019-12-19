@@ -23,6 +23,7 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [features]
+default = ["call-all"]
 call-all = ["futures-util"]
 
 [dependencies]
