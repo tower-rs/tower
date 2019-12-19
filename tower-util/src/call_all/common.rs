@@ -67,7 +67,7 @@ where
 impl<Svc, S, Q> Stream for CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Error: From<Svc::Error>,
+    Svc::Error: Into<Error>,
     S: Stream,
     Q: Drive<Svc::Future>,
 {
@@ -79,7 +79,7 @@ where
         loop {
             // First, see if we have any responses to yield
             if let Poll::Ready(r) = this.queue.poll(cx) {
-                if let Some(rsp) = r.transpose()? {
+                if let Some(rsp) = r.transpose().map_err(Into::into)? {
                     return Poll::Ready(Some(Ok(rsp)));
                 }
             }
@@ -98,7 +98,7 @@ where
                 .service
                 .as_mut()
                 .expect("Using CallAll after extracing inner Service");
-            ready!(svc.poll_ready(cx))?;
+            ready!(svc.poll_ready(cx)).map_err(Into::into)?;
 
             // If it is, gather the next request (if there is one)
             match this.stream.as_mut().poll_next(cx) {

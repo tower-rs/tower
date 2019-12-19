@@ -28,7 +28,7 @@ impl<T> ResponseFuture<T> {
 impl<F, T, E> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    Error: From<E>,
+    E: Into<Error>,
 {
     type Output = Result<T, Error>;
 
@@ -37,7 +37,7 @@ where
 
         // First, try polling the future
         match this.response.poll(cx) {
-            Poll::Ready(v) => return Poll::Ready(v.map_err(Error::from)),
+            Poll::Ready(v) => return Poll::Ready(v.map_err(Into::into)),
             Poll::Pending => {}
         }
 

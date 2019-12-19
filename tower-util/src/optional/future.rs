@@ -24,13 +24,13 @@ impl<T> ResponseFuture<T> {
 impl<F, T, E> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    Error: From<E>,
+    E: Into<Error>,
 {
     type Output = Result<T, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().inner.as_pin_mut() {
-            Some(inner) => Poll::Ready(Ok(ready!(inner.poll(cx))?)),
+            Some(inner) => Poll::Ready(Ok(ready!(inner.poll(cx)).map_err(Into::into)?)),
             None => Poll::Ready(Err(error::None::new().into())),
         }
     }

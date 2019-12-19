@@ -49,9 +49,9 @@ impl<P, A, B, Request> Service<Request> for Select<P, A, B>
 where
     P: Policy<Request>,
     A: Service<Request>,
-    super::Error: From<A::Error>,
+    A::Error: Into<super::Error>,
     B: Service<Request, Response = A::Response>,
-    super::Error: From<B::Error>,
+    B::Error: Into<super::Error>,
 {
     type Response = A::Response;
     type Error = super::Error;
@@ -82,9 +82,9 @@ where
 impl<AF, BF, T, AE, BE> Future for ResponseFuture<AF, BF>
 where
     AF: Future<Output = Result<T, AE>>,
-    super::Error: From<AE>,
+    AE: Into<super::Error>,
     BF: Future<Output = Result<T, BE>>,
-    super::Error: From<BE>,
+    BE: Into<super::Error>,
 {
     type Output = Result<T, super::Error>;
 
@@ -92,11 +92,11 @@ where
         let this = self.project();
 
         if let Poll::Ready(r) = this.a_fut.poll(cx) {
-            return Poll::Ready(Ok(r?));
+            return Poll::Ready(Ok(r.map_err(Into::into)?));
         }
         if let Some(b_fut) = this.b_fut.as_pin_mut() {
             if let Poll::Ready(r) = b_fut.poll(cx) {
-                return Poll::Ready(Ok(r?));
+                return Poll::Ready(Ok(r.map_err(Into::into)?));
             }
         }
         return Poll::Pending;

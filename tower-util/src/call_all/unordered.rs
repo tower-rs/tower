@@ -67,7 +67,7 @@ where
 impl<Svc, S> Stream for CallAllUnordered<Svc, S>
 where
     Svc: Service<S::Item>,
-    Error: From<Svc::Error>,
+    Svc::Error: Into<Error>,
     S: Stream,
 {
     type Item = Result<Svc::Response, Error>;

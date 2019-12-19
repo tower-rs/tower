@@ -44,7 +44,8 @@ where
     where
         M: Service<Target, Response = S>,
         S: Service<Request>,
-        Error: From<M::Error> + From<S::Error>,
+        M::Error: Into<Error>,
+        S::Error: Into<Error>,
         Target: Clone,
     {
         Reconnect {
@@ -69,7 +70,8 @@ where
     M: Service<Target, Response = S>,
     S: Service<Request>,
     M::Future: Unpin,
-    Error: From<M::Error> + From<S::Error>,
+    M::Error: Into<Error>,
+    S::Error: Into<Error>,
     Target: Clone,
 {
     type Response = S::Response;
@@ -85,7 +87,7 @@ where
                 State::Idle => {
                     trace!("poll_ready; idle");
                     match self.mk_service.poll_ready(cx) {
-                        Poll::Ready(r) => r?,
+                        Poll::Ready(r) => r.map_err(Into::into)?,
                         Poll::Pending => {
                             trace!("poll_ready; MakeService not ready");
                             return Poll::Pending;

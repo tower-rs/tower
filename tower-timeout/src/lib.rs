@@ -41,7 +41,7 @@ impl<T> Timeout<T> {
 impl<S, Request> Service<Request> for Timeout<S>
 where
     S: Service<Request>,
-    Error: From<S::Error>,
+    S::Error: Into<Error>,
 {
     type Response = S::Response;
     type Error = Error;

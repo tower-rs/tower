@@ -30,9 +30,9 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 impl<A, B, Request> Service<Request> for Either<A, B>
 where
     A: Service<Request>,
-    Error: From<A::Error>,
+    A::Error: Into<Error>,
     B: Service<Request, Response = A::Response>,
-    Error: From<B::Error>,
+    B::Error: Into<Error>,
 {
     type Response = A::Response;
     type Error = Error;
@@ -42,8 +42,8 @@ where
         use self::Either::*;
 
         match self {
-            A(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx))?)),
-            B(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx))?)),
+            A(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx)).map_err(Into::into)?)),
+            B(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx)).map_err(Into::into)?)),
         }
     }
 
@@ -60,9 +60,9 @@ where
 impl<A, B, T, AE, BE> Future for Either<A, B>
 where
     A: Future<Output = Result<T, AE>>,
-    Error: From<AE>,
+    AE: Into<Error>,
     B: Future<Output = Result<T, BE>>,
-    Error: From<BE>,
+    BE: Into<Error>,
 {
     type Output = Result<T, Error>;
 
@@ -70,8 +70,8 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         #[project]
         match self.project() {
-            Either::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx))?)),
-            Either::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx))?)),
+            Either::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
+            Either::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
         }
     }
 }
