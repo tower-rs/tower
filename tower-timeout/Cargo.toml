@@ -22,7 +22,9 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
+tokio = { version = "0.2", features = ["time", "test-util"] }
+tokio-test = "0.2"
 tower-service = "0.3"
 tower-layer = "0.3"
-tokio = { version = "0.2", features = ["time"] }
+tower-test = { path = "../tower-test" }
 pin-project = "0.4"
