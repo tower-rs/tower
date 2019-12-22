@@ -219,7 +219,9 @@ pub trait Service<Request> {
     /// Once `poll_ready` returns `Poll::Ready(Ok(()))`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Poll::Ready(Ok(()))` or `Poll::Ready(Err(_))`.
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
 
     /// Process the request and return the response asynchronously.
     ///
