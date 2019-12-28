@@ -180,7 +180,7 @@ impl Summary {
         for c in &self.count_by_instance {
             total += c;
         }
-        for (i, c) in self.count_by_instance.into_iter().enumerate() {
+        for (i, c) in self.count_by_instance.iter().enumerate() {
             let p = *c as f64 / total as f64 * 100.0;
             println!("  [{:02}] {:>5.01}%", i, p);
         }
