@@ -27,6 +27,9 @@ jobs:
           args: --verbose
       - name: Run tests
         uses: actions-rs/cargo@v1
+        env:
+          CI: 'True'
+          RUSTFLAGS: '-D warnings'
         with:
           command: test
           args: --verbose
