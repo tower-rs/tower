@@ -1,0 +1,20 @@
+name: Create Release
+
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+      - name: Log in
+        run: cargo login --verbose -- ${{ secrets.CRATES_TOKEN }}
+      - name: Publish Release
+        run: cargo publish --verbose
