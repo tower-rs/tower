@@ -17,4 +17,8 @@ jobs:
       - name: Log in
         run: cargo login --verbose -- ${{ secrets.CRATES_TOKEN }}
       - name: Publish Release
-        run: cargo publish --verbose
+        run: |
+          for dir in tower-service;
+          do
+            (cd $dir; cargo publish --verbose);
+          done
