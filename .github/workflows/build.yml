@@ -1,4 +1,4 @@
-name: CI
+name: continuous integration
 
 on: [push, pull_request]
 
