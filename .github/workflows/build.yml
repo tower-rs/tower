@@ -3,7 +3,7 @@ name: continuous integration
 on: [push, pull_request]
 
 jobs:
-  build:
+  build_whole_workspace:
 
     runs-on: ${{ matrix.os }}
 
@@ -33,6 +33,67 @@ jobs:
         with:
           command: test
           args: --verbose
+
+  build_per_crate:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        crate:
+          - tower
+          - tower-balance
+          - tower-buffer
+          - tower-discover
+          - tower-filter
+          - tower-hedge
+          - tower-layer
+          - tower-limit
+          - tower-load
+          - tower-load-shed
+          - tower-make
+          - tower-ready-cache
+          - tower-reconnect
+          - tower-retry
+          - tower-service
+          - tower-spawn-ready
+          - tower-test
+          - tower-timeout
+          - tower-util
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Patch
+        run: |
+          set -e
+          # Remove any existing patch statements
+          mv Cargo.toml Cargo.toml.bck
+          sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
+          # Patch all crates
+          cat ci/patch.toml >> Cargo.toml
+          # Print `Cargo.toml` for debugging
+          echo "~~~~ Cargo.toml ~~~~"
+          cat Cargo.toml
+          echo "~~~~~~~~~~~~~~~~~~~~"
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: -p ${{ matrix.crate }} --verbose
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        env:
+          CI: 'True'
+          RUSTFLAGS: '-D warnings'
+        with:
+          command: test
+          args: -p ${{ matrix.crate }} --verbose
 
   rustfmt_check:
 
