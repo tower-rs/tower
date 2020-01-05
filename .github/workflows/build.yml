@@ -23,7 +23,7 @@ jobs:
       - name: Build
         uses: actions-rs/cargo@v1
         with:
-          command: build
+          command: check
           args: --verbose
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -84,7 +84,7 @@ jobs:
       - name: Build
         uses: actions-rs/cargo@v1
         with:
-          command: build
+          command: check
           args: -p ${{ matrix.crate }} --verbose
       - name: Run tests
         uses: actions-rs/cargo@v1
