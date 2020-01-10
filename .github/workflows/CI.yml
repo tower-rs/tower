@@ -80,7 +80,7 @@ jobs:
           mv Cargo.toml Cargo.toml.bck
           sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
           # Patch all crates
-          cat ci/patch.toml >> Cargo.toml
+          cat .github/workflows/patch.toml >> Cargo.toml
           # Print `Cargo.toml` for debugging
           echo "~~~~ Cargo.toml ~~~~"
           cat Cargo.toml
