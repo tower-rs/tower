@@ -1,0 +1,135 @@
+name: continuous integration
+
+on: [push, pull_request]
+
+jobs:
+  build_whole_workspace:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, windows-2019, macOS-10.14]
+        rust: [stable, nightly]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --verbose
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        env:
+          CI: 'True'
+          RUSTFLAGS: '-D warnings'
+        with:
+          command: test
+          args: --verbose
+
+  build_per_crate:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        crate:
+          - tower
+          - tower-balance
+          - tower-buffer
+          - tower-discover
+          - tower-filter
+          - tower-hedge
+          - tower-layer
+          - tower-limit
+          - tower-load
+          - tower-load-shed
+          - tower-make
+          - tower-ready-cache
+          - tower-reconnect
+          - tower-retry
+          - tower-service
+          - tower-spawn-ready
+          - tower-test
+          - tower-timeout
+          - tower-util
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Patch
+        run: |
+          set -e
+          # Remove any existing patch statements
+          mv Cargo.toml Cargo.toml.bck
+          sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
+          # Patch all crates
+          cat ci/patch.toml >> Cargo.toml
+          # Print `Cargo.toml` for debugging
+          echo "~~~~ Cargo.toml ~~~~"
+          cat Cargo.toml
+          echo "~~~~~~~~~~~~~~~~~~~~"
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: -p ${{ matrix.crate }} --verbose
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        env:
+          CI: 'True'
+          RUSTFLAGS: '-D warnings'
+        with:
+          command: test
+          args: -p ${{ matrix.crate }} --verbose
+
+  rustfmt_check:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+      - name: Ensure that rustfmt is installed
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt
+      - name: Run rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+# This is failing, because it finds errors...
+#  clippy_check:
+#
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v1
+#      - name: Ensure that clippy is installed
+#        uses: actions-rs/toolchain@v1
+#        with:
+#          toolchain: nightly
+#          override: true
+#          components: clippy
+#      - name: Run clippy
+#        uses: actions-rs/clippy-check@v1
+#        with:
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          args: --all-targets --all-features
