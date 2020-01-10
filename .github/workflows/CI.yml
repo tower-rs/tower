@@ -1,9 +1,13 @@
-name: continuous integration
+name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - master
+  pull_request: {}
 
 jobs:
-  build_whole_workspace:
+  test-workspace:
 
     runs-on: ${{ matrix.os }}
 
@@ -34,7 +38,7 @@ jobs:
           command: test
           args: --verbose
 
-  build_per_crate:
+  test:
 
     runs-on: ubuntu-latest
 
@@ -76,7 +80,7 @@ jobs:
           mv Cargo.toml Cargo.toml.bck
           sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
           # Patch all crates
-          cat ci/patch.toml >> Cargo.toml
+          cat .github/workflows/patch.toml >> Cargo.toml
           # Print `Cargo.toml` for debugging
           echo "~~~~ Cargo.toml ~~~~"
           cat Cargo.toml
@@ -95,7 +99,7 @@ jobs:
           command: test
           args: -p ${{ matrix.crate }} --verbose
 
-  rustfmt_check:
+  rustfmt:
 
     runs-on: ubuntu-latest
 
