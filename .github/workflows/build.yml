@@ -3,7 +3,7 @@ name: continuous integration
 on: [push, pull_request]
 
 jobs:
-  build_whole_workspace:
+  test-workspace:
 
     runs-on: ${{ matrix.os }}
 
@@ -34,7 +34,7 @@ jobs:
           command: test
           args: --verbose
 
-  build_per_crate:
+  test:
 
     runs-on: ubuntu-latest
 
@@ -95,7 +95,7 @@ jobs:
           command: test
           args: -p ${{ matrix.crate }} --verbose
 
-  rustfmt_check:
+  rustfmt:
 
     runs-on: ubuntu-latest
 
