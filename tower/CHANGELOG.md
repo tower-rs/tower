@@ -1,3 +1,7 @@
+# 0.3.1 (January 17, 2020)
+
+- Allow opting out of tracing/log (#410).
+
 # 0.3.0 (December 19, 2019)
 
 - Update all tower based crates to `0.3`.
