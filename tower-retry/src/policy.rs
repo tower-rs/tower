@@ -9,9 +9,9 @@ pub trait Policy<Req, Res, E>: Sized {
     /// This method is passed a reference to the original request, and either
     /// the `Service::Response` or `Service::Error` from the inner service.
     ///
-    /// If the request should **not** be retried, return `None`.
+    /// If the request **should not** be retried, return `None`.
     ///
-    /// If the request *should* be retried, return `Some` future of a new
+    /// If the request **should** be retried, return `Some` future of a new
     /// policy that would apply for the next request attempt.
     fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future>;
     /// Tries to clone a request before being passed to the inner service.
