@@ -1,6 +1,6 @@
 use futures_util::future;
 use tokio_test::{assert_pending, assert_ready_err, assert_ready_ok, task};
-use tower_retry::Policy;
+use tower_retry::{Policy, RetryErrors, RetryLimit};
 use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
@@ -22,7 +22,7 @@ async fn retry_errors() {
 
 #[tokio::test]
 async fn retry_limit() {
-    let (mut service, mut handle) = new_service(Limit(2));
+    let (mut service, mut handle) = new_service(RetryLimit::new(2));
 
     assert_ready_ok!(service.poll_ready());
 
@@ -82,42 +82,6 @@ type InnerError = &'static str;
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Mock = mock::Mock<Req, Res>;
 type Handle = mock::Handle<Req, Res>;
-
-#[derive(Clone)]
-struct RetryErrors;
-
-impl Policy<Req, Res, Error> for RetryErrors {
-    type Future = future::Ready<Self>;
-    fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
-        if result.is_err() {
-            Some(future::ready(RetryErrors))
-        } else {
-            None
-        }
-    }
-
-    fn clone_request(&self, req: &Req) -> Option<Req> {
-        Some(*req)
-    }
-}
-
-#[derive(Clone)]
-struct Limit(usize);
-
-impl Policy<Req, Res, Error> for Limit {
-    type Future = future::Ready<Self>;
-    fn retry(&self, _: &Req, result: Result<&Res, &Error>) -> Option<Self::Future> {
-        if result.is_err() && self.0 > 0 {
-            Some(future::ready(Limit(self.0 - 1)))
-        } else {
-            None
-        }
-    }
-
-    fn clone_request(&self, req: &Req) -> Option<Req> {
-        Some(*req)
-    }
-}
 
 #[derive(Clone)]
 struct UnlessErr(InnerError);
