@@ -363,7 +363,8 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut fut = self.cancel.as_mut().expect("polled after complete");
-        if let Poll::Ready(Ok(_)) = Pin::new(&mut fut).poll(cx) {
+        if let Poll::Ready(r) = Pin::new(&mut fut).poll(cx) {
+            assert!(r.is_ok(), "cancel sender lost");
             let key = self.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key)).into();
         }
