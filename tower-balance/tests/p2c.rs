@@ -56,7 +56,7 @@ fn stress() {
                     use std::task::Poll;
                     match task.enter(|cx, _| cache.poll_ready(cx)) {
                         Poll::Ready(Ok(())) => {
-                            // assert_ne!(nready, 0, "got ready when no service is ready");
+                            assert_ne!(nready, 0, "got ready when no service is ready");
                             let mut fut = cache.call("hello");
                             let mut fut = std::pin::Pin::new(&mut fut);
                             assert_pending!(task.enter(|cx, _| fut.as_mut().poll(cx)));
