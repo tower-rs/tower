@@ -161,7 +161,5 @@ fn stress() {
                 assert_eq!(nready, 0, "got pending when a service is ready");
             }
         }
-
-        // assert_eq!(cache.len(), services.len());
     }
 }
