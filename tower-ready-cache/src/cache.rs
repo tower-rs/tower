@@ -233,13 +233,28 @@ where
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Ready(Some(Ok((key, svc, cancel_rx)))) => {
                     trace!("endpoint ready");
-                    let cancel_tx = self
-                        .pending_cancel_txs
-                        .swap_remove(&key)
-                        .expect("missing cancelation");
-                    // Keep track of the cancelation so that it need not be
-                    // recreated after the service is used.
-                    self.ready.insert(key, (svc, (cancel_tx, cancel_rx)));
+                    let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
+                    if let Some(cancel_tx) = cancel_tx {
+                        // Keep track of the cancelation so that it need not be
+                        // recreated after the service is used.
+                        self.ready.insert(key, (svc, (cancel_tx, cancel_rx)));
+                    } else {
+                        // This should not technically be possible. We must have decided to cancel
+                        // a Service (by sending on the CancelTx), yet that same service then
+                        // returns Ready. Since polling a Pending _first_ polls the CancelRx, that
+                        // _should_ always see our CancelTx send. Yet empirically, that isn't true:
+                        //
+                        //   https://github.com/tower-rs/tower/issues/415
+                        //
+                        // So, we instead detect the endpoint as canceled at this point. That
+                        // should be fine, since the oneshot is only really there to ensure that
+                        // the Pending is polled again anyway.
+                        //
+                        // We assert that this can't happen in debug mode so that hopefully one day
+                        // we can find a test that triggers this reliably.
+                        debug_assert!(cancel_tx.is_some());
+                        debug!("canceled endpoint removed when ready");
+                    }
                 }
                 Poll::Ready(Some(Err(PendingError::Canceled(_)))) => {
                     debug!("endpoint canceled");
@@ -247,10 +262,14 @@ where
                     // cause this cancellation.
                 }
                 Poll::Ready(Some(Err(PendingError::Inner(key, e)))) => {
-                    self.pending_cancel_txs
-                        .swap_remove(&key)
-                        .expect("missing cancelation");
-                    return Err(error::Failed(key, e.into())).into();
+                    let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
+                    if let Some(_) = cancel_tx {
+                        return Err(error::Failed(key, e.into())).into();
+                    } else {
+                        // See comment for the same clause under Ready(Some(Ok)).
+                        debug_assert!(cancel_tx.is_some());
+                        debug!("canceled endpoint removed on error");
+                    }
                 }
             }
         }
