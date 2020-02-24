@@ -249,6 +249,10 @@ where
                         // So, we instead detect the endpoint as canceled at this point. That
                         // should be fine, since the oneshot is only really there to ensure that
                         // the Pending is polled again anyway.
+                        //
+                        // We assert that this can't happen in debug mode so that hopefully one day
+                        // we can find a test that triggers this reliably.
+                        debug_assert!(cancel_tx.is_some());
                         debug!("canceled endpoint removed when ready");
                     }
                 }
@@ -263,6 +267,7 @@ where
                         return Err(error::Failed(key, e.into())).into();
                     } else {
                         // See comment for the same clause under Ready(Some(Ok)).
+                        debug_assert!(cancel_tx.is_some());
                         debug!("canceled endpoint removed on error");
                     }
                 }
