@@ -36,7 +36,7 @@ where
     /// must be called while on the Tokio runtime.
     ///
     /// # Note on setting `bound`
-    /// `Buffer`'s implementation of `poll_ready` will, if it will return `Poll::Ready`, reserve a
+    /// When `Buffer`'s implementation of `poll_ready` returns `Poll::Ready`, it reserves a
     /// slot in the channel for the forthcoming `call()`. However, if this call doesn't arrive,
     /// this reserved slot may be held up for a long time. As a result, it's advisable to set
     /// `bound` to be at least the maximum number of concurrent requests the `Buffer` will see.
