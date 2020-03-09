@@ -1,0 +1,13 @@
+[package]
+name = "tower-router"
+version = "0.1.0"
+authors = ["Akshay Narayan <akshayn@mit.edu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tower-service = "0.3"
+futures-util = "0.3"
+pin-project = "0.4"
+tokio = { version = "0.2", features = ["sync"]}
