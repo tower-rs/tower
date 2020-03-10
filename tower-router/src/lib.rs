@@ -23,14 +23,14 @@ type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 /// This is how callers of [`ServiceRouter`] tell it which `Service` a `Req` corresponds to.
 pub trait Router<Req> {
     /// Return an index into the iterator of `Service` passed to [`new`].
-    fn route(&self, r: &Req) -> usize;
+    fn route(&mut self, r: &Req) -> usize;
 }
 
 impl<F, Req> Router<Req> for F
 where
     F: Fn(&Req) -> usize,
 {
-    fn route(&self, r: &Req) -> usize {
+    fn route(&mut self, r: &Req) -> usize {
         self(r)
     }
 }
