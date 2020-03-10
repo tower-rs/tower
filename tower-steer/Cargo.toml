@@ -1,5 +1,5 @@
 [package]
-name = "tower-router"
+name = "tower-steer"
 version = "0.1.0"
 authors = ["Akshay Narayan <akshayn@mit.edu>"]
 edition = "2018"
