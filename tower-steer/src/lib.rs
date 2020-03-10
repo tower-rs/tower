@@ -33,7 +33,7 @@
 //!     let mut s = Steer::new(
 //!         vec![MyService(0), MyService(1)],
 //!         // one service handles strings with uppercase first letters. the other handles the rest.
-//!         |r: &String| if r.chars().next().unwrap().is_uppercase() { 0 } else { 1 },
+//!         |r: &String, _: &[_]| if r.chars().next().unwrap().is_uppercase() { 0 } else { 1 },
 //!     );
 //!
 //!     let reqs = vec!["A", "b", "C", "d"];
@@ -64,17 +64,17 @@ use tower_service::Service;
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 /// This is how callers of [`Steer`] tell it which `Service` a `Req` corresponds to.
-pub trait Picker<Req> {
+pub trait Picker<S, Req> {
     /// Return an index into the iterator of `Service` passed to [`Steer::new`].
-    fn pick(&mut self, r: &Req) -> usize;
+    fn pick(&mut self, r: &Req, services: &[S]) -> usize;
 }
 
-impl<F, Req> Picker<Req> for F
+impl<S, F, Req> Picker<S, Req> for F
 where
-    F: Fn(&Req) -> usize,
+    F: Fn(&Req, &[S]) -> usize,
 {
-    fn pick(&mut self, r: &Req) -> usize {
-        self(r)
+    fn pick(&mut self, r: &Req, services: &[S]) -> usize {
+        self(r, services)
     }
 }
 
@@ -90,7 +90,8 @@ where
 pub struct Steer<S, F, Req> {
     router: F,
     // tuple of is_ready, service
-    cls: Vec<(bool, S)>,
+    cls: Vec<S>,
+    ready: Vec<bool>,
     _phantom: std::marker::PhantomData<Req>,
 }
 
@@ -103,10 +104,12 @@ where
     ///
     /// Note: the order of the `Service`s is significant for [`Picker::pick`]'s return value.
     pub fn new(cls: impl IntoIterator<Item = S>, router: F) -> Self {
-        let cls: Vec<_> = cls.into_iter().map(|s| (false, s)).collect();
+        let cls: Vec<_> = cls.into_iter().collect();
+        let ready: Vec<_> = cls.iter().map(|_| false).collect();
         Self {
             router,
             cls,
+            ready,
             _phantom: Default::default(),
         }
     }
@@ -116,7 +119,7 @@ impl<S, Req, T, F> Service<Req> for Steer<S, F, Req>
 where
     S: Service<Req, Response = T, Error = StdError>,
     S::Future: 'static,
-    F: Picker<Req>,
+    F: Picker<S, Req>,
 {
     type Response = T;
     type Error = StdError;
@@ -126,7 +129,7 @@ where
         use futures_util::ready;
         // must wait for *all* services to be ready.
         // this will cause head-of-line blocking unless the underlying services are always ready.
-        for (is_ready, serv) in &mut self.cls {
+        for (serv, is_ready) in self.cls.iter_mut().zip(self.ready.iter_mut()) {
             if *is_ready {
                 continue;
             } else {
@@ -139,8 +142,9 @@ where
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
-        let idx = self.router.pick(&req);
-        let (ready, cl): &mut (bool, S) = &mut self.cls[idx];
+        let idx = self.router.pick(&req, &self.cls[..]);
+        let ready = &mut self.ready[idx];
+        let cl = &mut self.cls[idx];
         assert!(*ready);
         let fut = cl.call(req);
         *ready = false;
