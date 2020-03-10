@@ -30,9 +30,9 @@
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     // one service handles strings with
 //!     let mut s = ServiceRouter::new(
 //!         vec![MyService(0), MyService(1)],
+//!         // one service handles strings with uppercase first letters. the other handles the rest.
 //!         |r: &String| if r.chars().next().unwrap().is_uppercase() { 0 } else { 1 },
 //!     );
 //!
@@ -68,7 +68,7 @@ type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 /// This is how callers of [`ServiceRouter`] tell it which `Service` a `Req` corresponds to.
 pub trait Router<Req> {
-    /// Return an index into the iterator of `Service` passed to [`new`].
+    /// Return an index into the iterator of `Service` passed to [`ServiceRouter::new`].
     fn route(&mut self, r: &Req) -> usize;
 }
 
