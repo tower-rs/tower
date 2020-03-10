@@ -10,4 +10,7 @@ edition = "2018"
 tower-service = "0.3"
 futures-util = "0.3"
 pin-project = "0.4"
-tokio = { version = "0.2", features = ["sync"]}
+tokio = { version = "0.2", features = ["sync", "rt-core"]}
+
+[dev-dependencies]
+tokio = { version = "0.2", features = ["sync", "rt-core", "rt-threaded", "macros"]}

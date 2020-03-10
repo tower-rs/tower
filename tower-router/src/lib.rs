@@ -1,4 +1,49 @@
 //! This crate provides functionality to aid managing routing requests between different Tower [`Service`]s.
+//!
+//! # Example
+//! ```rust
+//! # use std::{
+//! #    pin::Pin,
+//! #    task::{Context, Poll},
+//! # };
+//! # use tower_service::Service;
+//! # use futures_util::future::{ready, Ready, poll_fn};
+//! # use futures_util::never::Never;
+//! # use tower_router::ServiceRouter;
+//! type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
+//! struct MyService(u8);
+//!
+//! impl Service<String> for MyService {
+//!     type Response = ();
+//!     type Error = StdError;
+//!     type Future = Ready<Result<(), Self::Error>>;
+//!
+//!     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+//!         Poll::Ready(Ok(()))
+//!     }
+//!
+//!     fn call(&mut self, req: String) -> Self::Future {
+//!         println!("{}: {}", self.0, req);
+//!         ready(Ok(()))
+//!     }
+//! }
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!     // one service handles strings with
+//!     let mut s = ServiceRouter::new(
+//!         vec![MyService(0), MyService(1)],
+//!         |r: &String| if r.chars().next().unwrap().is_uppercase() { 0 } else { 1 },
+//!     );
+//!
+//!     let reqs = vec!["A", "b", "C", "d"];
+//!     let reqs: Vec<String> = reqs.into_iter().map(String::from).collect();
+//!     for r in reqs {
+//!         poll_fn(|cx| s.poll_ready(cx)).await.unwrap();
+//!         s.call(r).await;
+//!     }
+//! }
+//! ```
 #![deny(missing_docs)]
 #![warn(unreachable_pub)]
 #![warn(missing_copy_implementations)]
@@ -10,12 +55,13 @@
 #![allow(clippy::type_complexity)]
 
 use futures_util::stream::Stream;
+use std::sync::Arc;
 use std::{
     collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Mutex};
 use tower_service::Service;
 
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -49,49 +95,78 @@ where
 #[derive(Debug)]
 pub struct ServiceRouter<S, Req, T: 'static, F> {
     router: F,
-    inner: ServiceGroup<OneshotService<S>, (oneshot::Sender<T>, Req)>,
+    inner: Arc<Mutex<ServiceGroup<OneshotService<S>, (oneshot::Sender<T>, Req)>>>,
 }
 
-impl<S, Req, T, F> ServiceRouter<S, Req, T, F>
+impl<S, Req: Send + 'static, T, F> ServiceRouter<S, Req, T, F>
 where
-    S: Service<Req, Response = T, Error = StdError>,
-    S::Future: 'static,
+    S: Service<Req, Response = T, Error = StdError> + Send + 'static,
+    S::Future: Send + 'static,
+    T: Send + 'static,
 {
     /// Make a new [`ServiceRouter`] with a list of `Service`s and a `Router`.
     ///
     /// Note: the order of the `Service`s is significant for [`Router::route`]'s return value.
     pub fn new(cls: impl IntoIterator<Item = S>, router: F) -> Self {
         let cls = cls.into_iter().map(|c| OneshotService(c));
-        Self {
-            router,
-            inner: ServiceGroup::new(cls),
-        }
+        let sg = Arc::new(Mutex::new(ServiceGroup::new(cls)));
+        let sg_stream = sg.clone();
+
+        // spawn a task that will drive inner
+        tokio::spawn(async move {
+            // for each future inner Stream gives us, spawn it
+            loop {
+                let next = {
+                    use futures_util::stream::StreamExt;
+                    let mut sg = sg_stream.lock().await;
+                    (*sg).next().await
+                };
+
+                match next {
+                    // got the next future. spawn it.
+                    Some(Ok(fut)) => {
+                        tokio::spawn(fut);
+                    }
+                    // no futures yet.
+                    None => {
+                        tokio::task::yield_now().await;
+                        continue;
+                    }
+                    Some(Err(_)) => {
+                        break;
+                    }
+                }
+            }
+        });
+
+        Self { router, inner: sg }
     }
 
     /// Get the length of the request queue for service `idx`
     ///
     /// Calls [`ServiceGroup::len`].
-    pub fn len(&self, idx: usize) -> usize {
-        self.inner.len(idx)
+    pub async fn len(&self, idx: usize) -> usize {
+        self.inner.lock().await.len(idx)
     }
 
     /// Get the lengths of all the request queues.
     ///
     /// Calls [`ServiceGroup::len_all`].
-    pub fn len_all(&self) -> Vec<usize> {
-        self.inner.len_all()
+    pub async fn len_all(&self) -> Vec<usize> {
+        self.inner.lock().await.len_all()
     }
 }
 
-impl<S, Req, T, F> Service<Req> for ServiceRouter<S, Req, T, F>
+impl<S, Req: Send + 'static, T, F> Service<Req> for ServiceRouter<S, Req, T, F>
 where
-    S: Service<Req, Response = T, Error = StdError>,
-    S::Future: 'static,
+    S: Service<Req, Response = T, Error = StdError> + Send + 'static,
+    S::Future: Send + 'static,
     F: Router<Req>,
+    T: Send,
 {
     type Response = T;
     type Error = StdError;
-    type Future = Pin<Box<dyn std::future::Future<Output = Result<T, StdError>>>>;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<T, StdError>> + Send + 'static>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // because we infinitely buffer, we are always ready
@@ -101,29 +176,89 @@ where
     fn call(&mut self, req: Req) -> Self::Future {
         let idx = self.router.route(&req);
         let (tx, rx) = tokio::sync::oneshot::channel::<T>();
-        self.inner.push(idx, (tx, req));
-        Box::pin(async move {
-            let res = rx.await?;
-            Ok(res)
-        })
+
+        // avoid capturing self.router unnecessarily
+        fn do_call<S, T, Req: Send + 'static>(
+            inner: Arc<Mutex<ServiceGroup<OneshotService<S>, (oneshot::Sender<T>, Req)>>>,
+            idx: usize,
+            tx: oneshot::Sender<T>,
+            rx: oneshot::Receiver<T>,
+            req: Req,
+        ) -> Pin<Box<dyn std::future::Future<Output = Result<T, StdError>> + Send + 'static>>
+        where
+            S: Service<Req, Response = T, Error = StdError> + Send + 'static,
+            S::Future: Send + 'static,
+            T: Send + 'static,
+        {
+            tokio::spawn(async move {
+                let mut sg = inner.lock().await;
+                sg.push(idx, (tx, req));
+            });
+            Box::pin(async move {
+                let res = rx.await?;
+                Ok(res)
+            })
+        }
+
+        do_call(self.inner.clone(), idx, tx, rx, req)
     }
 }
 
-/// Send the results of S on a oneshot instead of just returning them.
+/// Send the results of S on a oneshot instead of returning them.
 ///
-/// This lets us construct a future that returns the right response to each request.
+/// ```rust
+/// # use std::{
+/// #    pin::Pin,
+/// #    task::{Context, Poll},
+/// # };
+/// # use tower_service::Service;
+/// # use futures_util::future::{ready, Ready, poll_fn};
+/// # use futures_util::never::Never;
+/// # use tower_router::{OneshotService, ServiceGroup};
+/// type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
+/// struct MyService(u8);
+///
+/// impl Service<String> for MyService {
+///     type Response = ();
+///     type Error = StdError;
+///     type Future = Ready<Result<(), Self::Error>>;
+///
+///     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///         Poll::Ready(Ok(()))
+///     }
+///
+///     fn call(&mut self, req: String) -> Self::Future {
+///         println!("{}: {}", self.0, req);
+///         ready(Ok(()))
+///     }
+/// }
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let s = MyService(0);
+///     let s = OneshotService(s);
+///     let mut sg = ServiceGroup::new(vec![s]);
+///     let (tx, rx) = tokio::sync::oneshot::channel();
+///     sg.push(0, (tx, String::from("a")));
+///
+///     use futures_util::stream::StreamExt;
+///     let fut = sg.next().await.unwrap().unwrap();
+///     tokio::spawn(fut);
+///     rx.await;
+/// }
+/// ```
 #[derive(Debug)]
-struct OneshotService<S>(S);
+pub struct OneshotService<S>(pub S);
 
 impl<S, Req, T> Service<(oneshot::Sender<T>, Req)> for OneshotService<S>
 where
-    S: Service<Req, Response = T>,
-    S::Future: 'static,
-    T: 'static,
+    S: Service<Req, Response = T, Error = StdError>,
+    S::Future: Send + 'static,
+    T: Send + 'static,
 {
     type Response = ();
     type Error = S::Error;
-    type Future = Pin<Box<dyn std::future::Future<Output = Result<(), S::Error>>>>;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<(), S::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.poll_ready(cx)
@@ -205,9 +340,12 @@ where
 impl<S, Req, T> Stream for ServiceGroup<S, Req>
 where
     S: Service<Req, Response = T, Error = StdError>,
-    S::Future: 'static,
+    S::Future: Send + 'static,
 {
-    type Item = Result<Pin<Box<dyn std::future::Future<Output = Result<T, StdError>>>>, StdError>;
+    type Item = Result<
+        Pin<Box<dyn std::future::Future<Output = Result<T, StdError>> + Send + 'static>>,
+        StdError,
+    >;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // project to split the borrow
