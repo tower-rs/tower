@@ -9,7 +9,7 @@
 //! # use tower_service::Service;
 //! # use futures_util::future::{ready, Ready, poll_fn};
 //! # use futures_util::never::Never;
-//! # use tower_steer::SteerService;
+//! # use tower_steer::Steer;
 //! type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 //! struct MyService(u8);
 //!
@@ -30,7 +30,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     let mut s = SteerService::new(
+//!     let mut s = Steer::new(
 //!         vec![MyService(0), MyService(1)],
 //!         // one service handles strings with uppercase first letters. the other handles the rest.
 //!         |r: &String| if r.chars().next().unwrap().is_uppercase() { 0 } else { 1 },
@@ -63,9 +63,9 @@ use tower_service::Service;
 
 type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
-/// This is how callers of [`SteerService`] tell it which `Service` a `Req` corresponds to.
+/// This is how callers of [`Steer`] tell it which `Service` a `Req` corresponds to.
 pub trait Picker<Req> {
-    /// Return an index into the iterator of `Service` passed to [`SteerService::new`].
+    /// Return an index into the iterator of `Service` passed to [`Steer::new`].
     fn pick(&mut self, r: &Req) -> usize;
 }
 
@@ -78,27 +78,28 @@ where
     }
 }
 
-/// `SteerService` manages a list of `Service`s.
+/// `Steer` manages a list of `Service`s which all handle the same type of request.
 ///
+/// An example use case is a sharded service.
 /// It accepts new requests, then:
 /// 1. Determines, via the provided [`Picker`], which `Service` the request coresponds to.
 /// 2. Waits (in `poll_ready`) for *all* services to be ready.
 /// 3. Calls the correct `Service` with the request, and returns a future corresponding to the
 ///    call.
 #[derive(Debug)]
-pub struct SteerService<S, F, Req> {
+pub struct Steer<S, F, Req> {
     router: F,
     // tuple of is_ready, service
     cls: Vec<(bool, S)>,
     _phantom: std::marker::PhantomData<Req>,
 }
 
-impl<S, F, Req> SteerService<S, F, Req>
+impl<S, F, Req> Steer<S, F, Req>
 where
     S: Service<Req, Error = StdError>,
     S::Future: 'static,
 {
-    /// Make a new [`SteerService`] with a list of `Service`s and a `Picker`.
+    /// Make a new [`Steer`] with a list of `Service`s and a `Picker`.
     ///
     /// Note: the order of the `Service`s is significant for [`Picker::pick`]'s return value.
     pub fn new(cls: impl IntoIterator<Item = S>, router: F) -> Self {
@@ -111,7 +112,7 @@ where
     }
 }
 
-impl<S, Req, T, F> Service<Req> for SteerService<S, F, Req>
+impl<S, Req, T, F> Service<Req> for Steer<S, F, Req>
 where
     S: Service<Req, Response = T, Error = StdError>,
     S::Future: 'static,
