@@ -2,10 +2,7 @@
 //!
 //! # Example
 //! ```rust
-//! # use std::{
-//! #    pin::Pin,
-//! #    task::{Context, Poll},
-//! # };
+//! # use std::task::{Context, Poll};
 //! # use tower_service::Service;
 //! # use futures_util::future::{ready, Ready, poll_fn};
 //! # use futures_util::never::Never;
@@ -54,14 +51,9 @@
 #![warn(missing_debug_implementations)]
 #![allow(clippy::type_complexity)]
 
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::collections::VecDeque;
+use std::task::{Context, Poll};
 use tower_service::Service;
-
-type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 /// This is how callers of [`Steer`] tell it which `Service` a `Req` corresponds to.
 pub trait Picker<S, Req> {
@@ -86,68 +78,64 @@ where
 /// 2. Waits (in `poll_ready`) for *all* services to be ready.
 /// 3. Calls the correct `Service` with the request, and returns a future corresponding to the
 ///    call.
+///
+/// Note that `Steer` must wait for all services to be ready since it can't know ahead of time
+/// which `Service` the next message will arrive for, and is unwilling to buffer items
+/// indefinitely. This will cause head-of-line blocking unless paired with a `Service` that does
+/// buffer items indefinitely, and thus always returns `Poll::Ready`.
 #[derive(Debug)]
 pub struct Steer<S, F, Req> {
     router: F,
-    // tuple of is_ready, service
-    cls: Vec<S>,
-    ready: Vec<bool>,
+    services: Vec<S>,
+    not_ready: VecDeque<usize>,
     _phantom: std::marker::PhantomData<Req>,
 }
 
-impl<S, F, Req> Steer<S, F, Req>
-where
-    S: Service<Req, Error = StdError>,
-    S::Future: 'static,
-{
+impl<S, F, Req> Steer<S, F, Req> {
     /// Make a new [`Steer`] with a list of `Service`s and a `Picker`.
     ///
     /// Note: the order of the `Service`s is significant for [`Picker::pick`]'s return value.
-    pub fn new(cls: impl IntoIterator<Item = S>, router: F) -> Self {
-        let cls: Vec<_> = cls.into_iter().collect();
-        let ready: Vec<_> = cls.iter().map(|_| false).collect();
+    pub fn new(services: impl IntoIterator<Item = S>, router: F) -> Self {
+        let services: Vec<_> = services.into_iter().collect();
+        let not_ready: VecDeque<_> = services.iter().enumerate().map(|(i, _)| i).collect();
         Self {
             router,
-            cls,
-            ready,
+            services,
+            not_ready,
             _phantom: Default::default(),
         }
     }
 }
 
-impl<S, Req, T, F> Service<Req> for Steer<S, F, Req>
+impl<S, Req, F> Service<Req> for Steer<S, F, Req>
 where
-    S: Service<Req, Response = T, Error = StdError>,
-    S::Future: 'static,
+    S: Service<Req>,
     F: Picker<S, Req>,
 {
-    type Response = T;
-    type Error = StdError;
-    type Future = Pin<Box<dyn Future<Output = Result<T, StdError>>>>;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         use futures_util::ready;
+
         // must wait for *all* services to be ready.
         // this will cause head-of-line blocking unless the underlying services are always ready.
-        for (serv, is_ready) in self.cls.iter_mut().zip(self.ready.iter_mut()) {
-            if *is_ready {
-                continue;
-            } else {
-                ready!(serv.poll_ready(cx))?;
-                *is_ready = true;
-            }
+        if self.not_ready.is_empty() {
+            Poll::Ready(Ok(()))
+        } else {
+            ready!(self.services[self.not_ready[0]].poll_ready(cx))?;
+            self.not_ready.pop_front();
+            self.poll_ready(cx)
         }
-
-        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
-        let idx = self.router.pick(&req, &self.cls[..]);
-        let ready = &mut self.ready[idx];
-        let cl = &mut self.cls[idx];
-        assert!(*ready);
+        let idx = self.router.pick(&req, &self.services[..]);
+        let cl = &mut self.services[idx];
         let fut = cl.call(req);
-        *ready = false;
-        Box::pin(fut)
+        // mark not ready
+        self.not_ready.push_back(idx);
+        fut
     }
 }
