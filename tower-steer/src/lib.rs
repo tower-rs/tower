@@ -123,10 +123,10 @@ where
             if self.not_ready.is_empty() {
                 return Poll::Ready(Ok(()));
             } else {
-                match self.services[self.not_ready[0]].poll_ready(cx) {
-                    Poll::Pending => return Poll::Pending,
-                    Poll::Ready(o) => o?,
+                if let Poll::Pending = self.services[self.not_ready[0]].poll_ready(cx)? {
+                    return Poll::Pending;
                 }
+
                 self.not_ready.pop_front();
             }
         }
