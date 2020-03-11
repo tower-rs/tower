@@ -117,21 +117,23 @@ where
     type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        use futures_util::ready;
-
         loop {
             // must wait for *all* services to be ready.
             // this will cause head-of-line blocking unless the underlying services are always ready.
             if self.not_ready.is_empty() {
                 return Poll::Ready(Ok(()));
             } else {
-                ready!(self.services[self.not_ready[0]].poll_ready(cx))?;
+                match self.services[self.not_ready[0]].poll_ready(cx) {
+                    Poll::Pending => return Poll::Pending,
+                    Poll::Ready(o) => o?,
+                }
                 self.not_ready.pop_front();
             }
         }
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
+        assert!(self.not_ready.is_empty());
         let idx = self.router.pick(&req, &self.services[..]);
         let cl = &mut self.services[idx];
         self.not_ready.push_back(idx);
