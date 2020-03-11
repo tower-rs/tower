@@ -1,10 +1,25 @@
 [package]
 name = "tower-steer"
 version = "0.1.0"
-authors = ["Akshay Narayan <akshayn@mit.edu>"]
+authors = ["Tower Maintainers <team@tower-rs.com>"]
+# When releasing to crates.io:
+# - Remove path dependencies
+# - Update html_root_url.
+# - Update doc url
+#   - Cargo.toml
+#   - README.md
+# - Update CHANGELOG.md.
+# - Create "v0.1.x" git tag.
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tower-rs/tower"
+homepage = "https://github.com/tower-rs/tower"
+documentation = "https://docs.rs/tower-steer/0.1.0"
+description = """
+Functionality to aid managing steering requests between Tower [`Service`]s.
+"""
+categories = ["asynchronous", "network-programming"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tower-service = "0.3"
