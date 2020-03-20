@@ -75,10 +75,7 @@ where
     T: Service<Request>,
 {
     #[allow(missing_docs)]
-    #[deprecated(
-        since = "0.3.1",
-        note = "prefer `ReadyAnd` which actually yields the service"
-    )]
+    #[deprecated(since = "0.3.1", note = "prefer `ReadyAnd` which yields the service")]
     pub fn new(service: &'a mut T) -> Self {
         Self(ReadyAnd::new(service))
     }

@@ -49,10 +49,7 @@ pub mod future {
 /// adapters
 pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// A future that resolves when the service is ready to accept a request.
-    #[deprecated(
-        since = "0.3.1",
-        note = "prefer `ready_and` which actually yields the service"
-    )]
+    #[deprecated(since = "0.3.1", note = "prefer `ready_and` which yields the service")]
     fn ready(&mut self) -> Ready<'_, Self, Request>
     where
         Self: Sized,
