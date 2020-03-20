@@ -23,7 +23,7 @@ pub use crate::{
     either::Either,
     oneshot::Oneshot,
     optional::Optional,
-    ready::Ready,
+    ready::{Ready, ReadyAnd},
     service_fn::{service_fn, ServiceFn},
 };
 
@@ -48,12 +48,25 @@ pub mod future {
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
 pub trait ServiceExt<Request>: tower_service::Service<Request> {
-    /// A future yielding the service when it is ready to accept a request.
+    /// A future that resolves when the service is ready to accept a request.
+    #[deprecated(
+        since = "0.3.1",
+        note = "prefer `ready_and` which actually yields the service"
+    )]
     fn ready(&mut self) -> Ready<'_, Self, Request>
     where
         Self: Sized,
     {
+        #[allow(deprecated)]
         Ready::new(self)
+    }
+
+    /// A future that yields the service when it is ready to accept a request.
+    fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
+    where
+        Self: Sized,
+    {
+        ReadyAnd::new(self)
     }
 
     /// Consume this `Service`, calling with the providing request once it is ready.
