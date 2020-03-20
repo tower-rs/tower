@@ -8,23 +8,23 @@ use std::{
 };
 use tower_service::Service;
 
-/// A future that yields a `Service` when it is ready to accept a request.
+/// A future that yields the service when it is ready to accept a request.
 ///
-/// `ReadyAnd` values are produced by `ServiceExt::ready_and`.
-pub struct ReadyAnd<'a, T, Request> {
-    inner: Option<&'a mut T>,
+/// `ReadyOneshot` values are produced by `ServiceExt::ready_oneshot`.
+pub struct ReadyOneshot<T, Request> {
+    inner: Option<T>,
     _p: PhantomData<fn() -> Request>,
 }
 
 // Safety: This is safe because `Services`'s are always `Unpin`.
-impl<'a, T, Request> Unpin for ReadyAnd<'a, T, Request> {}
+impl<T, Request> Unpin for ReadyOneshot<T, Request> {}
 
-impl<'a, T, Request> ReadyAnd<'a, T, Request>
+impl<T, Request> ReadyOneshot<T, Request>
 where
     T: Service<Request>,
 {
     #[allow(missing_docs)]
-    pub fn new(service: &'a mut T) -> Self {
+    pub fn new(service: T) -> Self {
         Self {
             inner: Some(service),
             _p: PhantomData,
@@ -32,11 +32,11 @@ where
     }
 }
 
-impl<'a, T, Request> Future for ReadyAnd<'a, T, Request>
+impl<T, Request> Future for ReadyOneshot<T, Request>
 where
     T: Service<Request>,
 {
-    type Output = Result<&'a mut T, T::Error>;
+    type Output = Result<T, T::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         ready!(self
@@ -49,14 +49,52 @@ where
     }
 }
 
+impl<T, Request> fmt::Debug for ReadyOneshot<T, Request>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ReadyOneshot")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+/// A future that yields a mutable reference to the service when it is ready to accept a request.
+///
+/// `ReadyAnd` values are produced by `ServiceExt::ready_and`.
+pub struct ReadyAnd<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
+
+// Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
+impl<'a, T, Request> Unpin for ReadyAnd<'a, T, Request> {}
+
+impl<'a, T, Request> ReadyAnd<'a, T, Request>
+where
+    T: Service<Request>,
+{
+    #[allow(missing_docs)]
+    pub fn new(service: &'a mut T) -> Self {
+        Self(ReadyOneshot::new(service))
+    }
+}
+
+impl<'a, T, Request> Future for ReadyAnd<'a, T, Request>
+where
+    T: Service<Request>,
+{
+    type Output = Result<&'a mut T, T::Error>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.0).poll(cx)
+    }
+}
+
 impl<'a, T, Request> fmt::Debug for ReadyAnd<'a, T, Request>
 where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ReadyAnd")
-            .field("inner", &self.inner)
-            .finish()
+        f.debug_tuple("ReadyAnd").field(&self.0).finish()
     }
 }
 
@@ -67,7 +105,7 @@ where
 /// `Ready` values are produced by `ServiceExt::ready`.
 pub struct Ready<'a, T, Request>(ReadyAnd<'a, T, Request>);
 
-// Safety: This is safe for the same reason that the impl for ReadyAnd is safe.
+// Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
 impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
 
 impl<'a, T, Request> Ready<'a, T, Request>
