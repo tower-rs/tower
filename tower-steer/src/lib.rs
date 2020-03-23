@@ -135,7 +135,11 @@ where
     }
 
     fn call(&mut self, req: Req) -> Self::Future {
-        assert!(self.not_ready.is_empty());
+        assert!(
+            self.not_ready.is_empty(),
+            "Steer must wait for all services to be ready. Did you forget to call poll_ready()?"
+        );
+
         let idx = self.router.pick(&req, &self.services[..]);
         let cl = &mut self.services[idx];
         self.not_ready.push_back(idx);
