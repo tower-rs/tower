@@ -42,13 +42,15 @@
 //! }
 //! ```
 #![deny(missing_docs)]
-#![warn(unreachable_pub)]
-#![warn(missing_copy_implementations)]
-#![warn(trivial_casts)]
-#![warn(trivial_numeric_casts)]
-#![warn(unused_extern_crates)]
-#![warn(rust_2018_idioms)]
-#![warn(missing_debug_implementations)]
+#![warn(
+    unreachable_pub,
+    missing_copy_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    rust_2018_idioms,
+    missing_debug_implementations
+)]
 #![allow(clippy::type_complexity)]
 
 use std::collections::VecDeque;
