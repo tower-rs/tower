@@ -12,9 +12,11 @@
 pub mod budget;
 pub mod future;
 mod layer;
+mod policies;
 mod policy;
 
 pub use crate::layer::RetryLayer;
+pub use crate::policies::{RetryErrors, RetryLimit};
 pub use crate::policy::Policy;
 
 use crate::future::ResponseFuture;
