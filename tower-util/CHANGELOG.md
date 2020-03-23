@@ -1,3 +1,13 @@
+# 0.3.1 (March 23, 2020)
+
+- Adds `ReadyAnd` and `ServiceExt::ready_and`, which yield `&mut` to the
+  service when it is ready (#427).
+- Adds `ReadyOneshot` and `ServiceExt::ready_oneshot`, which yield the
+  service when it is ready (#427).
+- Updates `Ready` and `ServiceExt::ready` documentation to reflect that
+  they do not yield the service, just unit, when the service is ready
+  (#427).
+
 # 0.3.0 (December 19, 2019)
 
 - Update to `tower-serivce 0.3`
