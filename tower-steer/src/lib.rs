@@ -84,7 +84,9 @@ where
 /// Note that `Steer` must wait for all services to be ready since it can't know ahead of time
 /// which `Service` the next message will arrive for, and is unwilling to buffer items
 /// indefinitely. This will cause head-of-line blocking unless paired with a `Service` that does
-/// buffer items indefinitely, and thus always returns `Poll::Ready`.
+/// buffer items indefinitely, and thus always returns `Poll::Ready`. For example, wrapping each
+/// component service with a `tower-buffer` with a high enough limit (the maximum number of
+/// concurrent requests) will prevent head-of-line blocking in `Steer`.
 #[derive(Debug)]
 pub struct Steer<S, F, Req> {
     router: F,
