@@ -1,5 +1,6 @@
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok};
 use tower_limit::concurrency::ConcurrencyLimitLayer;
+use tower_load::Load;
 use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
@@ -7,11 +8,17 @@ async fn basic_service_limit_functionality_with_poll_ready() {
     let limit = ConcurrencyLimitLayer::new(2);
     let (mut service, mut handle) = mock::spawn_layer(limit);
 
+    let load1 = service.get_ref().load();
+
     assert_ready_ok!(service.poll_ready());
     let r1 = service.call("hello 1");
+    let load2 = service.get_ref().load();
+    assert!(load2 >= load1);
 
     assert_ready_ok!(service.poll_ready());
     let r2 = service.call("hello 2");
+    let load3 = service.get_ref().load();
+    assert!(load3 >= load2);
 
     assert_pending!(service.poll_ready());
 
@@ -32,8 +39,12 @@ async fn basic_service_limit_functionality_with_poll_ready() {
 
     // Another request can be sent
     assert_ready_ok!(service.poll_ready());
+    let load4 = service.get_ref().load();
+    assert!(load4 <= load3);
 
     let r3 = service.call("hello 3");
+    let load5 = service.get_ref().load();
+    assert!(load5 >= load4);
 
     assert_pending!(service.poll_ready());
 
