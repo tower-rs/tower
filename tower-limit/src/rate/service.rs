@@ -109,15 +109,12 @@ where
     }
 }
 
-impl<S> tower_load::Load for RateLimit<S> {
-    type Metric = u64;
+impl<S> tower_load::Load for RateLimit<S>
+where
+    S: tower_load::Load,
+{
+    type Metric = S::Metric;
     fn load(&self) -> Self::Metric {
-        match self.state {
-            State::Limited(..) => u64::max_value(),
-            State::Ready { rem, .. } => {
-                // More remaining slots == lower load, so negate it
-                u64::max_value() - rem
-            }
-        }
+        self.inner.load()
     }
 }

@@ -86,11 +86,13 @@ where
     }
 }
 
-impl<S> tower_load::Load for ConcurrencyLimit<S> {
-    type Metric = usize;
+impl<S> tower_load::Load for ConcurrencyLimit<S>
+where
+    S: tower_load::Load,
+{
+    type Metric = S::Metric;
     fn load(&self) -> Self::Metric {
-        // More available permits == lower load, so negate it
-        usize::max_value() - self.limit.semaphore.available_permits()
+        self.inner.load()
     }
 }
 
