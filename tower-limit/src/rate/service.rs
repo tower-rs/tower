@@ -108,3 +108,13 @@ where
         }
     }
 }
+
+impl<S> tower_load::Load for RateLimit<S>
+where
+    S: tower_load::Load,
+{
+    type Metric = S::Metric;
+    fn load(&self) -> Self::Metric {
+        self.inner.load()
+    }
+}

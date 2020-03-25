@@ -86,6 +86,16 @@ where
     }
 }
 
+impl<S> tower_load::Load for ConcurrencyLimit<S>
+where
+    S: tower_load::Load,
+{
+    type Metric = S::Metric;
+    fn load(&self) -> Self::Metric {
+        self.inner.load()
+    }
+}
+
 impl<S> Clone for ConcurrencyLimit<S>
 where
     S: Clone,
