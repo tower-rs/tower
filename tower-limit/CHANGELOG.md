@@ -1,3 +1,8 @@
+# 0.3.1 (March 25, 2020)
+
+- Implement `tower_load::Load` for `ConcurrentLimit` and `RateLimit`
+  (#429).
+
 # 0.3.0 (December 19, 2019)
 
 - Update to `futures 0.3`
