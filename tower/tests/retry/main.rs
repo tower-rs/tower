@@ -1,6 +1,8 @@
+#![cfg(feature = "retry")]
+
 use futures_util::future;
 use tokio_test::{assert_pending, assert_ready_err, assert_ready_ok, task};
-use tower_retry::Policy;
+use tower::retry::Policy;
 use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
@@ -155,7 +157,7 @@ impl Policy<Req, Res, Error> for CannotClone {
 
 fn new_service<P: Policy<Req, Res, Error> + Clone>(
     policy: P,
-) -> (mock::Spawn<tower_retry::Retry<P, Mock>>, Handle) {
-    let retry = tower_retry::RetryLayer::new(policy);
+) -> (mock::Spawn<tower::retry::Retry<P, Mock>>, Handle) {
+    let retry = tower::retry::RetryLayer::new(policy);
     mock::spawn_layer(retry)
 }

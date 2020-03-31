@@ -23,7 +23,7 @@ use tower_service::Service;
 /// use futures_util::future::{ready, Ready};
 /// use futures_util::StreamExt;
 /// use tower_service::Service;
-/// use tower_util::ServiceExt;
+/// use tower::util::ServiceExt;
 /// use tokio::prelude::*;
 ///
 /// // First, we need to have a Service to process our requests.

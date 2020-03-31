@@ -1,6 +1,8 @@
+#![cfg(feature = "buffer")]
+
 use std::thread;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
-use tower_buffer::{error, Buffer};
+use tower::buffer::{error, Buffer};
 use tower_test::{assert_request_eq, mock};
 
 fn let_worker_work() {

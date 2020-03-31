@@ -1,6 +1,6 @@
+use crate::load;
 use futures_util::pin_mut;
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok, task};
-use tower_load as load;
 use tower_test::{assert_request_eq, mock};
 
 use super::*;

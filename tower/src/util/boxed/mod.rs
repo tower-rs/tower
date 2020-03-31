@@ -16,7 +16,7 @@
 //! ```
 //! use futures_util::future::ready;
 //! # use tower_service::Service;
-//! # use tower_util::{BoxService, service_fn};
+//! # use tower::util::{BoxService, service_fn};
 //! // Respond to requests using a closure, but closures cannot be named...
 //! # pub fn main() {
 //! let svc = service_fn(|mut request: String| {

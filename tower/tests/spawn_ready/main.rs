@@ -1,6 +1,8 @@
+#![cfg(feature = "spawn-ready")]
+
 use std::{thread, time::Duration};
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok};
-use tower_spawn_ready::SpawnReadyLayer;
+use tower::spawn_ready::SpawnReadyLayer;
 use tower_test::mock;
 
 #[tokio::test]

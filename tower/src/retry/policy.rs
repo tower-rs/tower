@@ -5,7 +5,7 @@ use std::future::Future;
 /// # Example
 ///
 /// ```
-/// use tower_retry::Policy;
+/// use tower::retry::Policy;
 /// use futures_util::future;
 ///
 /// type Req = String;

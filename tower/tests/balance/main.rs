@@ -1,8 +1,10 @@
+#![cfg(feature = "balance")]
+
 use std::future::Future;
 use std::task::{Context, Poll};
 use tokio_test::{assert_pending, assert_ready, task};
-use tower_balance::p2c::Balance;
-use tower_discover::{Change, ServiceStream};
+use tower::balance::p2c::Balance;
+use tower::discover::{Change, ServiceStream};
 use tower_service::Service;
 use tower_test::mock;
 
@@ -21,7 +23,7 @@ impl Service<Req> for Mock {
     }
 }
 
-impl tower_load::Load for Mock {
+impl tower::load::Load for Mock {
     type Metric = usize;
     fn load(&self) -> Self::Metric {
         rand::random()

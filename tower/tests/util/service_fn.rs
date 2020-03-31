@@ -1,6 +1,6 @@
 use futures_util::future::ready;
+use tower::util::service_fn;
 use tower_service::Service;
-use tower_util::service_fn;
 
 #[tokio::test]
 async fn simple() {

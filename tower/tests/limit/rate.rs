@@ -1,7 +1,7 @@
 use std::time::Duration;
 use tokio::time;
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok};
-use tower_limit::rate::RateLimitLayer;
+use tower::limit::rate::RateLimitLayer;
 use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]

@@ -19,11 +19,11 @@ pub mod buffer;
 #[cfg(feature = "discover")]
 pub mod discover;
 #[cfg(feature = "filter")]
-#[allow(unreachable_pub)]
-pub(crate) mod filter;
+#[doc(hidden)] // not yet released
+pub mod filter;
 #[cfg(feature = "hedge")]
-#[allow(unreachable_pub)]
-pub(crate) mod hedge;
+#[doc(hidden)] // not yet released
+pub mod hedge;
 #[cfg(feature = "limit")]
 pub mod limit;
 #[cfg(feature = "load")]

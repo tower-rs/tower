@@ -75,7 +75,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// This is essentially `Stream<Item = Request>` + `Self` => `Stream<Item = Response>`. See the
     /// documentation for [`CallAll`](struct.CallAll.html) for details.
-    #[cfg(feature = "call-all")]
     fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
     where
         Self: Sized,

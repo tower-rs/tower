@@ -1,7 +1,9 @@
+#![cfg(feature = "hedge")]
+
 use std::time::Duration;
 use tokio::time;
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok, task};
-use tower_hedge::{Hedge, Policy};
+use tower::hedge::{Hedge, Policy};
 use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
@@ -143,7 +145,7 @@ static NOT_CLONABLE: &'static str = "NOT_CLONABLE";
 #[derive(Clone)]
 struct TestPolicy;
 
-impl tower_hedge::Policy<Req> for TestPolicy {
+impl tower::hedge::Policy<Req> for TestPolicy {
     fn can_retry(&self, req: &Req) -> bool {
         *req != NOT_RETRYABLE
     }

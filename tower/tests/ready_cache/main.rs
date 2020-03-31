@@ -1,5 +1,7 @@
+#![cfg(feature = "ready-cache")]
+
 use tokio_test::{assert_pending, assert_ready, task};
-use tower_ready_cache::ReadyCache;
+use tower::ready_cache::ReadyCache;
 use tower_test::mock;
 
 type Req = &'static str;

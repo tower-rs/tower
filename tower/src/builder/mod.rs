@@ -29,8 +29,11 @@ use std::fmt;
 /// `service` will be last to see the request.
 ///
 /// ```
+/// # // this (and other) doctest is ignored because we don't have a way
+/// # // to say that it should only be run with cfg(feature = "...")
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
+/// #[cfg(all(feature = "buffer", feature = "limit"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .buffer(100)
@@ -49,6 +52,7 @@ use std::fmt;
 /// ```
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
+/// #[cfg(all(feature = "buffer", feature = "limit"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(10)
@@ -69,7 +73,9 @@ use std::fmt;
 /// ```
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # use tower_limit::concurrency::ConcurrencyLimitLayer;
+/// # #[cfg(feature = "limit")]
+/// # use tower::limit::concurrency::ConcurrencyLimitLayer;
+/// #[cfg(feature = "limit")]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(5)
@@ -85,6 +91,7 @@ use std::fmt;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
 /// # use std::time::Duration;
+/// #[cfg(all(feature = "buffer", feature = "limit"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .buffer(5)

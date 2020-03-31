@@ -1,6 +1,8 @@
+#![cfg(feature = "filter")]
+
 use futures_util::{future::poll_fn, pin_mut};
 use std::future::Future;
-use tower_filter::{error::Error, Filter};
+use tower::filter::{error::Error, Filter};
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 
