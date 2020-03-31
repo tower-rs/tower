@@ -46,24 +46,9 @@ jobs:
       matrix:
         crate:
           - tower
-          - tower-balance
-          - tower-buffer
-          - tower-discover
-          - tower-filter
-          - tower-hedge
           - tower-layer
-          - tower-limit
-          - tower-load
-          - tower-load-shed
-          - tower-make
-          - tower-ready-cache
-          - tower-reconnect
-          - tower-retry
           - tower-service
-          - tower-spawn-ready
           - tower-test
-          - tower-timeout
-          - tower-util
 
     steps:
       - name: Checkout code
@@ -94,10 +79,53 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           CI: 'True'
-          RUSTFLAGS: '-D warnings'
+          # RUSTFLAGS: '-D warnings'
         with:
           command: test
-          args: -p ${{ matrix.crate }} --verbose
+          args: -p ${{ matrix.crate }} --verbose --all-features
+
+  features:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Patch
+        run: |
+          set -e
+          # Remove any existing patch statements
+          mv Cargo.toml Cargo.toml.bck
+          sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
+          # Patch all crates
+          cat .github/workflows/patch.toml >> Cargo.toml
+          # Print `Cargo.toml` for debugging
+          echo "~~~~ Cargo.toml ~~~~"
+          cat Cargo.toml
+          echo "~~~~~~~~~~~~~~~~~~~~"
+      - name: Install cargo-hack
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-hack
+      - name: Run feature checks
+        uses: actions-rs/cargo@v1
+        env:
+          CI: 'True'
+        with:
+          command: hack
+          # Check each feature works properly
+          # * --each-feature
+          #   run for each feature which includes --no-default-features and default features of package
+          # * -Z avoid-dev-deps
+          #   build without dev-dependencies to avoid https://github.com/rust-lang/cargo/issues/4866
+          #   tracking-issue: https://github.com/rust-lang/cargo/issues/5133
+          args: check -p tower --each-feature -Z avoid-dev-deps
 
   rustfmt:
 

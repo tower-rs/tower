@@ -2,23 +2,7 @@
 
 members = [
   "tower",
-  "tower-balance",
-  "tower-buffer",
-  "tower-discover",
-  "tower-filter",
-  "tower-hedge",
   "tower-layer",
-  "tower-limit",
-  "tower-load",
-  "tower-load-shed",
-  "tower-ready-cache",
-  "tower-reconnect",
-  "tower-retry",
-  "tower-steer",
   "tower-service",
-  "tower-spawn-ready",
   "tower-test",
-  "tower-timeout",
-  "tower-make",
-  "tower-util",
 ]

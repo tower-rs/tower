@@ -7,7 +7,7 @@ name = "tower"
 #   - Cargo.toml
 #   - README.md
 # - Update CHANGELOG.md.
-# - Create "v0.1.x" git tag.
+# - Create "vX.X.X" git tag.
 version = "0.3.1"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
@@ -24,26 +24,45 @@ keywords = ["io", "async", "non-blocking", "futures", "service"]
 edition = "2018"
 
 [features]
-default = ["full", "log"]
-full = []
-log = ["tower-buffer/log"]
+default = ["log"]
+log = ["tracing/log"]
+balance = ["discover", "load", "ready-cache", "make", "rand", "slab"]
+buffer = ["tokio/sync", "tokio/rt-core"]
+discover = []
+filter = []
+hedge = ["filter", "futures-util", "hdrhistogram", "tokio/time"]
+limit = ["tokio/time"]
+load = ["discover", "tokio/time"]
+load-shed = []
+make = ["tokio/io-std"]
+ready-cache = ["futures-util", "indexmap", "tokio/sync"]
+reconnect = ["make", "tokio/io-std"]
+retry = ["tokio/time"]
+spawn-ready = ["futures-util", "tokio/sync", "tokio/rt-core"]
+timeout = ["tokio/time"]
+util = ["futures-util"]
 
 [dependencies]
-tower-buffer = { version = "0.3", path = "../tower-buffer", default-features = false }
-tower-discover = { version = "0.3", path = "../tower-discover" }
-tower-layer = "0.3"
-tower-limit = { version = "0.3", path = "../tower-limit" }
-tower-load-shed = { version = "0.3", path = "../tower-load-shed" }
-tower-retry = { version = "0.3", path = "../tower-retry" }
-tower-service = "0.3"
-tower-timeout = { version = "0.3", path = "../tower-timeout" }
-tower-util = { version = "0.3", path = "../tower-util", features = ["call-all"] }
-futures-core = { version = "0.3", default-features = false }
+futures-core = "0.3"
+pin-project = "0.4"
+tower-layer = { version = "0.3", path = "../tower-layer" }
+tower-service = { version = "0.3", path = "../tower-service" }
+tracing = "0.1.2"
+
+futures-util = { version = "0.3", default-features = false, features = ["alloc"], optional = true }
+hdrhistogram = { version = "6.0", optional = true }
+indexmap = { version = "1.0.2", optional = true }
+rand = { version = "0.7", features = ["small_rng"], optional = true }
+slab = { version = "0.4", optional = true }
+tokio = { version = "0.2", optional = true }
 
 [dev-dependencies]
-# env_logger = { version = "0.5.3", default-features = false }
-futures-util = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["macros"] }
-# log = "0.4.1"
-# # tokio = "0.2"
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+hdrhistogram = "6.0"
+quickcheck = { version = "0.6", default-features = false }
+tokio = { version = "0.2", features = ["macros", "stream", "sync", "test-util" ] }
+tokio-test = "0.2"
 tower-test = { version = "0.3", path = "../tower-test" }
+tracing-subscriber = "0.1.1"
+# env_logger = { version = "0.5.3", default-features = false }
+# log = "0.4.1"
