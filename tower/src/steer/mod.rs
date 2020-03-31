@@ -1,11 +1,10 @@
-//! This crate provides functionality to aid managing routing requests between Tower [`Service`]s.
+//! This module provides functionality to aid managing routing requests between Tower [`Service`]s.
 //!
 //! # Example
 //! ```rust
 //! # use std::task::{Context, Poll};
 //! # use tower_service::Service;
 //! # use futures_util::future::{ready, Ready, poll_fn};
-//! # use futures_util::never::Never;
 //! # use tower::steer::Steer;
 //! type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 //! struct MyService(u8);
@@ -41,18 +40,6 @@
 //!     }
 //! }
 //! ```
-#![deny(missing_docs)]
-#![warn(
-    unreachable_pub,
-    missing_copy_implementations,
-    trivial_casts,
-    trivial_numeric_casts,
-    unused_extern_crates,
-    rust_2018_idioms,
-    missing_debug_implementations
-)]
-#![allow(clippy::type_complexity)]
-
 use std::collections::VecDeque;
 use std::task::{Context, Poll};
 use tower_service::Service;

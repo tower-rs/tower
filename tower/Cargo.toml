@@ -58,7 +58,7 @@ slab = { version = "0.4", optional = true }
 tokio = { version = "0.2", optional = true }
 
 [dev-dependencies]
-futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+futures-util = { version = "0.3", default-features = false, features = ["alloc", "async-await"] }
 hdrhistogram = "6.0"
 quickcheck = { version = "0.6", default-features = false }
 tokio = { version = "0.2", features = ["macros", "stream", "sync", "test-util" ] }
