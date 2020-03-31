@@ -6,7 +6,7 @@
 //! # use tower_service::Service;
 //! # use futures_util::future::{ready, Ready, poll_fn};
 //! # use futures_util::never::Never;
-//! # use tower_steer::Steer;
+//! # use tower::steer::Steer;
 //! type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
 //! struct MyService(u8);
 //!

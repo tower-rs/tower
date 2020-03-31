@@ -39,6 +39,7 @@ ready-cache = ["futures-util", "indexmap", "tokio/sync"]
 reconnect = ["make", "tokio/io-std"]
 retry = ["tokio/time"]
 spawn-ready = ["futures-util", "tokio/sync", "tokio/rt-core"]
+steer = ["futures-util"]
 timeout = ["tokio/time"]
 util = ["futures-util"]
 
