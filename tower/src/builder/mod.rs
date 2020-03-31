@@ -1,16 +1,8 @@
 //! Builder types to compose layers and services
 
-use crate::{
-    buffer::BufferLayer,
-    limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer},
-    load_shed::LoadShedLayer,
-    retry::RetryLayer,
-    timeout::TimeoutLayer,
-};
-
 use tower_layer::{Identity, Layer, Stack};
 
-use std::{fmt, time::Duration};
+use std::fmt;
 
 /// Declaratively construct Service values.
 ///
@@ -125,8 +117,12 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Buffer requests when when the next layer is out of capacity.
-    pub fn buffer<Request>(self, bound: usize) -> ServiceBuilder<Stack<BufferLayer<Request>, L>> {
-        self.layer(BufferLayer::new(bound))
+    #[cfg(feature = "buffer")]
+    pub fn buffer<Request>(
+        self,
+        bound: usize,
+    ) -> ServiceBuilder<Stack<crate::buffer::BufferLayer<Request>, L>> {
+        self.layer(crate::buffer::BufferLayer::new(bound))
     }
 
     /// Limit the max number of in-flight requests.
@@ -134,8 +130,12 @@ impl<L> ServiceBuilder<L> {
     /// A request is in-flight from the time the request is received until the
     /// response future completes. This includes the time spent in the next
     /// layers.
-    pub fn concurrency_limit(self, max: usize) -> ServiceBuilder<Stack<ConcurrencyLimitLayer, L>> {
-        self.layer(ConcurrencyLimitLayer::new(max))
+    #[cfg(feature = "limit")]
+    pub fn concurrency_limit(
+        self,
+        max: usize,
+    ) -> ServiceBuilder<Stack<crate::limit::ConcurrencyLimitLayer, L>> {
+        self.layer(crate::limit::ConcurrencyLimitLayer::new(max))
     }
 
     /// Drop requests when the next layer is unable to respond to requests.
@@ -146,13 +146,19 @@ impl<L> ServiceBuilder<L> {
     ///
     /// `load_shed` immediately responds with an error when the next layer is
     /// out of capacity.
-    pub fn load_shed(self) -> ServiceBuilder<Stack<LoadShedLayer, L>> {
-        self.layer(LoadShedLayer::new())
+    #[cfg(feature = "load-shed")]
+    pub fn load_shed(self) -> ServiceBuilder<Stack<crate::load_shed::LoadShedLayer, L>> {
+        self.layer(crate::load_shed::LoadShedLayer::new())
     }
 
     /// Limit requests to at most `num` per the given duration
-    pub fn rate_limit(self, num: u64, per: Duration) -> ServiceBuilder<Stack<RateLimitLayer, L>> {
-        self.layer(RateLimitLayer::new(num, per))
+    #[cfg(feature = "limit")]
+    pub fn rate_limit(
+        self,
+        num: u64,
+        per: std::time::Duration,
+    ) -> ServiceBuilder<Stack<crate::limit::RateLimitLayer, L>> {
+        self.layer(crate::limit::RateLimitLayer::new(num, per))
     }
 
     /// Retry failed requests.
@@ -160,16 +166,21 @@ impl<L> ServiceBuilder<L> {
     /// `policy` must implement [`Policy`].
     ///
     /// [`Policy`]: ../retry/trait.Policy.html
-    pub fn retry<P>(self, policy: P) -> ServiceBuilder<Stack<RetryLayer<P>, L>> {
-        self.layer(RetryLayer::new(policy))
+    #[cfg(feature = "retry")]
+    pub fn retry<P>(self, policy: P) -> ServiceBuilder<Stack<crate::retry::RetryLayer<P>, L>> {
+        self.layer(crate::retry::RetryLayer::new(policy))
     }
 
     /// Fail requests that take longer than `timeout`.
     ///
     /// If the next layer takes more than `timeout` to respond to a request,
     /// processing is terminated and an error is returned.
-    pub fn timeout(self, timeout: Duration) -> ServiceBuilder<Stack<TimeoutLayer, L>> {
-        self.layer(TimeoutLayer::new(timeout))
+    #[cfg(feature = "timeout")]
+    pub fn timeout(
+        self,
+        timeout: std::time::Duration,
+    ) -> ServiceBuilder<Stack<crate::timeout::TimeoutLayer, L>> {
+        self.layer(crate::timeout::TimeoutLayer::new(timeout))
     }
 
     /// Obtains the underlying `Layer` implementation.

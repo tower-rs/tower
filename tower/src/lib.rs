@@ -1,38 +1,53 @@
 #![doc(html_root_url = "https://docs.rs/tower/0.3.1")]
-// Allows refining features in the future without breaking backwards
-// compatibility
-#![cfg(feature = "full")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
     rust_2018_idioms,
     unreachable_pub
 )]
+#![allow(elided_lifetimes_in_paths)]
 
 //! `fn(Request) -> Future<Response>`
 //!
 //! Tower is a library of modular and reusable components for building
 //! robust networking clients and servers.
 
-#[doc(inline)]
-pub use tower_buffer as buffer;
-#[doc(inline)]
-pub use tower_discover as discover;
-#[doc(inline)]
-pub use tower_limit as limit;
-#[doc(inline)]
-pub use tower_load_shed as load_shed;
-#[doc(inline)]
-pub use tower_retry as retry;
-#[doc(inline)]
-pub use tower_timeout as timeout;
-// pub use tower_layer as layer;
-#[doc(inline)]
-pub use tower_layer as layer;
-
-pub mod builder;
+#[cfg(feature = "balance")]
+pub mod balance;
+#[cfg(feature = "buffer")]
+pub mod buffer;
+#[cfg(feature = "discover")]
+pub mod discover;
+#[cfg(feature = "filter")]
+#[allow(unreachable_pub)]
+pub(crate) mod filter;
+#[cfg(feature = "hedge")]
+#[allow(unreachable_pub)]
+pub(crate) mod hedge;
+#[cfg(feature = "limit")]
+pub mod limit;
+#[cfg(feature = "load")]
+pub mod load;
+#[cfg(feature = "load-shed")]
+pub mod load_shed;
+#[cfg(feature = "make")]
+pub mod make;
+#[cfg(feature = "ready-cache")]
+pub mod ready_cache;
+#[cfg(feature = "reconnect")]
+pub mod reconnect;
+#[cfg(feature = "retry")]
+pub mod retry;
+#[cfg(feature = "spawn-ready")]
+pub mod spawn_ready;
+#[cfg(feature = "timeout")]
+pub mod timeout;
+#[cfg(feature = "util")]
 pub mod util;
 
-pub use crate::{builder::ServiceBuilder, util::ServiceExt};
+pub mod builder;
+
+#[cfg(feature = "util")]
+pub use self::util::{service_fn, ServiceExt};
+pub use crate::builder::ServiceBuilder;
 pub use tower_service::Service;
-pub use tower_util::service_fn;
