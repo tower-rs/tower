@@ -1,10 +1,12 @@
+#![cfg(all(feature = "buffer", feature = "limit", feature = "retry"))]
+
 use futures_util::{future::Ready, pin_mut};
 use std::time::Duration;
+use tower::buffer::BufferLayer;
 use tower::builder::ServiceBuilder;
+use tower::limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer};
+use tower::retry::{Policy, RetryLayer};
 use tower::util::ServiceExt;
-use tower_buffer::BufferLayer;
-use tower_limit::{concurrency::ConcurrencyLimitLayer, rate::RateLimitLayer};
-use tower_retry::{Policy, RetryLayer};
 use tower_service::*;
 use tower_test::{assert_request_eq, mock};
 
