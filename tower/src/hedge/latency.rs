@@ -67,6 +67,10 @@ where
             inner: self.service.call(request),
         }
     }
+
+    fn disarm(&mut self) {
+        self.service.disarm()
+    }
 }
 
 impl<R, F, T, E> Future for ResponseFuture<R, F>

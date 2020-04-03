@@ -46,6 +46,10 @@ where
             inner: self.inner.call(target),
         }
     }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
+    }
 }
 
 impl<F, T, E> Future for MakeFuture<F>

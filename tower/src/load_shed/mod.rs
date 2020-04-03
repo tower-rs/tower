@@ -61,6 +61,15 @@ where
             ResponseFuture::overloaded()
         }
     }
+
+    fn disarm(&mut self) {
+        if self.is_ready {
+            self.inner.disarm()
+        } else {
+            // we do not panic here since the user may still have called poll_ready
+            // and gotten a succeess.
+        }
+    }
 }
 
 impl<S: Clone> Clone for LoadShed<S> {

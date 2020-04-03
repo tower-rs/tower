@@ -22,6 +22,8 @@
 //!         println!("{}: {}", self.0, req);
 //!         ready(Ok(()))
 //!     }
+//!
+//!     fn disarm(&mut self) {}
 //! }
 //!
 //! #[tokio::main]
@@ -133,5 +135,33 @@ where
         let cl = &mut self.services[idx];
         self.not_ready.push_back(idx);
         cl.call(req)
+    }
+
+    fn disarm(&mut self) {
+        // NOTE: we are not allowed to disarm a service that has not return success from
+        // `poll_ready`, since `disarm` implementations are allowed to panic in that case!
+        let not_ready: std::collections::HashSet<_> = self.not_ready.iter().cloned().collect();
+        for (idx, service) in self.services.iter_mut().enumerate() {
+            if !not_ready.contains(&idx) {
+                // service is ready, so disarm it
+                service.disarm();
+                self.not_ready.push_back(idx);
+            }
+        }
+
+        // TODO: it'd be great to be cleverer here and avoid the allocation
+        // we could want to pick a different strategy depending on whether most services are ready.
+        // with https://github.com/rust-lang/rust/pull/69425 we could do this by sorting not_ready:
+        /*
+        let not_ready = self.not_ready.make_contiguous();
+        not_ready.sort();
+        let mut at = 0;
+        for &mut not_ready_idx in not_ready {
+            for ready_idx in at..not_ready_idx {
+                self.services[ready_idx].disarm();
+            }
+            at = not_ready_idx + 1;
+        }
+        */
     }
 }

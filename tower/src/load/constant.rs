@@ -52,6 +52,10 @@ where
     fn call(&mut self, req: Request) -> Self::Future {
         self.inner.call(req)
     }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
+    }
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.

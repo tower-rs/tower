@@ -146,6 +146,15 @@ where
         let fut = service.call(request);
         ResponseFuture::new(fut)
     }
+
+    fn disarm(&mut self) {
+        // we must be in State::Connected if poll_ready succeeded
+        if let State::Connected(ref mut service) = self.state {
+            service.disarm()
+        } else {
+            panic!("poll_ready did not succeed, so cannot disarm");
+        }
+    }
 }
 
 impl<M, Target> fmt::Debug for Reconnect<M, Target>

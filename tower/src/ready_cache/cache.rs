@@ -367,6 +367,35 @@ where
 
         fut
     }
+
+    /// Call `Service::disarm` on all ready services and return them to the not-ready set.
+    ///
+    /// Returns the number of services disarmed this way.
+    ///
+    /// Note that `ReadyCache` eagerly polls services (one call to `poll_ready` may ready several
+    /// services), so a call to disarm may disarm a large number of underlying services.
+    pub fn disarm(&mut self) -> usize {
+        let were_ready = self.ready.len();
+
+        // Take self.ready so we can call &mut self methods below
+        let mut ready = std::mem::take(&mut self.ready);
+        for (key, (mut svc, cancel)) in ready.drain(..) {
+            // If a new version of this service has been added to the
+            // unready set, don't overwrite it.
+            if !self.pending_contains(&key) {
+                // Disarm the once-ready service and mark it as pending
+                svc.disarm();
+                self.push_pending(key, svc, cancel);
+            }
+        }
+
+        // Restore the original IndexMap to preserve its allocation
+        std::mem::swap(&mut self.ready, &mut ready);
+        // Sanity check that the &mut self methods above didn't add stuff to the ready set
+        debug_assert!(ready.is_empty());
+
+        were_ready
+    }
 }
 
 // === Pending ===

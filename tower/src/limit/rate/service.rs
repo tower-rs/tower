@@ -107,6 +107,14 @@ where
             State::Limited(..) => panic!("service not ready; poll_ready must be called first"),
         }
     }
+
+    fn disarm(&mut self) {
+        if let State::Ready { .. } = self.state {
+            self.inner.disarm()
+        } else {
+            panic!("poll_ready did not succeed, so cannot disarm");
+        }
+    }
 }
 
 #[cfg(feature = "load")]

@@ -55,4 +55,8 @@ where
 
         ResponseFuture::new(cloned, self.clone(), future)
     }
+
+    fn disarm(&mut self) {
+        self.service.disarm()
+    }
 }

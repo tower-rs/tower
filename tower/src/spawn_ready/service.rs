@@ -70,4 +70,12 @@ where
             _ => unreachable!("poll_ready must be called"),
         }
     }
+
+    fn disarm(&mut self) {
+        if let Inner::Service(ref mut svc) = self.inner {
+            svc.as_mut().expect("illegal state").disarm()
+        } else {
+            panic!("poll_ready did not succeed, so cannot disarm");
+        }
+    }
 }

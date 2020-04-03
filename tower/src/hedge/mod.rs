@@ -185,6 +185,10 @@ where
             inner: self.0.call(request),
         }
     }
+
+    fn disarm(&mut self) {
+        self.0.disarm()
+    }
 }
 
 impl<S, Request> std::future::Future for Future<S, Request>

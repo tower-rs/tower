@@ -84,6 +84,16 @@ where
 
         ResponseFuture::new(future, self.limit.semaphore.clone())
     }
+
+    fn disarm(&mut self) {
+        if self.limit.permit.is_acquired() {
+            // NOTE: even in this case there is a chance the user did not get Ready from poll_ready
+            // but we did what we could to check early!
+            self.inner.disarm()
+        } else {
+            panic!("poll_ready did not succeed, so cannot disarm");
+        }
+    }
 }
 
 #[cfg(feature = "load")]

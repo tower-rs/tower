@@ -427,6 +427,10 @@ where
     fn call(&mut self, req: Req) -> Self::Future {
         self.balance.call(req)
     }
+
+    fn disarm(&mut self) {
+        self.balance.disarm()
+    }
 }
 
 #[doc(hidden)]
@@ -461,5 +465,9 @@ impl<Request, Svc: Service<Request>> Service<Request> for DropNotifyService<Svc>
 
     fn call(&mut self, req: Request) -> Self::Future {
         self.svc.call(req)
+    }
+
+    fn disarm(&mut self) {
+        self.svc.disarm()
     }
 }

@@ -87,6 +87,10 @@ where
             self.service.call(req),
         )
     }
+
+    fn disarm(&mut self) {
+        self.service.disarm()
+    }
 }
 
 // ===== impl PendingRequestsDiscover =====
@@ -159,6 +163,8 @@ mod tests {
         fn call(&mut self, (): ()) -> Self::Future {
             future::ok(())
         }
+
+        fn disarm(&mut self) {}
     }
 
     #[test]

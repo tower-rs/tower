@@ -281,6 +281,14 @@ where
             .call_ready_index(index, request)
             .map_err(Into::into)
     }
+
+    fn disarm(&mut self) {
+        assert_ne!(
+            self.services.disarm(),
+            0,
+            "called disarm when poll_ready did not succeed"
+        )
+    }
 }
 
 impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {

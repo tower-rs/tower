@@ -77,6 +77,12 @@ where
             b_fut,
         }
     }
+
+    fn disarm(&mut self) {
+        // poll_ready only succeeds when _both_ services are ready, so disarming both is fine
+        self.a.disarm();
+        self.b.disarm();
+    }
 }
 
 impl<AF, BF, T, AE, BE> Future for ResponseFuture<AF, BF>

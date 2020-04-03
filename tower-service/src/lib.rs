@@ -79,6 +79,8 @@ use std::task::{Context, Poll};
 ///         // Return the response as an immediate future
 ///         Box::pin(fut)
 ///     }
+///
+///     fn disarm(&mut self) {}
 /// }
 /// ```
 ///
@@ -234,6 +236,79 @@ pub trait Service<Request> {
     /// Implementations are permitted to panic if `call` is invoked without
     /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
     fn call(&mut self, req: Request) -> Self::Future;
+
+    /// Undo a successful call to `poll_ready`.
+    ///
+    /// Once a call to `poll_ready` returns `Poll::Ready(Ok(()))`, the service must keep capacity
+    /// set aside for the coming request. `disarm` allows you to give up that reserved capacity if
+    /// you decide you do not wish to issue a request after all. After calling `disarm`, you must
+    /// call `poll_ready` until it returns `Poll::Ready(Ok(()))` before attempting to issue another
+    /// request.
+    ///
+    /// Returns `false` if capacity has not been reserved for this service (usually because
+    /// `poll_ready` was not previously called, or did not succeed).
+    ///
+    /// # Motivation
+    ///
+    /// If `poll_ready` reserves part of a service's finite capacity, callers need to send an item
+    /// shortly after `poll_ready` succeeds. If they do not, an idle caller may take up all the
+    /// slots of the channel, and prevent active callers from getting any requests through.
+    /// Consider this code that forwards from a channel to a `BufferService` (which has limited
+    /// capacity):
+    ///
+    /// ```rust,ignore
+    /// let mut fut = None;
+    /// loop {
+    ///   if let Some(ref mut fut) = fut {
+    ///     let _ = ready!(fut.poll(cx));
+    ///     let _ = fut.take();
+    ///   }
+    ///   ready!(buffer.poll_ready(cx));
+    ///   if let Some(item) = ready!(rx.poll_next(cx)) {
+    ///     fut = Some(buffer.call(item));
+    ///   } else {
+    ///     break;
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// If many such forwarders exist, and they all forward into a single (cloned) `BufferService`,
+    /// then any number of the forwarders may be waiting for `rx.next` at the same time. While they
+    /// do, they are effectively each reducing the buffer's capacity by 1. If enough of these
+    /// forwarders are idle, forwarders whose `rx` _do_ have elements will be unable to find a spot
+    /// for them through `poll_ready`, and the system will deadlock.
+    ///
+    /// `disarm` solves this problem by allowing you to give up the reserved slot if you find that
+    /// you have to block. We can then fix the code above by writing:
+    ///
+    /// ```rust,ignore
+    /// let mut fut = None;
+    /// loop {
+    ///   if let Some(ref mut fut) = fut {
+    ///     let _ = ready!(fut.poll(cx));
+    ///     let _ = fut.take();
+    ///   }
+    ///   ready!(buffer.poll_ready(cx));
+    ///   let item = rx.poll_next(cx);
+    ///   if let Poll::Ready(Ok(_)) = item {
+    ///     // we're going to send the item below, so don't disarm
+    ///   } else {
+    ///     // give up our slot, since we won't need it for a while
+    ///     buffer.disarm();
+    ///   }
+    ///   if let Some(item) = ready!(item) {
+    ///     fut = Some(buffer.call(item));
+    ///   } else {
+    ///     break;
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Implementations are permitted to panic if `disarm` is invoked without
+    /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
+    fn disarm(&mut self);
 }
 
 impl<'a, S, Request> Service<Request> for &'a mut S
@@ -251,6 +326,10 @@ where
     fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
     }
+
+    fn disarm(&mut self) {
+        (**self).disarm()
+    }
 }
 
 impl<S, Request> Service<Request> for Box<S>
@@ -267,5 +346,9 @@ where
 
     fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
+    }
+
+    fn disarm(&mut self) {
+        (**self).disarm()
     }
 }

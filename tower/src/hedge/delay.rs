@@ -74,6 +74,10 @@ where
             state: State::Delaying(tokio::time::delay_until(deadline), Some(request)),
         }
     }
+
+    fn disarm(&mut self) {
+        self.service.disarm()
+    }
 }
 
 impl<Request, S, F, T, E> Future for ResponseFuture<Request, S, F>

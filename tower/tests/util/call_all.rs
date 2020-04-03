@@ -16,6 +16,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 struct Srv {
     admit: Rc<Cell<bool>>,
     count: Rc<Cell<usize>>,
+    ready: bool,
 }
 impl Service<&'static str> for Srv {
     type Response = &'static str;
@@ -27,6 +28,7 @@ impl Service<&'static str> for Srv {
             return Poll::Pending;
         }
 
+        self.ready = true;
         self.admit.set(false);
         Poll::Ready(Ok(()))
     }
@@ -34,6 +36,14 @@ impl Service<&'static str> for Srv {
     fn call(&mut self, req: &'static str) -> Self::Future {
         self.count.set(self.count.get() + 1);
         ready(Ok(req))
+    }
+
+    fn disarm(&mut self) {
+        assert!(self.ready, "disarm called when poll_ready did not succeed");
+        self.ready = false;
+        if !self.admit.get() {
+            self.admit.set(true);
+        }
     }
 }
 
@@ -46,6 +56,7 @@ fn ordered() {
     let srv = Srv {
         count: count.clone(),
         admit: admit.clone(),
+        ready: false,
     };
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let ca = srv.call_all(rx);
@@ -103,7 +114,8 @@ fn ordered() {
         ca.take_service(),
         Srv {
             count: count.clone(),
-            admit
+            ready: true,
+            admit,
         }
     );
 }

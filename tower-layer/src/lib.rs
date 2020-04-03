@@ -75,6 +75,10 @@ pub use self::{identity::Identity, stack::Stack};
 ///         println!("request = {:?}, target = {:?}", request, self.target);
 ///         self.service.call(request)
 ///     }
+///
+///     fn disarm(&mut self) {
+///         self.service.disarm()
+///     }
 /// }
 /// ```
 ///

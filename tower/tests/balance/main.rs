@@ -21,6 +21,9 @@ impl Service<Req> for Mock {
     fn call(&mut self, req: Req) -> Self::Future {
         self.0.call(req)
     }
+    fn disarm(&mut self) {
+        self.0.disarm()
+    }
 }
 
 impl tower::load::Load for Mock {

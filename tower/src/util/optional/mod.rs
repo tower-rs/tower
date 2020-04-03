@@ -55,4 +55,12 @@ where
         let inner = self.inner.as_mut().map(|i| i.call(request));
         ResponseFuture::new(inner)
     }
+
+    fn disarm(&mut self) {
+        if let Some(ref mut i) = self.inner {
+            i.disarm()
+        } else {
+            // None service is always ready, so user may well have called poll_ready
+        }
+    }
 }

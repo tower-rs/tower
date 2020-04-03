@@ -121,6 +121,13 @@ where
             Ok(_) => ResponseFuture::new(rx),
         }
     }
+
+    fn disarm(&mut self) {
+        assert!(
+            self.tx.disarm(),
+            "called disarm when poll_ready did not succeed"
+        );
+    }
 }
 
 impl<T, Request> Clone for Buffer<T, Request>
