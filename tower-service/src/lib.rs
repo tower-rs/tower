@@ -279,7 +279,8 @@ pub trait Service<Request> {
     /// for them through `poll_ready`, and the system will deadlock.
     ///
     /// `disarm` solves this problem by allowing you to give up the reserved slot if you find that
-    /// you have to block. We can then fix the code above by writing:
+    /// you will not be calling `call` for the foreseeable future. We can then fix the code above
+    /// by writing:
     ///
     /// ```rust,ignore
     /// let mut fut = None;
@@ -303,6 +304,9 @@ pub trait Service<Request> {
     ///   }
     /// }
     /// ```
+    ///
+    /// Note that if we later decide that we _do_ want to call `Service::call`, then we first call
+    /// `Service::poll_ready` again, since the call to `disarm` made the service not ready.
     ///
     /// # Panics
     ///
