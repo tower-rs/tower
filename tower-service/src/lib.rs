@@ -248,6 +248,9 @@ pub trait Service<Request> {
     /// Returns `false` if capacity has not been reserved for this service (usually because
     /// `poll_ready` was not previously called, or did not succeed).
     ///
+    /// In general, when implementing this method for anything that wraps a service, you will
+    /// simply want to forward the call to `disarm` to the `disarm` method of the inner service.
+    ///
     /// # Motivation
     ///
     /// If `poll_ready` reserves part of a service's finite capacity, callers need to send an item
