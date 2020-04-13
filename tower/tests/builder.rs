@@ -22,6 +22,7 @@ async fn builder_service() {
         .layer(RateLimitLayer::new(5, Duration::from_secs(1)))
         .layer(RetryLayer::new(policy))
         .layer(BufferLayer::new(5))
+        .map(|r: &'static str| r.to_string())
         .service(service);
 
     // allow a request through

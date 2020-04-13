@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 pub mod future;
 
 use self::future::ResponseFuture;

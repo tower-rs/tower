@@ -3,6 +3,7 @@
 mod boxed;
 mod call_all;
 mod either;
+mod map;
 mod oneshot;
 mod optional;
 mod ready;
@@ -11,6 +12,7 @@ mod service_fn;
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
     either::Either,
+    map::{Map, MapLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
