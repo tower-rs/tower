@@ -21,7 +21,7 @@ impl<S, F> MapRequest<S, F> {
 impl<S, F, R1, R2> Service<R1> for MapRequest<S, F>
 where
     S: Service<R2>,
-    F: Fn(R1) -> R2,
+    F: FnMut(R1) -> R2,
 {
     type Response = S::Response;
     type Error = S::Error;
