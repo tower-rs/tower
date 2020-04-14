@@ -37,14 +37,15 @@ where
     }
 }
 
-/// A [`tower::Layer`] that accepts  a [`FnMut`] and applies it
+/// A [`tower::Layer`] that accepts an [`FnMut`] and applies it
 /// to each inner service. Note that [`FnMut`] will implement
-/// [`Clone`] _if_ all the values it captured implement either `Copy`
+/// [`Clone`] _if_ all the captured values implement either [`Copy`]
 /// or [`Clone`].
 ///
 /// [`tower::Layer`]: ../trait.Layer.html
 /// [`FnMut`]: https://doc.rust-lang.org/std/ops/trait.FnMut.html
 /// [`Clone`]: https://doc.rust-lang.org/std/clone/trait.Clone.html
+/// [`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
 #[derive(Debug, Clone)]
 pub struct MapRequestLayer<F> {
     f: F,
