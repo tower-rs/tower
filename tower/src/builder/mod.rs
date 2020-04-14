@@ -192,11 +192,23 @@ impl<L> ServiceBuilder<L> {
 
     /// Map one request type to another.
     #[cfg(feature = "util")]
-    pub fn map<F, R1, R2>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapLayer<F>, L>>
+    pub fn map_request<F, R1, R2>(
+        self,
+        f: F,
+    ) -> ServiceBuilder<Stack<crate::util::MapRequestLayer<F>, L>>
     where
         F: Fn(R1) -> R2,
     {
-        self.layer(crate::util::MapLayer::new(f))
+        self.layer(crate::util::MapRequestLayer::new(f))
+    }
+
+    /// Map one response type to another.
+    #[cfg(feature = "util")]
+    pub fn map_response<F>(
+        self,
+        f: F,
+    ) -> ServiceBuilder<Stack<crate::util::MapResponseLayer<F>, L>> {
+        self.layer(crate::util::MapResponseLayer::new(f))
     }
 
     /// Obtains the underlying `Layer` implementation.

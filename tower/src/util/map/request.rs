@@ -6,19 +6,19 @@ use tower_service::Service;
 ///
 /// [`tower::Service`]: [../../src/trait.Service.html]
 #[derive(Debug, Clone)]
-pub struct Map<S, F> {
+pub struct MapRequest<S, F> {
     inner: S,
     f: F,
 }
 
-impl<S, F> Map<S, F> {
+impl<S, F> MapRequest<S, F> {
     /// Create a new `Map` service.
     pub fn new(inner: S, f: F) -> Self {
-        Map { inner, f }
+        MapRequest { inner, f }
     }
 }
 
-impl<S, F, R1, R2> Service<R1> for Map<S, F>
+impl<S, F, R1, R2> Service<R1> for MapRequest<S, F>
 where
     S: Service<R2>,
     F: Fn(R1) -> R2,
@@ -37,31 +37,31 @@ where
     }
 }
 
-/// A [`tower::Layer`] that accepts  a [`Clone`]able [`FnMut`] and applies it
+/// A [`tower::Layer`] that accepts  a [`Clone`]able [`Fn`] and applies it
 /// to each inner service.
 ///
-/// [`tower::Layer`]: [path-tbd. please find and fix!]
+/// [`tower::Layer`]: ../../../../tower_layer/trait.Layer.html
 /// [`Clone`]: https://doc.rust-lang.org/std/clone/trait.Clone.html
 /// [`FnMut`]: https://doc.rust-lang.org/std/ops/trait.FnMut.html
 #[derive(Debug, Clone)]
-pub struct MapLayer<F> {
+pub struct MapRequestLayer<F> {
     f: F,
 }
 
-impl<F> MapLayer<F> {
+impl<F> MapRequestLayer<F> {
     /// Create a `MapLayer` from some `Fn`.
     pub fn new(f: F) -> Self {
-        MapLayer { f }
+        MapRequestLayer { f }
     }
 }
 
-impl<F, S> Layer<S> for MapLayer<F>
+impl<F, S> Layer<S> for MapRequestLayer<F>
 where
     F: Clone,
 {
-    type Service = Map<S, F>;
+    type Service = MapRequest<S, F>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        Map::new(inner, self.f.clone())
+        MapRequest::new(inner, self.f.clone())
     }
 }

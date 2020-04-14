@@ -12,7 +12,7 @@ mod service_fn;
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
     either::Either,
-    map::{Map, MapLayer},
+    map::{MapRequest, MapRequestLayer, MapResponse, MapResponseLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
