@@ -4,7 +4,7 @@ use tower_service::Service;
 
 /// A [`tower::Service`] which maps from one request type to another.
 ///
-/// [`tower::Service`]: [../../src/trait.Service.html]
+/// [`tower::Service`]: ../trait.Service.html
 #[derive(Debug, Clone)]
 pub struct MapRequest<S, F> {
     inner: S,
@@ -40,9 +40,9 @@ where
 /// A [`tower::Layer`] that accepts  a [`Clone`]able [`Fn`] and applies it
 /// to each inner service.
 ///
-/// [`tower::Layer`]: ../../../../tower_layer/trait.Layer.html
+/// [`tower::Layer`]: ../trait.Layer.html
 /// [`Clone`]: https://doc.rust-lang.org/std/clone/trait.Clone.html
-/// [`FnMut`]: https://doc.rust-lang.org/std/ops/trait.FnMut.html
+/// [`Fn`]: https://doc.rust-lang.org/std/ops/trait.Fn.html
 #[derive(Debug, Clone)]
 pub struct MapRequestLayer<F> {
     f: F,
