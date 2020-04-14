@@ -60,7 +60,7 @@ impl<S: Clone, F> Clone for MapResponse<S, F> {
     }
 }
 
-/// A [`tower::Layer`] that accepts  a [`Clone`]able [`Fn`] and applies it
+/// A [`tower::Layer`] that accepts a [`Clone`]able [`Fn`] and applies it
 /// to each inner service.
 ///
 /// [`tower::Layer`]: ../trait.Layer.html
