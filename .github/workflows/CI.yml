@@ -105,7 +105,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: --all --all-features -- --check
+        args: --all -- --check
   
   warnings:
     # Check for any warnings. This is informational and thus is allowed to fail.
