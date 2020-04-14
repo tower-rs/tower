@@ -37,11 +37,12 @@ where
     }
 }
 
-/// A [`tower::Layer`] that accepts  a [`Clone`]able [`Fn`] and applies it
-/// to each inner service.
+/// A [`tower::Layer`] that accepts  a [`Fn`] and applies it
+/// to each inner service. Note that [`Fn`] will implement
+/// `Clone` if all the values it captures implements either `Copy`
+/// or `Clone`.
 ///
 /// [`tower::Layer`]: ../trait.Layer.html
-/// [`Clone`]: https://doc.rust-lang.org/std/clone/trait.Clone.html
 /// [`Fn`]: https://doc.rust-lang.org/std/ops/trait.Fn.html
 #[derive(Debug, Clone)]
 pub struct MapRequestLayer<F> {
