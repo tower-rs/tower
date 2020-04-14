@@ -60,7 +60,7 @@ tokio = { version = "0.2", optional = true }
 [dev-dependencies]
 futures-util = { version = "0.3", default-features = false, features = ["alloc", "async-await"] }
 hdrhistogram = "6.0"
-quickcheck = { version = "0.6", default-features = false }
+quickcheck = { version = "0.9", default-features = false }
 tokio = { version = "0.2", features = ["macros", "stream", "sync", "test-util" ] }
 tokio-test = "0.2"
 tower-test = { version = "0.3", path = "../tower-test" }

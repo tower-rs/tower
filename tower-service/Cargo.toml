@@ -24,4 +24,4 @@ edition = "2018"
 [dependencies]
 
 [dev-dependencies]
-http = "0.1"
+http = "0.2"
