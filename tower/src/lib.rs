@@ -51,8 +51,12 @@ pub mod builder;
 pub mod layer;
 
 #[cfg(feature = "util")]
+#[doc(inline)]
 pub use self::util::{service_fn, ServiceExt};
 
+#[doc(inline)]
 pub use crate::builder::ServiceBuilder;
+#[doc(inline)]
 pub use tower_layer::Layer;
+#[doc(inline)]
 pub use tower_service::Service;

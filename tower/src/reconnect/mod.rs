@@ -1,8 +1,21 @@
-#![allow(missing_docs)]
+//! Reconnect services when they fail.
+//!
+//! Reconnect takes some [`MakeService`] and transforms it into a
+//! [`Service`]. It then attempts to lazily connect and
+//! reconnect on failure. The `Reconnect` service becomes unavailable
+//! when the inner `MakeService::poll_ready` returns an error. When the
+//! connection future returned from `MakeService::call` fails this will be
+//! returned in the next call to `Reconnect::call`. This allows the user to
+//! call the service again even if the inner `MakeService` was unable to
+//! connect on the last call.
+//!
+//! [`MakeService`]: ../make/trait.MakeService.html
+//! [`Service`]: ../trait.Service.html
 
-pub mod future;
+mod future;
 
-use self::future::ResponseFuture;
+pub use future::ResponseFuture;
+
 use crate::make::MakeService;
 use std::fmt;
 use std::{
@@ -13,6 +26,8 @@ use std::{
 use tower_service::Service;
 use tracing::trace;
 
+pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
+
 /// Reconnect to failed services.
 pub struct Reconnect<M, Target>
 where
@@ -21,9 +36,8 @@ where
     mk_service: M,
     state: State<M::Future, M::Response>,
     target: Target,
+    error: Option<M::Error>,
 }
-
-type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Debug)]
 enum State<F, S> {
@@ -37,18 +51,12 @@ where
     M: Service<Target>,
 {
     /// Lazily connect and reconnect to a Service.
-    pub fn new<S, Request>(mk_service: M, target: Target) -> Self
-    where
-        M: Service<Target, Response = S>,
-        S: Service<Request>,
-        M::Error: Into<Error>,
-        S::Error: Into<Error>,
-        Target: Clone,
-    {
+    pub fn new<S, Request>(mk_service: M, target: Target) -> Self {
         Reconnect {
             mk_service,
             state: State::Idle,
             target,
+            error: None,
         }
     }
 
@@ -58,6 +66,7 @@ where
             mk_service,
             state: State::Connected(init_conn),
             target,
+            error: None,
         }
     }
 }
@@ -67,24 +76,20 @@ where
     M: Service<Target, Response = S>,
     S: Service<Request>,
     M::Future: Unpin,
-    M::Error: Into<Error>,
-    S::Error: Into<Error>,
+    Error: From<M::Error> + From<S::Error>,
     Target: Clone,
 {
     type Response = S::Response;
     type Error = Error;
-    type Future = ResponseFuture<S::Future>;
+    type Future = ResponseFuture<S::Future, M::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let ret;
-        let mut state;
-
         loop {
-            match self.state {
+            match &mut self.state {
                 State::Idle => {
                     trace!("poll_ready; idle");
                     match self.mk_service.poll_ready(cx) {
-                        Poll::Ready(r) => r.map_err(Into::into)?,
+                        Poll::Ready(r) => r?,
                         Poll::Pending => {
                             trace!("poll_ready; MakeService not ready");
                             return Poll::Pending;
@@ -99,7 +104,7 @@ where
                     trace!("poll_ready; connecting");
                     match Pin::new(f).poll(cx) {
                         Poll::Ready(Ok(service)) => {
-                            state = State::Connected(service);
+                            self.state = State::Connected(service);
                         }
                         Poll::Pending => {
                             trace!("poll_ready; not ready");
@@ -107,8 +112,8 @@ where
                         }
                         Poll::Ready(Err(e)) => {
                             trace!("poll_ready; error");
-                            state = State::Idle;
-                            ret = Err(e.into());
+                            self.state = State::Idle;
+                            self.error = Some(e.into());
                             break;
                         }
                     }
@@ -126,20 +131,21 @@ where
                         }
                         Poll::Ready(Err(_)) => {
                             trace!("poll_ready; error");
-                            state = State::Idle;
+                            self.state = State::Idle;
                         }
                     }
                 }
             }
-
-            self.state = state;
         }
 
-        self.state = state;
-        Poll::Ready(ret)
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
+        if let Some(error) = self.error.take() {
+            return ResponseFuture::error(error);
+        }
+
         let service = match self.state {
             State::Connected(ref mut service) => service,
             _ => panic!("service not ready; poll_ready must be called first"),
