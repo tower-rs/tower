@@ -9,7 +9,7 @@ use std::{
 use tower_layer::Layer;
 use tower_service::Service;
 
-/// A [`tower::Service`] to map from one response type to another.
+/// A [`tower::Service`] which maps from one response type to another.
 ///
 /// [`tower::Service`]: ../trait.Service.html
 #[derive(Debug)]
