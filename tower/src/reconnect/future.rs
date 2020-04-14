@@ -45,7 +45,6 @@ where
 
     #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        //self.project().inner.poll(cx).map_err(Into::into)
         let me = self.project();
         #[project]
         match me.inner.project() {
