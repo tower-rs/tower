@@ -7,161 +7,125 @@ on:
   pull_request: {}
 
 jobs:
-  test-workspace:
-
-    runs-on: ${{ matrix.os }}
-
+  check:
+    # Run `cargo check` first to ensure that the pushed code at least compiles.
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-18.04, windows-2019, macOS-10.14]
-        rust: [stable, nightly]
-
+        rust: [stable, 1.39.0]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --verbose
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        env:
-          CI: 'True'
-          RUSTFLAGS: '-D warnings'
-        with:
-          command: test
-          args: --verbose
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+    - name: Check
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --all --bins --examples --tests --benches --all-features
 
-  test:
-
+  cache-cargo-hack:
     runs-on: ubuntu-latest
+    steps:
+    - name: Fetch latest release version of cargo-hack
+      run: |
+        mkdir -p .github/caching
+        curl -sL https://api.github.com/repos/taiki-e/cargo-hack/releases/latest | jq -r '.name' > .github/caching/cargo-hack.lock
+    - name: Cache cargo-hack/bin
+      id: cache-cargo-hack
+      uses: actions/cache@v1
+      with:
+        path: ${{ runner.tool_cache }}/cargo-hack/bin
+        key: cargo-hack-bin-${{ hashFiles('.github/caching/cargo-hack.lock') }}
+    - name: Install cargo-hack
+      if: "steps.cache-cargo-hack.outputs.cache-hit != 'true'"
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --root ${{ runner.tool_cache }}/cargo-hack --force cargo-hack
 
+  cargo-hack:
+    needs: cache-cargo-hack
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+    - name: Fetch latest release version of cargo-hack
+      run: |
+        mkdir -p .github/caching
+        curl -sL https://api.github.com/repos/taiki-e/cargo-hack/releases/latest | jq -r '.name' > .github/caching/cargo-hack.lock
+    - name: Restore cargo-hack/bin
+      uses: actions/cache@v1
+      with:
+        path: ${{ runner.tool_cache }}/cargo-hack/bin
+        key: cargo-hack-bin-${{ hashFiles('.github/caching/cargo-hack.lock') }}
+    - run: echo "::add-path::${{ runner.tool_cache }}/cargo-hack/bin"
+    # if `cargo-hack` somehow doesn't exist after loading it from the cache,
+    # make *sure* it's there.
+    - run: cargo hack --help || { cargo install --force cargo-hack; }
+    - name: cargo hack check
+      working-directory: ${{ matrix.subcrate }}
+      run: cargo hack check --feature-powerset --no-dev-deps --all
+
+  test-versions:
+    # Test against the stable, beta, and nightly Rust toolchains on ubuntu-latest.
+    needs: check
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        crate:
-          - tower
-          - tower-layer
-          - tower-service
-          - tower-test
-
+        rust: [stable, beta, nightly, 1.39.0]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Patch
-        run: |
-          set -e
-          # Remove any existing patch statements
-          mv Cargo.toml Cargo.toml.bck
-          sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
-          # Patch all crates
-          cat .github/workflows/patch.toml >> Cargo.toml
-          # Print `Cargo.toml` for debugging
-          echo "~~~~ Cargo.toml ~~~~"
-          cat Cargo.toml
-          echo "~~~~~~~~~~~~~~~~~~~~"
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: -p ${{ matrix.crate }} --verbose
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        env:
-          CI: 'True'
-          # RUSTFLAGS: '-D warnings'
-        with:
-          command: test
-          args: -p ${{ matrix.crate }} --verbose --all-features
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+    - name: Run tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --all --all-features
 
-  features:
-
+  style:
+    # Check style.
+    needs: check
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: Patch
-        run: |
-          set -e
-          # Remove any existing patch statements
-          mv Cargo.toml Cargo.toml.bck
-          sed -n '/\[patch.crates-io\]/q;p' Cargo.toml.bck > Cargo.toml
-          # Patch all crates
-          cat .github/workflows/patch.toml >> Cargo.toml
-          # Print `Cargo.toml` for debugging
-          echo "~~~~ Cargo.toml ~~~~"
-          cat Cargo.toml
-          echo "~~~~~~~~~~~~~~~~~~~~"
-      - name: Install cargo-hack
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-hack
-      - name: Run feature checks
-        uses: actions-rs/cargo@v1
-        env:
-          CI: 'True'
-        with:
-          command: hack
-          # Check each feature works properly
-          # * --each-feature
-          #   run for each feature which includes --no-default-features and default features of package
-          # * -Z avoid-dev-deps
-          #   build without dev-dependencies to avoid https://github.com/rust-lang/cargo/issues/4866
-          #   tracking-issue: https://github.com/rust-lang/cargo/issues/5133
-          args: check -p tower --each-feature -Z avoid-dev-deps
-
-  rustfmt:
-
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt
+        profile: minimal
+    - name: rustfmt
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all --all-features -- --check
+  
+  warnings:
+    # Check for any warnings. This is informational and thus is allowed to fail.
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
-      - name: Ensure that rustfmt is installed
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: rustfmt
-      - name: Run rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+        profile: minimal
+    - name: Clippy
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all --all-features --bins --examples --tests --benches -- -D warnings
 
-# This is failing, because it finds errors...
-#  clippy_check:
-#
-#    runs-on: ubuntu-latest
-#
-#    steps:
-#      - name: Checkout code
-#        uses: actions/checkout@v1
-#      - name: Ensure that clippy is installed
-#        uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: nightly
-#          override: true
-#          components: clippy
-#      - name: Run clippy
-#        uses: actions-rs/clippy-check@v1
-#        with:
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          args: --all-targets --all-features
+  deny-check:
+    name: cargo-deny check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: EmbarkStudios/cargo-deny-action@v0
