@@ -1,7 +1,7 @@
 //! Reconnect services when they fail.
 //!
-//! Reconnect takes some [`MakeService`] and will transform it into a
-//! [`Service`]. It will then attempt to lazily connect and
+//! Reconnect takes some [`MakeService`] and transforms it into a
+//! [`Service`]. It then attempts to lazily connect and
 //! reconnect on failure. The `Reconnect` service becomes unavailable
 //! when the inner `MakeService::poll_ready` returns an error. When the
 //! connection future returned from `MakeService::call` fails this will be
