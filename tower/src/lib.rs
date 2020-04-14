@@ -48,8 +48,11 @@ pub mod timeout;
 pub mod util;
 
 pub mod builder;
+pub mod layer;
 
 #[cfg(feature = "util")]
 pub use self::util::{service_fn, ServiceExt};
+
 pub use crate::builder::ServiceBuilder;
+pub use tower_layer::Layer;
 pub use tower_service::Service;
