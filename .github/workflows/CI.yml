@@ -23,7 +23,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --all --bins --examples --tests --benches --all-features
+        args: --all --all-targets --all-features
 
   cache-cargo-hack:
     runs-on: ubuntu-latest
@@ -121,7 +121,7 @@ jobs:
   #     uses: actions-rs/clippy-check@v1
   #     with:
   #       token: ${{ secrets.GITHUB_TOKEN }}
-  #       args: --all --all-features --bins --examples --tests --benches -- -D warnings
+  #       args: --all --all-targets --all-features -- -D warnings
 
   deny-check:
     name: cargo-deny check
