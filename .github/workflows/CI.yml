@@ -69,7 +69,7 @@ jobs:
     - run: cargo hack --help || { cargo install --force cargo-hack; }
     - name: cargo hack check
       working-directory: ${{ matrix.subcrate }}
-      run: cargo hack check --feature-powerset --no-dev-deps --all
+      run: cargo hack check --each-feature --no-dev-deps --all
 
   test-versions:
     # Test against the stable, beta, and nightly Rust toolchains on ubuntu-latest.
