@@ -2,7 +2,9 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
-/// A service to map from one request type to another.
+/// A [`tower::Service`] which maps from one request type to another.
+///
+/// [`tower::Service`]: [../../src/trait.Service.html]
 #[derive(Debug, Clone)]
 pub struct Map<S, F> {
     inner: S,
@@ -35,8 +37,12 @@ where
     }
 }
 
-/// A map layer that takes some clone `FnMut` and will apply it
+/// A [`tower::Layer`] that accepts  a [`Clone`]able [`FnMut`] and applies it
 /// to each inner service.
+///
+/// [`tower::Layer`]: [path-tbd. please find and fix!]
+/// [`Clone`]: https://doc.rust-lang.org/std/clone/trait.Clone.html
+/// [`FnMut`]: https://doc.rust-lang.org/std/ops/trait.FnMut.html
 #[derive(Debug, Clone)]
 pub struct MapLayer<F> {
     f: F,
