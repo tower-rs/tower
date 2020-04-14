@@ -107,21 +107,21 @@ jobs:
         command: fmt
         args: --all -- --check
   
-  warnings:
-    # Check for any warnings. This is informational and thus is allowed to fail.
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        components: clippy
-        profile: minimal
-    - name: Clippy
-      uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --all --all-features --bins --examples --tests --benches -- -D warnings
+  # warnings:
+  #   # Check for any warnings. This is informational and thus is allowed to fail.
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@master
+  #   - uses: actions-rs/toolchain@v1
+  #     with:
+  #       toolchain: stable
+  #       components: clippy
+  #       profile: minimal
+  #   - name: Clippy
+  #     uses: actions-rs/clippy-check@v1
+  #     with:
+  #       token: ${{ secrets.GITHUB_TOKEN }}
+  #       args: --all --all-features --bins --examples --tests --benches -- -D warnings
 
   deny-check:
     name: cargo-deny check
