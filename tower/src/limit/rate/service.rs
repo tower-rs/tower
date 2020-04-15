@@ -69,7 +69,7 @@ where
             State::Limited(ref mut sleep) => {
                 if let Poll::Pending = Pin::new(sleep).poll(cx) {
                     tracing::trace!("rate limit exceeded; sleeping.");
-                    return Poll::Pendig;
+                    return Poll::Pending;
                 }
             }
         }
