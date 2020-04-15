@@ -32,3 +32,30 @@ async fn reaching_capacity() {
 
     assert_eq!(response.await.unwrap(), "done");
 }
+
+#[tokio::test]
+async fn remaining_gets_reset() {
+    time::pause();
+
+    let rate_limit = RateLimitLayer::new(3, Duration::from_millis(100));
+    let (mut service, mut handle) = mock::spawn_layer(rate_limit);
+
+    assert_ready_ok!(service.poll_ready());
+    let response = service.call("hello");
+    assert_request_eq!(handle, "hello").send_response("world");
+    assert_eq!(response.await.unwrap(), "world");
+
+    time::advance(Duration::from_millis(100)).await;
+
+    assert_ready_ok!(service.poll_ready());
+    let response = service.call("hello");
+    assert_request_eq!(handle, "hello").send_response("world");
+    assert_eq!(response.await.unwrap(), "world");
+
+    assert_ready_ok!(service.poll_ready());
+    let response = service.call("hello");
+    assert_request_eq!(handle, "hello").send_response("world");
+    assert_eq!(response.await.unwrap(), "world");
+
+    assert_ready_ok!(service.poll_ready());
+}
