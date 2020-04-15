@@ -87,9 +87,7 @@ where
                 // If the period has elapsed, reset it.
                 if now >= until {
                     until = now + self.rate.per();
-                    let rem = self.rate.num();
-
-                    self.state = State::Ready { until, rem }
+                    rem = self.rate.num();
                 }
 
                 if rem > 1 {

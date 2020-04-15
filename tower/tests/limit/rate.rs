@@ -9,7 +9,6 @@ async fn reaching_capacity() {
     time::pause();
 
     let rate_limit = RateLimitLayer::new(1, Duration::from_millis(100));
-
     let (mut service, mut handle) = mock::spawn_layer(rate_limit);
 
     assert_ready_ok!(service.poll_ready());
