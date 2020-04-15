@@ -1,5 +1,5 @@
 use super::{error::Error, future::ResponseFuture, Rate};
-use futures::{try_ready, Future, Poll};
+use futures::{Async, Future, Poll};
 use tokio_timer::{clock, Delay};
 use tower_service::Service;
 
@@ -65,7 +65,9 @@ where
         match self.state {
             State::Ready { .. } => return self.inner.poll_ready().map_err(Into::into),
             State::Limited(ref mut sleep) => {
-                try_ready!(sleep.poll());
+                if let Async::NotReady = sleep.poll()? {
+                    tracing::trace!("rate limited exceeded; sleeping.");
+                }
             }
         }
 
@@ -92,8 +94,6 @@ where
                     rem -= 1;
                     self.state = State::Ready { until, rem };
                 } else {
-                    // The service is disabled until further notice
-                    tracing::trace!("rate limit exceeded, disabling service");
                     let sleep = Delay::new(until);
                     self.state = State::Limited(sleep);
                 }
