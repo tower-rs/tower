@@ -67,7 +67,10 @@ where
         match self.state {
             State::Ready { .. } => return Poll::Ready(ready!(self.inner.poll_ready(cx))),
             State::Limited(ref mut sleep) => {
-                ready!(Pin::new(sleep).poll(cx));
+                if let Poll::Pending = Pin::new(sleep).poll(cx) {
+                    tracing::trace!("rate limit exceeded; sleeping.");
+                    return Poll::Pending;
+                }
             }
         }
 
@@ -87,9 +90,7 @@ where
                 // If the period has elapsed, reset it.
                 if now >= until {
                     until = now + self.rate.per();
-                    let rem = self.rate.num();
-
-                    self.state = State::Ready { until, rem }
+                    rem = self.rate.num();
                 }
 
                 if rem > 1 {
