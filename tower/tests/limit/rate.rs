@@ -35,6 +35,14 @@ async fn reaching_capacity() {
 
 #[tokio::test]
 async fn remaining_gets_reset() {
+    // This test checks for the case where the `until` state gets reset
+    // but the `rem` does not. This was a bug found `cd7dd12315706fc0860a35646b1eb7b60c50a5c1`.
+    //
+    // The main premise here is that we can make one request which should initialize the state
+    // as ready. Then we can advance the clock to put us beyond the current period. When we make
+    // subsequent requests the `rem` for the next window is continued from the previous when
+    // it should be totally reset.
+
     time::pause();
 
     let rate_limit = RateLimitLayer::new(3, Duration::from_millis(100));
