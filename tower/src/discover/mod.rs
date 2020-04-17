@@ -12,9 +12,11 @@
 //! # Examples
 //!
 //! ```rust
+//! use futures_util::{future::poll_fn, pin_mut};
 //! use tower::discover::{Change, Discover};
 //! async fn services_monitor<D: Discover>(services: D) {
-//!     while let Some(Ok(change)) = services.next().await {
+//!     pin_mut!(services);
+//!     while let Some(Ok(change)) = poll_fn(|cx| services.as_mut().poll_discover(cx)).await {
 //!         match change {
 //!             Change::Insert(key, svc) => {
 //!                 // a new service with identifier `key` was discovered
@@ -22,7 +24,7 @@
 //!             }
 //!             Change::Remove(key) => {
 //!                 // the service with identifier `key` has gone away
-//!                 # let _ = (key, svc);
+//!                 # let _ = (key);
 //!             }
 //!         }
 //!     }
