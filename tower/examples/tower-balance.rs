@@ -1,21 +1,22 @@
 //! Exercises load balancers with mocked services.
 
-use futures_core::TryStream;
+use futures_core::{Stream, TryStream};
 use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
 use hdrhistogram::Histogram;
 use pin_project::pin_project;
 use rand::{self, Rng};
+use std::hash::Hash;
 use std::time::Duration;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
 use tokio::time::{self, Instant};
+use tower::balance as lb;
+use tower::discover::{Change, Discover};
+use tower::limit::concurrency::ConcurrencyLimit;
+use tower::load;
 use tower::util::ServiceExt;
-use tower_balance as lb;
-use tower_discover::{Change, Discover};
-use tower_limit::concurrency::ConcurrencyLimit;
-use tower_load as load;
 use tower_service::Service;
 
 const REQUESTS: usize = 100_000;
@@ -61,13 +62,15 @@ async fn main() {
         d,
         DEFAULT_RTT,
         decay,
-        load::NoInstrument,
+        load::CompleteOnResponse,
     ));
     run("P2C+PeakEWMA...", pe).await;
 
     let d = gen_disco();
-    let ll =
-        lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(d, load::NoInstrument));
+    let ll = lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(
+        d,
+        load::CompleteOnResponse,
+    ));
     run("P2C+LeastLoaded...", ll).await;
 }
 
@@ -78,20 +81,19 @@ type Key = usize;
 #[pin_project]
 struct Disco<S>(Vec<(Key, S)>);
 
-impl<S> Discover for Disco<S>
+impl<S> Stream for Disco<S>
 where
     S: Service<Req, Response = Rsp, Error = Error>,
 {
-    type Key = Key;
-    type Service = S;
-    type Error = Error;
-    fn poll_discover(
-        self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+    type Item = Result<Change<Key, S>, Error>;
+
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.project().0.pop() {
-            Some((k, service)) => Poll::Ready(Ok(Change::Insert(k, service))),
-            None => Poll::Pending,
+            Some((k, service)) => Poll::Ready(Some(Ok(Change::Insert(k, service)))),
+            None => {
+                // there may be more later
+                Poll::Pending
+            }
         }
     }
 }
@@ -132,7 +134,7 @@ async fn run<D>(name: &'static str, lb: lb::p2c::Balance<D, Req>)
 where
     D: Discover + Unpin + Send + 'static,
     D::Error: Into<Error>,
-    D::Key: Clone + Send,
+    D::Key: Clone + Send + Hash,
     D::Service: Service<Req, Response = Rsp> + load::Load + Send,
     <D::Service as Service<Req>>::Error: Into<Error>,
     <D::Service as Service<Req>>::Future: Send,
