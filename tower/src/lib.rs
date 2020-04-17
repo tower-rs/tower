@@ -24,11 +24,9 @@ pub mod buffer;
 pub mod discover;
 #[cfg(feature = "filter")]
 #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
-#[doc(hidden)] // not yet released
 pub mod filter;
 #[cfg(feature = "hedge")]
 #[cfg_attr(docsrs, doc(cfg(feature = "hedge")))]
-#[doc(hidden)] // not yet released
 pub mod hedge;
 #[cfg(feature = "limit")]
 #[cfg_attr(docsrs, doc(cfg(feature = "limit")))]
