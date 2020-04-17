@@ -4,6 +4,7 @@ use crate::discover::Discover;
 use futures_core::ready;
 use pin_project::pin_project;
 use rand::{rngs::SmallRng, SeedableRng};
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
     future::Future,
@@ -49,6 +50,7 @@ impl<S, Target, Req> Service<Target> for BalanceMake<S, Req>
 where
     S: Service<Target>,
     S::Response: Discover,
+    <S::Response as Discover>::Key: Hash,
     <S::Response as Discover>::Service: Service<Req>,
     <<S::Response as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
 {
@@ -73,6 +75,7 @@ impl<F, T, E, Req> Future for MakeFuture<F, Req>
 where
     F: Future<Output = Result<T, E>>,
     T: Discover,
+    <T as Discover>::Key: Hash,
     <T as Discover>::Service: Service<Req>,
     <<T as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
 {

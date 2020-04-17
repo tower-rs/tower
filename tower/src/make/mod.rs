@@ -5,7 +5,3 @@ mod make_service;
 
 pub use self::make_connection::MakeConnection;
 pub use self::make_service::MakeService;
-
-mod sealed {
-    pub trait Sealed<T> {}
-}

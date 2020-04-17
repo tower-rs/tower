@@ -16,10 +16,10 @@
 
 use super::error;
 use super::p2c::Balance;
-use crate::discover::{Change, Discover};
+use crate::discover::Change;
 use crate::load::Load;
 use crate::make::MakeService;
-use futures_core::ready;
+use futures_core::{ready, Stream};
 use pin_project::pin_project;
 use slab::Slab;
 use std::{
@@ -79,21 +79,16 @@ where
     }
 }
 
-impl<MS, Target, Request> Discover for PoolDiscoverer<MS, Target, Request>
+impl<MS, Target, Request> Stream for PoolDiscoverer<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
     MS::MakeError: Into<error::Error>,
     MS::Error: Into<error::Error>,
     Target: Clone,
 {
-    type Key = usize;
-    type Service = DropNotifyService<MS::Service>;
-    type Error = MS::MakeError;
+    type Item = Result<Change<usize, DropNotifyService<MS::Service>>, MS::MakeError>;
 
-    fn poll_discover(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         while let Poll::Ready(Some(sid)) = this.died_rx.as_mut().poll_recv(cx) {
@@ -148,7 +143,7 @@ where
                 message = "finished creating new service"
             );
             *this.load = Level::Normal;
-            return Poll::Ready(Ok(Change::Insert(id, svc)));
+            return Poll::Ready(Some(Ok(Change::Insert(id, svc))));
         }
 
         match this.load {
@@ -167,7 +162,7 @@ where
                     pool.services = this.services.len(),
                     message = "removing service for over-provisioned pool"
                 );
-                Poll::Ready(Ok(Change::Remove(rm)))
+                Poll::Ready(Some(Ok(Change::Remove(rm))))
             }
         }
     }

@@ -1,4 +1,4 @@
-use super::sealed::Sealed;
+use crate::sealed::Sealed;
 use std::future::Future;
 use std::task::{Context, Poll};
 use tower_service::Service;

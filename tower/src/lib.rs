@@ -60,3 +60,7 @@ pub use crate::builder::ServiceBuilder;
 pub use tower_layer::Layer;
 #[doc(inline)]
 pub use tower_service::Service;
+
+mod sealed {
+    pub trait Sealed<T> {}
+}

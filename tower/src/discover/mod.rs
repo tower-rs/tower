@@ -1,32 +1,58 @@
-//! # Tower service discovery
+//! Service discovery
 //!
-//! Service discovery is the automatic detection of services available to the
-//! consumer. These services typically live on other servers and are accessible
-//! via the network; however, it is possible to discover services available in
-//! other processes or even in process.
+//! This module provides the [`Change`] enum, which indicates the arrival or departure of a service
+//! from a collection of similar services. Most implementations should use the [`Discover`] trait
+//! in their bounds to indicate that they can handle services coming and going. `Discover` itself
+//! is primarily a convenience wrapper around `TryStream<Ok = Change>`.
+//!
+//! Every discovered service is assigned an identifier that is distinct among the currently active
+//! services. If that service later goes away, a `Change::Remove` is yielded with that service's
+//! identifier. From that point forward, the identifier may be re-used.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use tower::discover::{Change, Discover};
+//! async fn services_monitor<D: Discover>(services: D) {
+//!     while let Some(Ok(change)) = services.next().await {
+//!         match change {
+//!             Change::Insert(key, svc) => {
+//!                 // a new service with identifier `key` was discovered
+//!                 # let _ = (key, svc);
+//!             }
+//!             Change::Remove(key) => {
+//!                 // the service with identifier `key` has gone away
+//!                 # let _ = (key, svc);
+//!             }
+//!         }
+//!     }
+//! }
+//! ```
 
 mod error;
 mod list;
-mod stream;
 
-pub use self::{list::ServiceList, stream::ServiceStream};
+pub use self::list::ServiceList;
 
-use std::hash::Hash;
-use std::ops;
+use crate::sealed::Sealed;
+use futures_core::TryStream;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
 
-/// Provide a uniform set of services able to satisfy a request.
+/// A dynamically changing set of related services.
 ///
-/// This set of services may be updated over time. On each change to the set, a
-/// new `NewServiceSet` is yielded by `Discover`.
+/// As new services arrive and old services are retired,
+/// [`Change`]s are returned which provide unique identifiers
+/// for the services.
 ///
 /// See crate documentation for more details.
-pub trait Discover {
-    /// NewService key
-    type Key: Hash + Eq;
+pub trait Discover: Sealed<Change<(), ()>> {
+    /// A unique identifier for each active service.
+    ///
+    /// An identifier can be re-used once a `Change::Remove` has been yielded for its service.
+    type Key: Eq;
 
     /// The type of `Service` yielded by this `Discover`.
     type Service;
@@ -38,53 +64,34 @@ pub trait Discover {
     fn poll_discover(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>>;
+    ) -> Poll<Option<Result<Change<Self::Key, Self::Service>, Self::Error>>>;
 }
 
-// delegate through Pin
-impl<P> Discover for Pin<P>
+impl<K, S, E, D: ?Sized> Sealed<Change<(), ()>> for D
 where
-    P: Unpin + ops::DerefMut,
-    P::Target: Discover,
+    D: TryStream<Ok = Change<K, S>, Error = E>,
+    K: Eq,
 {
-    type Key = <<P as ops::Deref>::Target as Discover>::Key;
-    type Service = <<P as ops::Deref>::Target as Discover>::Service;
-    type Error = <<P as ops::Deref>::Target as Discover>::Error;
+}
+
+impl<K, S, E, D: ?Sized> Discover for D
+where
+    D: TryStream<Ok = Change<K, S>, Error = E>,
+    K: Eq,
+{
+    type Key = K;
+    type Service = S;
+    type Error = E;
 
     fn poll_discover(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
-        Pin::get_mut(self).as_mut().poll_discover(cx)
-    }
-}
-impl<D: ?Sized + Discover + Unpin> Discover for &mut D {
-    type Key = D::Key;
-    type Service = D::Service;
-    type Error = D::Error;
-
-    fn poll_discover(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
-        Discover::poll_discover(Pin::new(&mut **self), cx)
+    ) -> Poll<Option<Result<D::Ok, D::Error>>> {
+        TryStream::try_poll_next(self, cx)
     }
 }
 
-impl<D: ?Sized + Discover + Unpin> Discover for Box<D> {
-    type Key = D::Key;
-    type Service = D::Service;
-    type Error = D::Error;
-
-    fn poll_discover(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
-        D::poll_discover(Pin::new(&mut *self), cx)
-    }
-}
-
-/// A change in the service set
+/// A change in the service set.
 #[derive(Debug)]
 pub enum Change<K, V> {
     /// A new service identified by key `K` was identified.

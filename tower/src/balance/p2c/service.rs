@@ -6,6 +6,7 @@ use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
 use pin_project::pin_project;
 use rand::{rngs::SmallRng, SeedableRng};
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
     fmt,
@@ -37,7 +38,11 @@ use tracing::{debug, trace};
 /// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 /// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
 /// [#319]: https://github.com/tower-rs/tower/issues/319
-pub struct Balance<D: Discover, Req> {
+pub struct Balance<D, Req>
+where
+    D: Discover,
+    D::Key: Hash,
+{
     discover: D,
 
     services: ReadyCache<D::Key, D::Service, Req>,
@@ -51,7 +56,7 @@ pub struct Balance<D: Discover, Req> {
 impl<D: Discover, Req> fmt::Debug for Balance<D, Req>
 where
     D: fmt::Debug,
-    D::Key: fmt::Debug,
+    D::Key: Hash + fmt::Debug,
     D::Service: fmt::Debug,
     Req: fmt::Debug,
 {
@@ -85,6 +90,7 @@ enum Error<E> {
 impl<D, Req> Balance<D, Req>
 where
     D: Discover,
+    D::Key: Hash,
     D::Service: Service<Req>,
     <D::Service as Service<Req>>::Error: Into<error::Error>,
 {
@@ -114,7 +120,7 @@ where
 impl<D, Req> Balance<D, Req>
 where
     D: Discover + Unpin,
-    D::Key: Clone,
+    D::Key: Hash + Clone,
     D::Error: Into<error::Error>,
     D::Service: Service<Req> + Load,
     <D::Service as Load>::Metric: std::fmt::Debug,
@@ -126,17 +132,19 @@ where
     fn update_pending_from_discover(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<(), error::Discover>> {
+    ) -> Poll<Option<Result<(), error::Discover>>> {
         debug!("updating from discover");
         loop {
             match ready!(Pin::new(&mut self.discover).poll_discover(cx))
+                .transpose()
                 .map_err(|e| error::Discover(e.into()))?
             {
-                Change::Remove(key) => {
+                None => return Poll::Ready(None),
+                Some(Change::Remove(key)) => {
                     trace!("remove");
                     self.services.evict(&key);
                 }
-                Change::Insert(key, svc) => {
+                Some(Change::Insert(key, svc)) => {
                     trace!("insert");
                     // If this service already existed in the set, it will be
                     // replaced as the new one becomes ready.
@@ -218,7 +226,7 @@ where
 impl<D, Req> Service<Req> for Balance<D, Req>
 where
     D: Discover + Unpin,
-    D::Key: Clone,
+    D::Key: Hash + Clone,
     D::Error: Into<error::Error>,
     D::Service: Service<Req> + Load,
     <D::Service as Load>::Metric: std::fmt::Debug,
