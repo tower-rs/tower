@@ -49,7 +49,7 @@ use std::{
 /// [`Change`]s are returned which provide unique identifiers
 /// for the services.
 ///
-/// See crate documentation for more details.
+/// See the module documentation for more details.
 pub trait Discover: Sealed<Change<(), ()>> {
     /// A unique identifier for each active service.
     ///

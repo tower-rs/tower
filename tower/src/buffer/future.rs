@@ -1,4 +1,4 @@
-//! Future types
+//! Future types for the `Buffer` middleware.
 
 use super::{
     error::{Closed, Error},
@@ -12,7 +12,7 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Future eventually completed with the response to the original request.
+/// Future that completes when the buffered service eventually services the submitted request.
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {
