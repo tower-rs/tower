@@ -61,6 +61,7 @@ pub use tower_layer::Layer;
 #[doc(inline)]
 pub use tower_service::Service;
 
+#[allow(unreachable_pub)]
 mod sealed {
     pub trait Sealed<T> {}
 }
