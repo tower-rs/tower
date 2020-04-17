@@ -24,4 +24,4 @@ edition = "2018"
 [dependencies]
 
 [dev-dependencies]
-tower-service = { version = "0.3.0", path = "../tower-service" }
+tower-service = { version = "0.3.0" }
