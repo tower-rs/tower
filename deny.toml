@@ -15,6 +15,9 @@ confidence-threshold = 0.8
 [bans]
 multiple-versions = "deny"
 highlight = "all"
+skip-tree = [
+    { name = "tower", version = "=0.3"}
+]
 
 [sources]
 unknown-registry = "warn"
