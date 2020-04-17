@@ -1,4 +1,4 @@
-//! Error types
+//! Error types for the `Buffer` middleware.
 
 use std::{fmt, sync::Arc};
 
@@ -8,8 +8,7 @@ pub struct ServiceError {
     inner: Arc<Error>,
 }
 
-/// An error when the buffer's worker closes unexpectedly.
-#[derive(Debug)]
+/// An error produced when the a buffer's worker closes unexpectedly.
 pub struct Closed {
     _p: (),
 }
@@ -25,7 +24,7 @@ impl ServiceError {
         ServiceError { inner }
     }
 
-    /// Private to avoid exposing `Clone` trait as part of the public API
+    // Private to avoid exposing `Clone` trait as part of the public API
     pub(crate) fn clone(&self) -> ServiceError {
         ServiceError {
             inner: self.inner.clone(),
@@ -50,6 +49,12 @@ impl std::error::Error for ServiceError {
 impl Closed {
     pub(crate) fn new() -> Self {
         Closed { _p: () }
+    }
+}
+
+impl fmt::Debug for Closed {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_tuple("Closed").finish()
     }
 }
 

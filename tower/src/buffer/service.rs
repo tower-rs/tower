@@ -10,9 +10,9 @@ use std::task::{Context, Poll};
 use tokio::sync::{mpsc, oneshot};
 use tower_service::Service;
 
-/// Adds a buffer in front of an inner service.
+/// Adds an mpsc buffer in front of an inner service.
 ///
-/// See crate level documentation for more details.
+/// See the module documentation for more details.
 #[derive(Debug)]
 pub struct Buffer<T, Request>
 where
@@ -35,11 +35,15 @@ where
     /// The default Tokio executor is used to run the given service, which means that this method
     /// must be called while on the Tokio runtime.
     ///
-    /// # Note on setting `bound`
+    /// # A note on choosing a `bound`
+    ///
     /// When `Buffer`'s implementation of `poll_ready` returns `Poll::Ready`, it reserves a
     /// slot in the channel for the forthcoming `call()`. However, if this call doesn't arrive,
     /// this reserved slot may be held up for a long time. As a result, it's advisable to set
     /// `bound` to be at least the maximum number of concurrent requests the `Buffer` will see.
+    /// If you do not, all the slots in the buffer may be held up by futures that have just called
+    /// `poll_ready` but will not issue a `call`, which prevents other senders from issuing new
+    /// requests.
     pub fn new(service: T, bound: usize) -> Self
     where
         T: Send + 'static,
@@ -53,7 +57,7 @@ where
         Buffer { tx, handle }
     }
 
-    /// Creates a new `Buffer` wrapping `service` but returns the background worker.
+    /// Creates a new `Buffer` wrapping `service`, but returns the background worker.
     ///
     /// This is useful if you do not want to spawn directly onto the `tokio` runtime
     /// but instead want to use your own executor. This will return the `Buffer` and
