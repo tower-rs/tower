@@ -4,7 +4,7 @@ use std::future::Future;
 use std::task::{Context, Poll};
 use tokio_test::{assert_pending, assert_ready, task};
 use tower::balance::p2c::Balance;
-use tower::discover::{Change, ServiceStream};
+use tower::discover::Change;
 use tower_service::Service;
 use tower_test::mock;
 
@@ -34,7 +34,7 @@ impl tower::load::Load for Mock {
 fn stress() {
     let mut task = task::spawn(());
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
-    let mut cache = Balance::<_, Req>::from_entropy(ServiceStream::new(rx));
+    let mut cache = Balance::<_, Req>::from_entropy(rx);
 
     let mut nready = 0;
     let mut services = slab::Slab::<(mock::Handle<Req, Req>, bool)>::new();

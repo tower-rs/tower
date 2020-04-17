@@ -1,4 +1,5 @@
-use super::{error::Never, Change, Discover};
+use super::{error::Never, Change};
+use futures_core::Stream;
 use pin_project::pin_project;
 use std::iter::{Enumerate, IntoIterator};
 use std::{
@@ -35,21 +36,16 @@ where
     }
 }
 
-impl<T, U> Discover for ServiceList<T>
+impl<T, U> Stream for ServiceList<T>
 where
     T: IntoIterator<Item = U>,
 {
-    type Key = usize;
-    type Service = U;
-    type Error = Never;
+    type Item = Result<Change<usize, U>, Never>;
 
-    fn poll_discover(
-        self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-    ) -> Poll<Result<Change<Self::Key, Self::Service>, Self::Error>> {
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.project().inner.next() {
-            Some((i, service)) => Poll::Ready(Ok(Change::Insert(i, service))),
-            None => Poll::Pending,
+            Some((i, service)) => Poll::Ready(Some(Ok(Change::Insert(i, service)))),
+            None => Poll::Ready(None),
         }
     }
 }

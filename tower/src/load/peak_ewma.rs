@@ -3,7 +3,7 @@
 use super::Load;
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::discover::{Change, Discover};
-use futures_core::ready;
+use futures_core::{ready, Stream};
 use pin_project::pin_project;
 use std::{
     pin::Pin,
@@ -110,23 +110,19 @@ impl<D, I> PeakEwmaDiscover<D, I> {
     }
 }
 
-impl<D, I> Discover for PeakEwmaDiscover<D, I>
+impl<D, I> Stream for PeakEwmaDiscover<D, I>
 where
     D: Discover,
     I: Clone,
 {
-    type Key = D::Key;
-    type Service = PeakEwma<D::Service, I>;
-    type Error = D::Error;
+    type Item = Result<Change<D::Key, PeakEwma<D::Service, I>>, D::Error>;
 
-    fn poll_discover(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        let change = match ready!(this.discover.poll_discover(cx))? {
-            Change::Remove(k) => Change::Remove(k),
-            Change::Insert(k, svc) => {
+        let change = match ready!(this.discover.poll_discover(cx)).transpose()? {
+            None => return Poll::Ready(None),
+            Some(Change::Remove(k)) => Change::Remove(k),
+            Some(Change::Insert(k, svc)) => {
                 let peak_ewma = PeakEwma::new(
                     svc,
                     *this.default_rtt,
@@ -137,7 +133,7 @@ where
             }
         };
 
-        Poll::Ready(Ok(change))
+        Poll::Ready(Some(Ok(change)))
     }
 }
 

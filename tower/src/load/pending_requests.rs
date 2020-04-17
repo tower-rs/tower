@@ -3,7 +3,7 @@
 use super::Load;
 use super::{Instrument, InstrumentFuture, NoInstrument};
 use crate::discover::{Change, Discover};
-use futures_core::ready;
+use futures_core::{ready, Stream};
 use pin_project::pin_project;
 use std::sync::Arc;
 use std::{
@@ -106,29 +106,25 @@ impl<D, I> PendingRequestsDiscover<D, I> {
     }
 }
 
-impl<D, I> Discover for PendingRequestsDiscover<D, I>
+impl<D, I> Stream for PendingRequestsDiscover<D, I>
 where
     D: Discover,
     I: Clone,
 {
-    type Key = D::Key;
-    type Service = PendingRequests<D::Service, I>;
-    type Error = D::Error;
+    type Item = Result<Change<D::Key, PendingRequests<D::Service, I>>, D::Error>;
 
     /// Yields the next discovery change set.
-    fn poll_discover(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use self::Change::*;
 
         let this = self.project();
-        let change = match ready!(this.discover.poll_discover(cx))? {
-            Insert(k, svc) => Insert(k, PendingRequests::new(svc, this.instrument.clone())),
-            Remove(k) => Remove(k),
+        let change = match ready!(this.discover.poll_discover(cx)).transpose()? {
+            None => return Poll::Ready(None),
+            Some(Insert(k, svc)) => Insert(k, PendingRequests::new(svc, this.instrument.clone())),
+            Some(Remove(k)) => Remove(k),
         };
 
-        Poll::Ready(Ok(change))
+        Poll::Ready(Some(Ok(change)))
     }
 }
 

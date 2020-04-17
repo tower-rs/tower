@@ -1,7 +1,7 @@
 //! A constant `Load` implementation. Primarily useful for testing.
 
 use crate::discover::{Change, Discover};
-use futures_core::ready;
+use futures_core::{ready, Stream};
 use pin_project::pin_project;
 use std::{
     pin::Pin,
@@ -55,24 +55,20 @@ where
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
-impl<D: Discover + Unpin, M: Copy> Discover for Constant<D, M> {
-    type Key = D::Key;
-    type Service = Constant<D::Service, M>;
-    type Error = D::Error;
+impl<D: Discover + Unpin, M: Copy> Stream for Constant<D, M> {
+    type Item = Result<Change<D::Key, Constant<D::Service, M>>, D::Error>;
 
     /// Yields the next discovery change set.
-    fn poll_discover(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Change<D::Key, Self::Service>, D::Error>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use self::Change::*;
 
         let this = self.project();
-        let change = match ready!(Pin::new(this.inner).poll_discover(cx))? {
-            Insert(k, svc) => Insert(k, Constant::new(svc, *this.load)),
-            Remove(k) => Remove(k),
+        let change = match ready!(Pin::new(this.inner).poll_discover(cx)).transpose()? {
+            None => return Poll::Ready(None),
+            Some(Insert(k, svc)) => Insert(k, Constant::new(svc, *this.load)),
+            Some(Remove(k)) => Remove(k),
         };
 
-        Poll::Ready(Ok(change))
+        Poll::Ready(Some(Ok(change)))
     }
 }
