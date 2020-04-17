@@ -1,37 +1,40 @@
-//! A `Load` implementation that uses the count of in-flight requests.
+//! A `Load` implementation that measures load using the number of in-flight requests.
 
-use super::Load;
-use super::{Instrument, InstrumentFuture, NoInstrument};
+#[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
+#[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
+#[cfg(feature = "discover")]
 use pin_project::pin_project;
+#[cfg(feature = "discover")]
+use std::pin::Pin;
+
+use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
+use super::Load;
 use std::sync::Arc;
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// Expresses load based on the number of currently-pending requests.
+/// Measures the load of the underlying service using the number of currently-pending requests.
 #[derive(Debug)]
-pub struct PendingRequests<S, I = NoInstrument> {
+pub struct PendingRequests<S, C = CompleteOnResponse> {
     service: S,
     ref_count: RefCount,
-    instrument: I,
+    completion: C,
 }
 
-/// Shared between instances of `PendingRequests` and `Handle` to track active
-/// references.
+/// Shared between instances of `PendingRequests` and `Handle` to track active references.
 #[derive(Clone, Debug, Default)]
 struct RefCount(Arc<()>);
 
-/// Wraps `inner`'s services with `PendingRequests`.
+/// Wraps a `D`-typed stream of discovered services with `PendingRequests`.
 #[pin_project]
 #[derive(Debug)]
-pub struct PendingRequestsDiscover<D, I = NoInstrument> {
+#[cfg(feature = "discover")]
+pub struct PendingRequestsDiscover<D, C = CompleteOnResponse> {
     #[pin]
     discover: D,
-    instrument: I,
+    completion: C,
 }
 
 /// Represents the number of currently-pending requests to a given service.
@@ -44,11 +47,12 @@ pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
 
-impl<S, I> PendingRequests<S, I> {
-    fn new(service: S, instrument: I) -> Self {
+impl<S, C> PendingRequests<S, C> {
+    /// Wraps an `S`-typed service so that its load is tracked by the number of pending requests.
+    pub fn new(service: S, completion: C) -> Self {
         Self {
             service,
-            instrument,
+            completion,
             ref_count: RefCount::default(),
         }
     }
@@ -58,7 +62,7 @@ impl<S, I> PendingRequests<S, I> {
     }
 }
 
-impl<S, I> Load for PendingRequests<S, I> {
+impl<S, C> Load for PendingRequests<S, C> {
     type Metric = Count;
 
     fn load(&self) -> Count {
@@ -67,22 +71,22 @@ impl<S, I> Load for PendingRequests<S, I> {
     }
 }
 
-impl<S, I, Request> Service<Request> for PendingRequests<S, I>
+impl<S, C, Request> Service<Request> for PendingRequests<S, C>
 where
     S: Service<Request>,
-    I: Instrument<Handle, S::Response>,
+    C: TrackCompletion<Handle, S::Response>,
 {
-    type Response = I::Output;
+    type Response = C::Output;
     type Error = S::Error;
-    type Future = InstrumentFuture<S::Future, I, Handle>;
+    type Future = TrackCompletionFuture<S::Future, C, Handle>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        InstrumentFuture::new(
-            self.instrument.clone(),
+        TrackCompletionFuture::new(
+            self.completion.clone(),
             self.handle(),
             self.service.call(req),
         )
@@ -91,27 +95,29 @@ where
 
 // ===== impl PendingRequestsDiscover =====
 
-impl<D, I> PendingRequestsDiscover<D, I> {
+#[cfg(feature = "discover")]
+impl<D, C> PendingRequestsDiscover<D, C> {
     /// Wraps a `Discover``, wrapping all of its services with `PendingRequests`.
-    pub fn new<Request>(discover: D, instrument: I) -> Self
+    pub fn new<Request>(discover: D, completion: C) -> Self
     where
         D: Discover,
         D::Service: Service<Request>,
-        I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
+        C: TrackCompletion<Handle, <D::Service as Service<Request>>::Response>,
     {
         Self {
             discover,
-            instrument,
+            completion,
         }
     }
 }
 
-impl<D, I> Stream for PendingRequestsDiscover<D, I>
+#[cfg(feature = "discover")]
+impl<D, C> Stream for PendingRequestsDiscover<D, C>
 where
     D: Discover,
-    I: Clone,
+    C: Clone,
 {
-    type Item = Result<Change<D::Key, PendingRequests<D::Service, I>>, D::Error>;
+    type Item = Result<Change<D::Key, PendingRequests<D::Service, C>>, D::Error>;
 
     /// Yields the next discovery change set.
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -120,7 +126,7 @@ where
         let this = self.project();
         let change = match ready!(this.discover.poll_discover(cx)).transpose()? {
             None => return Poll::Ready(None),
-            Some(Insert(k, svc)) => Insert(k, PendingRequests::new(svc, this.instrument.clone())),
+            Some(Insert(k, svc)) => Insert(k, PendingRequests::new(svc, this.completion.clone())),
             Some(Remove(k)) => Remove(k),
         };
 
@@ -159,7 +165,7 @@ mod tests {
 
     #[test]
     fn default() {
-        let mut svc = PendingRequests::new(Svc, NoInstrument);
+        let mut svc = PendingRequests::new(Svc, CompleteOnResponse);
         assert_eq!(svc.load(), Count(0));
 
         let rsp0 = svc.call(());
@@ -176,12 +182,12 @@ mod tests {
     }
 
     #[test]
-    fn instrumented() {
+    fn with_completion() {
         #[derive(Clone)]
         struct IntoHandle;
-        impl Instrument<Handle, ()> for IntoHandle {
+        impl TrackCompletion<Handle, ()> for IntoHandle {
             type Output = Handle;
-            fn instrument(&self, i: Handle, (): ()) -> Handle {
+            fn track_completion(&self, i: Handle, (): ()) -> Handle {
                 i
             }
         }
