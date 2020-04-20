@@ -38,7 +38,8 @@ pub trait TrackCompletion<H, V>: Clone {
 
 /// A `TrackCompletion` implementation that considers the request completed when the response
 /// future is resolved.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct CompleteOnResponse;
 
 /// Attaches a `C`-typed completion tracker to the result of an `F`-typed `Future`.
