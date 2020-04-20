@@ -88,3 +88,14 @@ pub trait Layer<S> {
     /// that has been decorated with the middleware.
     fn layer(&self, inner: S) -> Self::Service;
 }
+
+impl<'a, T, S> Layer<S> for &'a T
+where
+    T: ?Sized + Layer<S>,
+{
+    type Service = T::Service;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        (**self).layer(inner)
+    }
+}
