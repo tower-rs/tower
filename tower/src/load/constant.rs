@@ -1,17 +1,20 @@
-//! A constant `Load` implementation. Primarily useful for testing.
+//! A constant `Load` implementation.
 
+#[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
+#[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
-use pin_project::pin_project;
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
-use tower_service::Service;
+#[cfg(feature = "discover")]
+use std::pin::Pin;
 
 use super::Load;
+use pin_project::pin_project;
+use std::task::{Context, Poll};
+use tower_service::Service;
 
-/// Wraps a type so that `Load::load` returns a constant value.
+/// Wraps a type so that it implements `Load` and returns a constant load metric.
+///
+/// This load estimator is primarily useful for testing.
 #[pin_project]
 #[derive(Debug)]
 pub struct Constant<T, M> {
@@ -55,6 +58,7 @@ where
 }
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
+#[cfg(feature = "discover")]
 impl<D: Discover + Unpin, M: Copy> Stream for Constant<D, M> {
     type Item = Result<Change<D::Key, Constant<D::Service, M>>, D::Error>;
 

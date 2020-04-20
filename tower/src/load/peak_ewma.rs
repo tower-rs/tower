@@ -1,14 +1,17 @@
-//! A `Load` implementation that PeakEWMA on response latency.
+//! A `Load` implementation that measures load using the PeakEWMA response latency.
 
-use super::Load;
-use super::{Instrument, InstrumentFuture, NoInstrument};
+#[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
+#[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
+#[cfg(feature = "discover")]
 use pin_project::pin_project;
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
+#[cfg(feature = "discover")]
+use std::pin::Pin;
+
+use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
+use super::Load;
+use std::task::{Context, Poll};
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
@@ -17,7 +20,7 @@ use tokio::time::Instant;
 use tower_service::Service;
 use tracing::trace;
 
-/// Wraps an `S`-typed Service with Peak-EWMA load measurement.
+/// Measures the load of the underlying service using Peak-EWMA load measurement.
 ///
 /// `PeakEwma` implements `Load` with the `Cost` metric that estimates the amount of
 /// pending work to an endpoint. Work is calculated by multiplying the
@@ -25,11 +28,6 @@ use tracing::trace;
 /// pending requests. The Peak-EWMA algorithm is designed to be especially sensitive to
 /// worst-case latencies. Over time, the peak latency value decays towards the moving
 /// average of latencies to the endpoint.
-///
-/// As requests are sent to the underlying service, an `I`-typed instrumentation strategy
-/// is used to track responses to measure latency in an application-specific way. The
-/// default strategy measures latency as the elapsed time from the request being issued to
-/// the underlying service to the response future being satisfied (or dropped).
 ///
 /// When no latency information has been measured for an endpoint, an arbitrary default
 /// RTT of 1 second is used to prevent the endpoint from being overloaded before a
@@ -43,22 +41,23 @@ use tracing::trace;
 /// [finagle]:
 /// https://github.com/twitter/finagle/blob/9cc08d15216497bb03a1cafda96b7266cfbbcff1/finagle-core/src/main/scala/com/twitter/finagle/loadbalancer/PeakEwma.scala
 #[derive(Debug)]
-pub struct PeakEwma<S, I = NoInstrument> {
+pub struct PeakEwma<S, C = CompleteOnResponse> {
     service: S,
     decay_ns: f64,
     rtt_estimate: Arc<Mutex<RttEstimate>>,
-    instrument: I,
+    completion: C,
 }
 
-/// Wraps a `D`-typed stream of discovery updates with `PeakEwma`.
+/// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
 #[pin_project]
 #[derive(Debug)]
-pub struct PeakEwmaDiscover<D, I = NoInstrument> {
+#[cfg(feature = "discover")]
+pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
     #[pin]
     discover: D,
     decay_ns: f64,
     default_rtt: Duration,
-    instrument: I,
+    completion: C,
 }
 
 /// Represents the relative cost of communicating with a service.
@@ -87,65 +86,14 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 
 // ===== impl PeakEwma =====
 
-impl<D, I> PeakEwmaDiscover<D, I> {
-    /// Wraps a `D`-typed `Discover` so that services have a `PeakEwma` load metric.
-    ///
-    /// The provided `default_rtt` is used as the default RTT estimate for newly
-    /// added services.
-    ///
-    /// They `decay` value determines over what time period a RTT estimate should
-    /// decay.
-    pub fn new<Request>(discover: D, default_rtt: Duration, decay: Duration, instrument: I) -> Self
-    where
-        D: Discover,
-        D::Service: Service<Request>,
-        I: Instrument<Handle, <D::Service as Service<Request>>::Response>,
-    {
-        PeakEwmaDiscover {
-            discover,
-            decay_ns: nanos(decay),
-            default_rtt,
-            instrument,
-        }
-    }
-}
-
-impl<D, I> Stream for PeakEwmaDiscover<D, I>
-where
-    D: Discover,
-    I: Clone,
-{
-    type Item = Result<Change<D::Key, PeakEwma<D::Service, I>>, D::Error>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-        let change = match ready!(this.discover.poll_discover(cx)).transpose()? {
-            None => return Poll::Ready(None),
-            Some(Change::Remove(k)) => Change::Remove(k),
-            Some(Change::Insert(k, svc)) => {
-                let peak_ewma = PeakEwma::new(
-                    svc,
-                    *this.default_rtt,
-                    *this.decay_ns,
-                    this.instrument.clone(),
-                );
-                Change::Insert(k, peak_ewma)
-            }
-        };
-
-        Poll::Ready(Some(Ok(change)))
-    }
-}
-
-// ===== impl PeakEwma =====
-
-impl<S, I> PeakEwma<S, I> {
-    fn new(service: S, default_rtt: Duration, decay_ns: f64, instrument: I) -> Self {
+impl<S, C> PeakEwma<S, C> {
+    /// Wraps an `S`-typed service so that its load is tracked by the EWMA of its peak latency.
+    pub fn new(service: S, default_rtt: Duration, decay_ns: f64, completion: C) -> Self {
         Self {
             service,
             decay_ns,
             rtt_estimate: Arc::new(Mutex::new(RttEstimate::new(nanos(default_rtt)))),
-            instrument,
+            completion,
         }
     }
 
@@ -158,29 +106,29 @@ impl<S, I> PeakEwma<S, I> {
     }
 }
 
-impl<S, I, Request> Service<Request> for PeakEwma<S, I>
+impl<S, C, Request> Service<Request> for PeakEwma<S, C>
 where
     S: Service<Request>,
-    I: Instrument<Handle, S::Response>,
+    C: TrackCompletion<Handle, S::Response>,
 {
-    type Response = I::Output;
+    type Response = C::Output;
     type Error = S::Error;
-    type Future = InstrumentFuture<S::Future, I, Handle>;
+    type Future = TrackCompletionFuture<S::Future, C, Handle>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        InstrumentFuture::new(
-            self.instrument.clone(),
+        TrackCompletionFuture::new(
+            self.completion.clone(),
             self.handle(),
             self.service.call(req),
         )
     }
 }
 
-impl<S, I> Load for PeakEwma<S, I> {
+impl<S, C> Load for PeakEwma<S, C> {
     type Metric = Cost;
 
     fn load(&self) -> Self::Metric {
@@ -201,10 +149,64 @@ impl<S, I> Load for PeakEwma<S, I> {
     }
 }
 
-impl<S, I> PeakEwma<S, I> {
+impl<S, C> PeakEwma<S, C> {
     fn update_estimate(&self) -> f64 {
         let mut rtt = self.rtt_estimate.lock().expect("peak ewma prior_estimate");
         rtt.decay(self.decay_ns)
+    }
+}
+
+// ===== impl PeakEwmaDiscover =====
+
+#[cfg(feature = "discover")]
+impl<D, C> PeakEwmaDiscover<D, C> {
+    /// Wraps a `D`-typed `Discover` so that services have a `PeakEwma` load metric.
+    ///
+    /// The provided `default_rtt` is used as the default RTT estimate for newly
+    /// added services.
+    ///
+    /// They `decay` value determines over what time period a RTT estimate should
+    /// decay.
+    pub fn new<Request>(discover: D, default_rtt: Duration, decay: Duration, completion: C) -> Self
+    where
+        D: Discover,
+        D::Service: Service<Request>,
+        C: TrackCompletion<Handle, <D::Service as Service<Request>>::Response>,
+    {
+        PeakEwmaDiscover {
+            discover,
+            decay_ns: nanos(decay),
+            default_rtt,
+            completion,
+        }
+    }
+}
+
+#[cfg(feature = "discover")]
+impl<D, C> Stream for PeakEwmaDiscover<D, C>
+where
+    D: Discover,
+    C: Clone,
+{
+    type Item = Result<Change<D::Key, PeakEwma<D::Service, C>>, D::Error>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        let change = match ready!(this.discover.poll_discover(cx)).transpose()? {
+            None => return Poll::Ready(None),
+            Some(Change::Remove(k)) => Change::Remove(k),
+            Some(Change::Insert(k, svc)) => {
+                let peak_ewma = PeakEwma::new(
+                    svc,
+                    *this.default_rtt,
+                    *this.decay_ns,
+                    this.completion.clone(),
+                );
+                Change::Insert(k, peak_ewma)
+            }
+        };
+
+        Poll::Ready(Some(Ok(change)))
     }
 }
 
@@ -336,7 +338,7 @@ mod tests {
             Svc,
             Duration::from_millis(10),
             NANOS_PER_MILLI * 1_000.0,
-            NoInstrument,
+            CompleteOnResponse,
         );
         let Cost(load) = svc.load();
         assert_eq!(load, 10.0 * NANOS_PER_MILLI);
@@ -360,7 +362,7 @@ mod tests {
             Svc,
             Duration::from_millis(20),
             NANOS_PER_MILLI * 1_000.0,
-            NoInstrument,
+            CompleteOnResponse,
         );
         assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 
