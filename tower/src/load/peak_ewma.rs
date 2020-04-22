@@ -126,6 +126,10 @@ where
             self.service.call(req),
         )
     }
+
+    fn disarm(&mut self) {
+        self.service.disarm()
+    }
 }
 
 impl<S, C> Load for PeakEwma<S, C> {
@@ -326,6 +330,8 @@ mod tests {
         fn call(&mut self, (): ()) -> Self::Future {
             future::ok(())
         }
+
+        fn disarm(&mut self) {}
     }
 
     /// The default RTT estimate decays, so that new nodes are considered if the

@@ -55,6 +55,13 @@ where
             B(service) => B(service.call(request)),
         }
     }
+
+    fn disarm(&mut self) {
+        match *self {
+            Either::A(ref mut s) => s.disarm(),
+            Either::B(ref mut s) => s.disarm(),
+        }
+    }
 }
 
 impl<A, B, T, AE, BE> Future for Either<A, B>

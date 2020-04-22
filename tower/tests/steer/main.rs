@@ -25,6 +25,10 @@ impl Service<String> for MyService {
     fn call(&mut self, _req: String) -> Self::Future {
         ready(Ok(self.0))
     }
+
+    fn disarm(&mut self) {
+        assert!(self.1);
+    }
 }
 
 #[test]

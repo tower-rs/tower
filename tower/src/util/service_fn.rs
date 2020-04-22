@@ -29,4 +29,6 @@ where
     fn call(&mut self, req: Request) -> Self::Future {
         (self.f)(req)
     }
+
+    fn disarm(&mut self) {}
 }

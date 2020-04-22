@@ -185,6 +185,10 @@ impl<T, U> Service<T> for Mock<T, U> {
 
         ResponseFuture::new(rx)
     }
+
+    fn disarm(&mut self) {
+        self.can_send = false;
+    }
 }
 
 impl<T, U> Clone for Mock<T, U> {

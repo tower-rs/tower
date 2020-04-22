@@ -52,4 +52,8 @@ where
 
         ResponseFuture::new(request, check, inner)
     }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
+    }
 }

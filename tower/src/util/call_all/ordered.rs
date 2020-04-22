@@ -41,6 +41,8 @@ use tower_service::Service;
 ///      fn call(&mut self, req: &'static str) -> Self::Future {
 ///          ready(Ok(&req[..1]))
 ///      }
+///
+///      fn disarm(&mut self) {}
 /// }
 ///
 /// #[tokio::main]

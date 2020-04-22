@@ -53,6 +53,10 @@ impl<T, U, E> Service<T> for BoxService<T, U, E> {
     fn call(&mut self, request: T) -> BoxFuture<U, E> {
         self.inner.call(request)
     }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
+    }
 }
 
 impl<T, U, E> fmt::Debug for BoxService<T, U, E>
@@ -81,5 +85,9 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         Box::pin(self.inner.call(request))
+    }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
     }
 }

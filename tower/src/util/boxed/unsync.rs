@@ -47,6 +47,10 @@ impl<T, U, E> Service<T> for UnsyncBoxService<T, U, E> {
     fn call(&mut self, request: T) -> UnsyncBoxFuture<U, E> {
         self.inner.call(request)
     }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
+    }
 }
 
 impl<T, U, E> fmt::Debug for UnsyncBoxService<T, U, E>
@@ -75,5 +79,9 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         Box::pin(self.inner.call(request))
+    }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
     }
 }

@@ -69,6 +69,10 @@ where
             _marker: PhantomData,
         }
     }
+
+    fn disarm(&mut self) {
+        self.inner.disarm()
+    }
 }
 
 impl<F, T, E, Req> Future for MakeFuture<F, Req>
