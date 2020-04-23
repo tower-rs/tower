@@ -20,7 +20,7 @@ pub struct Oneshot<S: Service<Req>, Req> {
 
 #[pin_project]
 enum State<S: Service<Req>, Req> {
-    NotReady(Option<(S, Req)>),
+    NotReady(S, Option<Req>),
     Called(#[pin] S::Future),
     Done,
 }
@@ -32,12 +32,12 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            State::NotReady(Some((s, req))) => f
+            State::NotReady(s, Some(req)) => f
                 .debug_tuple("State::NotReady")
                 .field(s)
                 .field(req)
                 .finish(),
-            State::NotReady(None) => unreachable!(),
+            State::NotReady(_, None) => unreachable!(),
             State::Called(_) => f.debug_tuple("State::Called").field(&"S::Future").finish(),
             State::Done => f.debug_tuple("State::Done").finish(),
         }
@@ -51,7 +51,7 @@ where
     #[allow(missing_docs)]
     pub fn new(svc: S, req: Req) -> Self {
         Oneshot {
-            state: State::NotReady(Some((svc, req))),
+            state: State::NotReady(svc, Some(req)),
         }
     }
 }
@@ -68,10 +68,10 @@ where
         loop {
             #[project]
             match this.state.as_mut().project() {
-                State::NotReady(nr) => {
-                    let (mut svc, req) = nr.take().expect("We immediately transition to ::Called");
+                State::NotReady(svc, req) => {
                     let _ = ready!(svc.poll_ready(cx))?;
-                    this.state.set(State::Called(svc.call(req)));
+                    let f = svc.call(req.take().expect("already called"));
+                    this.state.set(State::Called(f));
                 }
                 State::Called(fut) => {
                     let res = ready!(fut.poll(cx))?;
