@@ -3,7 +3,7 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::{fmt, marker::PhantomData};
 use tower_layer::Layer;
 
-/// Contruct load balancers ([`Balance`]) over dynamic service sets ([`Discover`]) produced by the
+/// Construct load balancers ([`Balance`]) over dynamic service sets ([`Discover`]) produced by the
 /// "inner" service in response to requests coming from the "outer" service.
 ///
 /// This construction may seem a little odd at first glance. This is not a layer that takes

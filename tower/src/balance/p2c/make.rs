@@ -12,7 +12,7 @@ use std::{
 };
 use tower_service::Service;
 
-/// Contruct load balancers over dynamic service sets produced by a wrapped "inner" service.
+/// Construct load balancers over dynamic service sets produced by a wrapped "inner" service.
 ///
 /// This is effectively an implementation of [`MakeService`](tower::make_service::MakeService),
 /// except that it forwards the service descriptors (`Target`) to an inner service (`S`), and
