@@ -1,8 +1,8 @@
-//! Error types
+//! Error types for the `tower::balance` middleware.
 
 use std::fmt;
 
-/// An error returned when the balancer's endpoint discovery stream fails.
+/// The balancer's endpoint discovery stream failed.
 #[derive(Debug)]
 pub struct Discover(pub(crate) crate::BoxError);
 

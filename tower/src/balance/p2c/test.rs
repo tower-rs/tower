@@ -11,7 +11,7 @@ use super::*;
 async fn empty() {
     let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
     let disco = ServiceList::new(empty);
-    let mut svc = mock::Spawn::new(Balance::from_entropy(disco));
+    let mut svc = mock::Spawn::new(Balance::new(disco));
     assert_pending!(svc.poll_ready());
 }
 
@@ -20,7 +20,7 @@ async fn single_endpoint() {
     let (mut svc, mut handle) = mock::spawn_with(|s| {
         let mock = load::Constant::new(s, 0);
         let disco = ServiceList::new(vec![mock].into_iter());
-        Balance::from_entropy(disco)
+        Balance::new(disco)
     });
 
     handle.allow(0);
@@ -61,7 +61,7 @@ async fn two_endpoints_with_equal_load() {
     pin_mut!(handle_b);
 
     let disco = ServiceList::new(vec![mock_a, mock_b].into_iter());
-    let mut svc = mock::Spawn::new(Balance::from_entropy(disco));
+    let mut svc = mock::Spawn::new(Balance::new(disco));
 
     handle_a.allow(0);
     handle_b.allow(0);
