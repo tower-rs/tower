@@ -61,7 +61,7 @@ where
 
 /// A Future that becomes satisfied when an `S`-typed service is ready.
 ///
-/// May fail due to cancelation, i.e., if the service is removed from discovery.
+/// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
 #[pin_project]
 #[derive(Debug)]
 struct UnreadyService<K, S, Req> {
@@ -85,7 +85,7 @@ where
     D::Service: Service<Req>,
     <D::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
-    /// Construct a load balancer that uses operating system entropy.
+    /// Constructs a load balancer that uses operating system entropy.
     pub fn new(discover: D) -> Self {
         Self {
             rng: SmallRng::from_entropy(),
@@ -97,7 +97,7 @@ where
         }
     }
 
-    /// Construct a load balancer seeded with the provided random number generator.
+    /// Constructs a load balancer seeded with the provided random number generator.
     pub fn from_rng<R: Rng>(discover: D, rng: R) -> Result<Self, rand::Error> {
         let rng = SmallRng::from_rng(rng)?;
         Ok(Self {
@@ -110,7 +110,7 @@ where
         })
     }
 
-    /// The number of endpoints currently tracked by the balancer.
+    /// Returns the number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
         self.services.len()
     }
