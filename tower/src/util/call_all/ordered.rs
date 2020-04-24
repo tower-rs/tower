@@ -1,6 +1,6 @@
 //! `Stream<Item = Request>` + `Service<Request>` => `Stream<Item = Response>`.
 
-use super::{common, Error};
+use super::common;
 use futures_core::Stream;
 use futures_util::stream::FuturesOrdered;
 use pin_project::pin_project;
@@ -90,7 +90,7 @@ where
 impl<Svc, S> CallAll<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<Error>,
+    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
     /// Create new `CallAll` combinator.
@@ -138,10 +138,10 @@ where
 impl<Svc, S> Stream for CallAll<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<Error>,
+    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
-    type Item = Result<Svc::Response, Error>;
+    type Item = Result<Svc::Response, crate::BoxError>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().inner.poll_next(cx)

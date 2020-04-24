@@ -2,8 +2,6 @@
 
 use std::{error, fmt};
 
-pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
-
 /// The timeout elapsed.
 #[derive(Debug)]
 pub struct Elapsed(pub(super) ());

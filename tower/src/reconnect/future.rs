@@ -1,4 +1,3 @@
-use super::Error;
 use pin_project::{pin_project, project};
 use std::{
     future::Future,
@@ -38,10 +37,10 @@ impl<F, E> ResponseFuture<F, E> {
 impl<F, T, E, ME> Future for ResponseFuture<F, ME>
 where
     F: Future<Output = Result<T, E>>,
-    E: Into<Error>,
-    ME: Into<Error>,
+    E: Into<crate::BoxError>,
+    ME: Into<crate::BoxError>,
 {
-    type Output = Result<T, Error>;
+    type Output = Result<T, crate::BoxError>;
 
     #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

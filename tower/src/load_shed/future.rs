@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use futures_core::ready;
 use pin_project::{pin_project, project};
 
-use super::error::{Error, Overloaded};
+use super::error::Overloaded;
 
 /// Future for the `LoadShed` service.
 #[pin_project]
@@ -40,9 +40,9 @@ impl<F> ResponseFuture<F> {
 impl<F, T, E> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    E: Into<Error>,
+    E: Into<crate::BoxError>,
 {
-    type Output = Result<T, Error>;
+    type Output = Result<T, crate::BoxError>;
 
     #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

@@ -1,4 +1,4 @@
-use super::{error::Error, service::Buffer};
+use super::service::Buffer;
 use std::{fmt, marker::PhantomData};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -41,7 +41,7 @@ impl<S, Request> Layer<S> for BufferLayer<Request>
 where
     S: Service<Request> + Send + 'static,
     S::Future: Send,
-    S::Error: Into<Error> + Send + Sync,
+    S::Error: Into<crate::BoxError> + Send + Sync,
     Request: Send + 'static,
 {
     type Service = Buffer<S, Request>;

@@ -7,7 +7,6 @@ pub mod error;
 pub mod future;
 mod layer;
 
-use self::error::Error;
 use self::future::ResponseFuture;
 pub use self::layer::LoadShedLayer;
 
@@ -33,10 +32,10 @@ impl<S> LoadShed<S> {
 impl<S, Req> Service<Req> for LoadShed<S>
 where
     S: Service<Req>,
-    S::Error: Into<Error>,
+    S::Error: Into<crate::BoxError>,
 {
     type Response = S::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

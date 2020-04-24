@@ -1,4 +1,4 @@
-use super::{future::background_ready, Error};
+use super::future::background_ready;
 use futures_core::ready;
 use futures_util::future::{MapErr, TryFutureExt};
 use std::{
@@ -20,7 +20,7 @@ pub struct SpawnReady<T> {
 #[derive(Debug)]
 enum Inner<T> {
     Service(Option<T>),
-    Future(oneshot::Receiver<Result<T, Error>>),
+    Future(oneshot::Receiver<Result<T, crate::BoxError>>),
 }
 
 impl<T> SpawnReady<T> {
@@ -35,12 +35,12 @@ impl<T> SpawnReady<T> {
 impl<T, Request> Service<Request> for SpawnReady<T>
 where
     T: Service<Request> + Send + 'static,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
     Request: Send + 'static,
 {
     type Response = T::Response;
-    type Error = Error;
-    type Future = MapErr<T::Future, fn(T::Error) -> Error>;
+    type Error = crate::BoxError;
+    type Future = MapErr<T::Future, fn(T::Error) -> crate::BoxError>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {

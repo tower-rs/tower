@@ -1,9 +1,6 @@
 //! Future types for the `Buffer` middleware.
 
-use super::{
-    error::{Closed, Error},
-    message,
-};
+use super::{error::Closed, message};
 use futures_core::ready;
 use pin_project::{pin_project, project};
 use std::{
@@ -23,7 +20,7 @@ pub struct ResponseFuture<T> {
 #[pin_project]
 #[derive(Debug)]
 enum ResponseState<T> {
-    Failed(Option<Error>),
+    Failed(Option<crate::BoxError>),
     Rx(#[pin] message::Rx<T>),
     Poll(#[pin] T),
 }
@@ -35,7 +32,7 @@ impl<T> ResponseFuture<T> {
         }
     }
 
-    pub(crate) fn failed(err: Error) -> Self {
+    pub(crate) fn failed(err: crate::BoxError) -> Self {
         ResponseFuture {
             state: ResponseState::Failed(Some(err)),
         }
@@ -45,9 +42,9 @@ impl<T> ResponseFuture<T> {
 impl<F, T, E> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    E: Into<Error>,
+    E: Into<crate::BoxError>,
 {
-    type Output = Result<T, Error>;
+    type Output = Result<T, crate::BoxError>;
 
     #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

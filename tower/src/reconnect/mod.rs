@@ -26,8 +26,6 @@ use std::{
 use tower_service::Service;
 use tracing::trace;
 
-pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
-
 /// Reconnect to failed services.
 pub struct Reconnect<M, Target>
 where
@@ -76,11 +74,11 @@ where
     M: Service<Target, Response = S>,
     S: Service<Request>,
     M::Future: Unpin,
-    Error: From<M::Error> + From<S::Error>,
+    crate::BoxError: From<M::Error> + From<S::Error>,
     Target: Clone,
 {
     type Response = S::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<S::Future, M::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

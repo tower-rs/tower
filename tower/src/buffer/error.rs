@@ -1,11 +1,12 @@
 //! Error types for the `Buffer` middleware.
 
+use crate::BoxError;
 use std::{fmt, sync::Arc};
 
 /// An error produced by a `Service` wrapped by a `Buffer`
 #[derive(Debug)]
 pub struct ServiceError {
-    inner: Arc<Error>,
+    inner: Arc<BoxError>,
 }
 
 /// An error produced when the a buffer's worker closes unexpectedly.
@@ -13,13 +14,10 @@ pub struct Closed {
     _p: (),
 }
 
-/// Errors produced by `Buffer`.
-pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
-
 // ===== impl ServiceError =====
 
 impl ServiceError {
-    pub(crate) fn new(inner: Error) -> ServiceError {
+    pub(crate) fn new(inner: BoxError) -> ServiceError {
         let inner = Arc::new(inner);
         ServiceError { inner }
     }

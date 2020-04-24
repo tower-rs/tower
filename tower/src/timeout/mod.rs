@@ -9,7 +9,7 @@ mod layer;
 
 pub use self::layer::TimeoutLayer;
 
-use self::{error::Error, future::ResponseFuture};
+use self::future::ResponseFuture;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tower_service::Service;
@@ -33,10 +33,10 @@ impl<T> Timeout<T> {
 impl<S, Request> Service<Request> for Timeout<S>
 where
     S: Service<Request>,
-    S::Error: Into<Error>,
+    S::Error: Into<crate::BoxError>,
 {
     type Response = S::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

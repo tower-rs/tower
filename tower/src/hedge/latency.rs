@@ -40,7 +40,7 @@ where
     pub fn new<Request>(rec: R, service: S) -> Self
     where
         S: Service<Request>,
-        S::Error: Into<super::Error>,
+        S::Error: Into<crate::BoxError>,
     {
         Latency { rec, service }
     }
@@ -49,11 +49,11 @@ where
 impl<S, R, Request> Service<Request> for Latency<R, S>
 where
     S: Service<Request>,
-    S::Error: Into<super::Error>,
+    S::Error: Into<crate::BoxError>,
     R: Record + Clone,
 {
     type Response = S::Response;
-    type Error = super::Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<R, S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -73,9 +73,9 @@ impl<R, F, T, E> Future for ResponseFuture<R, F>
 where
     R: Record,
     F: Future<Output = Result<T, E>>,
-    E: Into<super::Error>,
+    E: Into<crate::BoxError>,
 {
-    type Output = Result<T, super::Error>;
+    type Output = Result<T, crate::BoxError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();

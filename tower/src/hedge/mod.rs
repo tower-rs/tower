@@ -52,8 +52,6 @@ where
     inner: S::Future,
 }
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
-
 /// A policy which describes which requests can be cloned and then whether those
 /// requests should be retried.
 pub trait Policy<Request> {
@@ -95,7 +93,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        S::Error: Into<Error>,
+        S::Error: Into<crate::BoxError>,
         P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
@@ -114,7 +112,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        S::Error: Into<Error>,
+        S::Error: Into<crate::BoxError>,
         P: Policy<Request> + Clone,
     {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
@@ -136,7 +134,7 @@ impl<S, P> Hedge<S, P> {
     ) -> Hedge<S, P>
     where
         S: tower_service::Service<Request> + Clone,
-        S::Error: Into<Error>,
+        S::Error: Into<crate::BoxError>,
         P: Policy<Request> + Clone,
     {
         // Clone the underlying service and wrap both copies in a middleware that
@@ -169,11 +167,11 @@ impl<S, P> Hedge<S, P> {
 impl<S, P, Request> tower_service::Service<Request> for Hedge<S, P>
 where
     S: tower_service::Service<Request> + Clone,
-    S::Error: Into<Error>,
+    S::Error: Into<crate::BoxError>,
     P: Policy<Request> + Clone,
 {
     type Response = S::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = Future<Service<S, P>, Request>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -190,9 +188,9 @@ where
 impl<S, Request> std::future::Future for Future<S, Request>
 where
     S: tower_service::Service<Request>,
-    S::Error: Into<Error>,
+    S::Error: Into<crate::BoxError>,
 {
-    type Output = Result<S::Response, Error>;
+    type Output = Result<S::Response, crate::BoxError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.project().inner.poll(cx).map_err(Into::into)

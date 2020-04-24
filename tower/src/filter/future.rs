@@ -1,6 +1,6 @@
 //! Future types
 
-use super::error::{self, Error};
+use super::error::Error;
 use futures_core::ready;
 use pin_project::{pin_project, project};
 use std::{
@@ -40,7 +40,7 @@ impl<F, T, S, Request> ResponseFuture<F, S, Request>
 where
     F: Future<Output = Result<T, Error>>,
     S: Service<Request>,
-    S::Error: Into<error::Source>,
+    S::Error: Into<crate::BoxError>,
 {
     pub(crate) fn new(request: Request, check: F, service: S) -> Self {
         ResponseFuture {
@@ -55,7 +55,7 @@ impl<F, T, S, Request> Future for ResponseFuture<F, S, Request>
 where
     F: Future<Output = Result<T, Error>>,
     S: Service<Request>,
-    S::Error: Into<error::Source>,
+    S::Error: Into<crate::BoxError>,
 {
     type Output = Result<S::Response, Error>;
 

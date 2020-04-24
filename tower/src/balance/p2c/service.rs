@@ -92,7 +92,7 @@ where
     D: Discover,
     D::Key: Hash,
     D::Service: Service<Req>,
-    <D::Service as Service<Req>>::Error: Into<error::Error>,
+    <D::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
     /// Initializes a P2C load balancer from the provided randomization source.
     pub fn new(discover: D, rng: SmallRng) -> Self {
@@ -121,10 +121,10 @@ impl<D, Req> Balance<D, Req>
 where
     D: Discover + Unpin,
     D::Key: Hash + Clone,
-    D::Error: Into<error::Error>,
+    D::Error: Into<crate::BoxError>,
     D::Service: Service<Req> + Load,
     <D::Service as Load>::Metric: std::fmt::Debug,
-    <D::Service as Service<Req>>::Error: Into<error::Error>,
+    <D::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
     /// Polls `discover` for updates, adding new items to `not_ready`.
     ///
@@ -227,16 +227,16 @@ impl<D, Req> Service<Req> for Balance<D, Req>
 where
     D: Discover + Unpin,
     D::Key: Hash + Clone,
-    D::Error: Into<error::Error>,
+    D::Error: Into<crate::BoxError>,
     D::Service: Service<Req> + Load,
     <D::Service as Load>::Metric: std::fmt::Debug,
-    <D::Service as Service<Req>>::Error: Into<error::Error>,
+    <D::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
     type Response = <D::Service as Service<Req>>::Response;
-    type Error = error::Error;
+    type Error = crate::BoxError;
     type Future = future::MapErr<
         <D::Service as Service<Req>>::Future,
-        fn(<D::Service as Service<Req>>::Error) -> error::Error,
+        fn(<D::Service as Service<Req>>::Error) -> crate::BoxError,
     >;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

@@ -1,4 +1,3 @@
-use super::super::error;
 use super::Balance;
 use crate::discover::Discover;
 use futures_core::ready;
@@ -52,7 +51,7 @@ where
     S::Response: Discover,
     <S::Response as Discover>::Key: Hash,
     <S::Response as Discover>::Service: Service<Req>,
-    <<S::Response as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
+    <<S::Response as Discover>::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
     type Response = Balance<S::Response, Req>;
     type Error = S::Error;
@@ -77,7 +76,7 @@ where
     T: Discover,
     <T as Discover>::Key: Hash,
     <T as Discover>::Service: Service<Req>,
-    <<T as Discover>::Service as Service<Req>>::Error: Into<error::Error>,
+    <<T as Discover>::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
     type Output = Result<Balance<T, Req>, E>;
 

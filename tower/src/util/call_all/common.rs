@@ -1,4 +1,3 @@
-use super::Error;
 use futures_core::{ready, Stream};
 use pin_project::pin_project;
 use std::{
@@ -31,7 +30,7 @@ pub(crate) trait Drive<F: Future> {
 impl<Svc, S, Q> CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<Error>,
+    Svc::Error: Into<crate::BoxError>,
     S: Stream,
     Q: Drive<Svc::Future>,
 {
@@ -67,11 +66,11 @@ where
 impl<Svc, S, Q> Stream for CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<Error>,
+    Svc::Error: Into<crate::BoxError>,
     S: Stream,
     Q: Drive<Svc::Future>,
 {
-    type Item = Result<Svc::Response, Error>;
+    type Item = Result<Svc::Response, crate::BoxError>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();

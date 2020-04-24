@@ -4,8 +4,6 @@ use std::{error, fmt};
 #[derive(Debug)]
 pub struct None(());
 
-pub(crate) type Error = Box<dyn error::Error + Send + Sync>;
-
 impl None {
     pub(crate) fn new() -> None {
         None(())

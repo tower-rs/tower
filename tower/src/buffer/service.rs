@@ -1,5 +1,4 @@
 use super::{
-    error::Error,
     future::ResponseFuture,
     message::Message,
     worker::{Handle, Worker},
@@ -25,7 +24,7 @@ where
 impl<T, Request> Buffer<T, Request>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     /// Creates a new `Buffer` wrapping `service`.
     ///
@@ -73,7 +72,7 @@ where
         (Buffer { tx, handle }, worker)
     }
 
-    fn get_worker_error(&self) -> Error {
+    fn get_worker_error(&self) -> crate::BoxError {
         self.handle.get_error_on_closed()
     }
 }
@@ -81,10 +80,10 @@ where
 impl<T, Request> Service<Request> for Buffer<T, Request>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     type Response = T::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

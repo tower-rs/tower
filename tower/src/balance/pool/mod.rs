@@ -14,7 +14,6 @@
 //! added or removed.
 #![deny(missing_docs)]
 
-use super::error;
 use super::p2c::Balance;
 use crate::discover::Change;
 use crate::load::Load;
@@ -82,8 +81,8 @@ where
 impl<MS, Target, Request> Stream for PoolDiscoverer<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
-    MS::MakeError: Into<error::Error>,
-    MS::Error: Into<error::Error>,
+    MS::MakeError: Into<crate::BoxError>,
+    MS::Error: Into<crate::BoxError>,
     Target: Clone,
 {
     type Item = Result<Change<usize, DropNotifyService<MS::Service>>, MS::MakeError>;
@@ -273,8 +272,8 @@ impl Builder {
         MS: MakeService<Target, Request>,
         MS::Service: Load,
         <MS::Service as Load>::Metric: std::fmt::Debug,
-        MS::MakeError: Into<error::Error>,
-        MS::Error: Into<error::Error>,
+        MS::MakeError: Into<crate::BoxError>,
+        MS::Error: Into<crate::BoxError>,
         Target: Clone,
     {
         let (died_tx, died_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -301,8 +300,8 @@ impl Builder {
 pub struct Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request>,
-    MS::MakeError: Into<error::Error>,
-    MS::Error: Into<error::Error>,
+    MS::MakeError: Into<crate::BoxError>,
+    MS::Error: Into<crate::BoxError>,
     Target: Clone,
 {
     // the Pin<Box<_>> here is needed since Balance requires the Service to be Unpin
@@ -314,8 +313,8 @@ where
 impl<MS, Target, Request> fmt::Debug for Pool<MS, Target, Request>
 where
     MS: MakeService<Target, Request> + fmt::Debug,
-    MS::MakeError: Into<error::Error>,
-    MS::Error: Into<error::Error>,
+    MS::MakeError: Into<crate::BoxError>,
+    MS::Error: Into<crate::BoxError>,
     Target: Clone + fmt::Debug,
     MS::Service: fmt::Debug,
     Request: fmt::Debug,
@@ -334,8 +333,8 @@ where
     MS: MakeService<Target, Request>,
     MS::Service: Load,
     <MS::Service as Load>::Metric: std::fmt::Debug,
-    MS::MakeError: Into<error::Error>,
-    MS::Error: Into<error::Error>,
+    MS::MakeError: Into<crate::BoxError>,
+    MS::Error: Into<crate::BoxError>,
     Target: Clone,
 {
     /// Construct a new dynamically sized `Pool`.
@@ -356,8 +355,8 @@ where
     MS: MakeService<Target, Req>,
     MS::Service: Load,
     <MS::Service as Load>::Metric: std::fmt::Debug,
-    MS::MakeError: Into<error::Error>,
-    MS::Error: Into<error::Error>,
+    MS::MakeError: Into<crate::BoxError>,
+    MS::Error: Into<crate::BoxError>,
     Target: Clone,
 {
     type Response = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;

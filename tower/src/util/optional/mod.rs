@@ -8,7 +8,7 @@ pub mod error;
 /// Future types for `OptionalService`.
 pub mod future;
 
-use self::{error::Error, future::ResponseFuture};
+use self::future::ResponseFuture;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
@@ -25,7 +25,7 @@ impl<T> Optional<T> {
     pub fn new<Request>(inner: Option<T>) -> Optional<T>
     where
         T: Service<Request>,
-        T::Error: Into<Error>,
+        T::Error: Into<crate::BoxError>,
     {
         Optional { inner }
     }
@@ -34,10 +34,10 @@ impl<T> Optional<T> {
 impl<T, Request> Service<Request> for Optional<T>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     type Response = T::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

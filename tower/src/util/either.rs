@@ -25,17 +25,15 @@ pub enum Either<A, B> {
     B(#[pin] B),
 }
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
-
 impl<A, B, Request> Service<Request> for Either<A, B>
 where
     A: Service<Request>,
-    A::Error: Into<Error>,
+    A::Error: Into<crate::BoxError>,
     B: Service<Request, Response = A::Response>,
-    B::Error: Into<Error>,
+    B::Error: Into<crate::BoxError>,
 {
     type Response = A::Response;
-    type Error = Error;
+    type Error = crate::BoxError;
     type Future = Either<A::Future, B::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -60,11 +58,11 @@ where
 impl<A, B, T, AE, BE> Future for Either<A, B>
 where
     A: Future<Output = Result<T, AE>>,
-    AE: Into<Error>,
+    AE: Into<crate::BoxError>,
     B: Future<Output = Result<T, BE>>,
-    BE: Into<Error>,
+    BE: Into<crate::BoxError>,
 {
-    type Output = Result<T, Error>;
+    type Output = Result<T, crate::BoxError>;
 
     #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
