@@ -25,8 +25,8 @@
 //! that lets you specify the random seed to use. Usually the former is what you'll want, though
 //! the latter may come in handy for reproducability or to reduce reliance on the operating system.
 //!
-//!   [Power of Two Random Choices]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-//!   [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
+//! [Power of Two Random Choices]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+//! [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 
 mod layer;
 mod make;

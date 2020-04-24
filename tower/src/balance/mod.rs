@@ -12,7 +12,7 @@
 //! the set of available services is not within your control, and you simply want to spread load
 //! among that set of services.
 //!
-//!   [Power of Two Random Choices]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+//! [Power of Two Random Choices]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 //!
 //! Second, [`pool`] implements a dynamically sized pool of services. It estimates the overall
 //! current load by tracking successful and unsuccessful calls to `poll_ready`, and uses an
