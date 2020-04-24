@@ -289,7 +289,7 @@ impl Builder {
         };
 
         Pool {
-            balance: Balance::from_entropy(Box::pin(d)),
+            balance: Balance::new(Box::pin(d)),
             options: *self,
             ewma: self.init,
         }

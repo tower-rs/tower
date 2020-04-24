@@ -5,7 +5,7 @@ use crate::ready_cache::{error::Failed, ReadyCache};
 use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
 use pin_project::pin_project;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
@@ -18,24 +18,15 @@ use tokio::sync::oneshot;
 use tower_service::Service;
 use tracing::{debug, trace};
 
-/// Distributes requests across inner services using the [Power of Two Choices][p2c].
+/// Efficiently distributes requests across an arbitrary number of services.
 ///
-/// As described in the [Finagle Guide][finagle]:
-///
-/// > The algorithm randomly picks two services from the set of ready endpoints and
-/// > selects the least loaded of the two. By repeatedly using this strategy, we can
-/// > expect a manageable upper bound on the maximum load of any server.
-/// >
-/// > The maximum load variance between any two servers is bound by `ln(ln(n))` where
-/// > `n` is the number of servers in the cluster.
+/// See the [module-level documentation](..) for details.
 ///
 /// Note that `Balance` requires that the `Discover` you use is `Unpin` in order to implement
 /// `Service`. This is because it needs to be accessed from `Service::poll_ready`, which takes
 /// `&mut self`. You can achieve this easily by wrapping your `Discover` in [`Box::pin`] before you
 /// construct the `Balance` instance. For more details, see [#319].
 ///
-/// [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
-/// [p2c]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 /// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
 /// [#319]: https://github.com/tower-rs/tower/issues/319
 pub struct Balance<D, Req>
@@ -68,10 +59,10 @@ where
     }
 }
 
-#[pin_project]
 /// A Future that becomes satisfied when an `S`-typed service is ready.
 ///
-/// May fail due to cancelation, i.e. if the service is removed from discovery.
+/// May fail due to cancelation, i.e., if the service is removed from discovery.
+#[pin_project]
 #[derive(Debug)]
 struct UnreadyService<K, S, Req> {
     key: Option<K>,
@@ -94,10 +85,10 @@ where
     D::Service: Service<Req>,
     <D::Service as Service<Req>>::Error: Into<crate::BoxError>,
 {
-    /// Initializes a P2C load balancer from the provided randomization source.
-    pub fn new(discover: D, rng: SmallRng) -> Self {
+    /// Construct a load balancer that uses operating system entropy.
+    pub fn new(discover: D) -> Self {
         Self {
-            rng,
+            rng: SmallRng::from_entropy(),
             discover,
             services: ReadyCache::default(),
             ready_index: None,
@@ -106,12 +97,20 @@ where
         }
     }
 
-    /// Initializes a P2C load balancer from the OS's entropy source.
-    pub fn from_entropy(discover: D) -> Self {
-        Self::new(discover, SmallRng::from_entropy())
+    /// Construct a load balancer seeded with the provided random number generator.
+    pub fn from_rng<R: Rng>(discover: D, rng: R) -> Result<Self, rand::Error> {
+        let rng = SmallRng::from_rng(rng)?;
+        Ok(Self {
+            rng,
+            discover,
+            services: ReadyCache::default(),
+            ready_index: None,
+
+            _req: PhantomData,
+        })
     }
 
-    /// Returns the number of endpoints currently tracked by the balancer.
+    /// The number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
         self.services.len()
     }

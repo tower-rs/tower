@@ -2,7 +2,7 @@ use super::Balance;
 use crate::discover::Discover;
 use futures_core::ready;
 use pin_project::pin_project;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
@@ -12,15 +12,22 @@ use std::{
 };
 use tower_service::Service;
 
-/// Makes `Balancer`s given an inner service that makes `Discover`s.
+/// Contruct load balancers over dynamic service sets produced by a wrapped "inner" service.
+///
+/// This is effectively an implementation of [`MakeService`](tower::make_service::MakeService),
+/// except that it forwards the service descriptors (`Target`) to an inner service (`S`), and
+/// expects that service to produce a service set in the form of a [`Discover`]. It then wraps the
+/// service set in a [`Balance`] before returning it as the "made" service.
+///
+/// See the [module-level documentation](..) for details on load balancing.
 #[derive(Clone, Debug)]
-pub struct BalanceMake<S, Req> {
+pub struct MakeBalance<S, Req> {
     inner: S,
     rng: SmallRng,
     _marker: PhantomData<fn(Req)>,
 }
 
-/// Makes a balancer instance.
+/// A [`Balance`] in the making.
 #[pin_project]
 #[derive(Debug)]
 pub struct MakeFuture<F, Req> {
@@ -30,22 +37,30 @@ pub struct MakeFuture<F, Req> {
     _marker: PhantomData<fn(Req)>,
 }
 
-impl<S, Req> BalanceMake<S, Req> {
-    pub(crate) fn new(inner: S, rng: SmallRng) -> Self {
+impl<S, Req> MakeBalance<S, Req> {
+    /// Build balancers using operating system entropy.
+    pub fn new(make_discover: S) -> Self {
         Self {
-            inner,
-            rng,
+            inner: make_discover,
+            rng: SmallRng::from_entropy(),
             _marker: PhantomData,
         }
     }
 
-    /// Initializes a P2C load balancer from the OS's entropy source.
-    pub fn from_entropy(make_discover: S) -> Self {
-        Self::new(make_discover, SmallRng::from_entropy())
+    /// Build balancers using a seed from the provided random number generator.
+    ///
+    /// This may be preferrable when many balancers are initialized.
+    pub fn from_rng<R: Rng>(inner: S, rng: R) -> Result<Self, rand::Error> {
+        let rng = SmallRng::from_rng(rng)?;
+        Ok(Self {
+            inner,
+            rng,
+            _marker: PhantomData,
+        })
     }
 }
 
-impl<S, Target, Req> Service<Target> for BalanceMake<S, Req>
+impl<S, Target, Req> Service<Target> for MakeBalance<S, Req>
 where
     S: Service<Target>,
     S::Response: Discover,
@@ -83,7 +98,7 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let inner = ready!(this.inner.poll(cx))?;
-        let svc = Balance::new(inner, this.rng.clone());
+        let svc = Balance::from_rng(inner, this.rng.clone()).expect("SmallRng is infallible");
         Poll::Ready(Ok(svc))
     }
 }

@@ -58,7 +58,7 @@ async fn main() {
 
     let decay = Duration::from_secs(10);
     let d = gen_disco();
-    let pe = lb::p2c::Balance::from_entropy(load::PeakEwmaDiscover::new(
+    let pe = lb::p2c::Balance::new(load::PeakEwmaDiscover::new(
         d,
         DEFAULT_RTT,
         decay,
@@ -67,7 +67,7 @@ async fn main() {
     run("P2C+PeakEWMA...", pe).await;
 
     let d = gen_disco();
-    let ll = lb::p2c::Balance::from_entropy(load::PendingRequestsDiscover::new(
+    let ll = lb::p2c::Balance::new(load::PendingRequestsDiscover::new(
         d,
         load::CompleteOnResponse::default(),
     ));
