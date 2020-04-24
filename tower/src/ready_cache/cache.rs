@@ -187,8 +187,8 @@ impl<K, S, Req> ReadyCache<K, S, Req>
 where
     K: Clone + Eq + Hash,
     S: Service<Req>,
-    <S as Service<Req>>::Error: Into<error::Error>,
-    S::Error: Into<error::Error>,
+    <S as Service<Req>>::Error: Into<crate::BoxError>,
+    S::Error: Into<crate::BoxError>,
 {
     /// Pushes a new service onto the pending set.
     ///

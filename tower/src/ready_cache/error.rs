@@ -1,11 +1,8 @@
 //! Errors
 
-/// A generic error type.
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-
 /// An error indicating that the service with a `K`-typed key failed with an
 /// error.
-pub struct Failed<K>(pub K, pub Error);
+pub struct Failed<K>(pub K, pub crate::BoxError);
 
 // === Failed ===
 

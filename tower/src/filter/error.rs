@@ -5,10 +5,8 @@ use std::{error, fmt};
 /// Error produced by `Filter`
 #[derive(Debug)]
 pub struct Error {
-    source: Option<Source>,
+    source: Option<crate::BoxError>,
 }
-
-pub(crate) type Source = Box<dyn error::Error + Send + Sync>;
 
 impl Error {
     /// Create a new `Error` representing a rejected request.
@@ -19,7 +17,7 @@ impl Error {
     /// Create a new `Error` representing an inner service error.
     pub fn inner<E>(source: E) -> Error
     where
-        E: Into<Source>,
+        E: Into<crate::BoxError>,
     {
         Error {
             source: Some(source.into()),

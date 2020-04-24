@@ -2,11 +2,9 @@
 
 use std::fmt;
 
-pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
-
 /// An error returned when the balancer's endpoint discovery stream fails.
 #[derive(Debug)]
-pub struct Discover(pub(crate) Error);
+pub struct Discover(pub(crate) crate::BoxError);
 
 impl fmt::Display for Discover {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -9,6 +9,3 @@ mod service;
 pub use self::layer::SpawnReadyLayer;
 pub use self::make::{MakeFuture, MakeSpawnReady};
 pub use self::service::SpawnReady;
-
-/// Errors produced by `SpawnReady`.
-pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;

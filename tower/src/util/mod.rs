@@ -21,9 +21,6 @@ pub use self::{
 
 pub use self::call_all::{CallAll, CallAllUnordered};
 
-#[doc(hidden)]
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-
 pub mod error {
     //! Error types
 
@@ -80,7 +77,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
     where
         Self: Sized,
-        Self::Error: Into<Error>,
+        Self::Error: Into<crate::BoxError>,
         S: futures_core::Stream<Item = Request>,
     {
         CallAll::new(self, reqs)

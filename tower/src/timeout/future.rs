@@ -1,6 +1,6 @@
 //! Future types
 
-use super::error::{Elapsed, Error};
+use super::error::Elapsed;
 use pin_project::pin_project;
 use std::{
     future::Future,
@@ -28,9 +28,9 @@ impl<T> ResponseFuture<T> {
 impl<F, T, E> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<T, E>>,
-    E: Into<Error>,
+    E: Into<crate::BoxError>,
 {
-    type Output = Result<T, Error>;
+    type Output = Result<T, crate::BoxError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();

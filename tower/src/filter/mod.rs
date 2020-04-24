@@ -30,7 +30,7 @@ impl<T, U> Filter<T, U> {
 impl<T, U, Request> Service<Request> for Filter<T, U>
 where
     T: Service<Request> + Clone,
-    T::Error: Into<error::Source>,
+    T::Error: Into<crate::BoxError>,
     U: Predicate<Request>,
 {
     type Response = T::Response;

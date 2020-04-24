@@ -1,6 +1,5 @@
 //! Background readiness types
 
-use super::Error;
 use futures_core::ready;
 use pin_project::pin_project;
 use std::marker::PhantomData;
@@ -17,7 +16,7 @@ use tower_service::Service;
 #[derive(Debug)]
 pub struct BackgroundReady<T, Request> {
     service: Option<T>,
-    tx: Option<oneshot::Sender<Result<T, Error>>>,
+    tx: Option<oneshot::Sender<Result<T, crate::BoxError>>>,
     _req: PhantomData<Request>,
 }
 
@@ -25,11 +24,11 @@ pub(crate) fn background_ready<T, Request>(
     service: T,
 ) -> (
     BackgroundReady<T, Request>,
-    oneshot::Receiver<Result<T, Error>>,
+    oneshot::Receiver<Result<T, crate::BoxError>>,
 )
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     let (tx, rx) = oneshot::channel();
     let bg = BackgroundReady {
@@ -43,7 +42,7 @@ where
 impl<T, Request> Future for BackgroundReady<T, Request>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     type Output = ();
 

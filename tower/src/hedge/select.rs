@@ -37,9 +37,9 @@ impl<P, A, B> Select<P, A, B> {
     where
         P: Policy<Request>,
         A: Service<Request>,
-        A::Error: Into<super::Error>,
+        A::Error: Into<crate::BoxError>,
         B: Service<Request, Response = A::Response>,
-        B::Error: Into<super::Error>,
+        B::Error: Into<crate::BoxError>,
     {
         Select { policy, a, b }
     }
@@ -49,12 +49,12 @@ impl<P, A, B, Request> Service<Request> for Select<P, A, B>
 where
     P: Policy<Request>,
     A: Service<Request>,
-    A::Error: Into<super::Error>,
+    A::Error: Into<crate::BoxError>,
     B: Service<Request, Response = A::Response>,
-    B::Error: Into<super::Error>,
+    B::Error: Into<crate::BoxError>,
 {
     type Response = A::Response;
-    type Error = super::Error;
+    type Error = crate::BoxError;
     type Future = ResponseFuture<A::Future, B::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -82,11 +82,11 @@ where
 impl<AF, BF, T, AE, BE> Future for ResponseFuture<AF, BF>
 where
     AF: Future<Output = Result<T, AE>>,
-    AE: Into<super::Error>,
+    AE: Into<crate::BoxError>,
     BF: Future<Output = Result<T, BE>>,
-    BE: Into<super::Error>,
+    BE: Into<crate::BoxError>,
 {
-    type Output = Result<T, super::Error>;
+    type Output = Result<T, crate::BoxError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();

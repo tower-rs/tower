@@ -2,8 +2,6 @@
 
 use std::fmt;
 
-pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
-
 /// An error returned by `Overload` when the underlying service
 /// is not ready to handle any requests at the time of being
 /// called.

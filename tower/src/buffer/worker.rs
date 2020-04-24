@@ -1,5 +1,5 @@
 use super::{
-    error::{Closed, Error, ServiceError},
+    error::{Closed, ServiceError},
     message::Message,
 };
 use futures_core::ready;
@@ -25,7 +25,7 @@ use tower_service::Service;
 pub struct Worker<T, Request>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     current_message: Option<Message<Request, T::Future>>,
     rx: mpsc::Receiver<Message<Request, T::Future>>,
@@ -44,7 +44,7 @@ pub(crate) struct Handle {
 impl<T, Request> Worker<T, Request>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     pub(crate) fn new(
         service: T,
@@ -105,7 +105,7 @@ where
         Poll::Ready(None)
     }
 
-    fn failed(&mut self, error: Error) {
+    fn failed(&mut self, error: crate::BoxError) {
         // The underlying service failed when we called `poll_ready` on it with the given `error`. We
         // need to communicate this to all the `Buffer` handles. To do so, we wrap up the error in
         // an `Arc`, send that `Arc<E>` to all pending requests, and store it so that subsequent
@@ -142,7 +142,7 @@ where
 impl<T, Request> Future for Worker<T, Request>
 where
     T: Service<Request>,
-    T::Error: Into<Error>,
+    T::Error: Into<crate::BoxError>,
 {
     type Output = ();
 
@@ -209,7 +209,7 @@ where
 }
 
 impl Handle {
-    pub(crate) fn get_error_on_closed(&self) -> Error {
+    pub(crate) fn get_error_on_closed(&self) -> crate::BoxError {
         self.inner
             .lock()
             .unwrap()
