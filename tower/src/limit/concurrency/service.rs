@@ -64,7 +64,7 @@ where
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
             self.state = match self.state {
-                State::Ready(_) => return Poll::Ready(Ok(())),
+                State::Ready(_) => return self.inner.poll_ready(cx),
                 State::Waiting(ref mut fut) => {
                     tokio::pin!(fut);
                     let permit = ready!(fut.poll(cx));
