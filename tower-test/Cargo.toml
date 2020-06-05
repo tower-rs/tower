@@ -27,7 +27,7 @@ tokio = { version = "0.2", features = ["sync"]}
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tokio-test = "0.2"
 tower-service = { version = "0.3" }
-pin-project = "0.4"
+pin-project = "0.4.17"
 
 [dev-dependencies]
 tokio = { version = "0.2", features = ["macros"] }

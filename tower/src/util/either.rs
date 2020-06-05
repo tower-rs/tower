@@ -3,7 +3,7 @@
 //! See `Either` documentation for more details.
 
 use futures_core::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -16,7 +16,7 @@ use tower_service::Service;
 /// Both services must be of the same request, response, and error types.
 /// `Either` is useful for handling conditional branching in service middleware
 /// to different inner service types.
-#[pin_project]
+#[pin_project(project = EitherProj)]
 #[derive(Clone, Debug)]
 pub enum Either<A, B> {
     /// One type of backing `Service`.
@@ -64,12 +64,10 @@ where
 {
     type Output = Result<T, crate::BoxError>;
 
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        #[project]
         match self.project() {
-            Either::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
-            Either::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
+            EitherProj::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
+            EitherProj::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
         }
     }
 }

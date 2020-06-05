@@ -1,5 +1,5 @@
 use futures_util::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 use std::time::Duration;
 use std::{
     future::Future,
@@ -29,7 +29,7 @@ pub struct ResponseFuture<Request, S, F> {
     state: State<Request, F>,
 }
 
-#[pin_project]
+#[pin_project(project = StateProj)]
 #[derive(Debug)]
 enum State<Request, F> {
     Delaying(#[pin] tokio::time::Delay, Option<Request>),
@@ -84,20 +84,18 @@ where
 {
     type Output = Result<T, crate::BoxError>;
 
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
-            #[project]
             match this.state.as_mut().project() {
-                State::Delaying(delay, req) => {
+                StateProj::Delaying(delay, req) => {
                     ready!(delay.poll(cx));
                     let req = req.take().expect("Missing request in delay");
                     let fut = this.service.call(req);
                     this.state.set(State::Called(fut));
                 }
-                State::Called(fut) => {
+                StateProj::Called(fut) => {
                     return fut.poll(cx).map_err(Into::into);
                 }
             };

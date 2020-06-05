@@ -1,5 +1,5 @@
 use futures_core::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 use std::{
     fmt,
     future::Future,
@@ -18,7 +18,7 @@ pub struct Oneshot<S: Service<Req>, Req> {
     state: State<S, Req>,
 }
 
-#[pin_project]
+#[pin_project(project = StateProj)]
 enum State<S: Service<Req>, Req> {
     NotReady(S, Option<Req>),
     Called(#[pin] S::Future),
@@ -62,23 +62,21 @@ where
 {
     type Output = Result<S::Response, S::Error>;
 
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
         loop {
-            #[project]
             match this.state.as_mut().project() {
-                State::NotReady(svc, req) => {
+                StateProj::NotReady(svc, req) => {
                     let _ = ready!(svc.poll_ready(cx))?;
                     let f = svc.call(req.take().expect("already called"));
                     this.state.set(State::Called(f));
                 }
-                State::Called(fut) => {
+                StateProj::Called(fut) => {
                     let res = ready!(fut.poll(cx))?;
                     this.state.set(State::Done);
                     return Poll::Ready(Ok(res));
                 }
-                State::Done => panic!("polled after complete"),
+                StateProj::Done => panic!("polled after complete"),
             }
         }
     }
