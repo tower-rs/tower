@@ -67,6 +67,7 @@ where
             State::Limited(ref mut sleep) => {
                 if let Async::NotReady = sleep.poll()? {
                     tracing::trace!("rate limited exceeded; sleeping.");
+                    return Ok(Async::NotReady);
                 }
             }
         }
