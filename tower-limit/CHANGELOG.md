@@ -1,3 +1,7 @@
+# 0.1.3 (June 10, 2020)
+
+- Fixed an issue with not returning `NotReady` when the internal timer does.
+
 # 0.1.2 (April 15, 2020)
 
 - Fixed an issue where the remaining available requests within a period could get passed
