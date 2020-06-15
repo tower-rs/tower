@@ -2,7 +2,7 @@
 
 use super::{Policy, Retry};
 use futures_core::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -23,7 +23,7 @@ where
     state: State<S::Future, P::Future>,
 }
 
-#[pin_project]
+#[pin_project(project = StateProj)]
 #[derive(Debug)]
 enum State<F, P> {
     /// Polling the future from `Service::call`
@@ -59,14 +59,12 @@ where
 {
     type Output = Result<S::Response, S::Error>;
 
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
-            #[project]
             match this.state.as_mut().project() {
-                State::Called(future) => {
+                StateProj::Called(future) => {
                     let result = ready!(future.poll(cx));
                     if let Some(ref req) = this.request {
                         match this.retry.policy.retry(req, result.as_ref()) {
@@ -80,7 +78,7 @@ where
                         return Poll::Ready(result);
                     }
                 }
-                State::Checking(future) => {
+                StateProj::Checking(future) => {
                     this.retry
                         .as_mut()
                         .project()
@@ -88,7 +86,7 @@ where
                         .set(ready!(future.poll(cx)));
                     this.state.set(State::Retrying);
                 }
-                State::Retrying => {
+                StateProj::Retrying => {
                     // NOTE: we assume here that
                     //
                     //   this.retry.poll_ready()

@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_core::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 
 use super::error::Overloaded;
 
@@ -17,7 +17,7 @@ pub struct ResponseFuture<F> {
     state: ResponseState<F>,
 }
 
-#[pin_project]
+#[pin_project(project = ResponseStateProj)]
 enum ResponseState<F> {
     Called(#[pin] F),
     Overloaded,
@@ -44,12 +44,10 @@ where
 {
     type Output = Result<T, crate::BoxError>;
 
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        #[project]
         match self.project().state.project() {
-            ResponseState::Called(fut) => Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into)),
-            ResponseState::Overloaded => Poll::Ready(Err(Overloaded::new().into())),
+            ResponseStateProj::Called(fut) => Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into)),
+            ResponseStateProj::Overloaded => Poll::Ready(Err(Overloaded::new().into())),
         }
     }
 }

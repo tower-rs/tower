@@ -45,7 +45,7 @@ util = ["futures-util"]
 
 [dependencies]
 futures-core = "0.3"
-pin-project = "0.4"
+pin-project = "0.4.17"
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tower-service = { version = "0.3" }
 tracing = "0.1.2"

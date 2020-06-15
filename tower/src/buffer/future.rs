@@ -2,7 +2,7 @@
 
 use super::{error::Closed, message};
 use futures_core::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -17,7 +17,7 @@ pub struct ResponseFuture<T> {
     state: ResponseState<T>,
 }
 
-#[pin_project]
+#[pin_project(project = ResponseStateProj)]
 #[derive(Debug)]
 enum ResponseState<T> {
     Failed(Option<crate::BoxError>),
@@ -46,22 +46,20 @@ where
 {
     type Output = Result<T, crate::BoxError>;
 
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         loop {
-            #[project]
             match this.state.as_mut().project() {
-                ResponseState::Failed(e) => {
+                ResponseStateProj::Failed(e) => {
                     return Poll::Ready(Err(e.take().expect("polled after error")));
                 }
-                ResponseState::Rx(rx) => match ready!(rx.poll(cx)) {
+                ResponseStateProj::Rx(rx) => match ready!(rx.poll(cx)) {
                     Ok(Ok(f)) => this.state.set(ResponseState::Poll(f)),
                     Ok(Err(e)) => return Poll::Ready(Err(e.into())),
                     Err(_) => return Poll::Ready(Err(Closed::new().into())),
                 },
-                ResponseState::Poll(fut) => return fut.poll(cx).map_err(Into::into),
+                ResponseStateProj::Poll(fut) => return fut.poll(cx).map_err(Into::into),
             }
         }
     }
