@@ -11,8 +11,7 @@ use tower_service::Service;
 /// See the module documentation for more details.
 pub struct BufferLayer<Request, E2> {
     bound: usize,
-    _p: PhantomData<fn(Request)>,
-    _e: PhantomData<E2>,
+    _p: PhantomData<fn(Request, E2)>,
 }
 
 impl<Request, E2> BufferLayer<Request, E2> {
