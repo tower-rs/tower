@@ -9,7 +9,7 @@ use tower_service::Service;
 /// which means that this layer can only be used on the Tokio runtime.
 ///
 /// See the module documentation for more details.
-pub struct BufferLayer<Request, E2> {
+pub struct BufferLayer<Request, E2 = crate::BoxError> {
     bound: usize,
     _p: PhantomData<fn(Request, E2)>,
 }

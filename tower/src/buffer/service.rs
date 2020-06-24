@@ -13,7 +13,7 @@ use tower_service::Service;
 ///
 /// See the module documentation for more details.
 #[derive(Debug)]
-pub struct Buffer<S, Request, E2>
+pub struct Buffer<S, Request, E2 = crate::BoxError>
 where
     S: Service<Request>,
 {
