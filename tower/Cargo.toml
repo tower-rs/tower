@@ -24,7 +24,7 @@ keywords = ["io", "async", "non-blocking", "futures", "service"]
 edition = "2018"
 
 [features]
-default = ["log", "buffer"]
+default = ["log"]
 log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab"]
 buffer = ["tokio/sync", "tokio/rt-core"]
