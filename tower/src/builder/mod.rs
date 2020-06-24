@@ -106,6 +106,7 @@ pub struct ServiceBuilder<L> {
     layer: L,
 }
 
+#[allow(clippy::new_without_default)]
 impl ServiceBuilder<Identity> {
     /// Create a new `ServiceBuilder`.
     pub fn new() -> Self {
@@ -125,10 +126,10 @@ impl<L> ServiceBuilder<L> {
 
     /// Buffer requests when when the next layer is out of capacity.
     #[cfg(feature = "buffer")]
-    pub fn buffer<Request>(
+    pub fn buffer<Request, E2>(
         self,
         bound: usize,
-    ) -> ServiceBuilder<Stack<crate::buffer::BufferLayer<Request>, L>> {
+    ) -> ServiceBuilder<Stack<crate::buffer::BufferLayer<Request, E2>, L>> {
         self.layer(crate::buffer::BufferLayer::new(bound))
     }
 

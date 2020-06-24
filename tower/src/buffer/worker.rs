@@ -1,12 +1,10 @@
-use super::{
-    error::{Closed, ServiceError},
-    message::Message,
-};
+use super::{error::Closed, message::Message};
 use futures_core::ready;
 use pin_project::pin_project;
 use std::sync::{Arc, Mutex};
 use std::{
     future::Future,
+    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -22,36 +20,38 @@ use tower_service::Service;
 /// implement (only call).
 #[pin_project]
 #[derive(Debug)]
-pub struct Worker<T, Request>
+pub struct Worker<S, Request, E2>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    S: Service<Request>,
+    S::Error: Into<E2>,
 {
-    current_message: Option<Message<Request, T::Future>>,
-    rx: mpsc::Receiver<Message<Request, T::Future>>,
-    service: T,
+    current_message: Option<Message<Request, S::Future, S::Error>>,
+    rx: mpsc::Receiver<Message<Request, S::Future, S::Error>>,
+    service: S,
     finish: bool,
-    failed: Option<ServiceError>,
-    handle: Handle,
+    failed: Option<S::Error>,
+    handle: Handle<S::Error, E2>,
 }
 
 /// Get the error out
 #[derive(Debug)]
-pub(crate) struct Handle {
-    inner: Arc<Mutex<Option<ServiceError>>>,
+pub(crate) struct Handle<E, E2> {
+    inner: Arc<Mutex<Option<E>>>,
+    _e: PhantomData<E2>,
 }
 
-impl<T, Request> Worker<T, Request>
+impl<S, Request, E2> Worker<S, Request, E2>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    S: Service<Request>,
+    S::Error: Into<E2> + Clone,
 {
     pub(crate) fn new(
-        service: T,
-        rx: mpsc::Receiver<Message<Request, T::Future>>,
-    ) -> (Handle, Worker<T, Request>) {
+        service: S,
+        rx: mpsc::Receiver<Message<Request, S::Future, S::Error>>,
+    ) -> (Handle<S::Error, E2>, Worker<S, Request, E2>) {
         let handle = Handle {
             inner: Arc::new(Mutex::new(None)),
+            _e: PhantomData,
         };
 
         let worker = Worker {
@@ -70,10 +70,11 @@ where
     ///
     /// If a `Message` is returned, the `bool` is true if this is the first time we received this
     /// message, and false otherwise (i.e., we tried to forward it to the backing service before).
+    #[allow(clippy::type_complexity)]
     fn poll_next_msg(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<(Message<Request, T::Future>, bool)>> {
+    ) -> Poll<Option<(Message<Request, S::Future, S::Error>, bool)>> {
         if self.finish {
             // We've already received None and are shutting down
             return Poll::Ready(None);
@@ -105,7 +106,7 @@ where
         Poll::Ready(None)
     }
 
-    fn failed(&mut self, error: crate::BoxError) {
+    fn failed(&mut self, error: S::Error) {
         // The underlying service failed when we called `poll_ready` on it with the given `error`. We
         // need to communicate this to all the `Buffer` handles. To do so, we wrap up the error in
         // an `Arc`, send that `Arc<E>` to all pending requests, and store it so that subsequent
@@ -118,8 +119,6 @@ where
         // request. We do this by *first* exposing the error, *then* closing the channel used to
         // send more requests (so the client will see the error when the send fails), and *then*
         // sending the error to all outstanding requests.
-        let error = ServiceError::new(error);
-
         let mut inner = self.handle.inner.lock().unwrap();
 
         if inner.is_some() {
@@ -139,10 +138,10 @@ where
     }
 }
 
-impl<T, Request> Future for Worker<T, Request>
+impl<S, Request, E2> Future for Worker<S, Request, E2>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    S: Service<Request>,
+    S::Error: Into<E2> + Clone + std::fmt::Display,
 {
     type Output = ();
 
@@ -185,8 +184,7 @@ where
                             self.current_message = Some(msg);
                             return Poll::Pending;
                         }
-                        Poll::Ready(Err(e)) => {
-                            let error = e.into();
+                        Poll::Ready(Err(error)) => {
                             tracing::debug!({ %error }, "service failed");
                             drop(_guard);
                             self.failed(error);
@@ -208,8 +206,12 @@ where
     }
 }
 
-impl Handle {
-    pub(crate) fn get_error_on_closed(&self) -> crate::BoxError {
+impl<E, E2> Handle<E, E2>
+where
+    E: Clone + Into<E2>,
+    crate::buffer::error::Closed: Into<E2>,
+{
+    pub(crate) fn get_error_on_closed(&self) -> E2 {
         self.inner
             .lock()
             .unwrap()
@@ -219,10 +221,11 @@ impl Handle {
     }
 }
 
-impl Clone for Handle {
-    fn clone(&self) -> Handle {
+impl<E, E2> Clone for Handle<E, E2> {
+    fn clone(&self) -> Handle<E, E2> {
         Handle {
             inner: self.inner.clone(),
+            _e: PhantomData,
         }
     }
 }

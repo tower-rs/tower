@@ -79,8 +79,6 @@ async fn when_inner_is_not_ready() {
 
 #[tokio::test]
 async fn when_inner_fails() {
-    use std::error::Error as StdError;
-
     let (mut service, mut handle) = new_service();
 
     // Make the service NotReady
@@ -91,13 +89,8 @@ async fn when_inner_fails() {
 
     let_worker_work();
     let e = assert_ready_err!(res1.poll());
-    if let Some(e) = e.downcast_ref::<error::ServiceError>() {
-        let e = e.source().unwrap();
 
-        assert_eq!(e.to_string(), "foobar");
-    } else {
-        panic!("unexpected error type: {:?}", e);
-    }
+    assert_eq!(e.to_string(), "foobar");
 }
 
 #[tokio::test]
@@ -110,7 +103,7 @@ async fn poll_ready_when_worker_is_dropped_early() {
 
     drop(worker);
 
-    let err = assert_ready_err!(service.poll_ready());
+    let err: mock::error::Error = assert_ready_err!(service.poll_ready());
 
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
@@ -130,14 +123,17 @@ async fn response_future_when_worker_is_dropped_early() {
     drop(worker);
 
     let_worker_work();
-    let err = assert_ready_err!(response.poll());
+    let err: mock::error::Error = assert_ready_err!(response.poll());
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;
 type Handle = mock::Handle<&'static str, &'static str>;
 
-fn new_service() -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
+fn new_service() -> (
+    mock::Spawn<Buffer<Mock, &'static str, mock::error::Error>>,
+    Handle,
+) {
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
     mock::spawn_with(|s| {
         let (svc, worker) = Buffer::pair(s, 10);

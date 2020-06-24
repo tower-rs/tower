@@ -9,12 +9,13 @@ use tower_service::Service;
 /// which means that this layer can only be used on the Tokio runtime.
 ///
 /// See the module documentation for more details.
-pub struct BufferLayer<Request> {
+pub struct BufferLayer<Request, E2> {
     bound: usize,
     _p: PhantomData<fn(Request)>,
+    _e: PhantomData<E2>,
 }
 
-impl<Request> BufferLayer<Request> {
+impl<Request, E2> BufferLayer<Request, E2> {
     /// Creates a new `BufferLayer` with the provided `bound`.
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
@@ -33,25 +34,29 @@ impl<Request> BufferLayer<Request> {
         BufferLayer {
             bound,
             _p: PhantomData,
+            _e: PhantomData,
         }
     }
 }
 
-impl<S, Request> Layer<S> for BufferLayer<Request>
+impl<S, Request, E2> Layer<S> for BufferLayer<Request, E2>
 where
     S: Service<Request> + Send + 'static,
     S::Future: Send,
-    S::Error: Into<crate::BoxError> + Send + Sync,
+    S::Error: Clone + Into<E2> + Send + Sync + std::fmt::Display,
+    Request: Send + 'static,
+    E2: Send + 'static,
+    crate::buffer::error::Closed: Into<E2>,
     Request: Send + 'static,
 {
-    type Service = Buffer<S, Request>;
+    type Service = Buffer<S, Request, E2>;
 
     fn layer(&self, service: S) -> Self::Service {
         Buffer::new(service, self.bound)
     }
 }
 
-impl<Request> fmt::Debug for BufferLayer<Request> {
+impl<Request, E2> fmt::Debug for BufferLayer<Request, E2> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferLayer")
             .field("bound", &self.bound)

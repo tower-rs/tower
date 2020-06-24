@@ -81,6 +81,3 @@ pub use tower_service::Service;
 mod sealed {
     pub trait Sealed<T> {}
 }
-
-/// Alias for a type-erased error type.
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;

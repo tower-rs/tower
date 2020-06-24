@@ -13,18 +13,20 @@ use tower_service::Service;
 ///
 /// See the module documentation for more details.
 #[derive(Debug)]
-pub struct Buffer<T, Request>
+pub struct Buffer<S, Request, E2>
 where
-    T: Service<Request>,
+    S: Service<Request>,
 {
-    tx: mpsc::Sender<Message<Request, T::Future>>,
-    handle: Handle,
+    tx: mpsc::Sender<Message<Request, S::Future, S::Error>>,
+    handle: Handle<S::Error, E2>,
 }
 
-impl<T, Request> Buffer<T, Request>
+impl<S, Request, E2> Buffer<S, Request, E2>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    S: Service<Request>,
+    S::Error: Into<E2> + Clone,
+    E2: Send + 'static,
+    crate::buffer::error::Closed: Into<E2>,
 {
     /// Creates a new `Buffer` wrapping `service`.
     ///
@@ -43,11 +45,11 @@ where
     /// If you do not, all the slots in the buffer may be held up by futures that have just called
     /// `poll_ready` but will not issue a `call`, which prevents other senders from issuing new
     /// requests.
-    pub fn new(service: T, bound: usize) -> Self
+    pub fn new(service: S, bound: usize) -> Self
     where
-        T: Send + 'static,
-        T::Future: Send,
-        T::Error: Send + Sync,
+        S: Send + 'static,
+        S::Future: Send,
+        S::Error: Send + Sync + std::fmt::Display,
         Request: Send + 'static,
     {
         let (tx, rx) = mpsc::channel(bound);
@@ -61,10 +63,10 @@ where
     /// This is useful if you do not want to spawn directly onto the `tokio` runtime
     /// but instead want to use your own executor. This will return the `Buffer` and
     /// the background `Worker` that you can then spawn.
-    pub fn pair(service: T, bound: usize) -> (Buffer<T, Request>, Worker<T, Request>)
+    pub fn pair(service: S, bound: usize) -> (Buffer<S, Request, E2>, Worker<S, Request, E2>)
     where
-        T: Send + 'static,
-        T::Error: Send + Sync,
+        S: Send + 'static,
+        S::Error: Send + Sync,
         Request: Send + 'static,
     {
         let (tx, rx) = mpsc::channel(bound);
@@ -72,23 +74,25 @@ where
         (Buffer { tx, handle }, worker)
     }
 
-    fn get_worker_error(&self) -> crate::BoxError {
+    fn get_worker_error(&self) -> E2 {
         self.handle.get_error_on_closed()
     }
 }
 
-impl<T, Request> Service<Request> for Buffer<T, Request>
+impl<S, Request, E2> Service<Request> for Buffer<S, Request, E2>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    S: Service<Request>,
+    crate::buffer::error::Closed: Into<E2>,
+    S::Error: Into<E2> + Clone,
+    E2: Send + 'static,
 {
-    type Response = T::Response;
-    type Error = crate::BoxError;
-    type Future = ResponseFuture<T::Future>;
+    type Response = S::Response;
+    type Error = E2;
+    type Future = ResponseFuture<S, E2, Request>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // If the inner service has errored, then we error here.
-        if let Err(_) = ready!(self.tx.poll_ready(cx)) {
+        if ready!(self.tx.poll_ready(cx)).is_err() {
             Poll::Ready(Err(self.get_worker_error()))
         } else {
             Poll::Ready(Ok(()))
@@ -126,9 +130,9 @@ where
     }
 }
 
-impl<T, Request> Clone for Buffer<T, Request>
+impl<S, Request, E2> Clone for Buffer<S, Request, E2>
 where
-    T: Service<Request>,
+    S: Service<Request>,
 {
     fn clone(&self) -> Self {
         Self {

@@ -1,16 +1,15 @@
-use super::error::ServiceError;
 use tokio::sync::oneshot;
 
 /// Message sent over buffer
 #[derive(Debug)]
-pub(crate) struct Message<Request, Fut> {
+pub(crate) struct Message<Request, Fut, E> {
     pub(crate) request: Request,
-    pub(crate) tx: Tx<Fut>,
+    pub(crate) tx: Tx<Fut, E>,
     pub(crate) span: tracing::Span,
 }
 
 /// Response sender
-pub(crate) type Tx<Fut> = oneshot::Sender<Result<Fut, ServiceError>>;
+pub(crate) type Tx<Fut, E> = oneshot::Sender<Result<Fut, E>>;
 
 /// Response receiver
-pub(crate) type Rx<Fut> = oneshot::Receiver<Result<Fut, ServiceError>>;
+pub(crate) type Rx<Fut, E> = oneshot::Receiver<Result<Fut, E>>;
