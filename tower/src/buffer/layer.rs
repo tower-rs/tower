@@ -33,7 +33,6 @@ impl<Request, E2> BufferLayer<Request, E2> {
         BufferLayer {
             bound,
             _p: PhantomData,
-            _e: PhantomData,
         }
     }
 }
@@ -51,7 +50,7 @@ where
     type Service = Buffer<S, Request, E2>;
 
     fn layer(&self, service: S) -> Self::Service {
-        Buffer::new(service, self.bound)
+        Buffer::new2(service, self.bound)
     }
 }
 
