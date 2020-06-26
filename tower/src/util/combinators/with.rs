@@ -36,8 +36,7 @@ where
 #[derive(Debug)]
 pub struct WithLayer<F, OldRequest, NewRequest> {
     f: F,
-    old_request: PhantomData<OldRequest>,
-    new_request: PhantomData<NewRequest>,
+    _p: PhantomData<fn(OldRequest, NewRequest)>,
 }
 
 impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest>
@@ -47,8 +46,7 @@ where
     pub fn new(f: F) -> Self {
         WithLayer {
             f,
-            old_request: PhantomData::default(),
-            new_request: PhantomData::default(),
+            _p: PhantomData::default(),
         }
     }
 }

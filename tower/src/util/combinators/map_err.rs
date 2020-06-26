@@ -38,8 +38,7 @@ where
 #[derive(Debug)]
 pub struct MapErrLayer<F, Request, Error> {
     f: F,
-    request: PhantomData<Request>,
-    error: PhantomData<Error>,
+    _p: PhantomData<fn(Request, Error)>,
 }
 
 impl<F, Request, Error> MapErrLayer<F, Request, Error>
@@ -49,8 +48,7 @@ where
     pub fn new(f: F) -> Self {
         MapErrLayer {
             f,
-            request: PhantomData::default(),
-            error: PhantomData::default(),
+            _p: PhantomData::default(),
         }
     }
 }

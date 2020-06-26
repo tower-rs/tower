@@ -38,8 +38,7 @@ where
 #[derive(Debug)]
 pub struct MapOkLayer<F, Request, Response> {
     f: F,
-    request: PhantomData<Request>,
-    response: PhantomData<Response>,
+    _p: PhantomData<fn(Request, Response)>
 }
 
 impl<F, Request, Error> MapOkLayer<F, Request, Error>
@@ -49,8 +48,7 @@ where
     pub fn new(f: F) -> Self {
         MapOkLayer {
             f,
-            request: PhantomData::default(),
-            response: PhantomData::default(),
+            _p: PhantomData::default(),
         }
     }
 }
