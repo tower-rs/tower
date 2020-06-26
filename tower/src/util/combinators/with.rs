@@ -46,7 +46,7 @@ where
     pub fn new(f: F) -> Self {
         WithLayer {
             f,
-            _p: PhantomData::default(),
+            _p: PhantomData,
         }
     }
 }

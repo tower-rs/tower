@@ -48,7 +48,7 @@ where
     pub fn new(f: F) -> Self {
         MapOkLayer {
             f,
-            _p: PhantomData::default(),
+            _p: PhantomData,
         }
     }
 }
