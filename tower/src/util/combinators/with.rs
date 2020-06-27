@@ -44,10 +44,7 @@ where
     F: Clone,
 {
     pub fn new(f: F) -> Self {
-        WithLayer {
-            f,
-            _p: PhantomData,
-        }
+        WithLayer { f, _p: PhantomData }
     }
 }
 
