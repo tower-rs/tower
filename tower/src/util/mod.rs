@@ -85,6 +85,15 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         CallAll::new(self, reqs)
     }
 
+    /// Maps this service's response value to a different value. This does not
+    /// alter the behaviour of the [`poll_ready`](trait.Service.html#tymethod.poll_ready)
+    /// method.
+    ///
+    /// This method can be used to change the [`Response`](trait.Service.html#associatedtype.Response)
+    /// type of the service into a different type. It is similar to the [`Result::map_err`]
+    /// method. You can use this method to chain along a computation once the
+    /// services response has been resolved.
+    ///
     /// # Example
     /// ```
     /// # use std::task::{Poll, Context};
@@ -138,6 +147,13 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapOk::new(self, f)
     }
 
+    /// Maps this services's error value to a different value. This does not
+    /// alter the behaviour of the [`poll_ready`](trait.Service.html#tymethod.poll_ready)
+    /// method.
+    ///
+    /// This method can be used to change the [`Error`](trait.Service.html#associatedtype.Error)
+    /// type of the service into a different type. It is similar to the [`Result::map_err`] method.
+    ///
     /// # Example
     /// ```
     /// # use std::task::{Poll, Context};
