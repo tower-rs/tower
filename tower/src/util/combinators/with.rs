@@ -3,6 +3,7 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
+#[derive(Debug)]
 pub struct With<S, F> {
     inner: S,
     f: F,
