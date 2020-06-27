@@ -41,10 +41,7 @@ pub struct MapOkLayer<F, Request, Response> {
     _p: PhantomData<fn(Request, Response)>,
 }
 
-impl<F, Request, Error> MapOkLayer<F, Request, Error>
-where
-    F: Clone,
-{
+impl<F, Request, Error> MapOkLayer<F, Request, Error> {
     pub fn new(f: F) -> Self {
         MapOkLayer { f, _p: PhantomData }
     }

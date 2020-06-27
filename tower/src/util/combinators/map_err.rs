@@ -41,10 +41,7 @@ pub struct MapErrLayer<F, Request, Error> {
     _p: PhantomData<fn(Request, Error)>,
 }
 
-impl<F, Request, Error> MapErrLayer<F, Request, Error>
-where
-    F: Clone,
-{
+impl<F, Request, Error> MapErrLayer<F, Request, Error> {
     pub fn new(f: F) -> Self {
         MapErrLayer { f, _p: PhantomData }
     }

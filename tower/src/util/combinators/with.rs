@@ -39,10 +39,7 @@ pub struct WithLayer<F, OldRequest, NewRequest> {
     _p: PhantomData<fn(OldRequest, NewRequest)>,
 }
 
-impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest>
-where
-    F: Clone,
-{
+impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest> {
     pub fn new(f: F) -> Self {
         WithLayer { f, _p: PhantomData }
     }
