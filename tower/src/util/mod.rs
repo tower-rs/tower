@@ -207,6 +207,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapErr::new(self, f)
     }
 
+    /// Composes a function *in front of* the service.
+    ///
+    /// This adapter produces a new service that passes each value through the
+    /// given function `f` before sending it to `self`.
+    ///
     /// # Example
     /// ```
     /// # use std::convert::TryFrom;
