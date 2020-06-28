@@ -260,6 +260,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     {
         With::new(self, f)
     }
+
+    fn try_with<F, NewRequest>(self, f: F) -> TryWith<Self, F>
+    where
+        Self: Sized,
+        F: FnOnce(NewRequest) -> Result<Request, Self::Error> + Clone,
+    {
+        TryWith::new(self, f)
+    }
 }
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Service<Request> {}
