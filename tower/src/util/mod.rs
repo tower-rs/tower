@@ -262,6 +262,56 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         With::new(self, f)
     }
 
+    /// Composes a fallible function *in front of* the service.
+    ///
+    /// This adapter produces a new service that passes each value through the
+    /// given function `f` before sending it to `self`.
+    ///
+    /// # Example
+    /// ```
+    /// # use std::convert::TryFrom;
+    /// # use std::task::{Poll, Context};
+    /// # use tower_service::Service;
+    /// use tower_util::ServiceExt;
+    ///
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService  
+    /// #   }
+    /// # }
+    /// #
+    /// # enum DbError {
+    /// #   Parse(std::string::ParseError)
+    /// # }
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = String;
+    /// #   type Error = u8;
+    /// #   type Future = futures_util::future::Ready<Result<String, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(String::new()))
+    /// #   }
+    /// # }
+    /// #
+    /// fn main() {
+    ///     // A service taking an u32 as a request
+    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    ///     // Map the request into a new request fallibly
+    ///     let mut new_service = service.with(|id_str: &str| id_str.parse().map_err(DbError::Parse));
+    ///
+    ///     async {
+    ///         let id = "13";
+    ///         let response = new_service.call(id).await;
+    ///     };
+    /// }
+    /// ```
     fn try_with<F, NewRequest>(self, f: F) -> TryWith<Self, F>
     where
         Self: Sized,
