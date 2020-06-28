@@ -2,6 +2,7 @@
 
 mod boxed;
 mod call_all;
+#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
 mod combinators;
 mod either;
 mod map;
