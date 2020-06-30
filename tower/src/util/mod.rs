@@ -100,9 +100,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # Example
     /// ```
     /// # use std::task::{Poll, Context};
-    /// # use tower_service::Service;
-    /// use tower_util::ServiceExt;
-    ///
+    /// # use tower::{Service, ServiceExt};
+    /// #
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
@@ -110,11 +109,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// struct Record {
-    ///    pub name: String,
-    ///    pub age: u16
-    /// }
-    ///
+    /// # struct Record {
+    /// #   pub name: String,
+    /// #   pub age: u16
+    /// # }
+    /// #
     /// # impl Service<u32> for DatabaseService {
     /// #   type Response = Record;
     /// #   type Error = u8;
@@ -129,18 +128,19 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// fn main() {
-    ///     // A service returning Result<Record, _>
-    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    /// # fn main() {
+    /// #    async {
+    /// // A service returning Result<Record, _>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
-    ///     // Map the response into a new response
-    ///     let mut new_service = service.map_ok(|record| record.name);
+    /// // Map the response into a new response
+    /// let mut new_service = service.map_ok(|record| record.name);
     ///
-    ///     async {
-    ///         let id = 13;
-    ///         let name = new_service.call(id).await.unwrap();
-    ///     };
-    /// }
+    /// // Call the new service
+    /// let id = 13;
+    /// let name = new_service.call(id).await.unwrap();
+    /// #    };
+    /// # }
     /// ```
     fn map_ok<F, Response>(self, f: F) -> MapOk<Self, F>
     where
@@ -162,9 +162,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # Example
     /// ```
     /// # use std::task::{Poll, Context};
-    /// # use tower_service::Service;
-    /// use tower_util::ServiceExt;
-    ///
+    /// # use tower::{Service, ServiceExt};
+    /// #
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
@@ -172,11 +171,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// struct Error {
-    ///    pub code: u32,
-    ///    pub message: String
-    /// }
-    ///
+    /// # struct Error {
+    /// #   pub code: u32,
+    /// #   pub message: String
+    /// # }
+    /// #
     /// # impl Service<u32> for DatabaseService {
     /// #   type Response = String;
     /// #   type Error = Error;
@@ -191,18 +190,19 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// fn main() {
-    ///     // A service returning Result<_, Error>
-    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    /// # fn main() {
+    /// #   async {
+    /// // A service returning Result<_, Error>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
-    ///     // Map the error into a new error
-    ///     let mut new_service = service.map_err(|err| err.code);
+    /// // Map the error to a new error
+    /// let mut new_service = service.map_err(|err| err.code);
     ///
-    ///     async {
-    ///         let id = 13;
-    ///         let code = new_service.call(id).await.unwrap_err();
-    ///     };
-    /// }
+    /// // Call the new service
+    /// let id = 13;
+    /// let code = new_service.call(id).await.unwrap_err();
+    /// #   };
+    /// # }
     /// ```
     fn map_err<F, Error>(self, f: F) -> MapErr<Self, F>
     where
@@ -221,9 +221,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// ```
     /// # use std::convert::TryFrom;
     /// # use std::task::{Poll, Context};
-    /// # use tower_service::Service;
-    /// use tower_util::ServiceExt;
-    ///
+    /// # use tower::{Service, ServiceExt};
+    /// #
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
@@ -231,7 +230,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// # impl Service<u32> for DatabaseService {
+    /// # impl Service<String> for DatabaseService {
     /// #   type Response = String;
     /// #   type Error = u8;
     /// #   type Future = futures_util::future::Ready<Result<String, u8>>;
@@ -240,23 +239,24 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, request: String) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
     /// #
-    /// fn main() {
-    ///     // A service taking an u32 as a request
-    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    /// # fn main() {
+    /// #   async {
+    /// // A service taking a String as a request
+    /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
-    ///     // Map the request into a new request
-    ///     let mut new_service = service.with(|id_str: &str| id_str.parse().unwrap());
+    /// // Map the request to a new request
+    /// let mut new_service = service.with(|id: u32| id.to_string());
     ///
-    ///     async {
-    ///         let id = "13";
-    ///         let response = new_service.call(id).await;
-    ///     };
-    /// }
+    /// // Call the new service
+    /// let id = 13;
+    /// let response = new_service.call(id).await;
+    /// #    };
+    /// # }
     /// ```
     fn with<F, NewRequest>(self, f: F) -> With<Self, F>
     where
@@ -275,9 +275,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// ```
     /// # use std::convert::TryFrom;
     /// # use std::task::{Poll, Context};
-    /// # use tower_service::Service;
-    /// use tower_util::ServiceExt;
-    ///
+    /// # use tower::{Service, ServiceExt};
+    /// #
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
@@ -286,12 +285,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # }
     /// #
     /// # enum DbError {
-    /// #   Parse(std::string::ParseError)
+    /// #   Parse(std::num::ParseIntError)
     /// # }
     /// #
     /// # impl Service<u32> for DatabaseService {
     /// #   type Response = String;
-    /// #   type Error = u8;
+    /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<String, DbError>>;
     /// #
     /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -303,18 +302,19 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// fn main() {
-    ///     // A service taking an u32 as a request
-    ///     let service = DatabaseService::new("127.0.0.1:8080");
+    /// # fn main() {
+    /// #    async {
+    /// // A service taking a u32 as a request and returning Result<_, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
-    ///     // Map the request into a new request fallibly
-    ///     let mut new_service = service.with(|id_str: &str| id_str.parse().map_err(DbError::Parse));
+    /// // Fallibly map the request to a new request
+    /// let mut new_service = service.try_with(|id_str: &str| id_str.parse().map_err(DbError::Parse));
     ///
-    ///     async {
-    ///         let id = "13";
-    ///         let response = new_service.call(id).await;
-    ///     };
-    /// }
+    /// // Call the new service
+    /// let id = "13";
+    /// let response = new_service.call(id).await;
+    /// #    };
+    /// # }
     /// ```
     fn try_with<F, NewRequest>(self, f: F) -> TryWith<Self, F>
     where
