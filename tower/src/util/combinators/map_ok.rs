@@ -6,7 +6,7 @@ use tower_service::Service;
 
 /// Service returned by the [`map_ok`] combinator.
 ///
-/// [`map_ok`]: ../trait.ServiceExt.html#method.map_ok
+/// [`map_ok`]: crate::util::ServiceExt::map_ok
 #[derive(Debug)]
 pub struct MapOk<S, F> {
     inner: S,
@@ -14,7 +14,7 @@ pub struct MapOk<S, F> {
 }
 
 impl<S, F> MapOk<S, F> {
-    /// Returns a new `MapOk` service.
+    /// Creates a new `MapOk` service.
     pub fn new(inner: S, f: F) -> Self {
         MapOk { f, inner }
     }
@@ -41,8 +41,7 @@ where
 
 /// A [`Layer`] that produces a [`MapOk`] service.
 ///
-/// [`Layer`]: ../trait.Layer.html
-/// [`MapOk`]: struct.MapOk.html
+/// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
 pub struct MapOkLayer<F, Request, Response> {
     f: F,
@@ -50,7 +49,7 @@ pub struct MapOkLayer<F, Request, Response> {
 }
 
 impl<F, Request, Error> MapOkLayer<F, Request, Error> {
-    /// Returns a new `MapOk` layer.
+    /// Creates a new [`MapOkLayer`] layer.
     pub fn new(f: F) -> Self {
         MapOkLayer { f, _p: PhantomData }
     }

@@ -6,7 +6,7 @@ use tower_service::Service;
 
 /// Service returned by the [`map_err`] combinator.
 ///
-/// [`map_err`]: trait.ServiceExt.html#method.map_err
+/// [`map_err`]: crate::util::ServiceExt::map_err
 #[derive(Debug)]
 pub struct MapErr<S, F> {
     inner: S,
@@ -14,7 +14,7 @@ pub struct MapErr<S, F> {
 }
 
 impl<S, F> MapErr<S, F> {
-    /// Returns a new `MapErr` service.
+    /// Creates a new [`MapErr`] service.
     pub fn new(inner: S, f: F) -> Self {
         MapErr { f, inner }
     }
@@ -41,8 +41,7 @@ where
 
 /// A [`Layer`] that produces a [`MapErr`] service.
 ///
-/// [`Layer`]: ../trait.Layer.html
-/// [`MapErr`]: struct.MapErr.html
+/// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
 pub struct MapErrLayer<F, Request, Error> {
     f: F,
@@ -50,7 +49,7 @@ pub struct MapErrLayer<F, Request, Error> {
 }
 
 impl<F, Request, Error> MapErrLayer<F, Request, Error> {
-    /// Returns a new `MapErr` layer.
+    /// Creates a new [`MapErrLayer`].
     pub fn new(f: F) -> Self {
         MapErrLayer { f, _p: PhantomData }
     }

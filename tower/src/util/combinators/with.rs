@@ -5,7 +5,7 @@ use tower_service::Service;
 
 /// Service returned by the [`with`] combinator.
 ///
-/// [`with`]: trait.ServiceExt.html#method.with
+/// [`with`]: crate::util::ServiceExt::with
 #[derive(Debug)]
 pub struct With<S, F> {
     inner: S,
@@ -13,7 +13,7 @@ pub struct With<S, F> {
 }
 
 impl<S, F> With<S, F> {
-    /// Returns a new `With` service.
+    /// Creates a new [`With`] service.
     pub fn new(inner: S, f: F) -> Self {
         With { inner, f }
     }
@@ -40,8 +40,7 @@ where
 
 /// A [`Layer`] that produces a [`With`] service.
 ///
-/// [`Layer`]: ../trait.Layer.html
-/// [`With`]: struct.With.html
+/// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
 pub struct WithLayer<F, OldRequest, NewRequest> {
     f: F,
@@ -49,7 +48,7 @@ pub struct WithLayer<F, OldRequest, NewRequest> {
 }
 
 impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest> {
-    /// Returns a new `With` layer.
+    /// Creates a new [`WithLayer`].
     pub fn new(f: F) -> Self {
         WithLayer { f, _p: PhantomData }
     }

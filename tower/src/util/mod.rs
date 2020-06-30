@@ -94,8 +94,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// method. You can use this method to chain along a computation once the
     /// services response has been resolved.
     ///
-    /// [`Response`]: ../trait.Service.html#associatedtype.Response
-    /// [`poll_ready`]: ../trait.Service.html#tymethod.poll_ready
+    /// [`Response`]: crate::Service::Response
+    /// [`poll_ready`]: crate::Service::poll_ready
     /// 
     /// # Example
     /// ```
@@ -156,8 +156,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// This method can be used to change the [`Error`] type of the service 
     /// into a different type. It is similar to the [`Result::map_err`] method.
     ///
-    /// [`Error`]: ../trait.Service.html#associatedtype.Error
-    /// [`poll_ready`]: ../trait.Service.html#tymethod.poll_ready
+    /// [`Error`]: crate::Service::Error
+    /// [`poll_ready`]: crate::Service::poll_ready
     ///
     /// # Example
     /// ```

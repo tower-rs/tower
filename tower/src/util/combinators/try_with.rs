@@ -6,7 +6,7 @@ use tower_service::Service;
 
 /// Service returned by the [`try_with`] combinator.
 ///
-/// [`try_with`]: trait.ServiceExt.html#method.try_with
+/// [`try_with`]: crate::util::ServiceExt::try_with
 #[derive(Debug)]
 pub struct TryWith<S, F> {
     inner: S,
@@ -14,7 +14,7 @@ pub struct TryWith<S, F> {
 }
 
 impl<S, F> TryWith<S, F> {
-    /// Returns a new `TryWith` service.
+    /// Creates a new [`TryWith`] service.
     pub fn new(inner: S, f: F) -> Self {
         TryWith { inner, f }
     }
@@ -44,8 +44,7 @@ where
 
 /// A [`Layer`] that produces a [`TryWith`] service.
 ///
-/// [`Layer`]: ../trait.Layer.html
-/// [`TryWith`]: struct.TryWith.html
+/// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
 pub struct TryWithLayer<F, OldRequest, NewRequest> {
     f: F,
@@ -53,7 +52,7 @@ pub struct TryWithLayer<F, OldRequest, NewRequest> {
 }
 
 impl<F, OldRequest, NewRequest> TryWithLayer<F, OldRequest, NewRequest> {
-    /// Returns a new `TryWith` layer.
+    /// Creates a new [`TryWithLayer`].
     pub fn new(f: F) -> Self {
         TryWithLayer { f, _p: PhantomData }
     }
