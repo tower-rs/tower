@@ -87,14 +87,16 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     }
 
     /// Maps this service's response value to a different value. This does not
-    /// alter the behaviour of the [`poll_ready`](trait.Service.html#tymethod.poll_ready)
-    /// method.
+    /// alter the behaviour of the [`poll_ready`] method.
     ///
-    /// This method can be used to change the [`Response`](trait.Service.html#associatedtype.Response)
-    /// type of the service into a different type. It is similar to the [`Result::map_err`]
+    /// This method can be used to change the [`Response`] type of the service 
+    /// into a different type. It is similar to the [`Result::map`]
     /// method. You can use this method to chain along a computation once the
     /// services response has been resolved.
     ///
+    /// [`Response`]: ../trait.Service.html#associatedtype.Response
+    /// [`poll_ready`]: ../trait.Service.html#tymethod.poll_ready
+    /// 
     /// # Example
     /// ```
     /// # use std::task::{Poll, Context};
@@ -149,11 +151,13 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     }
 
     /// Maps this services's error value to a different value. This does not
-    /// alter the behaviour of the [`poll_ready`](trait.Service.html#tymethod.poll_ready)
-    /// method.
+    /// alter the behaviour of the [`poll_ready`] method.
     ///
-    /// This method can be used to change the [`Error`](trait.Service.html#associatedtype.Error)
-    /// type of the service into a different type. It is similar to the [`Result::map_err`] method.
+    /// This method can be used to change the [`Error`] type of the service 
+    /// into a different type. It is similar to the [`Result::map_err`] method.
+    ///
+    /// [`Error`]: ../trait.Service.html#associatedtype.Error
+    /// [`poll_ready`]: ../trait.Service.html#tymethod.poll_ready
     ///
     /// # Example
     /// ```

@@ -4,6 +4,9 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
+/// Service returned by the [`map_ok`] combinator.
+///
+/// [`map_ok`]: ../trait.ServiceExt.html#method.map_ok
 #[derive(Debug)]
 pub struct MapOk<S, F> {
     inner: S,
@@ -11,6 +14,7 @@ pub struct MapOk<S, F> {
 }
 
 impl<S, F> MapOk<S, F> {
+    /// Returns a new `MapOk` service.
     pub fn new(inner: S, f: F) -> Self {
         MapOk { f, inner }
     }
@@ -35,6 +39,10 @@ where
     }
 }
 
+/// A [`Layer`] that produces a [`MapOk`] service.
+///
+/// [`Layer`]: ../trait.Layer.html
+/// [`MapOk`]: struct.MapOk.html
 #[derive(Debug)]
 pub struct MapOkLayer<F, Request, Response> {
     f: F,
@@ -42,6 +50,7 @@ pub struct MapOkLayer<F, Request, Response> {
 }
 
 impl<F, Request, Error> MapOkLayer<F, Request, Error> {
+    /// Returns a new `MapOk` layer.
     pub fn new(f: F) -> Self {
         MapOkLayer { f, _p: PhantomData }
     }

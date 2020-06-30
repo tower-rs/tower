@@ -3,6 +3,9 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
+/// Service returned by the [`with`] combinator.
+///
+/// [`with`]: trait.ServiceExt.html#method.with
 #[derive(Debug)]
 pub struct With<S, F> {
     inner: S,
@@ -10,6 +13,7 @@ pub struct With<S, F> {
 }
 
 impl<S, F> With<S, F> {
+    /// Returns a new `With` service.
     pub fn new(inner: S, f: F) -> Self {
         With { inner, f }
     }
@@ -34,6 +38,10 @@ where
     }
 }
 
+/// A [`Layer`] that produces a [`With`] service.
+///
+/// [`Layer`]: ../trait.Layer.html
+/// [`With`]: struct.With.html
 #[derive(Debug)]
 pub struct WithLayer<F, OldRequest, NewRequest> {
     f: F,
@@ -41,6 +49,7 @@ pub struct WithLayer<F, OldRequest, NewRequest> {
 }
 
 impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest> {
+    /// Returns a new `With` layer.
     pub fn new(f: F) -> Self {
         WithLayer { f, _p: PhantomData }
     }
