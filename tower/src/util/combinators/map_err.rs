@@ -23,8 +23,7 @@ impl<S, F> MapErr<S, F> {
 impl<S, F, Request, Error> Service<Request> for MapErr<S, F>
 where
     S: Service<Request>,
-    F: FnOnce(S::Error) -> Error,
-    F: Clone,
+    F: FnOnce(S::Error) -> Error + Clone,
 {
     type Response = S::Response;
     type Error = Error;
@@ -58,8 +57,7 @@ impl<F, Request, Error> MapErrLayer<F, Request, Error> {
 impl<S, F, Request, Error> Layer<S> for MapErrLayer<F, Request, Error>
 where
     S: Service<Request>,
-    F: FnOnce(S::Error) -> Error,
-    F: Clone,
+    F: FnOnce(S::Error) -> Error + Clone,
 {
     type Service = MapErr<S, F>;
 

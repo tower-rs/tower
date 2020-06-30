@@ -23,8 +23,7 @@ impl<S, F> MapOk<S, F> {
 impl<S, F, Request, Response> Service<Request> for MapOk<S, F>
 where
     S: Service<Request>,
-    F: FnOnce(S::Response) -> Response,
-    F: Clone,
+    F: FnOnce(S::Response) -> Response + Clone,
 {
     type Response = Response;
     type Error = S::Error;
@@ -58,8 +57,7 @@ impl<F, Request, Error> MapOkLayer<F, Request, Error> {
 impl<S, F, Request, Response> Layer<S> for MapOkLayer<F, Request, Response>
 where
     S: Service<Request>,
-    F: FnOnce(S::Response) -> Response,
-    F: Clone,
+    F: FnOnce(S::Response) -> Response + Clone,
 {
     type Service = MapOk<S, F>;
 

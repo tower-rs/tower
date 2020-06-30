@@ -23,8 +23,7 @@ impl<S, F> TryWith<S, F> {
 impl<S, F, NewRequest, OldRequest> Service<NewRequest> for TryWith<S, F>
 where
     S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> Result<OldRequest, S::Error>,
-    F: Clone,
+    F: FnOnce(NewRequest) -> Result<OldRequest, S::Error> + Clone,
 {
     type Response = S::Response;
     type Error = S::Error;

@@ -22,8 +22,7 @@ impl<S, F> With<S, F> {
 impl<S, F, NewRequest, OldRequest> Service<NewRequest> for With<S, F>
 where
     S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> OldRequest,
-    F: Clone,
+    F: FnOnce(NewRequest) -> OldRequest + Clone,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -57,8 +56,7 @@ impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest> {
 impl<S, F, OldRequest, NewRequest> Layer<S> for WithLayer<F, OldRequest, NewRequest>
 where
     S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> OldRequest,
-    F: Clone,
+    F: FnOnce(NewRequest) -> OldRequest + Clone,
 {
     type Service = With<S, F>;
 
