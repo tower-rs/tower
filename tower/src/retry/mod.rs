@@ -31,6 +31,21 @@ impl<P, S> Retry<P, S> {
     pub fn new(policy: P, service: S) -> Self {
         Retry { policy, service }
     }
+
+    /// Get a reference to the inner service
+    pub fn get_ref(&self) -> &S {
+        &self.service
+    }
+
+    /// Get a mutable reference to the inner service
+    pub fn get_mut(&mut self) -> &mut S {
+        &mut self.service
+    }
+
+    /// Consume `self`, returning the inner service
+    pub fn into_inner(self) -> S {
+        self.service
+    }
 }
 
 impl<P, S, Request> Service<Request> for Retry<P, S>
