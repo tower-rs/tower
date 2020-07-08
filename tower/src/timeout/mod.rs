@@ -28,6 +28,21 @@ impl<T> Timeout<T> {
     pub fn new(inner: T, timeout: Duration) -> Self {
         Timeout { inner, timeout }
     }
+
+    /// Get a reference to the inner service
+    pub fn get_ref(&self) -> &T {
+        &self.inner
+    }
+
+    /// Get a mutable reference to the inner service
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+
+    /// Consume `self`, returning the inner service
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
 }
 
 impl<S, Request> Service<Request> for Timeout<S>
