@@ -2,24 +2,29 @@
 
 mod boxed;
 mod call_all;
-#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
-mod combinators;
 mod either;
 mod map;
+mod map_err;
+mod map_ok;
 mod oneshot;
 mod optional;
 mod ready;
 mod service_fn;
+mod try_with;
+mod with;
 
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
-    combinators::*,
     either::Either,
     map::{MapRequest, MapRequestLayer, MapResponse, MapResponseLayer},
+    map_err::{MapErr, MapErrLayer},
+    map_ok::{MapOk, MapOkLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
+    try_with::{TryWith, TryWithLayer},
+    with::{With, WithLayer},
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
