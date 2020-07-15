@@ -19,10 +19,10 @@ impl<S, F> TryWith<S, F> {
     }
 }
 
-impl<S, F, NewRequest, OldRequest> Service<NewRequest> for TryWith<S, F>
+impl<S, F, R1, R2> Service<R1> for TryWith<S, F>
 where
-    S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> Result<OldRequest, S::Error> + Clone,
+    S: Service<R2>,
+    F: FnOnce(R1) -> Result<R2, S::Error> + Clone,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -32,7 +32,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, request: NewRequest) -> Self::Future {
+    fn call(&mut self, request: R1) -> Self::Future {
         match (self.f.clone())(request) {
             Ok(ok) => Either::Left(self.inner.call(ok)),
             Err(err) => Either::Right(ready(Err(err))),

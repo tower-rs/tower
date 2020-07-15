@@ -18,10 +18,10 @@ impl<S, F> With<S, F> {
     }
 }
 
-impl<S, F, NewRequest, OldRequest> Service<NewRequest> for With<S, F>
+impl<S, F, R1, R2> Service<R1> for With<S, F>
 where
-    S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> OldRequest + Clone,
+    S: Service<R2>,
+    F: FnOnce(R1) -> R2 + Clone,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -31,7 +31,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, request: NewRequest) -> S::Future {
+    fn call(&mut self, request: R1) -> S::Future {
         self.inner.call((self.f.clone())(request))
     }
 }
