@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -41,22 +40,20 @@ where
 ///
 /// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
-pub struct WithLayer<F, OldRequest, NewRequest> {
+pub struct WithLayer<F> {
     f: F,
-    _p: PhantomData<fn(OldRequest, NewRequest)>,
 }
 
-impl<F, OldRequest, NewRequest> WithLayer<F, OldRequest, NewRequest> {
+impl<F> WithLayer<F> {
     /// Creates a new [`WithLayer`].
     pub fn new(f: F) -> Self {
-        WithLayer { f, _p: PhantomData }
+        WithLayer { f }
     }
 }
 
-impl<S, F, OldRequest, NewRequest> Layer<S> for WithLayer<F, OldRequest, NewRequest>
+impl<S, F> Layer<S> for WithLayer<F>
 where
-    S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> OldRequest + Clone,
+    F: Clone,
 {
     type Service = With<S, F>;
 

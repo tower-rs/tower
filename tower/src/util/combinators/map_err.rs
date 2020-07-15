@@ -1,5 +1,4 @@
 use futures_util::{future::MapErr as MapErrFut, TryFutureExt};
-use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -42,22 +41,20 @@ where
 ///
 /// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
-pub struct MapErrLayer<F, Request, Error> {
+pub struct MapErrLayer<F> {
     f: F,
-    _p: PhantomData<fn(Request, Error)>,
 }
 
-impl<F, Request, Error> MapErrLayer<F, Request, Error> {
+impl<F> MapErrLayer<F> {
     /// Creates a new [`MapErrLayer`].
     pub fn new(f: F) -> Self {
-        MapErrLayer { f, _p: PhantomData }
+        MapErrLayer { f }
     }
 }
 
-impl<S, F, Request, Error> Layer<S> for MapErrLayer<F, Request, Error>
+impl<S, F> Layer<S> for MapErrLayer<F>
 where
-    S: Service<Request>,
-    F: FnOnce(S::Error) -> Error + Clone,
+    F: Clone,
 {
     type Service = MapErr<S, F>;
 

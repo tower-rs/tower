@@ -1,5 +1,4 @@
 use futures_util::future::{ready, Either, Ready};
-use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -45,22 +44,19 @@ where
 ///
 /// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
-pub struct TryWithLayer<F, OldRequest, NewRequest> {
+pub struct TryWithLayer<F> {
     f: F,
-    _p: PhantomData<fn(OldRequest, NewRequest)>,
 }
 
-impl<F, OldRequest, NewRequest> TryWithLayer<F, OldRequest, NewRequest> {
+impl<F> TryWithLayer<F> {
     /// Creates a new [`TryWithLayer`].
     pub fn new(f: F) -> Self {
-        TryWithLayer { f, _p: PhantomData }
+        TryWithLayer { f }
     }
 }
 
-impl<S, F, OldRequest, NewRequest> Layer<S> for TryWithLayer<F, OldRequest, NewRequest>
+impl<S, F> Layer<S> for TryWithLayer<F>
 where
-    S: Service<OldRequest>,
-    F: FnOnce(NewRequest) -> OldRequest,
     F: Clone,
 {
     type Service = TryWith<S, F>;

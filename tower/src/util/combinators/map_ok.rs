@@ -1,5 +1,4 @@
 use futures_util::{future::MapOk as MapOkFut, TryFutureExt};
-use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -42,22 +41,20 @@ where
 ///
 /// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
-pub struct MapOkLayer<F, Request, Response> {
+pub struct MapOkLayer<F> {
     f: F,
-    _p: PhantomData<fn(Request, Response)>,
 }
 
-impl<F, Request, Error> MapOkLayer<F, Request, Error> {
+impl<F> MapOkLayer<F> {
     /// Creates a new [`MapOkLayer`] layer.
     pub fn new(f: F) -> Self {
-        MapOkLayer { f, _p: PhantomData }
+        MapOkLayer { f }
     }
 }
 
-impl<S, F, Request, Response> Layer<S> for MapOkLayer<F, Request, Response>
+impl<S, F> Layer<S> for MapOkLayer<F>
 where
-    S: Service<Request>,
-    F: FnOnce(S::Response) -> Response + Clone,
+    F: Clone,
 {
     type Service = MapOk<S, F>;
 
