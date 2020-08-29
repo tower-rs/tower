@@ -8,7 +8,7 @@ pub struct Failed<K>(pub K, pub crate::BoxError);
 
 impl<K> std::fmt::Debug for Failed<K> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.1, f)
+        f.debug_tuple("Failed").field(&"_").field(&self.1).finish()
     }
 }
 
@@ -20,6 +20,6 @@ impl<K> std::fmt::Display for Failed<K> {
 
 impl<K> std::error::Error for Failed<K> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.1.source()
+        Some(&*self.1)
     }
 }
