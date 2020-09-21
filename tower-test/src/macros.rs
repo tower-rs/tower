@@ -1,7 +1,7 @@
 /// Asserts that the mock handle receives a new request equal to the given
 /// value.
 ///
-/// On success, the [`SendResponse`] handle for the matched request is returned,
+/// On success, the [`SendResponse`](crate::mock::SendResponse) handle for the matched request is returned,
 /// allowing the caller to respond to the request. On failure, the macro panics.
 ///
 /// # Examples

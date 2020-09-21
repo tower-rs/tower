@@ -7,11 +7,11 @@
 //!  - [`PendingRequests`] — Measures load by tracking the number of in-flight requests.
 //!  - [`PeakEwma`] — Measures load using a moving average of the peak latency for the service.
 //!
-//! In general, you will want to use one of these when using the types in [`tower::balance`] which
+//! In general, you will want to use one of these when using the types in [`tower::balance`](crate::balance) which
 //! balance services depending on their load. Which load metric to use depends on your exact
 //! use-case, but the ones above should get you quite far!
 //!
-//! When the `discover` feature is enabled, wrapper types for [`tower::discover::Discover`] that
+//! When the `discover` feature is enabled, wrapper types for [`tower::discover::Discover`](crate::discover::Discover) that
 //! wrap the discovered services with the given load estimator are also provided.
 //!
 //! # When does a request complete?
@@ -27,7 +27,7 @@
 //! `CompleteOnOnResponse` is what you would normally expect for a request-response cycle: when the
 //! response is produced, the request is considered "finished", and load goes down. This can be
 //! overriden by your own user-defined type to track more complex request completion semantics. See
-//! the documentation for [`tower::load::completion`] for more details.
+//! the documentation for [`tower::load::completion`](crate::load::completion) for more details.
 //!
 //! # Examples
 //!

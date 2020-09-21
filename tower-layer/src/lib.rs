@@ -11,7 +11,7 @@
 //! A layer decorates an service and provides additional functionality. It
 //! allows other services to be composed with the service that implements layer.
 //!
-//! A middleware implements the [`Layer`] and [`Service`] trait.
+//! A middleware implements the [`Layer`] and [`Service`](tower_service::Service) trait.
 
 mod identity;
 mod stack;
