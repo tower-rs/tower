@@ -8,6 +8,8 @@ use std::{
 };
 use tower_service::Service;
 
+use crate::util::Oneshot;
+
 /// A policy which specifies how long each request should be delayed for.
 pub trait Policy<Request> {
     fn delay(&self, req: &Request) -> Duration;
@@ -23,10 +25,13 @@ pub struct Delay<P, S> {
 
 #[pin_project]
 #[derive(Debug)]
-pub struct ResponseFuture<Request, S, F> {
-    service: S,
+pub struct ResponseFuture<Request, S>
+where
+    S: Service<Request>,
+{
+    service: Option<S>,
     #[pin]
-    state: State<Request, F>,
+    state: State<Request, Oneshot<S, Request>>,
 }
 
 #[pin_project(project = StateProj)]
@@ -55,32 +60,28 @@ where
 {
     type Response = S::Response;
     type Error = crate::BoxError;
-    type Future = ResponseFuture<Request, S, S::Future>;
+    type Future = ResponseFuture<Request, S>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(cx).map_err(|e| e.into())
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Calling self.service.poll_ready would reserve a slot for the delayed request,
+        // potentially well in advance of actually making it.  Instead, signal readiness here and
+        // treat the service as a Oneshot in the future.
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         let deadline = tokio::time::Instant::now() + self.policy.delay(&request);
-        let mut cloned = self.service.clone();
-        // Pass the original service to the ResponseFuture and keep the cloned service on self.
-        let orig = {
-            std::mem::swap(&mut cloned, &mut self.service);
-            cloned
-        };
         ResponseFuture {
-            service: orig,
+            service: Some(self.service.clone()),
             state: State::Delaying(tokio::time::delay_until(deadline), Some(request)),
         }
     }
 }
 
-impl<Request, S, F, T, E> Future for ResponseFuture<Request, S, F>
+impl<Request, S, T, E> Future for ResponseFuture<Request, S>
 where
-    F: Future<Output = Result<T, E>>,
     E: Into<crate::BoxError>,
-    S: Service<Request, Future = F, Response = T, Error = E>,
+    S: Service<Request, Response = T, Error = E>,
 {
     type Output = Result<T, crate::BoxError>;
 
@@ -92,7 +93,8 @@ where
                 StateProj::Delaying(delay, req) => {
                     ready!(delay.poll(cx));
                     let req = req.take().expect("Missing request in delay");
-                    let fut = this.service.call(req);
+                    let svc = this.service.take().expect("Missing service in delay");
+                    let fut = Oneshot::new(svc, req);
                     this.state.set(State::Called(fut));
                 }
                 StateProj::Called(fut) => {
