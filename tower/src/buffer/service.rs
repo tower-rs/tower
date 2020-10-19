@@ -6,7 +6,7 @@ use super::{
 
 use futures_core::ready;
 use std::task::{Context, Poll};
-use tokio::sync::{mpsc, oneshot};
+use tokio02::sync::{mpsc, oneshot};
 use tower_service::Service;
 
 /// Adds an mpsc buffer in front of an inner service.

@@ -25,9 +25,10 @@ edition = "2018"
 
 [features]
 default = ["log"]
+full = ["log", "balance", "buffer", "discover", "filter", "hedge", "limit", "load", "load-shed", "make", "ready-cache", "reconnect", "retry", "spawn-ready", "steer", "timeout", "util"]
 log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab"]
-buffer = ["tokio/sync", "tokio/rt-core"]
+buffer = ["tokio02/sync", "tokio/rt"]
 discover = []
 filter = []
 hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time"]
@@ -35,17 +36,17 @@ limit = ["tokio/time"]
 load = ["tokio/time"]
 load-shed = []
 make = ["tokio/io-std"]
-ready-cache = ["futures-util", "indexmap", "tokio/sync"]
+ready-cache = ["futures-util", "indexmap", "tokio02/sync"]
 reconnect = ["make", "tokio/io-std"]
 retry = ["tokio/time"]
-spawn-ready = ["futures-util", "tokio/sync", "tokio/rt-core"]
+spawn-ready = ["futures-util", "tokio02/sync", "tokio/rt"]
 steer = ["futures-util"]
 timeout = ["tokio/time"]
 util = ["futures-util"]
 
 [dependencies]
 futures-core = "0.3"
-pin-project = "0.4.17"
+pin-project = "1.0"
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tower-service = { version = "0.3" }
 tracing = "0.1.2"
@@ -55,18 +56,17 @@ hdrhistogram = { version = "6.0", optional = true }
 indexmap = { version = "1.0.2", optional = true }
 rand = { version = "0.7", features = ["small_rng"], optional = true }
 slab = { version = "0.4", optional = true }
-tokio = { version = "0.2", optional = true, features = ["sync"] }
+tokio = { version = "0.3", optional = true, features = ["time"] }
+tokio02 = { version = "0.2", package = "tokio", optional = true, features = ["sync"] }
 
 [dev-dependencies]
 futures-util = { version = "0.3", default-features = false, features = ["alloc", "async-await"] }
 hdrhistogram = "6.0"
 quickcheck = { version = "0.9", default-features = false }
-tokio = { version = "0.2", features = ["macros", "stream", "sync", "test-util" ] }
+tokio = { version = "0.3", features = ["macros", "stream", "sync", "test-util" ] }
 tokio-test = "0.2"
 tower-test = { version = "0.3", path = "../tower-test" }
 tracing-subscriber = "0.1.1"
-# env_logger = { version = "0.5.3", default-features = false }
-# log = "0.4.1"
 
 [package.metadata.docs.rs]
 all-features = true

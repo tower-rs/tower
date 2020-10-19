@@ -1,7 +1,6 @@
 //! Exercises load balancers with mocked services.
 
-use futures_core::{Stream, TryStream};
-use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
+use futures::stream::{self, Stream, StreamExt, TryStream, TryStreamExt};
 use hdrhistogram::Histogram;
 use pin_project::pin_project;
 use rand::{self, Rng};
@@ -118,7 +117,7 @@ fn gen_disco() -> impl Discover<
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
                     async move {
-                        time::delay_until(start + latency).await;
+                        time::sleep_until(start + latency).await;
                         let latency = start.elapsed();
                         Ok(Rsp { latency, instance })
                     }

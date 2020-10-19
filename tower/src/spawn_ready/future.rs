@@ -8,13 +8,13 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::oneshot;
+use tokio02::sync::oneshot;
 use tower_service::Service;
 
 /// Drives a service to readiness.
 #[pin_project]
 #[derive(Debug)]
-pub struct BackgroundReady<T, Request> {
+pub(crate) struct BackgroundReady<T, Request> {
     service: Option<T>,
     tx: Option<oneshot::Sender<Result<T, crate::BoxError>>>,
     _req: PhantomData<Request>,

@@ -1,7 +1,7 @@
 //! When an underlying service is not ready, drive it to readiness on a
 //! background task.
 
-pub mod future;
+mod future;
 mod layer;
 mod make;
 mod service;

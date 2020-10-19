@@ -63,7 +63,7 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         let response = self.inner.call(request);
-        let sleep = tokio::time::delay_for(self.timeout);
+        let sleep = tokio::time::sleep(self.timeout);
 
         ResponseFuture::new(response, sleep)
     }

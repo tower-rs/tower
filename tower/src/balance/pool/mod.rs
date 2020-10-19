@@ -27,6 +27,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+use tokio02::sync::mpsc;
 use tower_service::Service;
 
 #[cfg(test)]
@@ -55,9 +56,9 @@ where
     target: Target,
     load: Level,
     services: Slab<()>,
-    died_tx: tokio::sync::mpsc::UnboundedSender<usize>,
+    died_tx: mpsc::UnboundedSender<usize>,
     #[pin]
-    died_rx: tokio::sync::mpsc::UnboundedReceiver<usize>,
+    died_rx: mpsc::UnboundedReceiver<usize>,
     limit: Option<usize>,
 }
 
@@ -276,7 +277,7 @@ impl Builder {
         MS::Error: Into<crate::BoxError>,
         Target: Clone,
     {
-        let (died_tx, died_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (died_tx, died_rx) = mpsc::unbounded_channel();
         let d = PoolDiscoverer {
             maker: make_service,
             making: None,
@@ -428,7 +429,7 @@ where
 pub struct DropNotifyService<Svc> {
     svc: Svc,
     id: usize,
-    notify: tokio::sync::mpsc::UnboundedSender<usize>,
+    notify: mpsc::UnboundedSender<usize>,
 }
 
 impl<Svc> Drop for DropNotifyService<Svc> {

@@ -37,7 +37,7 @@ where
 #[pin_project(project = StateProj)]
 #[derive(Debug)]
 enum State<Request, F> {
-    Delaying(#[pin] tokio::time::Delay, Option<Request>),
+    Delaying(#[pin] tokio::time::Sleep, Option<Request>),
     Called(#[pin] F),
 }
 
@@ -73,7 +73,7 @@ where
         let deadline = tokio::time::Instant::now() + self.policy.delay(&request);
         ResponseFuture {
             service: Some(self.service.clone()),
-            state: State::Delaying(tokio::time::delay_until(deadline), Some(request)),
+            state: State::Delaying(tokio::time::sleep_until(deadline), Some(request)),
         }
     }
 }

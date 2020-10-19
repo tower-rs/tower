@@ -1,5 +1,5 @@
 use super::error::ServiceError;
-use tokio::sync::oneshot;
+use tokio02::sync::oneshot;
 
 /// Message sent over buffer
 #[derive(Debug)]

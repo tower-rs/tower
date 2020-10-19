@@ -1,8 +1,8 @@
 [workspace]
-
 members = [
   "tower",
   "tower-layer",
   "tower-service",
   "tower-test",
+  "examples"
 ]

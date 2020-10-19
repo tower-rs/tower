@@ -6,7 +6,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::oneshot;
+use tokio02::sync::oneshot;
 use tower_service::Service;
 
 /// Spawns tasks to drive an inner service to readiness.
