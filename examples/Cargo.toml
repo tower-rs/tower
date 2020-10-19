@@ -7,7 +7,7 @@ edition = "2018"
 # If you copy one of the examples into a new project, you should be using
 # [dependencies] instead.
 [dev-dependencies]
-tower = { path = "../tower", features = ["full"] }
+tower = { version = "0.4", path = "../tower", features = ["full"] }
 tower-service = "0.3" 
 tokio = { version = "0.3", features = ["full"] }
 rand = "0.7"
