@@ -47,7 +47,7 @@ fn ordered() {
         count: count.clone(),
         admit: admit.clone(),
     };
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, rx) = tokio02::sync::mpsc::unbounded_channel();
     let ca = srv.call_all(rx);
     pin_mut!(ca);
 

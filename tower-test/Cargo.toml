@@ -23,7 +23,7 @@ edition = "2018"
 
 [dependencies]
 futures-util = { version = "0.3", default-features = false }
-tokio = { version = "0.3", features = ["sync"]}
+tokio = { version = "0.3", features = ["sync"] }
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tokio-test = "0.3"
 tower-service = { version = "0.3" }
