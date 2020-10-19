@@ -7,7 +7,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::OwnedSemaphorePermit;
+use tokio02::sync::OwnedSemaphorePermit;
 
 /// Future for the `ConcurrencyLimit` service.
 #[pin_project]

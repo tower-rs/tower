@@ -27,12 +27,12 @@ edition = "2018"
 default = ["log"]
 full = ["log", "balance", "buffer", "discover", "filter", "hedge", "limit", "load", "load-shed", "make", "ready-cache", "reconnect", "retry", "spawn-ready", "steer", "timeout", "util"]
 log = ["tracing/log"]
-balance = ["discover", "load", "ready-cache", "make", "rand", "slab"]
+balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio02/sync"]
 buffer = ["tokio02/sync", "tokio/rt"]
 discover = []
 filter = []
 hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time"]
-limit = ["tokio/time"]
+limit = ["tokio/time", "tokio02/sync"]
 load = ["tokio/time"]
 load-shed = []
 make = ["tokio/io-std"]
@@ -57,7 +57,7 @@ indexmap = { version = "1.0.2", optional = true }
 rand = { version = "0.7", features = ["small_rng"], optional = true }
 slab = { version = "0.4", optional = true }
 tokio = { version = "0.3", optional = true, features = ["time"] }
-tokio02 = { version = "0.2", package = "tokio", optional = true, features = ["sync"] }
+tokio02 = { version = "0.2", package = "tokio", optional = true, features = ["sync", "stream"] }
 
 [dev-dependencies]
 futures-util = { version = "0.3", default-features = false, features = ["alloc", "async-await"] }

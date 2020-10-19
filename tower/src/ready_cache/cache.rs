@@ -9,7 +9,7 @@ use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::sync::oneshot;
+use tokio02::sync::oneshot;
 use tower_service::Service;
 use tracing::{debug, trace};
 

@@ -9,7 +9,7 @@ pub use spawn::Spawn;
 use crate::mock::{error::Error, future::ResponseFuture};
 use core::task::Waker;
 
-use tokio::sync::{mpsc, oneshot};
+use tokio02::sync::{mpsc, oneshot};
 use tower_layer::Layer;
 use tower_service::Service;
 
