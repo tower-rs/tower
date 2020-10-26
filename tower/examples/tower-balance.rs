@@ -118,7 +118,7 @@ fn gen_disco() -> impl Discover<
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
 
                     async move {
-                        time::delay_until(start + latency).await;
+                        time::sleep_until(start + latency).await;
                         let latency = start.elapsed();
                         Ok(Rsp { latency, instance })
                     }

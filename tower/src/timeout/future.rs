@@ -7,7 +7,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::time::Delay;
+use tokio::time::Sleep;
 
 /// `Timeout` response future
 #[pin_project]
@@ -16,11 +16,11 @@ pub struct ResponseFuture<T> {
     #[pin]
     response: T,
     #[pin]
-    sleep: Delay,
+    sleep: Sleep,
 }
 
 impl<T> ResponseFuture<T> {
-    pub(crate) fn new(response: T, sleep: Delay) -> Self {
+    pub(crate) fn new(response: T, sleep: Sleep) -> Self {
         ResponseFuture { response, sleep }
     }
 }
