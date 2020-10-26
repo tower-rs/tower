@@ -49,7 +49,11 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
-        if let Poll::Ready(_) = Pin::new(this.tx.as_mut().expect("illegal state")).poll_closed(cx) {
+        if let Poll::Ready(_) = {
+            let closed = this.tx.as_mut().expect("illegal state").closed();
+            tokio::pin!(closed);
+            closed.poll(cx)
+        } {
             return Poll::Ready(());
         }
 
