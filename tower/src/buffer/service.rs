@@ -21,6 +21,15 @@ where
     // Note: this actually _is_ bounded, but rather than using Tokio's unbounded
     // channel, we use tokio's semaphore separately to implement the bound.
     tx: mpsc::UnboundedSender<Message<Request, T::Future>>,
+    // When the buffer's channel is full, we want to exert backpressure in
+    // `poll_ready`, so that callers such as load balancers could choose to call
+    // another service rather than waiting for buffer capacity.
+    //
+    // Unfortunately, this can't be done easily using Tokio's bounded MPSC
+    // channel, because it doesn't expose a polling-based interface, only an
+    // `async fn ready`, which borrows the sender. Therefore, we implement our
+    // own bounded MPSC on top of the unbounded channel, using a semaphore to
+    // limit how many items are in the channel.
     semaphore: Semaphore,
     handle: Handle,
 }
