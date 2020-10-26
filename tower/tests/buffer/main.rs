@@ -140,13 +140,72 @@ async fn response_future_when_worker_is_dropped_early() {
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
+#[tokio::test]
+async fn waits_for_channel_capacity() {
+    let (mut service, mut handle) = new_service_with_bound(3);
+
+    // keep requests in the worker
+    handle.allow(0);
+    assert_ready_ok!(service.poll_ready());
+    let mut response1 = task::spawn(service.call("hello"));
+
+    assert_ready_ok!(service.poll_ready());
+    let mut response2 = task::spawn(service.call("hello"));
+
+    assert_ready_ok!(service.poll_ready());
+    let mut response3 = task::spawn(service.call("hello"));
+    assert_pending!(service.poll_ready());
+
+    handle.allow(1);
+
+    handle
+        .next_request()
+        .await
+        .unwrap()
+        .1
+        .send_response("world");
+    assert_ready_ok!(response1.poll());
+
+    assert_ready_ok!(service.poll_ready());
+    let mut response4 = task::spawn(service.call("hello"));
+
+    handle.allow(3);
+    handle
+        .next_request()
+        .await
+        .unwrap()
+        .1
+        .send_response("world");
+    assert_ready_ok!(response2.poll());
+
+    handle
+        .next_request()
+        .await
+        .unwrap()
+        .1
+        .send_response("world");
+    assert_ready_ok!(response3.poll());
+
+    handle
+        .next_request()
+        .await
+        .unwrap()
+        .1
+        .send_response("world");
+    assert_ready_ok!(response4.poll());
+}
+
 type Mock = mock::Mock<&'static str, &'static str>;
 type Handle = mock::Handle<&'static str, &'static str>;
 
 fn new_service() -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
+    new_service_with_bound(10)
+}
+
+fn new_service_with_bound(bound: usize) -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
     mock::spawn_with(|s| {
-        let (svc, worker) = Buffer::pair(s, 10);
+        let (svc, worker) = Buffer::pair(s, bound);
 
         thread::spawn(move || {
             let mut fut = tokio_test::task::spawn(worker);
