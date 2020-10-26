@@ -7,6 +7,7 @@ pub(crate) struct Message<Request, Fut> {
     pub(crate) request: Request,
     pub(crate) tx: Tx<Fut>,
     pub(crate) span: tracing::Span,
+    pub(super) _permit: crate::semaphore::Permit,
 }
 
 /// Response sender

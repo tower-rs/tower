@@ -28,7 +28,7 @@ where
     T::Error: Into<crate::BoxError>,
 {
     current_message: Option<Message<Request, T::Future>>,
-    rx: mpsc::Receiver<Message<Request, T::Future>>,
+    rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
     service: T,
     finish: bool,
     failed: Option<ServiceError>,
