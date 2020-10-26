@@ -1,5 +1,5 @@
 use super::future::ResponseFuture;
-
+use crate::semaphore::{Permit, Semaphore};
 use tower_service::Service;
 
 use futures_core::ready;
@@ -9,31 +9,21 @@ use std::mem;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 /// Enforces a limit on the concurrent number of requests the underlying
 /// service can handle.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConcurrencyLimit<T> {
     inner: T,
-    semaphore: Arc<Semaphore>,
-    state: State,
-}
-
-enum State {
-    Waiting(Pin<Box<dyn Future<Output = OwnedSemaphorePermit> + Send + 'static>>),
-    Ready(OwnedSemaphorePermit),
-    Empty,
+    semaphore: Semaphore,
 }
 
 impl<T> ConcurrencyLimit<T> {
     /// Create a new concurrency limiter.
     pub fn new(inner: T, max: usize) -> Self {
-        let semaphore = Arc::new(Semaphore::new(max));
         ConcurrencyLimit {
             inner,
-            semaphore,
-            state: State::Empty,
+            semaphore: Semaphore::new(max),
         }
     }
 
@@ -62,27 +52,18 @@ where
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        loop {
-            self.state = match self.state {
-                State::Ready(_) => return self.inner.poll_ready(cx),
-                State::Waiting(ref mut fut) => {
-                    tokio::pin!(fut);
-                    let permit = ready!(fut.poll(cx));
-                    State::Ready(permit)
-                }
-                State::Empty => State::Waiting(Box::pin(self.semaphore.clone().acquire_owned())),
-            };
-        }
+        // First, poll the semaphore...
+        ready!(self.semaphore.poll_ready(cx));
+        // ...and if it's ready, poll the inner service.
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        // Make sure a permit has been acquired
-        let permit = match mem::replace(&mut self.state, State::Empty) {
-            // Take the permit.
-            State::Ready(permit) => permit,
-            // whoopsie!
-            _ => panic!("max requests in-flight; poll_ready must be called first"),
-        };
+        // Take the permit
+        let permit = self
+            .semaphore
+            .take_permit()
+            .expect("max requests in-flight; poll_ready must be called first");
 
         // Call the inner service
         let future = self.inner.call(request);
@@ -99,31 +80,5 @@ where
     type Metric = S::Metric;
     fn load(&self) -> Self::Metric {
         self.inner.load()
-    }
-}
-
-impl<S> Clone for ConcurrencyLimit<S>
-where
-    S: Clone,
-{
-    fn clone(&self) -> ConcurrencyLimit<S> {
-        ConcurrencyLimit {
-            inner: self.inner.clone(),
-            semaphore: self.semaphore.clone(),
-            state: State::Empty,
-        }
-    }
-}
-
-impl fmt::Debug for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            State::Waiting(_) => f
-                .debug_tuple("State::Waiting")
-                .field(&format_args!("..."))
-                .finish(),
-            State::Ready(ref r) => f.debug_tuple("State::Ready").field(&r).finish(),
-            State::Empty => f.debug_tuple("State::Empty").finish(),
-        }
     }
 }
