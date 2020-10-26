@@ -10,7 +10,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::mpsc;
+use tokio::{stream::Stream, sync::mpsc};
 use tower_service::Service;
 
 /// Task that handles processing the buffer. This type should not be used
@@ -48,7 +48,7 @@ where
 {
     pub(crate) fn new(
         service: T,
-        rx: mpsc::Receiver<Message<Request, T::Future>>,
+        rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
     ) -> (Handle, Worker<T, Request>) {
         let handle = Handle {
             inner: Arc::new(Mutex::new(None)),
@@ -80,11 +80,11 @@ where
         }
 
         tracing::trace!("worker polling for next message");
-        if let Some(mut msg) = self.current_message.take() {
-            // poll_closed returns Poll::Ready is the receiver is dropped.
-            // Returning Pending means it is still alive, so we should still
-            // use it.
-            if msg.tx.poll_closed(cx).is_pending() {
+        if let Some(msg) = self.current_message.take() {
+            // If the oneshot sender is closed, then the receiver is dropped,
+            // and nobody cares about the response. If this is the case, we
+            // should continue to the next request.
+            if !msg.tx.is_closed() {
                 tracing::trace!("resuming buffered request");
                 return Poll::Ready(Some((msg, false)));
             }
@@ -93,8 +93,8 @@ where
         }
 
         // Get the next request
-        while let Some(mut msg) = ready!(Pin::new(&mut self.rx).poll_recv(cx)) {
-            if msg.tx.poll_closed(cx).is_pending() {
+        while let Some(msg) = ready!(Pin::new(&mut self.rx).poll_next(cx)) {
+            if !msg.tx.is_closed() {
                 tracing::trace!("processing new request");
                 return Poll::Ready(Some((msg, true)));
             }

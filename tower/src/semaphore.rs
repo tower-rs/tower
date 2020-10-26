@@ -1,7 +1,11 @@
 pub(crate) use self::sync::OwnedSemaphorePermit as Permit;
+use futures_core::ready;
 use std::{
     fmt,
     future::Future,
+    mem,
+    pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 use tokio::sync;
@@ -44,7 +48,7 @@ impl Semaphore {
     }
 
     pub(crate) fn take_permit(&mut self) -> Option<Permit> {
-        if let State::Ready(permit) = mem::replace(self.state, State::Empty) {
+        if let State::Ready(permit) = mem::replace(&mut self.state, State::Empty) {
             return Some(permit);
         }
         None

@@ -4,13 +4,10 @@ use super::{
     worker::{Handle, Worker},
 };
 
-use crate::semaphore::{Permit, Semaphore};
+use crate::semaphore::Semaphore;
 use futures_core::ready;
 use std::task::{Context, Poll};
-use tokio::sync::{
-    mpsc::{self, SendError},
-    oneshot,
-};
+use tokio::sync::{mpsc, oneshot};
 use tower_service::Service;
 
 /// Adds an mpsc buffer in front of an inner service.
