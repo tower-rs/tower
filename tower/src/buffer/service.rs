@@ -98,12 +98,17 @@ where
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        tracing::info!("poll");
         if self.tx.is_closed() {
+            tracing::trace!("closed");
             // If the inner service has errored, then we error here.
             return Poll::Ready(Err(self.get_worker_error()));
         }
 
+        tracing::trace!("poll sem");
         ready!(self.semaphore.poll_ready(cx));
+
+        tracing::trace!("acquired");
         Poll::Ready(Ok(()))
     }
 

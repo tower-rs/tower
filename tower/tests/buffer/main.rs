@@ -14,6 +14,7 @@ fn let_worker_work() {
 async fn req_and_res() {
     let (mut service, mut handle) = new_service();
 
+    assert_ready_ok!(service.poll_ready());
     let mut response = task::spawn(service.call("hello"));
 
     assert_request_eq!(handle, "hello").send_response("world");
@@ -28,16 +29,18 @@ async fn clears_canceled_requests() {
 
     handle.allow(1);
 
+    assert_ready_ok!(service.poll_ready());
     let mut res1 = task::spawn(service.call("hello"));
 
     let send_response1 = assert_request_eq!(handle, "hello");
 
     // don't respond yet, new requests will get buffered
-
+    assert_ready_ok!(service.poll_ready());
     let res2 = task::spawn(service.call("hello2"));
 
     assert_pending!(handle.poll_request());
 
+    assert_ready_ok!(service.poll_ready());
     let mut res3 = task::spawn(service.call("hello3"));
 
     drop(res2);
@@ -63,6 +66,7 @@ async fn when_inner_is_not_ready() {
     // Make the service NotReady
     handle.allow(0);
 
+    assert_ready_ok!(service.poll_ready());
     let mut res1 = task::spawn(service.call("hello"));
 
     let_worker_work();
@@ -87,6 +91,7 @@ async fn when_inner_fails() {
     handle.allow(0);
     handle.send_error("foobar");
 
+    assert_ready_ok!(service.poll_ready());
     let mut res1 = task::spawn(service.call("hello"));
 
     let_worker_work();
@@ -125,6 +130,7 @@ async fn response_future_when_worker_is_dropped_early() {
 
     // keep the request in the worker
     handle.allow(0);
+    assert_ready_ok!(service.poll_ready());
     let mut response = task::spawn(service.call("hello"));
 
     drop(worker);
