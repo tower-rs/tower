@@ -1,13 +1,8 @@
 use super::future::ResponseFuture;
-use crate::semaphore::{Permit, Semaphore};
+use crate::semaphore::Semaphore;
 use tower_service::Service;
 
 use futures_core::ready;
-use std::fmt;
-use std::future::Future;
-use std::mem;
-use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 /// Enforces a limit on the concurrent number of requests the underlying

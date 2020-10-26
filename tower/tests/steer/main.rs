@@ -29,7 +29,7 @@ impl Service<String> for MyService {
 
 #[test]
 fn pick_correctly() {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async move {
         let srvs = vec![MyService(42, true), MyService(57, true)];
         let mut st = Steer::new(srvs, |_: &_, _: &[_]| 1);
@@ -44,7 +44,7 @@ fn pick_correctly() {
 
 #[test]
 fn pending_all_ready() {
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async move {
         let srvs = vec![MyService(42, true), MyService(57, false)];
         let mut st = Steer::new(srvs, |_: &_, _: &[_]| 0);

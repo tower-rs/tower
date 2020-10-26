@@ -53,13 +53,6 @@ impl Semaphore {
         }
         None
     }
-
-    pub(crate) fn is_ready(&self) -> bool {
-        match self.state {
-            State::Ready(_) => true,
-            _ => false,
-        }
-    }
 }
 
 impl Clone for Semaphore {
