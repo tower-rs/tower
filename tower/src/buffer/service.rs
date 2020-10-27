@@ -107,36 +107,36 @@ where
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        tracing::info!("poll");
+        // First, check if the worker is still alive.
         if self.tx.is_closed() {
-            tracing::trace!("closed");
             // If the inner service has errored, then we error here.
             return Poll::Ready(Err(self.get_worker_error()));
         }
 
-        tracing::trace!("poll sem");
+        // Then, poll to acquire a semaphore permit. If we acquire a permit,
+        // then there's enough buffer capacity to send a new request. Otherwise,
+        // we need to wait for capacity.
         ready!(self.semaphore.poll_ready(cx));
 
-        tracing::trace!("acquired");
         Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        // TODO:
-        // ideally we'd poll_ready again here so we don't allocate the oneshot
-        // if the try_send is about to fail, but sadly we can't call poll_ready
-        // outside of task context.
-        let (tx, rx) = oneshot::channel();
+        tracing::trace!("sending request to buffer worker");
+        let _permit = self
+            .semaphore
+            .take_permit()
+            .expect("buffer full; poll_ready must be called first");
 
         // get the current Span so that we can explicitly propagate it to the worker
         // if we didn't do this, events on the worker related to this span wouldn't be counted
         // towards that span since the worker would have no way of entering it.
         let span = tracing::Span::current();
-        tracing::trace!(parent: &span, "sending request to buffer worker");
-        let _permit = self
-            .semaphore
-            .take_permit()
-            .expect("buffer full; poll_ready must be called first");
+
+        // If we've made it here, then a semaphore permit has already been
+        // acquired, so we can freely allocate a oneshot.
+        let (tx, rx) = oneshot::channel();
+
         match self.tx.send(Message {
             request,
             span,
