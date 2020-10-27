@@ -1,4 +1,6 @@
 #![cfg(feature = "retry")]
+#[path = "../support.rs"]
+mod support;
 
 use futures_util::future;
 use tokio_test::{assert_pending, assert_ready_err, assert_ready_ok, task};
@@ -7,6 +9,8 @@ use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
 async fn retry_errors() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(RetryErrors);
 
     assert_ready_ok!(service.poll_ready());
@@ -24,6 +28,8 @@ async fn retry_errors() {
 
 #[tokio::test]
 async fn retry_limit() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(Limit(2));
 
     assert_ready_ok!(service.poll_ready());
@@ -42,6 +48,8 @@ async fn retry_limit() {
 
 #[tokio::test]
 async fn retry_error_inspection() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(UnlessErr("reject"));
 
     assert_ready_ok!(service.poll_ready());
@@ -56,6 +64,8 @@ async fn retry_error_inspection() {
 
 #[tokio::test]
 async fn retry_cannot_clone_request() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(CannotClone);
 
     assert_ready_ok!(service.poll_ready());
@@ -67,6 +77,8 @@ async fn retry_cannot_clone_request() {
 
 #[tokio::test]
 async fn success_with_cannot_clone() {
+    let _t = support::trace_init();
+
     // Even though the request couldn't be cloned, if the first request succeeds,
     // it should succeed overall.
     let (mut service, mut handle) = new_service(CannotClone);

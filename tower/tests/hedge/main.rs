@@ -1,4 +1,6 @@
 #![cfg(feature = "hedge")]
+#[path = "../support.rs"]
+mod support;
 
 use std::time::Duration;
 use tokio::time;
@@ -8,6 +10,7 @@ use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
 async fn hedge_orig_completes_first() {
+    let _t = support::trace_init();
     time::pause();
 
     let (mut service, mut handle) = new_service(TestPolicy);
@@ -35,6 +38,7 @@ async fn hedge_orig_completes_first() {
 
 #[tokio::test]
 async fn hedge_hedge_completes_first() {
+    let _t = support::trace_init();
     time::pause();
 
     let (mut service, mut handle) = new_service(TestPolicy);
@@ -63,6 +67,7 @@ async fn hedge_hedge_completes_first() {
 
 #[tokio::test]
 async fn completes_before_hedge() {
+    let _t = support::trace_init();
     let (mut service, mut handle) = new_service(TestPolicy);
 
     assert_ready_ok!(service.poll_ready());
@@ -82,6 +87,7 @@ async fn completes_before_hedge() {
 
 #[tokio::test]
 async fn request_not_retyable() {
+    let _t = support::trace_init();
     time::pause();
 
     let (mut service, mut handle) = new_service(TestPolicy);
@@ -109,6 +115,7 @@ async fn request_not_retyable() {
 
 #[tokio::test]
 async fn request_not_clonable() {
+    let _t = support::trace_init();
     time::pause();
 
     let (mut service, mut handle) = new_service(TestPolicy);

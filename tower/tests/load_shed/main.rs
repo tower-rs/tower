@@ -1,4 +1,6 @@
 #![cfg(feature = "load-shed")]
+#[path = "../support.rs"]
+mod support;
 
 use tokio_test::{assert_ready_err, assert_ready_ok, task};
 use tower::load_shed::LoadShedLayer;
@@ -6,6 +8,8 @@ use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
 async fn when_ready() {
+    let _t = support::trace_init();
+
     let layer = LoadShedLayer::new();
     let (mut service, mut handle) = mock::spawn_layer(layer);
 
@@ -19,6 +23,8 @@ async fn when_ready() {
 
 #[tokio::test]
 async fn when_not_ready() {
+    let _t = support::trace_init();
+
     let layer = LoadShedLayer::new();
     let (mut service, mut handle) = mock::spawn_layer::<_, (), _>(layer);
 

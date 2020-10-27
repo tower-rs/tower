@@ -1,4 +1,6 @@
 #![cfg(feature = "balance")]
+#[path = "../support.rs"]
+mod support;
 
 use std::future::Future;
 use std::task::{Context, Poll};
@@ -32,6 +34,7 @@ impl tower::load::Load for Mock {
 
 #[test]
 fn stress() {
+    let _t = support::trace_init();
     let mut task = task::spawn(());
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
     let mut cache = Balance::<_, Req>::new(rx);

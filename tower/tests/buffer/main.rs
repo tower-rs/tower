@@ -1,5 +1,6 @@
 #![cfg(feature = "buffer")]
-
+#[path = "../support.rs"]
+mod support;
 use std::thread;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
 use tower::buffer::{error, Buffer};
@@ -12,6 +13,8 @@ fn let_worker_work() {
 
 #[tokio::test]
 async fn req_and_res() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service();
 
     assert_ready_ok!(service.poll_ready());
@@ -25,6 +28,8 @@ async fn req_and_res() {
 
 #[tokio::test]
 async fn clears_canceled_requests() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service();
 
     handle.allow(1);
@@ -61,6 +66,8 @@ async fn clears_canceled_requests() {
 
 #[tokio::test]
 async fn when_inner_is_not_ready() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service();
 
     // Make the service NotReady
@@ -84,6 +91,7 @@ async fn when_inner_is_not_ready() {
 #[tokio::test]
 async fn when_inner_fails() {
     use std::error::Error as StdError;
+    let _t = support::trace_init();
 
     let (mut service, mut handle) = new_service();
 
@@ -107,6 +115,8 @@ async fn when_inner_fails() {
 
 #[tokio::test]
 async fn poll_ready_when_worker_is_dropped_early() {
+    let _t = support::trace_init();
+
     let (service, _handle) = mock::pair::<(), ()>();
 
     let (service, worker) = Buffer::pair(service, 1);
@@ -122,6 +132,8 @@ async fn poll_ready_when_worker_is_dropped_early() {
 
 #[tokio::test]
 async fn response_future_when_worker_is_dropped_early() {
+    let _t = support::trace_init();
+
     let (service, mut handle) = mock::pair::<_, ()>();
 
     let (service, worker) = Buffer::pair(service, 1);
@@ -142,6 +154,8 @@ async fn response_future_when_worker_is_dropped_early() {
 
 #[tokio::test]
 async fn waits_for_channel_capacity() {
+    let _t = support::trace_init();
+
     let (service, mut handle) = mock::pair::<&'static str, &'static str>();
 
     let (service, worker) = Buffer::pair(service, 3);

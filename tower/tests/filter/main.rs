@@ -1,5 +1,6 @@
 #![cfg(feature = "filter")]
-
+#[path = "../support.rs"]
+mod support;
 use futures_util::{future::poll_fn, pin_mut};
 use std::future::Future;
 use tower::filter::{error::Error, Filter};
@@ -8,6 +9,8 @@ use tower_test::{assert_request_eq, mock};
 
 #[tokio::test]
 async fn passthrough_sync() {
+    let _t = support::trace_init();
+
     let (mut service, handle) = new_service(|_| async { Ok(()) });
 
     let th = tokio::spawn(async move {
@@ -39,6 +42,8 @@ async fn passthrough_sync() {
 
 #[tokio::test]
 async fn rejected_sync() {
+    let _t = support::trace_init();
+
     let (mut service, _handle) = new_service(|_| async { Err(Error::rejected()) });
 
     service.call("hello".into()).await.unwrap_err();
