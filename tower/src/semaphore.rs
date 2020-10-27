@@ -32,18 +32,14 @@ impl Semaphore {
 
     pub(crate) fn poll_acquire(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         loop {
-            loop {
-                self.state = match self.state {
-                    State::Ready(_) => return Poll::Ready(()),
-                    State::Waiting(ref mut fut) => {
-                        let permit = ready!(Pin::new(fut).poll(cx));
-                        State::Ready(permit)
-                    }
-                    State::Empty => {
-                        State::Waiting(Box::pin(self.semaphore.clone().acquire_owned()))
-                    }
-                };
-            }
+            self.state = match self.state {
+                State::Ready(_) => return Poll::Ready(()),
+                State::Waiting(ref mut fut) => {
+                    let permit = ready!(Pin::new(fut).poll(cx));
+                    State::Ready(permit)
+                }
+                State::Empty => State::Waiting(Box::pin(self.semaphore.clone().acquire_owned())),
+            };
         }
     }
 
