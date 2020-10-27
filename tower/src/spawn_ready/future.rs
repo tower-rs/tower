@@ -53,14 +53,7 @@ where
         // Note that we must actually poll the sender's closed future here,
         // rather than just calling `is_closed` on it, since we want to be
         // notified if the receiver is dropped.
-        let closed = {
-            // TODO(eliza): once `tokio` 0.3.2 is released, we can change this back
-            // to just using `Sender::poll_closed`, which is being re-added.
-            let closed = this.tx.as_mut().expect("illegal state").closed();
-            tokio::pin!(closed);
-            closed.poll(cx)
-        };
-        if let Poll::Ready(_) = closed {
+        if let Poll::Ready(_) = this.tx.as_mut().expect("illegal state").poll_closed(cx) {
             return Poll::Ready(());
         }
 
