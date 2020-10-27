@@ -48,7 +48,7 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // First, poll the semaphore...
-        ready!(self.semaphore.poll_ready(cx));
+        ready!(self.semaphore.poll_acquire(cx));
         // ...and if it's ready, poll the inner service.
         self.inner.poll_ready(cx)
     }

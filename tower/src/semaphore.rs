@@ -30,7 +30,7 @@ impl Semaphore {
         }
     }
 
-    pub(crate) fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+    pub(crate) fn poll_acquire(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         loop {
             loop {
                 self.state = match self.state {
