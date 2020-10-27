@@ -46,7 +46,7 @@ use tower_service::Service;
 /// #[tokio::main]
 /// async fn main() {
 ///     // Next, we need a Stream of requests.
-///     let (mut reqs, rx) = tokio02::sync::mpsc::unbounded_channel();
+///     let (mut reqs, rx) = tokio::sync::mpsc::unbounded_channel();
 ///     // Note that we have to help Rust out here by telling it what error type to use.
 ///     // Specifically, it has to be From<Service::Error> + From<Stream::Error>.
 ///     let mut rsps = FirstLetter.call_all(rx);

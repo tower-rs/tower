@@ -33,7 +33,7 @@ impl tower::load::Load for Mock {
 #[test]
 fn stress() {
     let mut task = task::spawn(());
-    let (tx, rx) = tokio02::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
     let mut cache = Balance::<_, Req>::new(rx);
 
     let mut nready = 0;

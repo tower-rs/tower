@@ -14,7 +14,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio02::sync::oneshot;
+use tokio::sync::oneshot;
 use tower_service::Service;
 use tracing::{debug, trace};
 
