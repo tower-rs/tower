@@ -4,6 +4,7 @@ mod support;
 use std::thread;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
 use tower::buffer::{error, Buffer};
+use tower::{util::ServiceExt, Service};
 use tower_test::{assert_request_eq, mock};
 
 fn let_worker_work() {
@@ -230,7 +231,6 @@ async fn waits_for_channel_capacity() {
 #[tokio::test(flavor = "current_thread")]
 async fn wakes_pending_waiters_on_close() {
     let _t = support::trace_init();
-    use tower::{util::ServiceExt, Service};
 
     let (service, mut handle) = mock::pair::<_, ()>();
 
@@ -289,8 +289,6 @@ async fn wakes_pending_waiters_on_close() {
 #[tokio::test(flavor = "current_thread")]
 async fn wakes_pending_waiters_on_failure() {
     let _t = support::trace_init();
-    use std::error::Error as StdError;
-    use tower::{util::ServiceExt, Service};
 
     let (service, mut handle) = mock::pair::<_, ()>();
 

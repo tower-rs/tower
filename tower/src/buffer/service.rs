@@ -80,8 +80,8 @@ where
         Request: Send + 'static,
     {
         let (tx, rx) = mpsc::unbounded_channel();
-        let (handle, worker) = Worker::new(service, rx);
-        let semaphore = Semaphore::new(bound);
+        let (semaphore, wake_waiters) = Semaphore::new_with_close(bound);
+        let (handle, worker) = Worker::new(service, rx, wake_waiters);
         (
             Buffer {
                 tx,

@@ -20,7 +20,7 @@ use tower_service::Service;
 /// as part of the public API. This is the "sealed" pattern to include "private"
 /// types in public traits that are not meant for consumers of the library to
 /// implement (only call).
-#[pin_project]
+#[pin_project(PinnedDrop)]
 #[derive(Debug)]
 pub struct Worker<T, Request>
 where
@@ -33,6 +33,7 @@ where
     finish: bool,
     failed: Option<ServiceError>,
     handle: Handle,
+    close: Option<crate::semaphore::Close>,
 }
 
 /// Get the error out
@@ -49,6 +50,7 @@ where
     pub(crate) fn new(
         service: T,
         rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
+        close: crate::semaphore::Close,
     ) -> (Handle, Worker<T, Request>) {
         let handle = Handle {
             inner: Arc::new(Mutex::new(None)),
@@ -61,6 +63,7 @@ where
             rx,
             service,
             handle: handle.clone(),
+            close: Some(close),
         };
 
         (handle, worker)
@@ -195,6 +198,11 @@ where
                                 .as_ref()
                                 .expect("Worker::failed did not set self.failed?")
                                 .clone()));
+                            // Wake any tasks waiting on channel capacity.
+                            if let Some(close) = self.close.take() {
+                                tracing::debug!("waking pending tasks");
+                                close.close();
+                            }
                         }
                     }
                 }
@@ -204,6 +212,19 @@ where
                     return Poll::Ready(());
                 }
             }
+        }
+    }
+}
+
+#[pin_project::pinned_drop]
+impl<T, Request> PinnedDrop for Worker<T, Request>
+where
+    T: Service<Request>,
+    T::Error: Into<crate::BoxError>,
+{
+    fn drop(mut self: Pin<&mut Self>) {
+        if let Some(close) = self.as_mut().close.take() {
+            close.close();
         }
     }
 }
