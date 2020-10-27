@@ -15,7 +15,7 @@ confidence-threshold = 0.8
 [bans]
 multiple-versions = "deny"
 highlight = "all"
-skip-tree = [{ name = "tower", version = "=0.3" }]
+skip-tree = [{ name = "tower", version = ">=0.3, <=0.4" }]
 skip = [
     # `quickcheck` and `tracing-subscriber` depend on incompatible versions of
     # `wasi` via their dependencies on `rand` and `chrono`, respectively; we
