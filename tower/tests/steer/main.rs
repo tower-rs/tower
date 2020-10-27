@@ -29,7 +29,7 @@ impl Service<String> for MyService {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn pick_correctly() {
     let _t = support::trace_init();
     let srvs = vec![MyService(42, true), MyService(57, true)];
@@ -42,7 +42,7 @@ async fn pick_correctly() {
     assert_eq!(r, 57);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn pending_all_ready() {
     let _t = support::trace_init();
 

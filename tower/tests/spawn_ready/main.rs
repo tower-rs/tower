@@ -7,7 +7,7 @@ use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok
 use tower::spawn_ready::SpawnReadyLayer;
 use tower_test::mock;
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_inner_is_not_ready() {
     let _t = support::trace_init();
 
@@ -25,7 +25,7 @@ async fn when_inner_is_not_ready() {
     assert_ready_ok!(service.poll_ready());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_inner_fails() {
     let _t = support::trace_init();
 

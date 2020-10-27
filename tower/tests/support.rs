@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub(crate) fn trace_init() -> tracing::subscriber::DefaultGuard {
     let subscriber = tracing_subscriber::fmt()
         .with_test_writer()

@@ -7,7 +7,7 @@ use tower::filter::{error::Error, Filter};
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn passthrough_sync() {
     let _t = support::trace_init();
 
@@ -40,7 +40,7 @@ async fn passthrough_sync() {
     th.await.unwrap();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn rejected_sync() {
     let _t = support::trace_init();
 

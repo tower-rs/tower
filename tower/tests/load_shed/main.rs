@@ -6,7 +6,7 @@ use tokio_test::{assert_ready_err, assert_ready_ok, task};
 use tower::load_shed::LoadShedLayer;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_ready() {
     let _t = support::trace_init();
 
@@ -21,7 +21,7 @@ async fn when_ready() {
     assert_eq!(assert_ready_ok!(response.poll()), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_not_ready() {
     let _t = support::trace_init();
 

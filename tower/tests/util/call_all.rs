@@ -39,6 +39,8 @@ impl Service<&'static str> for Srv {
 
 #[test]
 fn ordered() {
+    let _t = super::support::trace_init();
+
     let mut mock = task::spawn(());
 
     let admit = Rc::new(Cell::new(false));
@@ -108,8 +110,10 @@ fn ordered() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn unordered() {
+    let _t = super::support::trace_init();
+
     let (mock, handle) = mock::pair::<_, &'static str>();
     pin_mut!(handle);
 

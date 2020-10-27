@@ -1,5 +1,5 @@
 #![cfg(all(feature = "buffer", feature = "limit", feature = "retry"))]
-
+mod support;
 use futures_util::{future::Ready, pin_mut};
 use std::time::Duration;
 use tower::builder::ServiceBuilder;
@@ -8,8 +8,10 @@ use tower::util::ServiceExt;
 use tower_service::*;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn builder_service() {
+    let _t = support::trace_init();
+
     let (service, handle) = mock::pair();
     pin_mut!(handle);
 

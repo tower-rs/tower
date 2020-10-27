@@ -5,7 +5,7 @@ use tokio_test::{assert_pending, assert_ready, assert_ready_ok};
 use tower::limit::rate::RateLimitLayer;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn reaching_capacity() {
     let _t = support::trace_init();
     time::pause();
@@ -35,7 +35,7 @@ async fn reaching_capacity() {
     assert_eq!(response.await.unwrap(), "done");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn remaining_gets_reset() {
     // This test checks for the case where the `until` state gets reset
     // but the `rem` does not. This was a bug found `cd7dd12315706fc0860a35646b1eb7b60c50a5c1`.

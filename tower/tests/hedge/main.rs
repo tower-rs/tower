@@ -8,7 +8,7 @@ use tokio_test::{assert_pending, assert_ready, assert_ready_ok, task};
 use tower::hedge::{Hedge, Policy};
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn hedge_orig_completes_first() {
     let _t = support::trace_init();
     time::pause();
@@ -36,7 +36,7 @@ async fn hedge_orig_completes_first() {
     assert_eq!(assert_ready_ok!(fut.poll()), "orig-done");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn hedge_hedge_completes_first() {
     let _t = support::trace_init();
     time::pause();
@@ -65,7 +65,7 @@ async fn hedge_hedge_completes_first() {
     assert_eq!(assert_ready_ok!(fut.poll()), "hedge-done");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn completes_before_hedge() {
     let _t = support::trace_init();
     let (mut service, mut handle) = new_service(TestPolicy);
@@ -85,7 +85,7 @@ async fn completes_before_hedge() {
     assert_eq!(assert_ready_ok!(fut.poll()), "orig-done");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn request_not_retyable() {
     let _t = support::trace_init();
     time::pause();
@@ -113,7 +113,7 @@ async fn request_not_retyable() {
     assert_eq!(assert_ready_ok!(fut.poll()), "orig-done");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn request_not_clonable() {
     let _t = support::trace_init();
     time::pause();

@@ -11,7 +11,7 @@ fn let_worker_work() {
     thread::sleep(::std::time::Duration::from_millis(100));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn req_and_res() {
     let _t = support::trace_init();
 
@@ -26,7 +26,7 @@ async fn req_and_res() {
     assert_eq!(assert_ready_ok!(response.poll()), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn clears_canceled_requests() {
     let _t = support::trace_init();
 
@@ -64,7 +64,7 @@ async fn clears_canceled_requests() {
     assert_eq!(assert_ready_ok!(res3.poll()), "world3");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_inner_is_not_ready() {
     let _t = support::trace_init();
 
@@ -88,7 +88,7 @@ async fn when_inner_is_not_ready() {
     assert_eq!(assert_ready_ok!(res1.poll()), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_inner_fails() {
     use std::error::Error as StdError;
     let _t = support::trace_init();
@@ -113,7 +113,7 @@ async fn when_inner_fails() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn poll_ready_when_worker_is_dropped_early() {
     let _t = support::trace_init();
 
@@ -130,7 +130,7 @@ async fn poll_ready_when_worker_is_dropped_early() {
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn response_future_when_worker_is_dropped_early() {
     let _t = support::trace_init();
 
@@ -152,7 +152,7 @@ async fn response_future_when_worker_is_dropped_early() {
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn waits_for_channel_capacity() {
     let _t = support::trace_init();
 

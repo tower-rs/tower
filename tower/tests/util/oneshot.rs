@@ -3,10 +3,11 @@ use std::{future::Future, pin::Pin};
 use tower::util::ServiceExt;
 use tower_service::Service;
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn service_driven_to_readiness() {
     // This test ensures that `oneshot` will repeatedly call `poll_ready` until
     // the service is ready.
+    let _t = super::support::trace_init();
 
     struct PollMeTwice {
         ready: bool,
