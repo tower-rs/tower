@@ -142,21 +142,30 @@ async fn response_future_when_worker_is_dropped_early() {
 
 #[tokio::test]
 async fn waits_for_channel_capacity() {
-    let (mut service, mut handle) = new_service_with_bound(3);
+    let (service, mut handle) = mock::pair::<&'static str, &'static str>();
+
+    let (service, worker) = Buffer::pair(service, 3);
+
+    let mut service = mock::Spawn::new(service);
+    let mut worker = task::spawn(worker);
 
     // keep requests in the worker
     handle.allow(0);
     assert_ready_ok!(service.poll_ready());
     let mut response1 = task::spawn(service.call("hello"));
+    assert_pending!(worker.poll());
 
     assert_ready_ok!(service.poll_ready());
     let mut response2 = task::spawn(service.call("hello"));
+    assert_pending!(worker.poll());
 
     assert_ready_ok!(service.poll_ready());
     let mut response3 = task::spawn(service.call("hello"));
     assert_pending!(service.poll_ready());
+    assert_pending!(worker.poll());
 
     handle.allow(1);
+    assert_pending!(worker.poll());
 
     handle
         .next_request()
@@ -164,34 +173,43 @@ async fn waits_for_channel_capacity() {
         .unwrap()
         .1
         .send_response("world");
+    assert_pending!(worker.poll());
     assert_ready_ok!(response1.poll());
 
     assert_ready_ok!(service.poll_ready());
     let mut response4 = task::spawn(service.call("hello"));
+    assert_pending!(worker.poll());
 
     handle.allow(3);
+    assert_pending!(worker.poll());
+
     handle
         .next_request()
         .await
         .unwrap()
         .1
         .send_response("world");
+    assert_pending!(worker.poll());
     assert_ready_ok!(response2.poll());
 
+    assert_pending!(worker.poll());
     handle
         .next_request()
         .await
         .unwrap()
         .1
         .send_response("world");
+    assert_pending!(worker.poll());
     assert_ready_ok!(response3.poll());
 
+    assert_pending!(worker.poll());
     handle
         .next_request()
         .await
         .unwrap()
         .1
         .send_response("world");
+    assert_pending!(worker.poll());
     assert_ready_ok!(response4.poll());
 }
 
