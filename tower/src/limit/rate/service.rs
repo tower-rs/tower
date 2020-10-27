@@ -5,7 +5,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::time::{Delay, Instant};
+use tokio::time::{Instant, Sleep};
 use tower_service::Service;
 
 /// Enforces a rate limit on the number of requests the underlying
@@ -20,7 +20,7 @@ pub struct RateLimit<T> {
 #[derive(Debug)]
 enum State {
     // The service has hit its limit
-    Limited(Delay),
+    Limited(Sleep),
     Ready { until: Instant, rem: u64 },
 }
 
@@ -98,7 +98,7 @@ where
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
-                    let sleep = tokio::time::delay_until(until);
+                    let sleep = tokio::time::sleep_until(until);
                     self.state = State::Limited(sleep);
                 }
 

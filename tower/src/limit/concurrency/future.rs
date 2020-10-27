@@ -1,5 +1,6 @@
 //! Future types
 //!
+use crate::semaphore::Permit;
 use futures_core::ready;
 use pin_project::pin_project;
 use std::{
@@ -7,7 +8,6 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::OwnedSemaphorePermit;
 
 /// Future for the `ConcurrencyLimit` service.
 #[pin_project]
@@ -16,11 +16,11 @@ pub struct ResponseFuture<T> {
     #[pin]
     inner: T,
     // Keep this around so that it is dropped when the future completes
-    _permit: OwnedSemaphorePermit,
+    _permit: Permit,
 }
 
 impl<T> ResponseFuture<T> {
-    pub(crate) fn new(inner: T, _permit: OwnedSemaphorePermit) -> ResponseFuture<T> {
+    pub(crate) fn new(inner: T, _permit: Permit) -> ResponseFuture<T> {
         ResponseFuture { inner, _permit }
     }
 }

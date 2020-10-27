@@ -35,5 +35,5 @@ async fn service_driven_to_readiness() {
     }
 
     let svc = PollMeTwice { ready: false };
-    svc.oneshot(()).await;
+    svc.oneshot(()).await.unwrap();
 }

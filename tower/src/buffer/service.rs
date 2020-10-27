@@ -4,6 +4,7 @@ use super::{
     worker::{Handle, Worker},
 };
 
+use crate::semaphore::Semaphore;
 use futures_core::ready;
 use std::task::{Context, Poll};
 use tokio::sync::{mpsc, oneshot};
@@ -17,7 +18,19 @@ pub struct Buffer<T, Request>
 where
     T: Service<Request>,
 {
-    tx: mpsc::Sender<Message<Request, T::Future>>,
+    // Note: this actually _is_ bounded, but rather than using Tokio's unbounded
+    // channel, we use tokio's semaphore separately to implement the bound.
+    tx: mpsc::UnboundedSender<Message<Request, T::Future>>,
+    // When the buffer's channel is full, we want to exert backpressure in
+    // `poll_ready`, so that callers such as load balancers could choose to call
+    // another service rather than waiting for buffer capacity.
+    //
+    // Unfortunately, this can't be done easily using Tokio's bounded MPSC
+    // channel, because it doesn't expose a polling-based interface, only an
+    // `async fn ready`, which borrows the sender. Therefore, we implement our
+    // own bounded MPSC on top of the unbounded channel, using a semaphore to
+    // limit how many items are in the channel.
+    semaphore: Semaphore,
     handle: Handle,
 }
 
@@ -50,10 +63,9 @@ where
         T::Error: Send + Sync,
         Request: Send + 'static,
     {
-        let (tx, rx) = mpsc::channel(bound);
-        let (handle, worker) = Worker::new(service, rx);
+        let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
-        Buffer { tx, handle }
+        service
     }
 
     /// Creates a new `Buffer` wrapping `service`, but returns the background worker.
@@ -67,9 +79,17 @@ where
         T::Error: Send + Sync,
         Request: Send + 'static,
     {
-        let (tx, rx) = mpsc::channel(bound);
+        let (tx, rx) = mpsc::unbounded_channel();
         let (handle, worker) = Worker::new(service, rx);
-        (Buffer { tx, handle }, worker)
+        let semaphore = Semaphore::new(bound);
+        (
+            Buffer {
+                tx,
+                handle,
+                semaphore,
+            },
+            worker,
+        )
     }
 
     fn get_worker_error(&self) -> crate::BoxError {
@@ -87,40 +107,43 @@ where
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // If the inner service has errored, then we error here.
-        if let Err(_) = ready!(self.tx.poll_ready(cx)) {
-            Poll::Ready(Err(self.get_worker_error()))
-        } else {
-            Poll::Ready(Ok(()))
+        // First, check if the worker is still alive.
+        if self.tx.is_closed() {
+            // If the inner service has errored, then we error here.
+            return Poll::Ready(Err(self.get_worker_error()));
         }
+
+        // Then, poll to acquire a semaphore permit. If we acquire a permit,
+        // then there's enough buffer capacity to send a new request. Otherwise,
+        // we need to wait for capacity.
+        ready!(self.semaphore.poll_acquire(cx));
+
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        // TODO:
-        // ideally we'd poll_ready again here so we don't allocate the oneshot
-        // if the try_send is about to fail, but sadly we can't call poll_ready
-        // outside of task context.
-        let (tx, rx) = oneshot::channel();
+        tracing::trace!("sending request to buffer worker");
+        let _permit = self
+            .semaphore
+            .take_permit()
+            .expect("buffer full; poll_ready must be called first");
 
         // get the current Span so that we can explicitly propagate it to the worker
         // if we didn't do this, events on the worker related to this span wouldn't be counted
         // towards that span since the worker would have no way of entering it.
         let span = tracing::Span::current();
-        tracing::trace!(parent: &span, "sending request to buffer worker");
-        match self.tx.try_send(Message { request, span, tx }) {
-            Err(mpsc::error::TrySendError::Closed(_)) => {
-                ResponseFuture::failed(self.get_worker_error())
-            }
-            Err(mpsc::error::TrySendError::Full(_)) => {
-                // When `mpsc::Sender::poll_ready` returns `Ready`, a slot
-                // in the channel is reserved for the handle. Other `Sender`
-                // handles may not send a message using that slot. This
-                // guarantees capacity for `request`.
-                //
-                // Given this, the only way to hit this code path is if
-                // `poll_ready` has not been called & `Ready` returned.
-                panic!("buffer full; poll_ready must be called first");
-            }
+
+        // If we've made it here, then a semaphore permit has already been
+        // acquired, so we can freely allocate a oneshot.
+        let (tx, rx) = oneshot::channel();
+
+        match self.tx.send(Message {
+            request,
+            span,
+            tx,
+            _permit,
+        }) {
+            Err(_) => ResponseFuture::failed(self.get_worker_error()),
             Ok(_) => ResponseFuture::new(rx),
         }
     }
@@ -134,6 +157,7 @@ where
         Self {
             tx: self.tx.clone(),
             handle: self.handle.clone(),
+            semaphore: self.semaphore.clone(),
         }
     }
 }

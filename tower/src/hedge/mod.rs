@@ -1,12 +1,7 @@
 //! Pre-emptively retry requests which have been outstanding for longer
 //! than a given latency percentile.
 
-#![warn(
-    missing_debug_implementations,
-    missing_docs,
-    rust_2018_idioms,
-    unreachable_pub
-)]
+#![warn(missing_debug_implementations, missing_docs, unreachable_pub)]
 
 use crate::filter::Filter;
 use futures_util::future;
