@@ -13,11 +13,9 @@ allow-osi-fsf-free = "either"
 confidence-threshold = 0.8
 
 [bans]
-multiple-versions = "deny"
+multiple-versions = "warn"
 highlight = "all"
-skip-tree = [
-    { name = "tower", version = "=0.3"}
-]
+skip-tree = [{ name = "tower", version = "=0.3" }]
 
 [sources]
 unknown-registry = "warn"
