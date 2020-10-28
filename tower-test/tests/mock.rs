@@ -1,7 +1,7 @@
 use tokio_test::{assert_pending, assert_ready};
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn single_request_ready() {
     let (mut service, mut handle) = mock::spawn();
 
@@ -16,7 +16,7 @@ async fn single_request_ready() {
     assert_eq!(response.await.unwrap(), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 #[should_panic]
 async fn backpressure() {
     let (mut service, mut handle) = mock::spawn::<_, ()>();

@@ -1,12 +1,16 @@
 #![cfg(feature = "retry")]
+#[path = "../support.rs"]
+mod support;
 
 use futures_util::future;
 use tokio_test::{assert_pending, assert_ready_err, assert_ready_ok, task};
 use tower::retry::Policy;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn retry_errors() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(RetryErrors);
 
     assert_ready_ok!(service.poll_ready());
@@ -22,8 +26,10 @@ async fn retry_errors() {
     assert_eq!(fut.into_inner().await.unwrap(), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn retry_limit() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(Limit(2));
 
     assert_ready_ok!(service.poll_ready());
@@ -40,8 +46,10 @@ async fn retry_limit() {
     assert_eq!(assert_ready_err!(fut.poll()).to_string(), "retry 3");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn retry_error_inspection() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(UnlessErr("reject"));
 
     assert_ready_ok!(service.poll_ready());
@@ -54,8 +62,10 @@ async fn retry_error_inspection() {
     assert_eq!(assert_ready_err!(fut.poll()).to_string(), "reject");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn retry_cannot_clone_request() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service(CannotClone);
 
     assert_ready_ok!(service.poll_ready());
@@ -65,8 +75,10 @@ async fn retry_cannot_clone_request() {
     assert_eq!(assert_ready_err!(fut.poll()).to_string(), "retry 1");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn success_with_cannot_clone() {
+    let _t = support::trace_init();
+
     // Even though the request couldn't be cloned, if the first request succeeds,
     // it should succeed overall.
     let (mut service, mut handle) = new_service(CannotClone);

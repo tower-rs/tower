@@ -1,11 +1,13 @@
+use super::support;
 use std::time::Duration;
 use tokio::time;
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok};
 use tower::limit::rate::RateLimitLayer;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn reaching_capacity() {
+    let _t = support::trace_init();
     time::pause();
 
     let rate_limit = RateLimitLayer::new(1, Duration::from_millis(100));
@@ -33,7 +35,7 @@ async fn reaching_capacity() {
     assert_eq!(response.await.unwrap(), "done");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn remaining_gets_reset() {
     // This test checks for the case where the `until` state gets reset
     // but the `rem` does not. This was a bug found `cd7dd12315706fc0860a35646b1eb7b60c50a5c1`.
@@ -42,7 +44,7 @@ async fn remaining_gets_reset() {
     // as ready. Then we can advance the clock to put us beyond the current period. When we make
     // subsequent requests the `rem` for the next window is continued from the previous when
     // it should be totally reset.
-
+    let _t = support::trace_init();
     time::pause();
 
     let rate_limit = RateLimitLayer::new(3, Duration::from_millis(100));

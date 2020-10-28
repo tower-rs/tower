@@ -1,5 +1,6 @@
 #![cfg(feature = "buffer")]
-
+#[path = "../support.rs"]
+mod support;
 use std::thread;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
 use tower::buffer::{error, Buffer};
@@ -10,8 +11,10 @@ fn let_worker_work() {
     thread::sleep(::std::time::Duration::from_millis(100));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn req_and_res() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service();
 
     assert_ready_ok!(service.poll_ready());
@@ -23,8 +26,10 @@ async fn req_and_res() {
     assert_eq!(assert_ready_ok!(response.poll()), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn clears_canceled_requests() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service();
 
     handle.allow(1);
@@ -59,8 +64,10 @@ async fn clears_canceled_requests() {
     assert_eq!(assert_ready_ok!(res3.poll()), "world3");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_inner_is_not_ready() {
+    let _t = support::trace_init();
+
     let (mut service, mut handle) = new_service();
 
     // Make the service NotReady
@@ -81,9 +88,10 @@ async fn when_inner_is_not_ready() {
     assert_eq!(assert_ready_ok!(res1.poll()), "world");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn when_inner_fails() {
     use std::error::Error as StdError;
+    let _t = support::trace_init();
 
     let (mut service, mut handle) = new_service();
 
@@ -105,8 +113,10 @@ async fn when_inner_fails() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn poll_ready_when_worker_is_dropped_early() {
+    let _t = support::trace_init();
+
     let (service, _handle) = mock::pair::<(), ()>();
 
     let (service, worker) = Buffer::pair(service, 1);
@@ -120,8 +130,10 @@ async fn poll_ready_when_worker_is_dropped_early() {
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn response_future_when_worker_is_dropped_early() {
+    let _t = support::trace_init();
+
     let (service, mut handle) = mock::pair::<_, ()>();
 
     let (service, worker) = Buffer::pair(service, 1);
@@ -140,8 +152,10 @@ async fn response_future_when_worker_is_dropped_early() {
     assert!(err.is::<error::Closed>(), "should be a Closed: {:?}", err);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn waits_for_channel_capacity() {
+    let _t = support::trace_init();
+
     let (service, mut handle) = mock::pair::<&'static str, &'static str>();
 
     let (service, worker) = Buffer::pair(service, 3);

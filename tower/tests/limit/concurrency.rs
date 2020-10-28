@@ -1,9 +1,12 @@
+#[path = "../support.rs"]
+mod support;
 use tokio_test::{assert_pending, assert_ready, assert_ready_ok};
 use tower::limit::concurrency::ConcurrencyLimitLayer;
 use tower_test::{assert_request_eq, mock};
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn basic_service_limit_functionality_with_poll_ready() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(2);
     let (mut service, mut handle) = mock::spawn_layer(limit);
 
@@ -45,8 +48,9 @@ async fn basic_service_limit_functionality_with_poll_ready() {
     assert_eq!(r3.await.unwrap(), "world 3");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn basic_service_limit_functionality_without_poll_ready() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(2);
     let (mut service, mut handle) = mock::spawn_layer(limit);
 
@@ -90,16 +94,18 @@ async fn basic_service_limit_functionality_without_poll_ready() {
     assert_eq!(r4.await.unwrap(), "world 4");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn request_without_capacity() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(0);
     let (mut service, _) = mock::spawn_layer::<(), (), _>(limit);
 
     assert_pending!(service.poll_ready());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn reserve_capacity_without_sending_request() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(1);
     let (mut s1, mut handle) = mock::spawn_layer(limit);
 
@@ -123,8 +129,9 @@ async fn reserve_capacity_without_sending_request() {
     assert_ready_ok!(s2.poll_ready());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn service_drop_frees_capacity() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(1);
     let (mut s1, _handle) = mock::spawn_layer::<(), (), _>(limit);
 
@@ -142,8 +149,9 @@ async fn service_drop_frees_capacity() {
     assert_ready_ok!(s2.poll_ready());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn response_error_releases_capacity() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(1);
     let (mut s1, mut handle) = mock::spawn_layer::<_, (), _>(limit);
 
@@ -162,8 +170,9 @@ async fn response_error_releases_capacity() {
     assert_ready_ok!(s2.poll_ready());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn response_future_drop_releases_capacity() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(1);
     let (mut s1, _handle) = mock::spawn_layer::<_, (), _>(limit);
 
@@ -182,8 +191,9 @@ async fn response_future_drop_releases_capacity() {
     assert_ready_ok!(s2.poll_ready());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn multi_waiters() {
+    let _t = support::trace_init();
     let limit = ConcurrencyLimitLayer::new(1);
     let (mut s1, _handle) = mock::spawn_layer::<(), (), _>(limit);
     let mut s2 = s1.clone();

@@ -1,4 +1,6 @@
 #![cfg(feature = "ready-cache")]
+#[path = "../support.rs"]
+mod support;
 
 use tokio_test::{assert_pending, assert_ready, task};
 use tower::ready_cache::ReadyCache;
@@ -9,6 +11,8 @@ type Mock = mock::Mock<Req, Req>;
 
 #[test]
 fn poll_ready_inner_failure() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -30,6 +34,8 @@ fn poll_ready_inner_failure() {
 
 #[test]
 fn poll_ready_not_ready() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -50,6 +56,8 @@ fn poll_ready_not_ready() {
 
 #[test]
 fn poll_ready_promotes_inner() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -74,6 +82,8 @@ fn poll_ready_promotes_inner() {
 
 #[test]
 fn evict_ready_then_error() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -94,6 +104,8 @@ fn evict_ready_then_error() {
 
 #[test]
 fn evict_pending_then_error() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -111,6 +123,8 @@ fn evict_pending_then_error() {
 
 #[test]
 fn push_then_evict() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -125,6 +139,8 @@ fn push_then_evict() {
 
 #[test]
 fn error_after_promote() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
@@ -143,6 +159,8 @@ fn error_after_promote() {
 
 #[test]
 fn duplicate_key_by_index() {
+    let _t = support::trace_init();
+
     let mut task = task::spawn(());
     let mut cache = ReadyCache::<usize, Mock, Req>::default();
 
