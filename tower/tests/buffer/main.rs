@@ -4,6 +4,7 @@ mod support;
 use std::thread;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
 use tower::buffer::{error, Buffer};
+use tower::{util::ServiceExt, Service};
 use tower_test::{assert_request_eq, mock};
 
 fn let_worker_work() {
@@ -225,6 +226,124 @@ async fn waits_for_channel_capacity() {
         .send_response("world");
     assert_pending!(worker.poll());
     assert_ready_ok!(response4.poll());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn wakes_pending_waiters_on_close() {
+    let _t = support::trace_init();
+
+    let (service, mut handle) = mock::pair::<_, ()>();
+
+    let (mut service, worker) = Buffer::pair(service, 1);
+    let mut worker = task::spawn(worker);
+
+    // keep the request in the worker
+    handle.allow(0);
+    let service1 = service.ready_and().await.unwrap();
+    assert_pending!(worker.poll());
+    let mut response = task::spawn(service1.call("hello"));
+
+    let mut service1 = service.clone();
+    let mut ready_and1 = task::spawn(service1.ready_and());
+    assert_pending!(worker.poll());
+    assert_pending!(ready_and1.poll(), "no capacity");
+
+    let mut service1 = service.clone();
+    let mut ready_and2 = task::spawn(service1.ready_and());
+    assert_pending!(worker.poll());
+    assert_pending!(ready_and2.poll(), "no capacity");
+
+    // kill the worker task
+    drop(worker);
+
+    let err = assert_ready_err!(response.poll());
+    assert!(
+        err.is::<error::Closed>(),
+        "response should fail with a Closed, got: {:?}",
+        err
+    );
+
+    assert!(
+        ready_and1.is_woken(),
+        "dropping worker should wake ready_and task 1"
+    );
+    let err = assert_ready_err!(ready_and1.poll());
+    assert!(
+        err.is::<error::Closed>(),
+        "ready_and 1 should fail with a Closed, got: {:?}",
+        err
+    );
+
+    assert!(
+        ready_and2.is_woken(),
+        "dropping worker should wake ready_and task 2"
+    );
+    let err = assert_ready_err!(ready_and1.poll());
+    assert!(
+        err.is::<error::Closed>(),
+        "ready_and 2 should fail with a Closed, got: {:?}",
+        err
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn wakes_pending_waiters_on_failure() {
+    let _t = support::trace_init();
+
+    let (service, mut handle) = mock::pair::<_, ()>();
+
+    let (mut service, worker) = Buffer::pair(service, 1);
+    let mut worker = task::spawn(worker);
+
+    // keep the request in the worker
+    handle.allow(0);
+    let service1 = service.ready_and().await.unwrap();
+    assert_pending!(worker.poll());
+    let mut response = task::spawn(service1.call("hello"));
+
+    let mut service1 = service.clone();
+    let mut ready_and1 = task::spawn(service1.ready_and());
+    assert_pending!(worker.poll());
+    assert_pending!(ready_and1.poll(), "no capacity");
+
+    let mut service1 = service.clone();
+    let mut ready_and2 = task::spawn(service1.ready_and());
+    assert_pending!(worker.poll());
+    assert_pending!(ready_and2.poll(), "no capacity");
+
+    // fail the inner service
+    handle.send_error("foobar");
+    // worker task terminates
+    assert_ready!(worker.poll());
+
+    let err = assert_ready_err!(response.poll());
+    assert!(
+        err.is::<error::ServiceError>(),
+        "response should fail with a ServiceError, got: {:?}",
+        err
+    );
+
+    assert!(
+        ready_and1.is_woken(),
+        "dropping worker should wake ready_and task 1"
+    );
+    let err = assert_ready_err!(ready_and1.poll());
+    assert!(
+        err.is::<error::ServiceError>(),
+        "ready_and 1 should fail with a ServiceError, got: {:?}",
+        err
+    );
+
+    assert!(
+        ready_and2.is_woken(),
+        "dropping worker should wake ready_and task 2"
+    );
+    let err = assert_ready_err!(ready_and1.poll());
+    assert!(
+        err.is::<error::ServiceError>(),
+        "ready_and 2 should fail with a ServiceError, got: {:?}",
+        err
+    );
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;

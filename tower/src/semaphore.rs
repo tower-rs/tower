@@ -5,7 +5,7 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Weak},
     task::{Context, Poll},
 };
 use tokio::sync;
@@ -16,6 +16,12 @@ pub(crate) struct Semaphore {
     state: State,
 }
 
+#[derive(Debug)]
+pub(crate) struct Close {
+    semaphore: Weak<sync::Semaphore>,
+    permits: usize,
+}
+
 enum State {
     Waiting(Pin<Box<dyn Future<Output = Permit> + Send + 'static>>),
     Ready(Permit),
@@ -23,6 +29,19 @@ enum State {
 }
 
 impl Semaphore {
+    pub(crate) fn new_with_close(permits: usize) -> (Self, Close) {
+        let semaphore = Arc::new(sync::Semaphore::new(permits));
+        let close = Close {
+            semaphore: Arc::downgrade(&semaphore),
+            permits,
+        };
+        let semaphore = Self {
+            semaphore,
+            state: State::Empty,
+        };
+        (semaphore, close)
+    }
+
     pub(crate) fn new(permits: usize) -> Self {
         Self {
             semaphore: Arc::new(sync::Semaphore::new(permits)),
@@ -69,6 +88,26 @@ impl fmt::Debug for State {
                 .finish(),
             State::Ready(ref r) => f.debug_tuple("State::Ready").field(&r).finish(),
             State::Empty => f.debug_tuple("State::Empty").finish(),
+        }
+    }
+}
+
+impl Close {
+    /// Close the semaphore, waking any remaining tasks currently awaiting a permit.
+    pub(crate) fn close(self) {
+        // The maximum number of permits that a `tokio::sync::Semaphore`
+        // can hold is usize::MAX >> 3. If we attempt to add more than that
+        // number of permits, the semaphore will panic.
+        // XXX(eliza): another shift is kinda janky but if we add (usize::MAX
+        // > 3 - initial permits) the semaphore impl panics (I think due to a
+        // bug in tokio?).
+        // TODO(eliza): Tokio should _really_ just expose `Semaphore::close`
+        // publicly so we don't have to do this nonsense...
+        const MAX: usize = std::usize::MAX >> 4;
+        if let Some(semaphore) = self.semaphore.upgrade() {
+            // If we added `MAX - available_permits`, any tasks that are
+            // currently holding permits could drop them, overflowing the max.
+            semaphore.add_permits(MAX - self.permits);
         }
     }
 }
