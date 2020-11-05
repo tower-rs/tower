@@ -6,7 +6,7 @@ use tower_service::Service;
 /// Service returned by the [`try_with`] combinator.
 ///
 /// [`try_with`]: crate::util::ServiceExt::try_with
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TryWith<S, F> {
     inner: S,
     f: F,
