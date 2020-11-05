@@ -18,8 +18,8 @@ pub struct Buffer<T, Request>
 where
     T: Service<Request>,
 {
-    // Note: this actually _is_ bounded, but rather than using Tokio's unbounded
-    // channel, we use tokio's semaphore separately to implement the bound.
+    // Note: this actually _is_ bounded, but rather than using Tokio's bounded
+    // channel, we use Tokio's semaphore separately to implement the bound.
     tx: mpsc::UnboundedSender<Message<Request, T::Future>>,
     // When the buffer's channel is full, we want to exert backpressure in
     // `poll_ready`, so that callers such as load balancers could choose to call
