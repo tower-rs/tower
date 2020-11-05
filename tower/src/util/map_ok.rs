@@ -6,7 +6,7 @@ use tower_service::Service;
 /// Service returned by the [`map_ok`] combinator.
 ///
 /// [`map_ok`]: crate::util::ServiceExt::map_ok
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MapOk<S, F> {
     inner: S,
     f: F,

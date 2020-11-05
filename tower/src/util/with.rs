@@ -5,7 +5,7 @@ use tower_service::Service;
 /// Service returned by the [`with`] combinator.
 ///
 /// [`with`]: crate::util::ServiceExt::with
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct With<S, F> {
     inner: S,
     f: F,

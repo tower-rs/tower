@@ -6,7 +6,7 @@ use tower_service::Service;
 /// Service returned by the [`map_err`] combinator.
 ///
 /// [`map_err`]: crate::util::ServiceExt::map_err
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MapErr<S, F> {
     inner: S,
     f: F,
