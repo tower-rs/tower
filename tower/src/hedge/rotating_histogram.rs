@@ -19,10 +19,10 @@ pub struct RotatingHistogram {
 impl RotatingHistogram {
     pub fn new(period: Duration) -> RotatingHistogram {
         RotatingHistogram {
-            read: Histogram::<u64>::new_with_bounds(1, 10_000, 3)
-                .expect("Invalid histogram params"),
-            write: Histogram::<u64>::new_with_bounds(1, 10_000, 3)
-                .expect("Invalid histogram params"),
+            // Use an auto-resizing histogram to avoid choosing
+            // a maximum latency bound for all users.
+            read: Histogram::<u64>::new(3).expect("Invalid histogram params"),
+            write: Histogram::<u64>::new(3).expect("Invalid histogram params"),
             last_rotation: Instant::now(),
             period,
         }
