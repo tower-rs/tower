@@ -1,5 +1,6 @@
 //! Various utility types and functions that are generally with Tower.
 
+mod and_then;
 mod boxed;
 mod call_all;
 mod either;
@@ -14,6 +15,7 @@ mod try_with;
 mod with;
 
 pub use self::{
+    and_then::{AndThen, AndThenLayer},
     boxed::{BoxService, UnsyncBoxService},
     either::Either,
     map::{MapRequest, MapRequestLayer, MapResponse, MapResponseLayer},
@@ -89,6 +91,13 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         S: futures_core::Stream<Item = Request>,
     {
         CallAll::new(self, reqs)
+    }
+    
+    fn and_then<F, Fut>(self, f: F) -> AndThen<Self, F, Fut>
+    where
+    Self: Sized,
+        F: FnOnce(Self::Response) -> Fut + Clone {
+            AndThen::new(self, f)
     }
 
     /// Maps this service's response value to a different value. This does not
