@@ -91,12 +91,13 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     {
         CallAll::new(self, reqs)
     }
-    
-    fn and_then<F, Fut>(self, f: F) -> AndThen<Self, F, Fut>
+
+    fn and_then<F>(self, f: F) -> AndThen<Self, F>
     where
-    Self: Sized,
-        F: FnOnce(Self::Response) -> Fut + Clone {
-            AndThen::new(self, f)
+        Self: Sized,
+        F: Clone,
+    {
+        AndThen::new(self, f)
     }
 
     /// Maps this service's response value to a different value. This does not
