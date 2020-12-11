@@ -7,7 +7,10 @@ use super::{
 use crate::semaphore::Semaphore;
 use futures_core::ready;
 use std::task::{Context, Poll};
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::JoinHandle,
+};
 use tower_service::Service;
 
 /// Adds an mpsc buffer in front of an inner service.
@@ -32,6 +35,7 @@ where
     // limit how many items are in the channel.
     semaphore: Semaphore,
     handle: Handle,
+    task_handle: Option<JoinHandle<()>>,
 }
 
 impl<T, Request> Buffer<T, Request>
@@ -63,8 +67,9 @@ where
         T::Error: Send + Sync,
         Request: Send + 'static,
     {
-        let (service, worker) = Self::pair(service, bound);
-        tokio::spawn(worker);
+        let (mut service, worker) = Self::pair(service, bound);
+        let task_handle = tokio::spawn(worker);
+        service.task_handle = Some(task_handle);
         service
     }
 
@@ -87,6 +92,7 @@ where
                 tx,
                 handle,
                 semaphore,
+                task_handle: None,
             },
             worker,
         )
@@ -158,6 +164,7 @@ where
             tx: self.tx.clone(),
             handle: self.handle.clone(),
             semaphore: self.semaphore.clone(),
+            task_handle: None,
         }
     }
 }
