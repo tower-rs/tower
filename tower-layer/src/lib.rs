@@ -12,6 +12,8 @@
 //! allows other services to be composed with the service that implements layer.
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
+//!
+//! [`Service`]: ../tower/trait.Service.html
 
 mod identity;
 mod stack;
