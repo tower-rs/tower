@@ -8,7 +8,7 @@
 #![allow(elided_lifetimes_in_paths)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! `async fn(Request) -> Future<Response>`
+//! `async fn(Request) -> Result<Response, Error>`
 //!
 //! # Overview
 //!
