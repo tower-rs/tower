@@ -15,20 +15,22 @@ pub struct RateLimit<T> {
     inner: T,
     rate: Rate,
     state: State,
+    sleep: Pin<Box<Sleep>>,
 }
 
 #[derive(Debug)]
 enum State {
     // The service has hit its limit
-    Limited(Sleep),
+    Limited,
     Ready { until: Instant, rem: u64 },
 }
 
 impl<T> RateLimit<T> {
     /// Create a new rate limiter
     pub fn new(inner: T, rate: Rate) -> Self {
+        let until = Instant::now();
         let state = State::Ready {
-            until: Instant::now(),
+            until,
             rem: rate.num(),
         };
 
@@ -36,6 +38,10 @@ impl<T> RateLimit<T> {
             inner,
             rate,
             state: state,
+            // The sleep won't actually be used with this duration, but
+            // we create it eagerly so that we can reset it in place rather than
+            // `Box::pin`ning a new `Sleep` every time we need one.
+            sleep: Box::pin(tokio::time::sleep_until(until)),
         }
     }
 
@@ -66,8 +72,8 @@ where
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.state {
             State::Ready { .. } => return Poll::Ready(ready!(self.inner.poll_ready(cx))),
-            State::Limited(ref mut sleep) => {
-                if let Poll::Pending = Pin::new(sleep).poll(cx) {
+            State::Limited => {
+                if let Poll::Pending = Pin::new(&mut self.sleep).poll(cx) {
                     tracing::trace!("rate limit exceeded; sleeping.");
                     return Poll::Pending;
                 }
@@ -98,14 +104,16 @@ where
                     self.state = State::Ready { until, rem };
                 } else {
                     // The service is disabled until further notice
-                    let sleep = tokio::time::sleep_until(until);
-                    self.state = State::Limited(sleep);
+                    // Reset the sleep future in place, so that we don't have to
+                    // deallocate the existing box and allocate a new one.
+                    self.sleep.as_mut().reset(until);
+                    self.state = State::Limited;
                 }
 
                 // Call the inner future
                 self.inner.call(request)
             }
-            State::Limited(..) => panic!("service not ready; poll_ready must be called first"),
+            State::Limited => panic!("service not ready; poll_ready must be called first"),
         }
     }
 }
