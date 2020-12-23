@@ -54,9 +54,9 @@ use tower_service::Service;
 ///     let mut rsps = FirstLetter.call_all(rx);
 ///
 ///     // Now, let's send a few requests and then check that we get the corresponding responses.
-///     reqs.send("one");
-///     reqs.send("two");
-///     reqs.send("three");
+///     reqs.unbounded_send("one").unwrap();
+///     reqs.unbounded_send("two").unwrap();
+///     reqs.unbounded_send("three").unwrap();
 ///     drop(reqs);
 ///
 ///     // We then loop over the response Strem that we get back from call_all.
