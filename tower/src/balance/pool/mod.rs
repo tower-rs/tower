@@ -90,7 +90,7 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        while let Poll::Ready(Some(sid)) = this.died_rx.as_mut().poll_next(cx) {
+        while let Poll::Ready(Some(sid)) = this.died_rx.as_mut().poll_recv(cx) {
             this.services.remove(sid);
             tracing::trace!(
                 pool.services = this.services.len(),

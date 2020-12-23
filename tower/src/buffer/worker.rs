@@ -10,7 +10,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::{stream::Stream, sync::mpsc};
+use tokio::sync::mpsc;
 use tower_service::Service;
 
 /// Task that handles processing the buffer. This type should not be used
@@ -96,7 +96,7 @@ where
         }
 
         // Get the next request
-        while let Some(msg) = ready!(Pin::new(&mut self.rx).poll_next(cx)) {
+        while let Some(msg) = ready!(Pin::new(&mut self.rx).poll_recv(cx)) {
             if !msg.tx.is_closed() {
                 tracing::trace!("processing new request");
                 return Poll::Ready(Some((msg, true)));
