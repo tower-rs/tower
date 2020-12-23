@@ -20,11 +20,11 @@ use tower_service::Service;
 /// # use std::error::Error;
 /// # use std::rc::Rc;
 /// #
-/// use futures_util::future::{ready, Ready};
-/// use futures_util::StreamExt;
+/// use futures::future::{ready, Ready};
+/// use futures::StreamExt;
+/// use futures::channel::mpsc;
 /// use tower_service::Service;
 /// use tower::util::ServiceExt;
-/// use tokio::prelude::*;
 ///
 /// // First, we need to have a Service to process our requests.
 /// #[derive(Debug, Eq, PartialEq)]
@@ -46,7 +46,9 @@ use tower_service::Service;
 /// #[tokio::main]
 /// async fn main() {
 ///     // Next, we need a Stream of requests.
-///     let (mut reqs, rx) = tokio::sync::mpsc::unbounded_channel();
+// TODO(eliza): when `tokio-util` has a nice way to convert MPSCs to streams,
+//              tokio::sync::mpsc again?
+///     let (mut reqs, rx) = mpsc::unbounded();
 ///     // Note that we have to help Rust out here by telling it what error type to use.
 ///     // Specifically, it has to be From<Service::Error> + From<Stream::Error>.
 ///     let mut rsps = FirstLetter.call_all(rx);
