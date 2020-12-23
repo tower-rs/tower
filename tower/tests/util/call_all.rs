@@ -1,3 +1,4 @@
+use super::support;
 use futures_core::Stream;
 use futures_util::{
     future::{ready, Ready},
@@ -9,7 +10,6 @@ use tokio_test::{assert_pending, assert_ready, task};
 use tower::util::ServiceExt;
 use tower_service::*;
 use tower_test::{assert_request_eq, mock};
-use super::support;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
