@@ -1,4 +1,4 @@
-pub(crate) use self::sync::OwnedSemaphorePermit as Permit;
+pub(crate) use self::sync::{AcquireError, OwnedSemaphorePermit as Permit};
 use futures_core::ready;
 use std::{
     fmt,
@@ -19,11 +19,10 @@ pub(crate) struct Semaphore {
 #[derive(Debug)]
 pub(crate) struct Close {
     semaphore: Weak<sync::Semaphore>,
-    permits: usize,
 }
 
 enum State {
-    Waiting(Pin<Box<dyn Future<Output = Permit> + Send + 'static>>),
+    Waiting(Pin<Box<dyn Future<Output = Result<Permit, AcquireError>> + Send + 'static>>),
     Ready(Permit),
     Empty,
 }
@@ -33,7 +32,6 @@ impl Semaphore {
         let semaphore = Arc::new(sync::Semaphore::new(permits));
         let close = Close {
             semaphore: Arc::downgrade(&semaphore),
-            permits,
         };
         let semaphore = Self {
             semaphore,
@@ -49,12 +47,12 @@ impl Semaphore {
         }
     }
 
-    pub(crate) fn poll_acquire(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+    pub(crate) fn poll_acquire(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), AcquireError>> {
         loop {
             self.state = match self.state {
-                State::Ready(_) => return Poll::Ready(()),
+                State::Ready(_) => return Poll::Ready(Ok(())),
                 State::Waiting(ref mut fut) => {
-                    let permit = ready!(Pin::new(fut).poll(cx));
+                    let permit = ready!(Pin::new(fut).poll(cx))?;
                     State::Ready(permit)
                 }
                 State::Empty => State::Waiting(Box::pin(self.semaphore.clone().acquire_owned())),
@@ -95,19 +93,8 @@ impl fmt::Debug for State {
 impl Close {
     /// Close the semaphore, waking any remaining tasks currently awaiting a permit.
     pub(crate) fn close(self) {
-        // The maximum number of permits that a `tokio::sync::Semaphore`
-        // can hold is usize::MAX >> 3. If we attempt to add more than that
-        // number of permits, the semaphore will panic.
-        // XXX(eliza): another shift is kinda janky but if we add (usize::MAX
-        // > 3 - initial permits) the semaphore impl panics (I think due to a
-        // bug in tokio?).
-        // TODO(eliza): Tokio should _really_ just expose `Semaphore::close`
-        // publicly so we don't have to do this nonsense...
-        const MAX: usize = std::usize::MAX >> 4;
         if let Some(semaphore) = self.semaphore.upgrade() {
-            // If we added `MAX - available_permits`, any tasks that are
-            // currently holding permits could drop them, overflowing the max.
-            semaphore.add_permits(MAX - self.permits);
+            semaphore.close()
         }
     }
 }
