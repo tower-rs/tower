@@ -5,7 +5,6 @@ use super::{
 };
 
 use crate::semaphore::Semaphore;
-use futures_core::ready;
 use std::task::{Context, Poll};
 use tokio::sync::{mpsc, oneshot};
 use tower_service::Service;
