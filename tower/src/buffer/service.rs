@@ -5,7 +5,6 @@ use super::{
 };
 
 use crate::semaphore::Semaphore;
-use futures_core::ready;
 use std::task::{Context, Poll};
 use tokio::sync::{mpsc, oneshot};
 use tower_service::Service;
@@ -116,9 +115,9 @@ where
         // Then, poll to acquire a semaphore permit. If we acquire a permit,
         // then there's enough buffer capacity to send a new request. Otherwise,
         // we need to wait for capacity.
-        ready!(self.semaphore.poll_acquire(cx));
-
-        Poll::Ready(Ok(()))
+        self.semaphore
+            .poll_acquire(cx)
+            .map_err(|_| self.get_worker_error())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {

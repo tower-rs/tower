@@ -1,3 +1,4 @@
+use super::support;
 use futures_core::Stream;
 use futures_util::{
     future::{ready, Ready},
@@ -39,7 +40,7 @@ impl Service<&'static str> for Srv {
 
 #[test]
 fn ordered() {
-    let _t = super::support::trace_init();
+    let _t = support::trace_init();
 
     let mut mock = task::spawn(());
 
@@ -50,7 +51,7 @@ fn ordered() {
         admit: admit.clone(),
     };
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let ca = srv.call_all(rx);
+    let ca = srv.call_all(support::IntoStream(rx));
     pin_mut!(ca);
 
     assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));
@@ -112,7 +113,7 @@ fn ordered() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn unordered() {
-    let _t = super::support::trace_init();
+    let _t = support::trace_init();
 
     let (mock, handle) = mock::pair::<_, &'static str>();
     pin_mut!(handle);
