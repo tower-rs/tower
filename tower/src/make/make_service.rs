@@ -1,5 +1,6 @@
 use crate::sealed::Sealed;
 use std::future::Future;
+use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
@@ -37,6 +38,45 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
 
     /// Create and return a new service value asynchronously.
     fn make_service(&mut self, target: Target) -> Self::Future;
+
+    /// Consume this `MakeService` and convert it into a `Service`.
+    ///
+    /// # Example
+    /// ```
+    /// use std::convert::Infallible;
+    /// use tower::Service;
+    /// use tower::make::MakeService;
+    /// use tower::service_fn;
+    ///
+    /// # fn main() {
+    /// # async {
+    /// // A `MakeService`
+    /// let make_service = service_fn(|make_req: ()| async {
+    ///     Ok::<_, Infallible>(service_fn(|req: String| async {
+    ///         Ok::<_, Infallible>(req)
+    ///     }))
+    /// });
+    ///
+    /// // Convert the `MakeService` into a `Service`
+    /// let mut svc = make_service.into_service();
+    ///
+    /// // Make a new service
+    /// let mut new_svc = svc.call(()).await.unwrap();
+    ///
+    /// // Call the service
+    /// let res = new_svc.call("foo".to_string()).await.unwrap();
+    /// # };
+    /// # }
+    /// ```
+    fn into_service(self) -> IntoService<Self, Request>
+    where
+        Self: Sized,
+    {
+        IntoService {
+            make: self,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<M, S, Target, Request> Sealed<(Target, Request)> for M
@@ -63,5 +103,29 @@ where
 
     fn make_service(&mut self, target: Target) -> Self::Future {
         Service::call(self, target)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IntoService<M, Request> {
+    make: M,
+    _marker: PhantomData<Request>,
+}
+
+impl<M, S, Target, Request> Service<Target> for IntoService<M, Request>
+where
+    M: Service<Target, Response = S>,
+    S: Service<Request>,
+{
+    type Response = M::Response;
+    type Error = M::Error;
+    type Future = M::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.make.poll_ready(cx)
+    }
+
+    fn call(&mut self, target: Target) -> Self::Future {
+        self.make.make_service(target)
     }
 }

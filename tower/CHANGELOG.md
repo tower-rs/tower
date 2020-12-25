@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 
+- Added `MakeService::into_service` for converting owned `MakeService`s into `Service`s.
+
 ### Changed
 
  - All middleware `tower-*` crates were merged into `tower` and placed
