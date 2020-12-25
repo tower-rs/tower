@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 
-- Added `MakeService::into_service` for converting owned `MakeService`s into `Service`s.
+- Added `MakeService::into_service` and `MakeService::as_service` for
+  converting `MakeService`s into `Service`s.
 
 ### Changed
 

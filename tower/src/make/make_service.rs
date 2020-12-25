@@ -77,6 +77,48 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
             _marker: PhantomData,
         }
     }
+
+    /// Convert this `MakeService` into a `Service` without consuming the original `MakeService`.
+    ///
+    /// # Example
+    /// ```
+    /// use std::convert::Infallible;
+    /// use tower::Service;
+    /// use tower::make::MakeService;
+    /// use tower::service_fn;
+    ///
+    /// # fn main() {
+    /// # async {
+    /// // A `MakeService`
+    /// let mut make_service = service_fn(|make_req: ()| async {
+    ///     Ok::<_, Infallible>(service_fn(|req: String| async {
+    ///         Ok::<_, Infallible>(req)
+    ///     }))
+    /// });
+    ///
+    /// // Convert the `MakeService` into a `Service`
+    /// let mut svc = make_service.as_service();
+    ///
+    /// // Make a new service
+    /// let mut new_svc = svc.call(()).await.unwrap();
+    ///
+    /// // Call the service
+    /// let res = new_svc.call("foo".to_string()).await.unwrap();
+    ///
+    /// // The original `MakeService` is still accessible
+    /// let new_svc = make_service.make_service(()).await.unwrap();
+    /// # };
+    /// # }
+    /// ```
+    fn as_service(&mut self) -> AsService<Self, Request>
+    where
+        Self: Sized,
+    {
+        AsService {
+            make: self,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<M, S, Target, Request> Sealed<(Target, Request)> for M
@@ -113,6 +155,30 @@ pub struct IntoService<M, Request> {
 }
 
 impl<M, S, Target, Request> Service<Target> for IntoService<M, Request>
+where
+    M: Service<Target, Response = S>,
+    S: Service<Request>,
+{
+    type Response = M::Response;
+    type Error = M::Error;
+    type Future = M::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.make.poll_ready(cx)
+    }
+
+    fn call(&mut self, target: Target) -> Self::Future {
+        self.make.make_service(target)
+    }
+}
+
+#[derive(Debug)]
+pub struct AsService<'a, M, Request> {
+    make: &'a mut M,
+    _marker: PhantomData<Request>,
+}
+
+impl<M, S, Target, Request> Service<Target> for AsService<'_, M, Request>
 where
     M: Service<Target, Response = S>,
     S: Service<Request>,
