@@ -8,6 +8,7 @@ mod map_err;
 mod map_ok;
 mod oneshot;
 mod optional;
+mod pending;
 mod ready;
 mod service_fn;
 mod try_with;
@@ -21,6 +22,7 @@ pub use self::{
     map_ok::{MapOk, MapOkLayer},
     oneshot::Oneshot,
     optional::Optional,
+    pending::{pending, Pending},
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     try_with::{TryWith, TryWithLayer},
