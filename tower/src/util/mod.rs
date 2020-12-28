@@ -12,6 +12,7 @@ mod oneshot;
 mod optional;
 mod ready;
 mod service_fn;
+mod then;
 mod try_map_request;
 
 pub use self::{
@@ -25,6 +26,7 @@ pub use self::{
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
+    then::{Then, ThenFuture, ThenLayer},
     try_map_request::{TryMapRequest, TryMapRequestLayer},
 };
 
@@ -331,6 +333,215 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         F: FnMut(NewRequest) -> Result<Request, Self::Error>,
     {
         TryMapRequest::new(self, f)
+    }
+
+    /// Composes a function after the service, regardless of whether the future
+    /// succeeds or fails.
+    ///
+    /// This is similar to the [`map_response`] and [`map_err] combinators,
+    /// except that the *same* function is invoked when the service's future
+    /// completes, whether it completes successfully or fails. This function
+    /// takes the `Result` returned by the service's future, and returns a
+    /// `Result`.
+    ///
+    /// Like the standard library's [`Result::and_then`], this method can be
+    /// used to implement control flow based on `Result` values. For example, it
+    /// may be used to  implement error recovery, by turning some `Err`
+    /// responses from the service into `Ok` responses. Similarly, some
+    /// successful responses from the service could be rejected, by returning an
+    /// `Err` conditionally, depending on the value inside the `Ok`. Finally,
+    /// this method can also be used to implement behaviors that must run when a
+    /// service's future completes, regardless of whether it succeeded or failed.
+    ///
+    /// This method can be used to change the [`Response`] type of the service
+    /// into a different type. It can also be used to change the [`Error`] type
+    /// of the service. However, because the `then` function is not applied
+    /// to the errors returned by the service's [`poll_ready`] method, it must
+    /// be possible to convert the service's [`Error`] type into the error type
+    /// returned by the `then` function. This is trivial when the function
+    /// returns the same error type as the service, but in other cases, it can
+    /// be useful to use [`BoxError`] to erase differing error types.
+    ///
+    /// # Examples
+    ///
+    /// Recovering from certain errors:
+    ///
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # struct Record {
+    /// #   pub name: String,
+    /// #   pub age: u16
+    /// # }
+    /// # enum DbError {
+    /// #   Parse(std::num::ParseIntError)
+    /// #   NoRecordsFound,
+    /// # }
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = DbError;
+    /// #   type Future = futures_util::future::Ready<Result<Vec<Record>, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(vec![Record { name: "Jack".into(), age: 32 }]))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// #    async {
+    /// // A service returning Result<Vec<Record>, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    /// // If the database returns no records for the query, we just want an empty `Vec`.
+    /// let mut new_service = service.then(|result| match result {
+    ///     // If the error indicates that no records matched the query, return an empty
+    ///     // `Vec` instead.
+    ///     Err(DbError::NoRecordsFound) => Ok(Vec::new()),
+    ///     // Propagate all other responses (`Ok` and `Err`) unchanged
+    ///     x => x,
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let name = new_service.call(id).await.unwrap();
+    /// #    };
+    /// # }
+    /// ```
+    ///
+    /// Rejecting some `Ok` responses:
+    ///
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # struct Record {
+    /// #   pub name: String,
+    /// #   pub age: u16
+    /// # }
+    /// # type DbError = String;
+    /// # type AppError = String;
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = DbError;
+    /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// #    async {
+    /// use tower::BoxError;
+    ///
+    /// // A service returning Result<Record, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    /// // If the user is zero years old, return an error.
+    /// let mut new_service = service.then(|result| {
+    ///    let record = result?;
+    ///
+    ///    if record.age == 0 {
+    ///         // Users must have been born to use our app!
+    ///         let app_error = AppError::from("users cannot be 0 years old!");
+    ///
+    ///         // Box the error to erase its type (as it can be an `AppError`
+    ///         // *or* the inner service's `DbError`).
+    ///         return Err(BoxError::from(app_error));
+    ///     }
+    ///
+    ///     // Otherwise, return the record.
+    ///     Ok(records)
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let name = new_service.call(id).await.unwrap();
+    /// #    };
+    /// # }
+    /// ```
+    ///
+    /// Performing an action that must be run for both successes and failures:
+    ///
+    /// ```
+    /// # use std::convert::TryFrom;
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # impl Service<String> for DatabaseService {
+    /// #   type Response = u8;
+    /// #   type Error = u8;
+    /// #   type Future = futures_util::future::Ready<Result<String, u8>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: String) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(String::new()))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// #   async {
+    /// // A service returning Result<Record, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    /// // Print a message whenever a query completes.
+    /// let mut new_service = service.then(|result| {
+    ///     println!("query completed; success={}", result.is_ok());
+    ///     result
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let response = new_service.call(id).await;
+    /// #    };
+    /// # }
+    /// ```
+    ///
+    /// [`Error`]: crate::Service::Error
+    /// [`poll_ready`]: crate::Service::poll_ready
+    /// [`BoxError`]: crate::BoxError
+    fn then<F, Response, Error>(self, f: F) -> Then<Self, F>
+    where
+        Self: Sized,
+        Error: From<Self::Error>,
+        F: FnOnce(Result<Self::Response, Self::Error>) -> Result<Response, Error> + Clone,
+    {
+        Then::new(self, f)
     }
 }
 
