@@ -1,5 +1,4 @@
 use super::MakeBalance;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::{fmt, marker::PhantomData};
 use tower_layer::Layer;
 
@@ -16,7 +15,6 @@ use tower_layer::Layer;
 /// See the [module-level documentation](..) for details on load balancing.
 #[derive(Clone)]
 pub struct MakeBalanceLayer<D, Req> {
-    rng: SmallRng,
     _marker: PhantomData<fn(D, Req)>,
 }
 
@@ -24,20 +22,8 @@ impl<D, Req> MakeBalanceLayer<D, Req> {
     /// Build balancers using operating system entropy.
     pub fn new() -> Self {
         Self {
-            rng: SmallRng::from_entropy(),
             _marker: PhantomData,
         }
-    }
-
-    /// Build balancers using a seed from the provided random number generator.
-    ///
-    /// This may be preferrable when many balancers are initialized.
-    pub fn from_rng<R: Rng>(rng: &mut R) -> Result<Self, rand::Error> {
-        let rng = SmallRng::from_rng(rng)?;
-        Ok(Self {
-            rng,
-            _marker: PhantomData,
-        })
     }
 }
 
@@ -45,14 +31,12 @@ impl<S, Req> Layer<S> for MakeBalanceLayer<S, Req> {
     type Service = MakeBalance<S, Req>;
 
     fn layer(&self, make_discover: S) -> Self::Service {
-        MakeBalance::from_rng(make_discover, self.rng.clone()).expect("SmallRng is infallible")
+        MakeBalance::new(make_discover)
     }
 }
 
 impl<D, Req> fmt::Debug for MakeBalanceLayer<D, Req> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("MakeBalanceLayer")
-            .field("rng", &self.rng)
-            .finish()
+        f.debug_struct("MakeBalanceLayer").finish()
     }
 }
