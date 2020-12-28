@@ -3,26 +3,34 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
-/// Service returned by the [`try_with`] combinator.
+/// Service returned by the [`try_map_request`] combinator.
 ///
-/// [`try_with`]: crate::util::ServiceExt::try_with
+/// [`try_map_request`]: crate::util::ServiceExt::try_map_request
 #[derive(Clone, Debug)]
-pub struct TryWith<S, F> {
+pub struct TryMapRequest<S, F> {
     inner: S,
     f: F,
 }
 
-impl<S, F> TryWith<S, F> {
-    /// Creates a new [`TryWith`] service.
+/// A [`Layer`] that produces a [`TryMapRequest`] service.
+///
+/// [`Layer`]: tower_layer::Layer
+#[derive(Debug)]
+pub struct TryMapRequestLayer<F> {
+    f: F,
+}
+
+impl<S, F> TryMapRequest<S, F> {
+    /// Creates a new [`TryMapRequest`] service.
     pub fn new(inner: S, f: F) -> Self {
-        TryWith { inner, f }
+        TryMapRequest { inner, f }
     }
 }
 
-impl<S, F, R1, R2> Service<R1> for TryWith<S, F>
+impl<S, F, R1, R2> Service<R1> for TryMapRequest<S, F>
 where
     S: Service<R2>,
-    F: FnOnce(R1) -> Result<R2, S::Error> + Clone,
+    F: FnMut(R1) -> Result<R2, S::Error>,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -33,36 +41,28 @@ where
     }
 
     fn call(&mut self, request: R1) -> Self::Future {
-        match (self.f.clone())(request) {
+        match (self.f)(request) {
             Ok(ok) => Either::Left(self.inner.call(ok)),
             Err(err) => Either::Right(ready(Err(err))),
         }
     }
 }
 
-/// A [`Layer`] that produces a [`TryWith`] service.
-///
-/// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
-pub struct TryWithLayer<F> {
-    f: F,
-}
-
-impl<F> TryWithLayer<F> {
-    /// Creates a new [`TryWithLayer`].
+impl<F> TryMapRequestLayer<F> {
+    /// Creates a new [`TryMapRequestLayer`].
     pub fn new(f: F) -> Self {
-        TryWithLayer { f }
+        TryMapRequestLayer { f }
     }
 }
 
-impl<S, F> Layer<S> for TryWithLayer<F>
+impl<S, F> Layer<S> for TryMapRequestLayer<F>
 where
     F: Clone,
 {
-    type Service = TryWith<S, F>;
+    type Service = TryMapRequest<S, F>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        TryWith {
+        TryMapRequest {
             f: self.f.clone(),
             inner,
         }

@@ -2,63 +2,65 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
-/// Service returned by the [`with`] combinator.
+/// Service returned by the [`MapRequest`] combinator.
 ///
-/// [`with`]: crate::util::ServiceExt::with
+/// [`MapRequest`]: crate::util::ServiceExt::MapRequest
 #[derive(Clone, Debug)]
-pub struct With<S, F> {
+pub struct MapRequest<S, F> {
     inner: S,
     f: F,
 }
 
-impl<S, F> With<S, F> {
-    /// Creates a new [`With`] service.
+impl<S, F> MapRequest<S, F> {
+    /// Creates a new [`MapRequest`] service.
     pub fn new(inner: S, f: F) -> Self {
-        With { inner, f }
+        MapRequest { inner, f }
     }
 }
 
-impl<S, F, R1, R2> Service<R1> for With<S, F>
+impl<S, F, R1, R2> Service<R1> for MapRequest<S, F>
 where
     S: Service<R2>,
-    F: FnOnce(R1) -> R2 + Clone,
+    F: FnMut(R1) -> R2,
 {
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
 
+    #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
         self.inner.poll_ready(cx)
     }
 
+    #[inline]
     fn call(&mut self, request: R1) -> S::Future {
-        self.inner.call((self.f.clone())(request))
+        self.inner.call((self.f)(request))
     }
 }
 
-/// A [`Layer`] that produces a [`With`] service.
+/// A [`Layer`] that produces a [`MapRequest`] service.
 ///
 /// [`Layer`]: tower_layer::Layer
 #[derive(Debug)]
-pub struct WithLayer<F> {
+pub struct MapRequestLayer<F> {
     f: F,
 }
 
-impl<F> WithLayer<F> {
-    /// Creates a new [`WithLayer`].
+impl<F> MapRequestLayer<F> {
+    /// Creates a new [`MapRequestLayer`].
     pub fn new(f: F) -> Self {
-        WithLayer { f }
+        MapRequestLayer { f }
     }
 }
 
-impl<S, F> Layer<S> for WithLayer<F>
+impl<S, F> Layer<S> for MapRequestLayer<F>
 where
     F: Clone,
 {
-    type Service = With<S, F>;
+    type Service = MapRequest<S, F>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        With {
+        MapRequest {
             f: self.f.clone(),
             inner,
         }

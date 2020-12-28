@@ -3,28 +3,26 @@
 mod boxed;
 mod call_all;
 mod either;
-mod map;
 mod map_err;
-mod map_ok;
+mod map_request;
+mod map_response;
 mod oneshot;
 mod optional;
 mod ready;
 mod service_fn;
-mod try_with;
-mod with;
+mod try_map_request;
 
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
     either::Either,
-    map::{MapRequest, MapRequestLayer, MapResponse, MapResponseLayer},
-    map_err::{MapErr, MapErrLayer},
-    map_ok::{MapOk, MapOkLayer},
+    map_err::{MapErr, MapErrFuture, MapErrLayer},
+    map_request::{MapRequest, MapRequestLayer},
+    map_response::{MapResponse, MapResponseFuture, MapResponseLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
-    try_with::{TryWith, TryWithLayer},
-    with::{With, WithLayer},
+    try_map_request::{TryMapRequest, TryMapRequestLayer},
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
@@ -110,7 +108,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #
@@ -139,7 +137,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
     /// // Map the response into a new response
-    /// let mut new_service = service.map_ok(|record| record.name);
+    /// let mut new_service = service.map_response(|record| record.name);
     ///
     /// // Call the new service
     /// let id = 13;
@@ -147,12 +145,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #    };
     /// # }
     /// ```
-    fn map_ok<F, Response>(self, f: F) -> MapOk<Self, F>
+    fn map_response<F, Response>(self, f: F) -> MapResponse<Self, F>
     where
         Self: Sized,
         F: FnOnce(Self::Response) -> Response + Clone,
     {
-        MapOk::new(self, f)
+        MapResponse::new(self, f)
     }
 
     /// Maps this services's error value to a different value. This does not
@@ -172,7 +170,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #
@@ -231,7 +229,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #
@@ -255,7 +253,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
     /// // Map the request to a new request
-    /// let mut new_service = service.with(|id: u32| id.to_string());
+    /// let mut new_service = service.map_request(|id: u32| id.to_string());
     ///
     /// // Call the new service
     /// let id = 13;
@@ -263,12 +261,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #    };
     /// # }
     /// ```
-    fn with<F, NewRequest>(self, f: F) -> With<Self, F>
+    fn map_request<F, NewRequest>(self, f: F) -> MapRequest<Self, F>
     where
         Self: Sized,
-        F: FnOnce(NewRequest) -> Request + Clone,
+        F: FnMut(NewRequest) -> Request + Clone,
     {
-        With::new(self, f)
+        MapRequest::new(self, f)
     }
 
     /// Composes a fallible function *in front of* the service.
@@ -285,7 +283,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #
@@ -313,7 +311,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let service = DatabaseService::new("127.0.0.1:8080");
     ///
     /// // Fallibly map the request to a new request
-    /// let mut new_service = service.try_with(|id_str: &str| id_str.parse().map_err(DbError::Parse));
+    /// let mut new_service = service
+    ///     .try_map_request(|id_str: &str| id_str.parse().map_err(DbError::Parse));
     ///
     /// // Call the new service
     /// let id = "13";
@@ -321,12 +320,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #    };
     /// # }
     /// ```
-    fn try_with<F, NewRequest>(self, f: F) -> TryWith<Self, F>
+    fn try_map_request<F, NewRequest>(self, f: F) -> TryMapRequest<Self, F>
     where
         Self: Sized,
-        F: FnOnce(NewRequest) -> Result<Request, Self::Error> + Clone,
+        F: FnMut(NewRequest) -> Result<Request, Self::Error>,
     {
-        TryWith::new(self, f)
+        TryMapRequest::new(self, f)
     }
 }
 

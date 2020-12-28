@@ -197,9 +197,21 @@ impl<L> ServiceBuilder<L> {
         f: F,
     ) -> ServiceBuilder<Stack<crate::util::MapRequestLayer<F>, L>>
     where
-        F: Fn(R1) -> R2,
+        F: FnMut(R1) -> R2 + Clone,
     {
         self.layer(crate::util::MapRequestLayer::new(f))
+    }
+
+    /// Fallibly one request type to another, or to an error.
+    #[cfg(feature = "util")]
+    pub fn try_map_request<F, R1, R2, E>(
+        self,
+        f: F,
+    ) -> ServiceBuilder<Stack<crate::util::TryMapRequestLayer<F>, L>>
+    where
+        F: FnMut(R1) -> Result<R2, E> + Clone,
+    {
+        self.layer(crate::util::TryMapRequestLayer::new(f))
     }
 
     /// Map one response type to another.
@@ -209,6 +221,12 @@ impl<L> ServiceBuilder<L> {
         f: F,
     ) -> ServiceBuilder<Stack<crate::util::MapResponseLayer<F>, L>> {
         self.layer(crate::util::MapResponseLayer::new(f))
+    }
+
+    /// Map one error type to another.
+    #[cfg(feature = "util")]
+    pub fn map_err<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapErrLayer<F>, L>> {
+        self.layer(crate::util::MapErrLayer::new(f))
     }
 
     /// Obtains the underlying `Layer` implementation.
