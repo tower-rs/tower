@@ -79,11 +79,7 @@ where
             self.inner = match &mut self.inner {
                 Inner::Future(fut) => {
                     let fut = Pin::new(fut);
-                    let svc = match fut.poll(cx) {
-                        Poll::Ready(Ok(svc)) => svc,
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                        Poll::Pending => return Poll::Pending,
-                    };
+                    let svc = futures_core::ready!(fut.poll(cx)?);
                     Inner::Service(svc)
                 }
                 Inner::Service(svc) => return svc.poll_ready(cx),
