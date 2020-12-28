@@ -3,6 +3,7 @@ use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
+#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
 pub use futures_util::future::MapErr as MapErrFuture;
 
 /// Service returned by the [`map_err`] combinator.
