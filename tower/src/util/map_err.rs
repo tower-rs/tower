@@ -40,7 +40,7 @@ where
 
     #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(self.f)
+        self.inner.poll_ready(cx).map_err(self.f.clone())
     }
 
     #[inline]
