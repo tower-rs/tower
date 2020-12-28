@@ -113,7 +113,8 @@ fn gen_disco() -> impl Discover<
                 let svc = tower::service_fn(move |_| {
                     let start = Instant::now();
 
-                    let maxms = latency.as_millis();
+                    let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                        .saturating_add(latency.as_secs().saturating_mul(1_000));
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
 
                     async move {
