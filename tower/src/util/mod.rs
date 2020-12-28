@@ -381,13 +381,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   pub name: String,
     /// #   pub age: u16
     /// # }
+    /// # #[derive(Debug)]
     /// # enum DbError {
-    /// #   Parse(std::num::ParseIntError)
+    /// #   Parse(std::num::ParseIntError),
     /// #   NoRecordsFound,
     /// # }
     /// #
     /// # impl Service<u32> for DatabaseService {
-    /// #   type Response = Record;
+    /// #   type Response = Vec<Record>;
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<Vec<Record>, DbError>>;
     /// #
@@ -476,7 +477,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     }
     ///
     ///     // Otherwise, return the record.
-    ///     Ok(records)
+    ///     Ok(record)
     /// });
     ///
     /// // Call the new service
@@ -500,8 +501,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// # impl Service<String> for DatabaseService {
-    /// #   type Response = u8;
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = String;
     /// #   type Error = u8;
     /// #   type Future = futures_util::future::Ready<Result<String, u8>>;
     /// #
@@ -509,7 +510,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: String) -> Self::Future {
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
