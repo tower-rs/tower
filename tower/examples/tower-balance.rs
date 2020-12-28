@@ -113,9 +113,18 @@ fn gen_disco() -> impl Discover<
                 let svc = tower::service_fn(move |_| {
                     let start = Instant::now();
 
+<<<<<<< HEAD
                     let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
+||||||| parent of c1418ac... fixup gen_range
+                    let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                        .saturating_add(latency.as_secs().saturating_mul(1_000));
+                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0, maxms));
+=======
+                    let maxms = latency.as_millis();
+                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
+>>>>>>> c1418ac... fixup gen_range
 
                     async move {
                         time::sleep_until(start + latency).await;
