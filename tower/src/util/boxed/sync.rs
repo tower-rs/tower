@@ -1,3 +1,4 @@
+use tower_layer::{layer_fn, Layer};
 use tower_service::Service;
 
 use std::fmt;
@@ -38,6 +39,15 @@ impl<T, U, E> BoxService<T, U, E> {
     {
         let inner = Box::new(Boxed { inner });
         BoxService { inner }
+    }
+
+    #[allow(missing_docs)]
+    pub fn layer<S>() -> impl Layer<S, Service = Self> + Clone
+    where
+        S: Service<T, Response = U, Error = E> + Send + 'static,
+        S::Future: Send + 'static,
+    {
+        layer_fn(Self::new)
     }
 }
 

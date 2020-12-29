@@ -33,6 +33,15 @@ impl<T, U, E> UnsyncBoxService<T, U, E> {
         let inner = Box::new(UnsyncBoxed { inner });
         UnsyncBoxService { inner }
     }
+
+    #[allow(missing_docs)]
+    pub fn layer<S>() -> impl Layer<S, Service = Self> + Clone
+    where
+        S: Service<T, Response = U, Error = E> + 'static,
+        S::Future: 'static,
+    {
+        layer_fn(Self::new)
+    }
 }
 
 impl<T, U, E> Service<T> for UnsyncBoxService<T, U, E> {
