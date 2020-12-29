@@ -87,14 +87,7 @@ where
 {
     /// Constructs a load balancer that uses operating system entropy.
     pub fn new(discover: D) -> Self {
-        Self {
-            rng: SmallRng::from_entropy(),
-            discover,
-            services: ReadyCache::default(),
-            ready_index: None,
-
-            _req: PhantomData,
-        }
+        Self::from_rng(discover, &mut rand::thread_rng()).expect("ThreadRNG must be valid")
     }
 
     /// Constructs a load balancer seeded with the provided random number generator.
