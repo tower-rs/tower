@@ -226,8 +226,9 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapErr::new(self, f)
     }
 
-    /// Composes a function after the service, regardless of whether the future
-    /// succeeds or fails.
+    /// Maps this service's result type (`Result<Self::Response, Self::Error>`)
+    /// to a different value, regardless of whether the future succeeds or
+    /// fails.
     ///
     /// This is similar to the [`map_response`] and [`map_err] combinators,
     /// except that the *same* function is invoked when the service's future
