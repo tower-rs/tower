@@ -35,7 +35,7 @@ impl<T, U, E> UnsyncBoxService<T, U, E> {
         UnsyncBoxService { inner }
     }
 
-    #[allow(missing_docs)]
+    /// Returns a [`Layer`] for wrapping a [`Service`] in an `UnsyncBoxService` middleware.
     pub fn layer<S>() -> impl Layer<S, Service = Self> + Clone
     where
         S: Service<T, Response = U, Error = E> + 'static,
