@@ -2,11 +2,63 @@ use super::Layer;
 use std::fmt;
 
 /// Returns a new `LayerFn` with the given closure.
+///
+/// # Example
+/// ```rust
+/// # use tower::Service;
+/// # use std::task::{Poll, Context};
+/// # use tower_layer::{Layer, layer_fn};
+/// # use std::fmt;
+/// # use std::convert::Infallible;
+/// #
+/// // A middleware that logs requests before forwarding them to another service
+/// pub struct LogService<S> {
+///     target: &'static str,
+///     service: S,
+/// }
+///
+/// impl<S, Request> Service<Request> for LogService<S>
+/// where
+///     S: Service<Request>,
+///     Request: fmt::Debug,
+/// {
+///     type Response = S::Response;
+///     type Error = S::Error;
+///     type Future = S::Future;
+///
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///         self.service.poll_ready(cx)
+///     }
+///
+///     fn call(&mut self, request: Request) -> Self::Future {
+///         // Log the request
+///         println!("request = {:?}, target = {:?}", request, self.target);
+///
+///         self.service.call(request)
+///     }
+/// }
+///
+/// // A `Layer` that wraps services in `LogService`
+/// let log_layer = layer_fn(|service| {
+///     LogService {
+///         service,
+///         target: "tower-docs",
+///     }
+/// });
+///
+/// // An example service. This one uppercases strings
+/// let uppercase_service = tower::service_fn(|request: String| async move {
+///     Ok::<_, Infallible>(request.to_uppercase())
+/// });
+///
+/// // Wrap our servic in a `LogService` so requests are logged.
+/// let wrapped_service = log_layer.layer(uppercase_service);
+/// ```
 pub fn layer_fn<T>(f: T) -> LayerFn<T> {
     LayerFn { f }
 }
 
-/// A `Layer` implemented by a closure.
+/// A `Layer` implemented by a closure. See the docs for `layer_fn` for more details.
 #[derive(Clone, Copy)]
 pub struct LayerFn<F> {
     f: F,
