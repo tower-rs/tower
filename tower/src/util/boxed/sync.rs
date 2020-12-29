@@ -41,7 +41,7 @@ impl<T, U, E> BoxService<T, U, E> {
         BoxService { inner }
     }
 
-    #[allow(missing_docs)]
+    /// Returns a [`Layer`] for wrapping a [`Service`] in a `BoxService` middleware.
     pub fn layer<S>() -> impl Layer<S, Service = Self> + Clone
     where
         S: Service<T, Response = U, Error = E> + Send + 'static,
