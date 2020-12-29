@@ -19,12 +19,19 @@ use tower_service::Service;
 ///
 /// # fn main() {
 /// # async {
-/// let mut future_of_a_service = future_service(Box::pin(async {
+/// // A future which outputs a type implementing `Service`.
+/// let future_of_a_service = async {
 ///     let svc = service_fn(|_req: ()| async { Ok::<_, Infallible>("ok") });
 ///     Ok::<_, Infallible>(svc)
-/// }));
+/// };
 ///
-/// let svc = future_of_a_service.ready_and().await.unwrap();
+/// // Wrap the future with a `FutureService`, allowing it to be used
+/// // as a service without awaiting the future's completion:
+/// let mut svc = future_service(Box::pin(future_of_a_service));
+///
+/// // Now, when we wait for the service to become ready, it will
+/// // drive the future to completion internally.
+/// let svc = svc.ready_and().await.unwrap();
 /// let res = svc.call(()).await.unwrap();
 /// # };
 /// # }
