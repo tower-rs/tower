@@ -148,6 +148,11 @@ where
     }
 }
 
+/// Service returned by [`MakeService::into_service`][into]. 
+/// 
+/// See the documentation on [`into_service`][into] for details.
+///
+/// [into]: MakeService::into_service
 #[derive(Debug, Clone)]
 pub struct IntoService<M, Request> {
     make: M,
@@ -172,6 +177,11 @@ where
     }
 }
 
+/// Service returned by [`MakeService::as_service`][as]. 
+/// 
+/// See the documentation on [`as_service`][as] for details.
+///
+/// [as]: MakeService::as_service
 #[derive(Debug)]
 pub struct AsService<'a, M, Request> {
     make: &'a mut M,
