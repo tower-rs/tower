@@ -1,7 +1,14 @@
 use super::Layer;
 use std::fmt;
 
-/// Returns a new `LayerFn` with the given closure.
+/// Returns a new [`LayerFn`] that implements [`Layer`] by calling the
+/// given function.
+///
+/// The [`Layer::layer`] method takes a type implementing [`Service`] and
+/// returns a different type implementing [`Service`]. In many cases, this can
+/// be implemented by a function or a closure. The [`LayerFn`] helper allows
+/// writing simple [`Layer`] implementations without needing the boilerplate of
+/// a new struct implementing [`Layer`].
 ///
 /// # Example
 /// ```rust
@@ -58,7 +65,7 @@ pub fn layer_fn<T>(f: T) -> LayerFn<T> {
     LayerFn { f }
 }
 
-/// A `Layer` implemented by a closure. See the docs for `layer_fn` for more details.
+/// A `Layer` implemented by a closure. See the docs for [`layer_fn`] for more details.
 #[derive(Clone, Copy)]
 pub struct LayerFn<F> {
     f: F,
