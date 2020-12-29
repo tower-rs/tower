@@ -6,43 +6,43 @@ use std::{
 };
 use tower_service::Service;
 
-/// Returns a new `Pending` for the given future.
+/// Returns a new `FutureService` for the given future.
 ///
 /// # Example
 /// ```
 /// use tower::{service_fn, Service, ServiceExt};
-/// use tower::util::pending;
+/// use tower::util::future_service;
 /// use std::convert::Infallible;
 ///
 /// # fn main() {
 /// # async {
-/// let mut pending_svc = pending(Box::pin(async {
+/// let mut future_of_a_service = future_service(Box::pin(async {
 ///     let svc = service_fn(|_req: ()| async { Ok::<_, Infallible>("ok") });
 ///     Ok::<_, Infallible>(svc)
 /// }));
 ///
-/// let svc = pending_svc.ready_and().await.unwrap();
+/// let svc = future_of_a_service.ready_and().await.unwrap();
 /// let res = svc.call(()).await.unwrap();
 /// # };
 /// # }
 /// ```
-pub fn pending<F, S, R, E>(future: F) -> Pending<F, S>
+pub fn future_service<F, S, R, E>(future: F) -> FutureService<F, S>
 where
     F: Future<Output = Result<S, E>> + Unpin,
     S: Service<R, Error = E>,
 {
-    Pending {
+    FutureService {
         inner: State::Future(future),
     }
 }
 
 /// A type that implements `Service` for a `Future` that produces a `Service`.
 #[derive(Clone)]
-pub struct Pending<F, S> {
+pub struct FutureService<F, S> {
     inner: State<F, S>,
 }
 
-impl<F, S> fmt::Debug for Pending<F, S>
+impl<F, S> fmt::Debug for FutureService<F, S>
 where
     S: fmt::Debug,
 {
@@ -65,7 +65,7 @@ enum State<F, S> {
     Service(S),
 }
 
-impl<F, S, R, E> Service<R> for Pending<F, S>
+impl<F, S, R, E> Service<R> for FutureService<F, S>
 where
     F: Future<Output = Result<S, E>> + Unpin,
     S: Service<R, Error = E>,
@@ -99,14 +99,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::{pending, ServiceExt};
+    use crate::util::{future_service, ServiceExt};
     use crate::Service;
     use futures::future::{ready, Ready};
     use std::convert::Infallible;
 
     #[tokio::test]
     async fn pending_service_debug_impl() {
-        let mut pending_svc = pending(ready(Ok(DebugService)));
+        let mut pending_svc = future_service(ready(Ok(DebugService)));
 
         assert_eq!(format!("{:?}", pending_svc), "Pending { service: Pending }");
 
