@@ -26,6 +26,15 @@ use tower_service::Service;
 /// # };
 /// # }
 /// ```
+///
+/// # Regarding the `Unpin` bound
+///
+/// The `Unpin` bound on `F` is necessary because the future will be polled in
+/// `Service::poll_ready` which doesn't have a pinned receiver (it takes `&mut self` and not `self:
+/// Pin<&mut Self>`). So we cannot put the future into a `Pin` without requiring `Unpin`.
+///
+/// This will most likely come up if you're calling `future_service` with an async block. In that
+/// case you can use `Box::pin(async { ... })` as shown in the example.
 pub fn future_service<F, S, R, E>(future: F) -> FutureService<F, S>
 where
     F: Future<Output = Result<S, E>> + Unpin,
