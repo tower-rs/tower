@@ -16,9 +16,14 @@
 //! [`Service`]: ../tower/trait.Service.html
 
 mod identity;
+mod layer_fn;
 mod stack;
 
-pub use self::{identity::Identity, stack::Stack};
+pub use self::{
+    identity::Identity,
+    layer_fn::{layer_fn, LayerFn},
+    stack::Stack,
+};
 
 /// Decorates a [`Service`], transforming either the request or the response.
 ///
