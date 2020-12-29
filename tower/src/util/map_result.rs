@@ -1,48 +1,44 @@
 use futures_util::FutureExt;
-use std::{
-    future::Future,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
 
 #[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
-pub use futures_util::future::Then as ThenFuture;
+pub use futures_util::future::Map as MapResultFuture;
 
-/// Service returned by the [`then`] combinator.
+/// Service returned by the [`map_result`] combinator.
 ///
-/// [`then`]: crate::util::ServiceExt::then
+/// [`map_result`]: crate::util::ServiceExt::map_result
 #[derive(Clone, Debug)]
-pub struct Then<S, F> {
+pub struct MapResult<S, F> {
     inner: S,
     f: F,
 }
 
-/// A [`Layer`] that produces a [`Then`] service.
+/// A [`Layer`] that produces a [`MapResult`] service.
 ///
 /// [`Layer`]: tower_layer::Layer
 #[derive(Debug, Clone)]
-pub struct ThenLayer<F> {
+pub struct MapResultLayer<F> {
     f: F,
 }
 
-impl<S, F> Then<S, F> {
-    /// Creates a new `Then` service.
+impl<S, F> MapResult<S, F> {
+    /// Creates a new `MapResult` service.
     pub fn new(inner: S, f: F) -> Self {
-        Then { f, inner }
+        MapResult { f, inner }
     }
 }
 
-impl<S, F, Request, Response, Error, Fut> Service<Request> for Then<S, F>
+impl<S, F, Request, Response, Error> Service<Request> for MapResult<S, F>
 where
     S: Service<Request>,
     Error: From<S::Error>,
-    F: FnOnce(Result<S::Response, S::Error>) -> Fut + Clone,
-    Fut: Future<Output = Result<Response, Error>>,
+    F: FnOnce(Result<S::Response, S::Error>) -> Result<Response, Error> + Clone,
 {
     type Response = Response;
     type Error = Error;
-    type Future = ThenFuture<S::Future, Fut, F>;
+    type Future = MapResultFuture<S::Future, F>;
 
     #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -51,25 +47,25 @@ where
 
     #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
-        self.inner.call(request).then(self.f.clone())
+        self.inner.call(request).map(self.f.clone())
     }
 }
 
-impl<F> ThenLayer<F> {
-    /// Creates a new [`ThenLayer`] layer.
+impl<F> MapResultLayer<F> {
+    /// Creates a new [`MapResultLayer`] layer.
     pub fn new(f: F) -> Self {
-        ThenLayer { f }
+        MapResultLayer { f }
     }
 }
 
-impl<S, F> Layer<S> for ThenLayer<F>
+impl<S, F> Layer<S> for MapResultLayer<F>
 where
     F: Clone,
 {
-    type Service = Then<S, F>;
+    type Service = MapResult<S, F>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        Then {
+        MapResult {
             f: self.f.clone(),
             inner,
         }
