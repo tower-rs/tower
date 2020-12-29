@@ -191,10 +191,12 @@ where
     type Error = M::Error;
     type Future = M::Future;
 
+    #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.make.poll_ready(cx)
     }
 
+    #[inline]
     fn call(&mut self, target: Target) -> Self::Future {
         self.make.make_service(target)
     }
@@ -230,10 +232,12 @@ where
     type Error = M::Error;
     type Future = M::Future;
 
+    #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.make.poll_ready(cx)
     }
 
+    #[inline]
     fn call(&mut self, target: Target) -> Self::Future {
         self.make.make_service(target)
     }
