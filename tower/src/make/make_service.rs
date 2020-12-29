@@ -1,4 +1,5 @@
 use crate::sealed::Sealed;
+use std::fmt;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
@@ -148,15 +149,37 @@ where
     }
 }
 
-/// Service returned by [`MakeService::into_service`][into]. 
-/// 
+/// Service returned by [`MakeService::into_service`][into].
+///
 /// See the documentation on [`into_service`][into] for details.
 ///
 /// [into]: MakeService::into_service
-#[derive(Debug, Clone)]
 pub struct IntoService<M, Request> {
     make: M,
     _marker: PhantomData<Request>,
+}
+
+impl<M, Request> Clone for IntoService<M, Request>
+where
+    M: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            make: self.make.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<M, Request> fmt::Debug for IntoService<M, Request>
+where
+    M: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IntoService")
+            .field("make", &self.make)
+            .finish()
+    }
 }
 
 impl<M, S, Target, Request> Service<Target> for IntoService<M, Request>
@@ -177,15 +200,25 @@ where
     }
 }
 
-/// Service returned by [`MakeService::as_service`][as]. 
-/// 
+/// Service returned by [`MakeService::as_service`][as].
+///
 /// See the documentation on [`as_service`][as] for details.
 ///
 /// [as]: MakeService::as_service
-#[derive(Debug)]
 pub struct AsService<'a, M, Request> {
     make: &'a mut M,
     _marker: PhantomData<Request>,
+}
+
+impl<M, Request> fmt::Debug for AsService<'_, M, Request>
+where
+    M: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AsService")
+            .field("make", &self.make)
+            .finish()
+    }
 }
 
 impl<M, S, Target, Request> Service<Target> for AsService<'_, M, Request>
