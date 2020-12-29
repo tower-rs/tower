@@ -1,4 +1,4 @@
-use tower_layer::{layer_fn, Layer};
+use tower_layer::{layer_fn, LayerFn};
 use tower_service::Service;
 
 use std::fmt;
