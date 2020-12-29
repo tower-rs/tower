@@ -1,3 +1,5 @@
+//! Contains `MakeService` which is a trait alias for a `Service` of `Service`s.
+
 use crate::sealed::Sealed;
 use std::fmt;
 use std::future::Future;
