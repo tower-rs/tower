@@ -15,9 +15,9 @@ mod try_map_request;
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
     either::Either,
-    map_err::{MapErr, MapErrFuture, MapErrLayer},
+    map_err::{MapErr, MapErrLayer},
     map_request::{MapRequest, MapRequestLayer},
-    map_response::{MapResponse, MapResponseFuture, MapResponseLayer},
+    map_response::{MapResponse, MapResponseLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
@@ -36,6 +36,8 @@ pub mod error {
 pub mod future {
     //! Future types
 
+    pub use super::map_err::MapErrFuture;
+    pub use super::map_response::MapResponseFuture;
     pub use super::optional::future as optional;
 }
 
