@@ -8,6 +8,9 @@ use tower_service::Service;
 
 /// Returns a new `FutureService` for the given future.
 ///
+/// A `FutureService` allows you to treat a future that resolves to a service as a service. This
+/// can be useful for services that are created asynchronously.
+///
 /// # Example
 /// ```
 /// use tower::{service_fn, Service, ServiceExt};
@@ -46,6 +49,8 @@ where
 }
 
 /// A type that implements `Service` for a `Future` that produces a `Service`.
+///
+/// See `future_service` for more details.
 #[derive(Clone)]
 pub struct FutureService<F, S> {
     inner: State<F, S>,
