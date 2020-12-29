@@ -36,7 +36,7 @@ impl<T, U, E> UnsyncBoxService<T, U, E> {
     }
 
     /// Returns a [`Layer`] for wrapping a [`Service`] in an `UnsyncBoxService` middleware.
-    pub fn layer<S>() -> impl Layer<S, Service = Self> + Clone
+    pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
         S: Service<T, Response = U, Error = E> + 'static,
         S::Future: 'static,
