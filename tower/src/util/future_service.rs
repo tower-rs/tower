@@ -44,7 +44,7 @@ where
     S: Service<R, Error = E>,
 {
     FutureService {
-        inner: State::Future(future),
+        state: State::Future(future),
     }
 }
 
@@ -53,7 +53,7 @@ where
 /// See `future_service` for more details.
 #[derive(Clone)]
 pub struct FutureService<F, S> {
-    inner: State<F, S>,
+    state: State<F, S>,
 }
 
 impl<F, S> fmt::Debug for FutureService<F, S>
@@ -61,15 +61,9 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[derive(Debug)]
-        struct Pending;
-
-        let mut f = f.debug_struct("Pending");
-        let f = match &self.inner {
-            State::Future(_) => f.field("service", &Pending),
-            State::Service(svc) => f.field("service", svc),
-        };
-        f.finish()
+        f.debug_struct("FutureService")
+            .field("state", &format_args!("{:?}", self.state))
+            .finish()
     }
 }
 
@@ -77,6 +71,21 @@ where
 enum State<F, S> {
     Future(F),
     Service(S),
+}
+
+impl<F, S> fmt::Debug for State<F, S>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            State::Future(_) => f
+                .debug_tuple("State::Future")
+                .field(&format_args!("<{}>", std::any::type_name::<F>()))
+                .finish(),
+            State::Service(svc) => f.debug_tuple("State::Service").field(svc).finish(),
+        }
+    }
 }
 
 impl<F, S, R, E> Service<R> for FutureService<F, S>
@@ -90,7 +99,7 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
-            self.inner = match &mut self.inner {
+            self.state = match &mut self.state {
                 State::Future(fut) => {
                     let fut = Pin::new(fut);
                     let svc = futures_core::ready!(fut.poll(cx)?);
@@ -102,10 +111,10 @@ where
     }
 
     fn call(&mut self, req: R) -> Self::Future {
-        if let State::Service(svc) = &mut self.inner {
+        if let State::Service(svc) = &mut self.state {
             svc.call(req)
         } else {
-            panic!("Pending::call was called before Pending::poll_ready")
+            panic!("FutureService::call was called before FutureService::poll_ready")
         }
     }
 }
@@ -122,13 +131,16 @@ mod tests {
     async fn pending_service_debug_impl() {
         let mut pending_svc = future_service(ready(Ok(DebugService)));
 
-        assert_eq!(format!("{:?}", pending_svc), "Pending { service: Pending }");
+        assert_eq!(
+            format!("{:?}", pending_svc),
+            "FutureService { state: State::Future(<futures_util::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, core::convert::Infallible>>>) }"
+        );
 
         pending_svc.ready_and().await.unwrap();
 
         assert_eq!(
             format!("{:?}", pending_svc),
-            "Pending { service: DebugService }"
+            "FutureService { state: State::Service(DebugService) }"
         );
     }
 
