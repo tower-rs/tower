@@ -5,4 +5,4 @@ mod make_connection;
 mod make_service;
 
 pub use self::make_connection::MakeConnection;
-pub use self::make_service::{MakeService, AsService, IntoService};
+pub use self::make_service::{AsService, IntoService, MakeService};
