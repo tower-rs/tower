@@ -32,14 +32,14 @@ where
     S: Service<R, Error = E>,
 {
     Pending {
-        inner: Inner::Future(future),
+        inner: State::Future(future),
     }
 }
 
 /// A type that implements `Service` for a `Future` that produces a `Service`.
 #[derive(Clone)]
 pub struct Pending<F, S> {
-    inner: Inner<F, S>,
+    inner: State<F, S>,
 }
 
 impl<F, S> fmt::Debug for Pending<F, S>
@@ -52,15 +52,15 @@ where
 
         let mut f = f.debug_struct("Pending");
         let f = match &self.inner {
-            Inner::Future(_) => f.field("service", &Pending),
-            Inner::Service(svc) => f.field("service", svc),
+            State::Future(_) => f.field("service", &Pending),
+            State::Service(svc) => f.field("service", svc),
         };
         f.finish()
     }
 }
 
 #[derive(Clone)]
-enum Inner<F, S> {
+enum State<F, S> {
     Future(F),
     Service(S),
 }
@@ -77,18 +77,18 @@ where
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
             self.inner = match &mut self.inner {
-                Inner::Future(fut) => {
+                State::Future(fut) => {
                     let fut = Pin::new(fut);
                     let svc = futures_core::ready!(fut.poll(cx)?);
-                    Inner::Service(svc)
+                    State::Service(svc)
                 }
-                Inner::Service(svc) => return svc.poll_ready(cx),
+                State::Service(svc) => return svc.poll_ready(cx),
             };
         }
     }
 
     fn call(&mut self, req: R) -> Self::Future {
-        if let Inner::Service(svc) = &mut self.inner {
+        if let State::Service(svc) = &mut self.inner {
             svc.call(req)
         } else {
             panic!("Pending::call was called before Pending::poll_ready")
