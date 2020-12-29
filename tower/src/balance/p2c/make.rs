@@ -2,7 +2,6 @@ use super::Balance;
 use crate::discover::Discover;
 use futures_core::ready;
 use pin_project::pin_project;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
@@ -23,7 +22,6 @@ use tower_service::Service;
 #[derive(Clone, Debug)]
 pub struct MakeBalance<S, Req> {
     inner: S,
-    rng: SmallRng,
     _marker: PhantomData<fn(Req)>,
 }
 
@@ -33,7 +31,6 @@ pub struct MakeBalance<S, Req> {
 pub struct MakeFuture<F, Req> {
     #[pin]
     inner: F,
-    rng: SmallRng,
     _marker: PhantomData<fn(Req)>,
 }
 
@@ -42,21 +39,8 @@ impl<S, Req> MakeBalance<S, Req> {
     pub fn new(make_discover: S) -> Self {
         Self {
             inner: make_discover,
-            rng: SmallRng::from_entropy(),
             _marker: PhantomData,
         }
-    }
-
-    /// Build balancers using a seed from the provided random number generator.
-    ///
-    /// This may be preferrable when many balancers are initialized.
-    pub fn from_rng<R: Rng>(inner: S, rng: R) -> Result<Self, rand::Error> {
-        let rng = SmallRng::from_rng(rng)?;
-        Ok(Self {
-            inner,
-            rng,
-            _marker: PhantomData,
-        })
     }
 }
 
@@ -79,7 +63,6 @@ where
     fn call(&mut self, target: Target) -> Self::Future {
         MakeFuture {
             inner: self.inner.call(target),
-            rng: self.rng.clone(),
             _marker: PhantomData,
         }
     }
@@ -98,7 +81,7 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let inner = ready!(this.inner.poll(cx))?;
-        let svc = Balance::from_rng(inner, this.rng.clone()).expect("SmallRng is infallible");
+        let svc = Balance::new(inner);
         Poll::Ready(Ok(svc))
     }
 }

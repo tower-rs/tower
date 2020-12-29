@@ -25,3 +25,4 @@ edition = "2018"
 
 [dev-dependencies]
 tower-service = { version = "0.3.0" }
+tower = { version = "0.3" }

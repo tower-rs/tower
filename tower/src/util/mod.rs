@@ -3,6 +3,8 @@
 mod boxed;
 mod call_all;
 mod either;
+
+mod future_service;
 mod map_err;
 mod map_request;
 mod map_response;
@@ -15,6 +17,7 @@ mod try_map_request;
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
     either::Either,
+    future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrFuture, MapErrLayer},
     map_request::{MapRequest, MapRequestLayer},
     map_response::{MapResponse, MapResponseFuture, MapResponseLayer},
