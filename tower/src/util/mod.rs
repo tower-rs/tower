@@ -374,7 +374,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let name = new_service.call(id).await.unwrap();
+    /// let record = new_service
+    ///     .ready_and()
+    ///     .call(id)
+    ///     .await
+    ///     .unwrap();
     /// #    };
     /// # }
     /// ```
@@ -420,7 +424,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let response = new_service.call(id).await;
+    /// let response = new_service.ready_and().call(id).await;
     /// #    };
     /// # }
     /// ```
@@ -577,6 +581,68 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// returned by the `then` future. This is trivial when the function
     /// returns the same error type as the service, but in other cases, it can
     /// be useful to use [`BoxError`] to erase differing error types.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # type Record = ();
+    /// # type DbError = ();
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = DbError;
+    /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(())))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// // A service returning Result<Record, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    /// // An async function that attempts to recover from errors returned by the
+    /// // database.
+    /// async fn recover_from_error(error: DbError) -> Result<Record, DbError> {
+    ///     // ...
+    ///     # Ok(())
+    /// }
+    /// #    async {
+    ///
+    /// // If the database service returns an error, attempt to recover by
+    /// // calling `recover_from_error`. Otherwise, return the successful response.
+    /// let mut new_service = service.then(|result| async move {
+    ///     match result {
+    ///         Ok(record) => Ok(record),
+    ///         Err(e) => recover_from_error(e).await
+    ///     }
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let record = new_service
+    ///     .ready_and()
+    ///     .call(id)
+    ///     .await
+    ///     .unwrap();
+    /// #    };
+    /// # }
+    /// ```
     ///
     /// [`Future`]: crate::Service::Future
     /// [`Output`]: std::future::Future::Output
