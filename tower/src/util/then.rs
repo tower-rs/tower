@@ -36,7 +36,7 @@ impl<S, F> Then<S, F> {
 impl<S, F, Request, Response, Error, Fut> Service<Request> for Then<S, F>
 where
     S: Service<Request>,
-    Error: From<S::Error>,
+    S::Error: Into<Error>,
     F: FnOnce(Result<S::Response, S::Error>) -> Fut + Clone,
     Fut: Future<Output = Result<Response, Error>>,
 {
