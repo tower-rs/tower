@@ -48,8 +48,8 @@ pub mod future {
     pub use super::map_err::MapErrFuture;
     pub use super::map_response::MapResponseFuture;
     pub use super::map_result::MapResultFuture;
-    pub use super::then::ThenFuture;
     pub use super::optional::future as optional;
+    pub use super::then::ThenFuture;
 }
 
 /// An extension trait for `Service`s that provides a variety of convenient
@@ -610,7 +610,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// #
     /// #   fn call(&mut self, request: u32) -> Self::Future {
-    /// #       futures_util::future::ready(Ok(())))
+    /// #       futures_util::future::ready(Ok(()))
     /// #   }
     /// # }
     /// #
@@ -631,7 +631,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let mut new_service = service.then(|result| async move {
     ///     match result {
     ///         Ok(record) => Ok(record),
-    ///         Err(e) => recover_from_error(e).await
+    ///         Err(e) => recover_from_error(e).await,
     ///     }
     /// });
     ///

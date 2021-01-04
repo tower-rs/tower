@@ -264,10 +264,9 @@ impl<L> ServiceBuilder<L> {
     /// usize_svc.oneshot(42).await?;
     /// # Ok(())
     /// # }
+    /// ```
     ///
     /// Modifying the request value:
-    ///
-    /// Changing the type of a request:
     ///
     /// ```rust
     /// use tower::ServiceBuilder;
