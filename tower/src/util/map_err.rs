@@ -1,7 +1,10 @@
-use futures_util::{future::MapErr as MapErrFut, TryFutureExt};
+use futures_util::TryFutureExt;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
+
+#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
+pub use futures_util::future::MapErr as MapErrFuture;
 
 /// Service returned by the [`map_err`] combinator.
 ///
@@ -9,6 +12,14 @@ use tower_service::Service;
 #[derive(Clone, Debug)]
 pub struct MapErr<S, F> {
     inner: S,
+    f: F,
+}
+
+/// A [`Layer`] that produces a [`MapErr`] service.
+///
+/// [`Layer`]: tower_layer::Layer
+#[derive(Debug)]
+pub struct MapErrLayer<F> {
     f: F,
 }
 
@@ -26,23 +37,17 @@ where
 {
     type Response = S::Response;
     type Error = Error;
-    type Future = MapErrFut<S::Future, F>;
+    type Future = MapErrFuture<S::Future, F>;
 
+    #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx).map_err(self.f.clone())
     }
 
+    #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
         self.inner.call(request).map_err(self.f.clone())
     }
-}
-
-/// A [`Layer`] that produces a [`MapErr`] service.
-///
-/// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
-pub struct MapErrLayer<F> {
-    f: F,
 }
 
 impl<F> MapErrLayer<F> {
