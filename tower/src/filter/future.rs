@@ -1,7 +1,8 @@
 //! Future types
 
-use super::error::Error;
+use super::Predicate;
 use futures_core::ready;
+use futures_util::TryFuture;
 use pin_project::pin_project;
 use std::{
     future::Future,
@@ -15,7 +16,7 @@ use tower_service::Service;
 #[derive(Debug)]
 pub struct ResponseFuture<T, S, Request>
 where
-    S: Service<Request>,
+    S: Service<T::Request>,
 {
     #[pin]
     /// Response future state
@@ -36,11 +37,12 @@ enum State<Request, U> {
     WaitResponse(#[pin] U),
 }
 
-impl<F, T, S, Request> ResponseFuture<F, S, Request>
+impl<F, T, S, Request, E> ResponseFuture<F, S, Request>
 where
-    F: Future<Output = Result<T, Error>>,
-    S: Service<Request>,
-    S::Error: Into<crate::BoxError>,
+    F: Future<Output = Result<T, E>>,
+    S: Service<T>,
+    crate::BoxError: From<E>,
+    crate::BoxError: From<S::Error>,
 {
     pub(crate) fn new(request: Request, check: F, service: S) -> Self {
         ResponseFuture {
@@ -51,13 +53,13 @@ where
     }
 }
 
-impl<F, T, S, Request> Future for ResponseFuture<F, S, Request>
+impl<F, T, S, Request, E> Future for ResponseFuture<F, S, Request>
 where
-    F: Future<Output = Result<T, Error>>,
-    S: Service<Request>,
+    F: Future<Output = Result<T, E>>,
+    S: Service<T>,
     S::Error: Into<crate::BoxError>,
 {
-    type Output = Result<S::Response, Error>;
+    type Output = Result<S::Response, crate::BoxError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -71,7 +73,7 @@ where
 
                     // Poll predicate
                     match this.check.as_mut().poll(cx)? {
-                        Poll::Ready(_) => {
+                        Poll::Ready(request) => {
                             let response = this.service.call(request);
                             this.state.set(State::WaitResponse(response));
                         }
@@ -82,7 +84,7 @@ where
                     }
                 }
                 StateProj::WaitResponse(response) => {
-                    return Poll::Ready(ready!(response.poll(cx)).map_err(Error::inner));
+                    return Poll::Ready(ready!(response.poll(cx)).map_err(Into::into));
                 }
             }
         }
