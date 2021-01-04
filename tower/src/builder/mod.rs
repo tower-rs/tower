@@ -235,7 +235,7 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Wrap the service `S` with the layers.
-    pub fn service<S>(self, service: S) -> L::Service
+    pub fn service<S>(&self, service: S) -> L::Service
     where
         L: Layer<S>,
     {
