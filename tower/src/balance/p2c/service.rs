@@ -78,7 +78,6 @@ enum Error<E> {
     Canceled,
 }
 
-#[allow(clippy::len_without_is_empty)]
 impl<D, Req> Balance<D, Req>
 where
     D: Discover,
@@ -107,6 +106,11 @@ where
     /// Returns the number of endpoints currently tracked by the balancer.
     pub fn len(&self) -> usize {
         self.services.len()
+    }
+
+    /// Returns whether or not the balancer is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
