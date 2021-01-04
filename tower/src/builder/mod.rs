@@ -229,6 +229,24 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::MapErrLayer::new(f))
     }
 
+    /// Apply a function after the service, regardless of whether the future
+    /// succeeds or fails.
+    ///
+    /// This is similar to the [`map_response`] and [`map_err] functions,
+    /// except that the *same* function is invoked when the service's future
+    /// completes, whether it completes successfully or fails. This function
+    /// takes the `Result` returned by the service's future, and returns a
+    /// `Result`.
+    ///
+    /// See the documentation for the [`then` combinator] for details.
+    ///
+    /// [`then` combinator]: crate::util::ServiceExt::then
+    #[cfg(feature = "util")]
+    pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {
+        self.layer(crate::util::ThenLayer::new(f))
+    }
+
+
     /// Obtains the underlying `Layer` implementation.
     pub fn into_inner(self) -> L {
         self.layer
