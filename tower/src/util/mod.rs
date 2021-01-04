@@ -48,8 +48,8 @@ pub mod future {
     pub use super::map_err::MapErrFuture;
     pub use super::map_response::MapResponseFuture;
     pub use super::map_result::MapResultFuture;
-    pub use super::then::ThenFuture;
     pub use super::optional::future as optional;
+    pub use super::then::ThenFuture;
 }
 
 /// An extension trait for `Service`s that provides a variety of convenient
@@ -154,7 +154,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let name = new_service.call(id).await.unwrap();
+    /// let name = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await?;
+    /// # Ok::<(), u8>(())
     /// #    };
     /// # }
     /// ```
@@ -216,7 +221,13 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let code = new_service.call(id).await.unwrap_err();
+    /// let code = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await
+    ///     .unwrap_err();
+    /// # Ok::<(), u32>(())
     /// #   };
     /// # }
     /// ```
@@ -311,7 +322,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let name = new_service.call(id).await.unwrap();
+    /// let name = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await?;
+    /// # Ok::<(), DbError>(())
     /// #    };
     /// # }
     /// ```
@@ -378,9 +394,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let record = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
-    ///     .await
-    ///     .unwrap();
+    ///     .await?;
+    /// # Ok::<(), BoxError>(())
     /// #    };
     /// # }
     /// ```
@@ -426,11 +443,18 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let response = new_service.ready_and().call(id).await;
+    /// let response = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await;
+    /// # response
     /// #    };
     /// # }
     /// ```
     ///
+    /// [`map_response`]: ServiceExt::map_response
+    /// [`map_err`]: ServiceExt::map_err
     /// [`Error`]: crate::Service::Error
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready
@@ -486,7 +510,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let response = new_service.call(id).await;
+    /// let response = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await;
+    /// # response
     /// #    };
     /// # }
     /// ```
@@ -545,7 +574,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = "13";
-    /// let response = new_service.call(id).await;
+    /// let response = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await;
+    /// # response
     /// #    };
     /// # }
     /// ```
@@ -610,7 +644,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// #
     /// #   fn call(&mut self, request: u32) -> Self::Future {
-    /// #       futures_util::future::ready(Ok(())))
+    /// #       futures_util::future::ready(Ok(()))
     /// #   }
     /// # }
     /// #
@@ -631,7 +665,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let mut new_service = service.then(|result| async move {
     ///     match result {
     ///         Ok(record) => Ok(record),
-    ///         Err(e) => recover_from_error(e).await
+    ///         Err(e) => recover_from_error(e).await,
     ///     }
     /// });
     ///
@@ -639,9 +673,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let record = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
-    ///     .await
-    ///     .unwrap();
+    ///     .await?;
+    /// # Ok::<(), DbError>(())
     /// #    };
     /// # }
     /// ```
@@ -649,7 +684,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// [`Future`]: crate::Service::Future
     /// [`Output`]: std::future::Future::Output
     /// [`futures` crate]: https://docs.rs/futures
-    /// [`FuturesExt::then`]: https://docs.rs/futures/latest/futures/future/trait.FutureExt.html#method.then
+    /// [`FutureExt::then`]: https://docs.rs/futures/latest/futures/future/trait.FutureExt.html#method.then
     /// [`Error`]: crate::Service::Error
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready

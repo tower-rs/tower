@@ -36,6 +36,8 @@ impl<T, U, E> UnsyncBoxService<T, U, E> {
     }
 
     /// Returns a [`Layer`] for wrapping a [`Service`] in an `UnsyncBoxService` middleware.
+    ///
+    /// [`Layer`]: crate::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
         S: Service<T, Response = U, Error = E> + 'static,

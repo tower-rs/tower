@@ -59,6 +59,7 @@ where
 
 /// Proxies `Discover` such that all changes are wrapped with a constant load.
 #[cfg(feature = "discover")]
+#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 impl<D: Discover + Unpin, M: Copy> Stream for Constant<D, M> {
     type Item = Result<Change<D::Key, Constant<D::Service, M>>, D::Error>;
 

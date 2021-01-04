@@ -7,12 +7,17 @@ use tower_layer::Layer;
 ///
 /// This construction may seem a little odd at first glance. This is not a layer that takes
 /// requests and produces responses in the traditional sense. Instead, it is more like
-/// [`MakeService`](tower::make_service::MakeService) in that it takes service _descriptors_ (see
-/// `Target` on `MakeService`) and produces _services_. Since [`Balance`] spreads requests across a
-/// _set_ of services, the inner service should produce a [`Discover`], not just a single
+/// [`MakeService`] in that it takes service _descriptors_ (see `Target` on `MakeService`)
+/// and produces _services_. Since [`Balance`] spreads requests across a _set_ of services,
+/// the inner service should produce a [`Discover`], not just a single
 /// [`Service`], given a service descriptor.
 ///
-/// See the [module-level documentation](..) for details on load balancing.
+/// See the [module-level documentation](crate::balance) for details on load balancing.
+///
+/// [`Balance`]: crate::balance::p2c::Balance
+/// [`Discover`]: crate::discover::Discover
+/// [`MakeService`]: crate::MakeService
+/// [`Service`]: crate::Service
 #[derive(Clone)]
 pub struct MakeBalanceLayer<D, Req> {
     _marker: PhantomData<fn(D, Req)>,

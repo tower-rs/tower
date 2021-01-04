@@ -4,16 +4,15 @@ use tower_layer::{Identity, Layer, Stack};
 
 use std::fmt;
 
-/// Declaratively construct Service values.
+/// Declaratively construct [`Service`] values.
 ///
 /// `ServiceBuilder` provides a [builder-like interface][builder] for composing
-/// layers to be applied to a `Service`.
+/// layers to be applied to a [`Service`].
 ///
 /// # Service
 ///
-/// A [`Service`](tower_service::Service) is a trait representing an
-/// asynchronous function of a request to a response. It is similar to `async
-/// fn(Request) -> Result<Response, Error>`.
+/// A [`Service`] is a trait representing an asynchronous function of a request
+/// to a response. It is similar to `async fn(Request) -> Result<Response, Error>`.
 ///
 /// A `Service` is typically bound to a single transport, such as a TCP
 /// connection.  It defines how _all_ inbound or outbound requests are handled
@@ -33,7 +32,7 @@ use std::fmt;
 /// # // to say that it should only be run with cfg(feature = "...")
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// #[cfg(all(feature = "buffer", feature = "limit"))]
+/// # #[cfg(all(feature = "buffer", feature = "limit"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .buffer(100)
@@ -52,7 +51,7 @@ use std::fmt;
 /// ```
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// #[cfg(all(feature = "buffer", feature = "limit"))]
+/// # #[cfg(all(feature = "buffer", feature = "limit"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(10)
@@ -75,7 +74,7 @@ use std::fmt;
 /// # use tower::builder::ServiceBuilder;
 /// # #[cfg(feature = "limit")]
 /// # use tower::limit::concurrency::ConcurrencyLimitLayer;
-/// #[cfg(feature = "limit")]
+/// # #[cfg(feature = "limit")]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(5)
@@ -91,7 +90,7 @@ use std::fmt;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
 /// # use std::time::Duration;
-/// #[cfg(all(feature = "buffer", feature = "limit"))]
+/// # #[cfg(all(feature = "buffer", feature = "limit"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .buffer(5)
@@ -101,6 +100,7 @@ use std::fmt;
 /// # ;
 /// # }
 /// ```
+/// [`Service`]: crate::Service
 #[derive(Clone)]
 pub struct ServiceBuilder<L> {
     layer: L,
@@ -117,14 +117,25 @@ impl ServiceBuilder<Identity> {
 
 impl<L> ServiceBuilder<L> {
     /// Add a new layer `T` into the `ServiceBuilder`.
+    ///
+    /// This wraps the inner service with the service provided by a user-defined
+    /// [`Layer`]. The provided layer must implement the [`Layer`] trait.
+    ///
+    /// [`Layer`]: crate::Layer
     pub fn layer<T>(self, layer: T) -> ServiceBuilder<Stack<T, L>> {
         ServiceBuilder {
             layer: Stack::new(layer, self.layer),
         }
     }
 
-    /// Buffer requests when when the next layer is out of capacity.
+    /// Buffer requests when when the next layer is not ready.
+    ///
+    /// This wraps the inner service with an instance of the [`Buffer`]
+    /// middleware.
+    ///
+    /// [`Buffer`]: crate::buffer
     #[cfg(feature = "buffer")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "buffer")))]
     pub fn buffer<Request>(
         self,
         bound: usize,
@@ -137,7 +148,13 @@ impl<L> ServiceBuilder<L> {
     /// A request is in-flight from the time the request is received until the
     /// response future completes. This includes the time spent in the next
     /// layers.
+    ///
+    /// This wraps the inner service with an instance of the
+    /// [`ConcurrencyLimit`] middleware.
+    ///
+    /// [`ConcurrencyLimit`]: crate::limit::concurrency
     #[cfg(feature = "limit")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "limit")))]
     pub fn concurrency_limit(
         self,
         max: usize,
@@ -147,19 +164,33 @@ impl<L> ServiceBuilder<L> {
 
     /// Drop requests when the next layer is unable to respond to requests.
     ///
-    /// Usually, when a layer or service does not have capacity to process a
-    /// request (i.e., `poll_ready` returns `NotReady`), the caller waits until
+    /// Usually, when a service or middleware does not have capacity to process a
+    /// request (i.e., [`poll_ready`] returns [`Pending`]), the caller waits until
     /// capacity becomes available.
     ///
-    /// `load_shed` immediately responds with an error when the next layer is
+    /// [`LoadShed`] immediately responds with an error when the next layer is
     /// out of capacity.
+    ///
+    /// This wraps the inner service with an instance of the [`LoadShed`]
+    /// middleware.
+    ///
+    /// [`LoadShed`]: crate::load_shed
+    /// [`poll_ready`]: crate::Service::poll_ready
+    /// [`Pending`]: std::task::Poll::Pending
     #[cfg(feature = "load-shed")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "load-shed")))]
     pub fn load_shed(self) -> ServiceBuilder<Stack<crate::load_shed::LoadShedLayer, L>> {
         self.layer(crate::load_shed::LoadShedLayer::new())
     }
 
-    /// Limit requests to at most `num` per the given duration
+    /// Limit requests to at most `num` per the given duration.
+    ///
+    /// This wraps the inner service with an instance of the [`RateLimit`]
+    /// middleware.
+    ///
+    /// [`RateLimit`]: crate::limit::rate
     #[cfg(feature = "limit")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "limit")))]
     pub fn rate_limit(
         self,
         num: u64,
@@ -168,12 +199,18 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::limit::RateLimitLayer::new(num, per))
     }
 
-    /// Retry failed requests.
+    /// Retry failed requests according to the given [retry policy][policy].
     ///
-    /// `policy` must implement [`Policy`].
+    /// `policy` determines which failed requests will be retried. It must
+    /// implement the [`retry::Policy`][policy] trait.
     ///
-    /// [`Policy`]: ../retry/trait.Policy.html
+    /// This wraps the inner service with an instance of the [`Retry`]
+    /// middleware.
+    ///
+    /// [`Retry`]: crate::retry
+    /// [policy]: crate::retry::Policy
     #[cfg(feature = "retry")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "retry")))]
     pub fn retry<P>(self, policy: P) -> ServiceBuilder<Stack<crate::retry::RetryLayer<P>, L>> {
         self.layer(crate::retry::RetryLayer::new(policy))
     }
@@ -182,7 +219,13 @@ impl<L> ServiceBuilder<L> {
     ///
     /// If the next layer takes more than `timeout` to respond to a request,
     /// processing is terminated and an error is returned.
+    ///
+    /// This wraps the inner service with an instance of the [`timeout`]
+    /// middleware.
+    ///
+    /// [`timeout`]: crate::timeout
     #[cfg(feature = "timeout")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "timeout")))]
     pub fn timeout(
         self,
         timeout: std::time::Duration,
@@ -191,7 +234,67 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Map one request type to another.
+    ///
+    /// This wraps the inner service with an instance of the [`MapRequest`]
+    /// middleware.
+    ///
+    /// # Examples
+    ///
+    /// Changing the type of a request:
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    /// use tower::ServiceExt;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), ()> {
+    /// // Suppose we have some `Service` whose request type is `String`:
+    /// let string_svc = tower::service_fn(|request: String| async move {
+    ///     println!("request: {}", request);
+    ///     Ok(())
+    /// });
+    ///
+    /// // ...but we want to call that service with a `usize`. What do we do?
+    ///
+    /// let usize_svc = ServiceBuilder::new()
+    ///      // Add a middlware that converts the request type to a `String`:
+    ///     .map_request(|request: usize| format!("{}", request))
+    ///     // ...and wrap the string service with that middleware:
+    ///     .service(string_svc);
+    ///
+    /// // Now, we can call that service with a `usize`:
+    /// usize_svc.oneshot(42).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Modifying the request value:
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    /// use tower::ServiceExt;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), ()> {
+    /// // A service that takes a number and returns it:
+    /// let svc = tower::service_fn(|request: usize| async move {
+    ///    Ok(request)
+    /// });
+    ///
+    /// let svc = ServiceBuilder::new()
+    ///      // Add a middleware that adds 1 to each request
+    ///     .map_request(|request: usize| request + 1)
+    ///     .service(svc);
+    ///
+    /// let response = svc.oneshot(1).await?;
+    /// assert_eq!(response, 2);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [`MapRequest`]: crate::util::MapRequest
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_request<F, R1, R2>(
         self,
         f: F,
@@ -203,7 +306,16 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Fallibly one request type to another, or to an error.
+    ///
+    /// This wraps the inner service with an instance of the [`TryMapRequest`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`try_map_request` combinator] for details.
+    ///
+    /// [`TryMapRequest`]: crate::util::MapResponse
+    /// [`try_map_request` combinator]: crate::util::ServiceExt::try_map_request
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn try_map_request<F, R1, R2, E>(
         self,
         f: F,
@@ -215,7 +327,16 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Map one response type to another.
+    ///
+    /// This wraps the inner service with an instance of the [`MapResponse`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`map_response` combinator] for details.
+    ///
+    /// [`MapResponse`]: crate::util::MapResponse
+    /// [`map_response` combinator]: crate::util::ServiceExt::map_response
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_response<F>(
         self,
         f: F,
@@ -224,13 +345,25 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Map one error type to another.
+    ///
+    /// This wraps the inner service with an instance of the [`MapErr`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`map_err` combinator] for details.
+    ///
+    /// [`MapErr`]: crate::util::MapErr
+    /// [`map_err` combinator]: crate::util::ServiceExt::map_err
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_err<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapErrLayer<F>, L>> {
         self.layer(crate::util::MapErrLayer::new(f))
     }
 
     /// Apply a function after the service, regardless of whether the future
     /// succeeds or fails.
+    ///
+    /// This wraps the inner service with an instance of the [`Then`]
+    /// middleware.
     ///
     /// This is similar to the [`map_response`] and [`map_err] functions,
     /// except that the *same* function is invoked when the service's future
@@ -240,19 +373,25 @@ impl<L> ServiceBuilder<L> {
     ///
     /// See the documentation for the [`then` combinator] for details.
     ///
+    /// [`Then`]: crate::util::Then
     /// [`then` combinator]: crate::util::ServiceExt::then
+    /// [`map_response`]: ServiceBuilder::map_response
+    /// [`map_err`]: ServiceBuilder::map_err
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {
         self.layer(crate::util::ThenLayer::new(f))
     }
 
-
-    /// Obtains the underlying `Layer` implementation.
+    /// Returns the underlying `Layer` implementation.
     pub fn into_inner(self) -> L {
         self.layer
     }
 
-    /// Wrap the service `S` with the layers.
+    /// Wrap the service `S` with the middleware provided by this
+    /// `ServiceBuilder`'s [`Layer`]s, returning a new `Service`.
+    ///
+    /// [`Layer`]: crate::Layer
     pub fn service<S>(&self, service: S) -> L::Service
     where
         L: Layer<S>,

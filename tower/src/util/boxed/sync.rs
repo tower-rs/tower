@@ -41,7 +41,10 @@ impl<T, U, E> BoxService<T, U, E> {
         BoxService { inner }
     }
 
-    /// Returns a [`Layer`] for wrapping a [`Service`] in a `BoxService` middleware.
+    /// Returns a [`Layer`] for wrapping a [`Service`] in a `BoxService`
+    /// middleware.
+    ///
+    /// [`Layer`]: crate::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
         S: Service<T, Response = U, Error = E> + Send + 'static,
