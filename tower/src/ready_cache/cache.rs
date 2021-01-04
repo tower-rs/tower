@@ -112,7 +112,6 @@ where
     }
 }
 
-#[allow(clippy::len_without_is_empty)]
 impl<K, S, Req> ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
@@ -120,6 +119,11 @@ where
     /// Returns the total number of services in the cache.
     pub fn len(&self) -> usize {
         self.ready_len() + self.pending_len()
+    }
+
+    /// Returns whether or not there are any services in the cache.
+    pub fn is_empty(&self) -> bool {
+        self.ready.is_empty() && self.pending.is_empty()
     }
 
     /// Returns the number of services in the ready set.

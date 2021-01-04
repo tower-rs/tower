@@ -110,7 +110,7 @@ where
 
     /// Returns whether or not the balancer is empty.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.services.is_empty()
     }
 }
 
