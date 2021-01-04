@@ -299,9 +299,21 @@ impl<L> ServiceBuilder<L> {
         f: F,
     ) -> ServiceBuilder<Stack<crate::util::MapRequestLayer<F>, L>>
     where
-        F: Fn(R1) -> R2,
+        F: FnMut(R1) -> R2 + Clone,
     {
         self.layer(crate::util::MapRequestLayer::new(f))
+    }
+
+    /// Fallibly one request type to another, or to an error.
+    #[cfg(feature = "util")]
+    pub fn try_map_request<F, R1, R2, E>(
+        self,
+        f: F,
+    ) -> ServiceBuilder<Stack<crate::util::TryMapRequestLayer<F>, L>>
+    where
+        F: FnMut(R1) -> Result<R2, E> + Clone,
+    {
+        self.layer(crate::util::TryMapRequestLayer::new(f))
     }
 
     /// Map one response type to another.
@@ -319,6 +331,29 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::MapResponseLayer::new(f))
     }
 
+    /// Map one error type to another.
+    #[cfg(feature = "util")]
+    pub fn map_err<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapErrLayer<F>, L>> {
+        self.layer(crate::util::MapErrLayer::new(f))
+    }
+
+    /// Apply a function after the service, regardless of whether the future
+    /// succeeds or fails.
+    ///
+    /// This is similar to the [`map_response`] and [`map_err] functions,
+    /// except that the *same* function is invoked when the service's future
+    /// completes, whether it completes successfully or fails. This function
+    /// takes the `Result` returned by the service's future, and returns a
+    /// `Result`.
+    ///
+    /// See the documentation for the [`then` combinator] for details.
+    ///
+    /// [`then` combinator]: crate::util::ServiceExt::then
+    #[cfg(feature = "util")]
+    pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {
+        self.layer(crate::util::ThenLayer::new(f))
+    }
+
     /// Returns the underlying `Layer` implementation.
     pub fn into_inner(self) -> L {
         self.layer
@@ -328,7 +363,7 @@ impl<L> ServiceBuilder<L> {
     /// `ServiceBuilder`'s [`Layer`]s, returning a new `Service`.
     ///
     /// [`Layer`]: crate::Layer
-    pub fn service<S>(self, service: S) -> L::Service
+    pub fn service<S>(&self, service: S) -> L::Service
     where
         L: Layer<S>,
     {

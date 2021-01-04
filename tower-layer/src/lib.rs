@@ -12,13 +12,20 @@
 //! allows other services to be composed with the service that implements layer.
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
+//!
+//! [`Service`]: ../tower/trait.Service.html
 
 mod identity;
+mod layer_fn;
 mod stack;
 
-pub use self::{identity::Identity, stack::Stack};
+pub use self::{
+    identity::Identity,
+    layer_fn::{layer_fn, LayerFn},
+    stack::Stack,
+};
 
-/// Decorates a `Service`, transforming either the request or the response.
+/// Decorates a [`Service`], transforming either the request or the response.
 ///
 /// Often, many of the pieces needed for writing network applications can be
 /// reused across multiple services. The `Layer` trait can be used to write
@@ -81,6 +88,8 @@ pub use self::{identity::Identity, stack::Stack};
 /// The above log implementation is decoupled from the underlying protocol and
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
+///
+/// [`Service`]: ../tower/trait.Service.html
 pub trait Layer<S> {
     /// The wrapped service
     type Service;

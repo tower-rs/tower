@@ -1,3 +1,4 @@
+use tower_layer::{layer_fn, LayerFn};
 use tower_service::Service;
 
 use std::fmt;
@@ -38,6 +39,15 @@ impl<T, U, E> BoxService<T, U, E> {
     {
         let inner = Box::new(Boxed { inner });
         BoxService { inner }
+    }
+
+    /// Returns a [`Layer`] for wrapping a [`Service`] in a `BoxService` middleware.
+    pub fn layer<S>() -> LayerFn<fn(S) -> Self>
+    where
+        S: Service<T, Response = U, Error = E> + Send + 'static,
+        S::Future: Send + 'static,
+    {
+        layer_fn(Self::new)
     }
 }
 
