@@ -4,7 +4,7 @@ use tower_service::Service;
 
 /// Service returned by the [`MapRequest`] combinator.
 ///
-/// [`MapRequest`]: crate::util::ServiceExt::MapRequest
+/// [`MapRequest`]: crate::util::ServiceExt::map_request
 #[derive(Clone, Debug)]
 pub struct MapRequest<S, F> {
     inner: S,

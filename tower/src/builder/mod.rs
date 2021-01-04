@@ -165,7 +165,7 @@ impl<L> ServiceBuilder<L> {
     /// Drop requests when the next layer is unable to respond to requests.
     ///
     /// Usually, when a service or middleware does not have capacity to process a
-    /// request (i.e., [`poll_ready`] returns `Pending`), the caller waits until
+    /// request (i.e., [`poll_ready`] returns [`Pending`]), the caller waits until
     /// capacity becomes available.
     ///
     /// [`LoadShed`] immediately responds with an error when the next layer is
@@ -175,6 +175,8 @@ impl<L> ServiceBuilder<L> {
     /// middleware.
     ///
     /// [`LoadShed`]: crate::load_shed
+    /// [`poll_ready`]: crate::Service::poll_ready
+    /// [`Pending`]: std::task::Poll::Pending
     #[cfg(feature = "load-shed")]
     #[cfg_attr(docsrs, doc(cfg(feature = "load-shed")))]
     pub fn load_shed(self) -> ServiceBuilder<Stack<crate::load_shed::LoadShedLayer, L>> {
@@ -200,7 +202,7 @@ impl<L> ServiceBuilder<L> {
     /// Retry failed requests according to the given [retry policy][policy].
     ///
     /// `policy` determines which failed requests will be retried. It must
-    /// implement the [`retry::Policy`] trait.
+    /// implement the [`retry::Policy`][policy] trait.
     ///
     /// This wraps the inner service with an instance of the [`Retry`]
     /// middleware.
@@ -221,7 +223,7 @@ impl<L> ServiceBuilder<L> {
     /// This wraps the inner service with an instance of the [`timeout`]
     /// middleware.
     ///
-    /// [timeout]: crate::timeout
+    /// [`timeout`]: crate::timeout
     #[cfg(feature = "timeout")]
     #[cfg_attr(docsrs, doc(cfg(feature = "timeout")))]
     pub fn timeout(
@@ -373,6 +375,8 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`Then`]: crate::util::Then
     /// [`then` combinator]: crate::util::ServiceExt::then
+    /// [`map_response`]: ServiceBuilder::map_response
+    /// [`map_err`]: ServiceBuilder::map_err
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {

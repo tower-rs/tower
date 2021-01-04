@@ -58,9 +58,12 @@ use std::fmt;
 ///     Ok::<_, Infallible>(request.to_uppercase())
 /// });
 ///
-/// // Wrap our servic in a `LogService` so requests are logged.
+/// // Wrap our service in a `LogService` so requests are logged.
 /// let wrapped_service = log_layer.layer(uppercase_service);
 /// ```
+///
+/// [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
+/// [`Layer::layer`]: crate::Layer::layer
 pub fn layer_fn<T>(f: T) -> LayerFn<T> {
     LayerFn { f }
 }

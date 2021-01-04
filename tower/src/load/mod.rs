@@ -11,7 +11,7 @@
 //! balance services depending on their load. Which load metric to use depends on your exact
 //! use-case, but the ones above should get you quite far!
 //!
-//! When the `discover` feature is enabled, wrapper types for [`tower::discover::Discover`] that
+//! When the `discover` feature is enabled, wrapper types for [`Discover`] that
 //! wrap the discovered services with the given load estimator are also provided.
 //!
 //! # When does a request complete?
@@ -27,7 +27,7 @@
 //! `CompleteOnOnResponse` is what you would normally expect for a request-response cycle: when the
 //! response is produced, the request is considered "finished", and load goes down. This can be
 //! overriden by your own user-defined type to track more complex request completion semantics. See
-//! the documentation for [`tower::load::completion`] for more details.
+//! the documentation for [`completion`] for more details.
 //!
 //! # Examples
 //!
@@ -53,6 +53,8 @@
 //!     }
 //! }
 //! ```
+//! [`tower::balance`]: crate::balance
+//! [`Discover`]: crate::discover::Discover
 // TODO: a custom completion example would be good here
 
 pub mod completion;

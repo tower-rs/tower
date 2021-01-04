@@ -23,6 +23,7 @@
 /// assert_eq!(response.await.unwrap(), "world");
 /// # }
 /// ```
+/// [`SendResponse`]: crate::mock::SendResponse
 #[macro_export]
 macro_rules! assert_request_eq {
     ($mock_handle:expr, $expect:expr) => {

@@ -3,7 +3,7 @@
 //! It is a simple but robust technique for spreading load across services with only inexact load
 //! measurements. As its name implies, whenever a request comes in, it samples two ready services
 //! at random, and issues the request to whichever service is less loaded. How loaded a service is
-//! is determined by the return value of [`Load`](tower::load::Load).
+//! is determined by the return value of [`Load`](crate::load::Load).
 //!
 //! As described in the [Finagle Guide][finagle]:
 //!
@@ -16,9 +16,9 @@
 //!
 //! The balance service and layer implementations rely on _service discovery_ to provide the
 //! underlying set of services to balance requests across. This happens through the
-//! [`Discover`](tower::discover::Discover) trait, which is essentially a `Stream` that indicates
+//! [`Discover`](crate::discover::Discover) trait, which is essentially a `Stream` that indicates
 //! when services become available or go away. If you have a fixed set of services, consider using
-//! [`ServiceList`](tower::discover::ServiceList).
+//! [`ServiceList`](crate::discover::ServiceList).
 //!
 //! Since the load balancer needs to perform _random_ choices, the constructors in this module
 //! usually come in two forms: one that uses randomness provided by the operating system, and one

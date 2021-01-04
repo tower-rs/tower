@@ -442,6 +442,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # }
     /// ```
     ///
+    /// [`map_response`]: ServiceExt::map_response
+    /// [`map_err`]: ServiceExt::map_err
     /// [`Error`]: crate::Service::Error
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready
@@ -666,7 +668,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// [`Future`]: crate::Service::Future
     /// [`Output`]: std::future::Future::Output
     /// [`futures` crate]: https://docs.rs/futures
-    /// [`FuturesExt::then`]: https://docs.rs/futures/latest/futures/future/trait.FutureExt.html#method.then
+    /// [`FutureExt::then`]: https://docs.rs/futures/latest/futures/future/trait.FutureExt.html#method.then
     /// [`Error`]: crate::Service::Error
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready

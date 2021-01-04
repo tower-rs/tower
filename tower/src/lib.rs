@@ -146,6 +146,10 @@ pub use self::util::{service_fn, ServiceExt};
 
 #[doc(inline)]
 pub use crate::builder::ServiceBuilder;
+#[cfg(feature = "make")]
+#[cfg_attr(docsrs, doc(cfg(feature = "make")))]
+#[doc(inline)]
+pub use crate::make::MakeService;
 #[doc(inline)]
 pub use tower_layer::Layer;
 #[doc(inline)]

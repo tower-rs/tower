@@ -13,12 +13,16 @@ use tower_service::Service;
 
 /// Constructs load balancers over dynamic service sets produced by a wrapped "inner" service.
 ///
-/// This is effectively an implementation of [`MakeService`](tower::make_service::MakeService),
-/// except that it forwards the service descriptors (`Target`) to an inner service (`S`), and
-/// expects that service to produce a service set in the form of a [`Discover`]. It then wraps the
-/// service set in a [`Balance`] before returning it as the "made" service.
+/// This is effectively an implementation of [`MakeService`] except that it forwards the service
+/// descriptors (`Target`) to an inner service (`S`), and expects that service to produce a
+/// service set in the form of a [`Discover`]. It then wraps the service set in a [`Balance`]
+/// before returning it as the "made" service.
 ///
-/// See the [module-level documentation](..) for details on load balancing.
+/// See the [module-level documentation](crate::balance) for details on load balancing.
+///
+/// [`MakeService`]: crate::MakeService
+/// [`Discover`]: crate::discover::Discover
+/// [`Balance`]: crate::balance::p2c::Balance
 #[derive(Clone, Debug)]
 pub struct MakeBalance<S, Req> {
     inner: S,
@@ -26,6 +30,8 @@ pub struct MakeBalance<S, Req> {
 }
 
 /// A [`Balance`] in the making.
+///
+/// [`Balance`]: crate::balance::p2c::Balance
 #[pin_project]
 #[derive(Debug)]
 pub struct MakeFuture<F, Req> {

@@ -16,9 +16,9 @@
 //!
 //! Second, [`pool`] implements a dynamically sized pool of services. It estimates the overall
 //! current load by tracking successful and unsuccessful calls to `poll_ready`, and uses an
-//! exponentially weighted moving average to add (using [`tower::make_service::MakeService`]) or
-//! remove (by dropping) services in response to increases or decreases in load. Use this if you
-//! are able to dynamically add more service endpoints to the system to handle added load.
+//! exponentially weighted moving average to add (using [`MakeService`]) or remove (by dropping)
+//! services in response to increases or decreases in load. Use this if you are able to
+//! dynamically add more service endpoints to the system to handle added load.
 //!
 //! # Examples
 //!
@@ -52,6 +52,7 @@
 //! }
 //! # }
 //! ```
+//! [`MakeService`]: crate::MakeService
 
 pub mod error;
 pub mod p2c;
