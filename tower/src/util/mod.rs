@@ -156,9 +156,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let name = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
-    ///     .await
-    ///     .unwrap();
+    ///     .await?;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
@@ -222,9 +223,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let code = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
     ///     .await
     ///     .unwrap_err();
+    /// # Ok(());
     /// #   };
     /// # }
     /// ```
@@ -319,7 +322,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
-    /// let name = new_service.call(id).await.unwrap();
+    /// let name = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await?;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
@@ -386,9 +394,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let record = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
-    ///     .await
-    ///     .unwrap();
+    ///     .await?;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
@@ -436,8 +445,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let response = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
     ///     .await;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
@@ -501,8 +512,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let response = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
     ///     .await;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
@@ -563,8 +576,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = "13";
     /// let response = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
     ///     .await;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
@@ -658,9 +673,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// let record = new_service
     ///     .ready_and()
+    ///     .await?
     ///     .call(id)
-    ///     .await
-    ///     .unwrap();
+    ///     .await?;
+    /// # Ok(());
     /// #    };
     /// # }
     /// ```
