@@ -31,6 +31,7 @@ struct RefCount(Arc<()>);
 #[pin_project]
 #[derive(Debug)]
 #[cfg(feature = "discover")]
+#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 pub struct PendingRequestsDiscover<D, C = CompleteOnResponse> {
     #[pin]
     discover: D,

@@ -52,6 +52,7 @@ pub struct PeakEwma<S, C = CompleteOnResponse> {
 #[pin_project]
 #[derive(Debug)]
 #[cfg(feature = "discover")]
+#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
     #[pin]
     discover: D,
@@ -183,6 +184,7 @@ impl<D, C> PeakEwmaDiscover<D, C> {
 }
 
 #[cfg(feature = "discover")]
+#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 impl<D, C> Stream for PeakEwmaDiscover<D, C>
 where
     D: Discover,
