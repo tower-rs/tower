@@ -21,8 +21,8 @@ async fn builder_service() {
         .concurrency_limit(5)
         .rate_limit(5, Duration::from_secs(5))
         .retry(policy)
-        .map_response(|r: &'static str| if r == "world" { true } else { false })
-        .map_request(|r: &'static str| if r == "hello" { true } else { false })
+        .map_response(|r: &'static str| r == "world")
+        .map_request(|r: &'static str| r == "hello")
         .service(service);
 
     // allow a request through

@@ -9,6 +9,7 @@ mod map_err;
 mod map_request;
 mod map_response;
 mod map_result;
+
 mod oneshot;
 mod optional;
 mod ready;
@@ -28,7 +29,7 @@ pub use self::{
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
-    then::{Then, ThenFuture, ThenLayer},
+    then::{Then, ThenLayer},
     try_map_request::{TryMapRequest, TryMapRequestLayer},
 };
 
@@ -47,6 +48,7 @@ pub mod future {
     pub use super::map_err::MapErrFuture;
     pub use super::map_response::MapResponseFuture;
     pub use super::map_result::MapResultFuture;
+    pub use super::then::ThenFuture;
     pub use super::optional::future as optional;
 }
 

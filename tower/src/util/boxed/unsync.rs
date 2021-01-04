@@ -1,3 +1,4 @@
+use tower_layer::{layer_fn, LayerFn};
 use tower_service::Service;
 
 use std::fmt;
@@ -32,6 +33,15 @@ impl<T, U, E> UnsyncBoxService<T, U, E> {
     {
         let inner = Box::new(UnsyncBoxed { inner });
         UnsyncBoxService { inner }
+    }
+
+    /// Returns a [`Layer`] for wrapping a [`Service`] in an `UnsyncBoxService` middleware.
+    pub fn layer<S>() -> LayerFn<fn(S) -> Self>
+    where
+        S: Service<T, Response = U, Error = E> + 'static,
+        S::Future: 'static,
+    {
+        layer_fn(Self::new)
     }
 }
 
