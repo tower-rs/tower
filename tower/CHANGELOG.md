@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `MakeService::into_service` and `MakeService::as_service` for
   converting `MakeService`s into `Service`s.
+- Make `ServiceBuilder::service` take `self` by reference rather than by value.
 
 ### Changed
 
