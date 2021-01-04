@@ -159,7 +159,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await?;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
@@ -227,7 +227,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .call(id)
     ///     .await
     ///     .unwrap_err();
-    /// # Ok(());
+    /// # Ok(())
     /// #   };
     /// # }
     /// ```
@@ -327,7 +327,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await?;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
@@ -397,7 +397,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await?;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
@@ -448,7 +448,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
@@ -515,7 +515,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
@@ -579,7 +579,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
@@ -676,7 +676,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///     .await?
     ///     .call(id)
     ///     .await?;
-    /// # Ok(());
+    /// # Ok(())
     /// #    };
     /// # }
     /// ```
