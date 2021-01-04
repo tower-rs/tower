@@ -305,7 +305,16 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Fallibly one request type to another, or to an error.
+    ///
+    /// This wraps the inner service with an instance of the [`TryMapRequest`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`try_map_request` combinator] for details.
+    ///
+    /// [`TryMapRequest`]: crate::util::MapResponse
+    /// [`try_map_request` combinator]: crate::util::ServiceExt::try_map_request
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn try_map_request<F, R1, R2, E>(
         self,
         f: F,
@@ -321,7 +330,10 @@ impl<L> ServiceBuilder<L> {
     /// This wraps the inner service with an instance of the [`MapResponse`]
     /// middleware.
     ///
+    /// See the documentation for the [`map_response` combinator] for details.
+    ///
     /// [`MapResponse`]: crate::util::MapResponse
+    /// [`map_response` combinator]: crate::util::ServiceExt::map_response
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_response<F>(
@@ -332,13 +344,25 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Map one error type to another.
+    ///
+    /// This wraps the inner service with an instance of the [`MapErr`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`map_err` combinator] for details.
+    ///
+    /// [`MapErr`]: crate::util::MapErr
+    /// [`map_err` combinator]: crate::util::ServiceExt::map_err
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_err<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapErrLayer<F>, L>> {
         self.layer(crate::util::MapErrLayer::new(f))
     }
 
     /// Apply a function after the service, regardless of whether the future
     /// succeeds or fails.
+    ///
+    /// This wraps the inner service with an instance of the [`Then`]
+    /// middleware.
     ///
     /// This is similar to the [`map_response`] and [`map_err] functions,
     /// except that the *same* function is invoked when the service's future
@@ -348,8 +372,10 @@ impl<L> ServiceBuilder<L> {
     ///
     /// See the documentation for the [`then` combinator] for details.
     ///
+    /// [`Then`]: crate::util::Then
     /// [`then` combinator]: crate::util::ServiceExt::then
     #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {
         self.layer(crate::util::ThenLayer::new(f))
     }
