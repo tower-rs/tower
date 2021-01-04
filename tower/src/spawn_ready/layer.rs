@@ -2,7 +2,7 @@ use super::MakeSpawnReady;
 use tower_layer::Layer;
 
 /// Spawns tasks to drive its inner service to readiness.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SpawnReadyLayer;
 
 impl SpawnReadyLayer {

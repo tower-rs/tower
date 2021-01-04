@@ -37,7 +37,7 @@ impl<T> RateLimit<T> {
         RateLimit {
             inner,
             rate,
-            state: state,
+            state,
             // The sleep won't actually be used with this duration, but
             // we create it eagerly so that we can reset it in place rather than
             // `Box::pin`ning a new `Sleep` every time we need one.

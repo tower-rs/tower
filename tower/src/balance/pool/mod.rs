@@ -98,7 +98,7 @@ where
             );
         }
 
-        if this.services.len() == 0 && this.making.is_none() {
+        if this.services.is_empty() && this.making.is_none() {
             let _ = ready!(this.maker.poll_ready(cx))?;
             tracing::trace!("construct initial pool connection");
             this.making
@@ -367,7 +367,7 @@ where
         if let Poll::Ready(()) = self.balance.poll_ready(cx)? {
             // services was ready -- there are enough services
             // update ewma with a 0 sample
-            self.ewma = (1.0 - self.options.alpha) * self.ewma;
+            self.ewma *= 1.0 - self.options.alpha;
 
             let discover = self.balance.discover_mut().as_mut().project();
             if self.ewma < self.options.low {

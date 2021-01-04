@@ -99,6 +99,6 @@ where
                 return Poll::Ready(Ok(r.map_err(Into::into)?));
             }
         }
-        return Poll::Pending;
+        Poll::Pending
     }
 }

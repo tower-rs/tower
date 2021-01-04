@@ -78,6 +78,7 @@ enum Error<E> {
     Canceled,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<D, Req> Balance<D, Req>
 where
     D: Discover,

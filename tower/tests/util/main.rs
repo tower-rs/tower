@@ -1,4 +1,5 @@
 #![cfg(feature = "util")]
+#![allow(clippy::type_complexity)]
 
 mod call_all;
 mod oneshot;

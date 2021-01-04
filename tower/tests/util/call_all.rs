@@ -102,13 +102,7 @@ fn ordered() {
     assert_eq!(count.get(), 4);
 
     // We should also be able to recover the wrapped Service.
-    assert_eq!(
-        ca.take_service(),
-        Srv {
-            count: count.clone(),
-            admit
-        }
-    );
+    assert_eq!(ca.take_service(), Srv { count, admit });
 }
 
 #[tokio::test(flavor = "current_thread")]

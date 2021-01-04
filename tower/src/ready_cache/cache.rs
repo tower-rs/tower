@@ -112,6 +112,7 @@ where
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<K, S, Req> ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
@@ -263,7 +264,7 @@ where
                 }
                 Poll::Ready(Some(Err(PendingError::Inner(key, e)))) => {
                     let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
-                    if let Some(_) = cancel_tx {
+                    if cancel_tx.is_some() {
                         return Err(error::Failed(key, e.into())).into();
                     } else {
                         // See comment for the same clause under Ready(Some(Ok)).
