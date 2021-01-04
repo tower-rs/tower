@@ -238,7 +238,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// Like the standard library's [`Result::and_then`], this method can be
     /// used to implement control flow based on `Result` values. For example, it
-    /// may be used to  implement error recovery, by turning some `Err`
+    /// may be used to implement error recovery, by turning some `Err`
     /// responses from the service into `Ok` responses. Similarly, some
     /// successful responses from the service could be rejected, by returning an
     /// `Err` conditionally, depending on the value inside the `Ok`. Finally,
@@ -550,7 +550,30 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         TryMapRequest::new(self, f)
     }
 
-    /// TODO(eliza): docs
+    /// Composes an asynchronous function *after* this service.
+    ///
+    /// This takes a function or closure returning a future, and returns a new
+    /// `Service` that chains that function after this service's future. The new
+    /// `Service`'s future will consist of this service's future, followed by
+    /// the future returned by calling the chained function with the future's
+    /// `Output` type.
+    ///
+    /// The chained function is called regardless of whether this service's
+    /// future completes with a successful response or with an error. Therefore,
+    /// `then` can be used to implement asynchronous error recovery, by calling
+    /// some asynchronous function with errors returned by this service.
+    /// Alternatively, it may also be used to call a fallible async function with
+    /// the successful response of this service. This is similar to the
+    /// [`FutureExt::then`] combinator.
+    ///
+    /// This method can be used to change the [`Response`] type of the service
+    /// into a different type. It can also be used to change the [`Error`] type
+    /// of the service. However, because the `then` function is not applied
+    /// to the errors returned by the service's [`poll_ready`] method, it must
+    /// be possible to convert the service's [`Error`] type into the error type
+    /// returned by the `then` future. This is trivial when the function
+    /// returns the same error type as the service, but in other cases, it can
+    /// be useful to use [`BoxError`] to erase differing error types.
     fn then<F, Response, Error, Fut>(self, f: F) -> Then<Self, F>
     where
         Self: Sized,
