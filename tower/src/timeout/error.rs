@@ -3,7 +3,7 @@
 use std::{error, fmt};
 
 /// The timeout elapsed.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Elapsed(pub(super) ());
 
 impl Elapsed {

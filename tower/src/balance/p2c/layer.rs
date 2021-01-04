@@ -32,6 +32,12 @@ impl<D, Req> MakeBalanceLayer<D, Req> {
     }
 }
 
+impl<D, Req> Default for MakeBalanceLayer<D, Req> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S, Req> Layer<S> for MakeBalanceLayer<S, Req> {
     type Service = MakeBalance<S, Req>;
 

@@ -111,7 +111,7 @@ where
                         Poll::Ready(Err(e)) => {
                             trace!("poll_ready; error");
                             self.state = State::Idle;
-                            self.error = Some(e.into());
+                            self.error = Some(e);
                             break;
                         }
                     }

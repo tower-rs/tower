@@ -107,6 +107,11 @@ where
     pub fn len(&self) -> usize {
         self.services.len()
     }
+
+    /// Returns whether or not the balancer is empty.
+    pub fn is_empty(&self) -> bool {
+        self.services.is_empty()
+    }
 }
 
 impl<D, Req> Balance<D, Req>

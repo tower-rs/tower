@@ -146,8 +146,8 @@ type Res = &'static str;
 type Mock = tower_test::mock::Mock<Req, Res>;
 type Handle = tower_test::mock::Handle<Req, Res>;
 
-static NOT_RETRYABLE: &'static str = "NOT_RETRYABLE";
-static NOT_CLONABLE: &'static str = "NOT_CLONABLE";
+static NOT_RETRYABLE: &str = "NOT_RETRYABLE";
+static NOT_CLONABLE: &str = "NOT_CLONABLE";
 
 #[derive(Clone)]
 struct TestPolicy;

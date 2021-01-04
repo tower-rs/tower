@@ -4,7 +4,7 @@ use tower_layer::Layer;
 use super::LoadShed;
 
 /// A `tower-layer` to wrap services in `LoadShed` middleware.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct LoadShedLayer {
     _p: (),
 }

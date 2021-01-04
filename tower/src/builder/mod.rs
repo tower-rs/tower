@@ -106,6 +106,12 @@ pub struct ServiceBuilder<L> {
     layer: L,
 }
 
+impl Default for ServiceBuilder<Identity> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServiceBuilder<Identity> {
     /// Create a new `ServiceBuilder`.
     pub fn new() -> Self {
