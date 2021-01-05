@@ -27,7 +27,7 @@ pub use self::{
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
-    ready::{Ready, ReadyAnd, ReadyOneshot},
+    ready::{ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
     try_map_request::{TryMapRequest, TryMapRequestLayer},
@@ -55,16 +55,6 @@ pub mod future {
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
 pub trait ServiceExt<Request>: tower_service::Service<Request> {
-    /// Resolves when the service is ready to accept a request.
-    #[deprecated(since = "0.3.1", note = "prefer `ready_and` which yields the service")]
-    fn ready(&mut self) -> Ready<'_, Self, Request>
-    where
-        Self: Sized,
-    {
-        #[allow(deprecated)]
-        Ready::new(self)
-    }
-
     /// Yields a mutable reference to the service when it is ready to accept a request.
     fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
     where
