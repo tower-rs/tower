@@ -42,7 +42,7 @@ pub trait Predicate<Request> {
 
 impl<F, T, U, R, E> AsyncPredicate<T> for F
 where
-    F: Fn(T) -> U,
+    F: FnMut(T) -> U,
     U: Future<Output = Result<R, E>>,
     E: Into<crate::BoxError>,
 {
@@ -57,7 +57,7 @@ where
 
 impl<F, T, R, E> Predicate<T> for F
 where
-    F: Fn(T) -> Result<R, E>,
+    F: FnMut(T) -> Result<R, E>,
     E: Into<crate::BoxError>,
 {
     type Request = R;

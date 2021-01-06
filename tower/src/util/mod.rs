@@ -534,10 +534,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   }
     /// # }
     /// #
-    /// # enum DbError {
+    /// # #[derive(Debug)] enum DbError {
     /// #   Parse(std::num::ParseIntError)
     /// # }
     /// #
+    /// # impl std::fmt::Display for DbError {
+    /// #    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { std::fmt::Debug::fmt(self, f) }
+    /// # }
+    /// # impl std::error::Error for DbError {}
     /// # impl Service<u32> for DatabaseService {
     /// #   type Response = String;
     /// #   type Error = DbError;
@@ -597,16 +601,20 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # use std::task::{Poll, Context};
     /// # use tower::{Service, ServiceExt};
     /// #
-    /// # struct DatabaseService;
+    /// # #[derive(Clone)] struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
     /// #       DatabaseService
     /// #   }
     /// # }
-    /// #
+    /// # #[derive(Debug)]
     /// # enum DbError {
     /// #   Rejected
     /// # }
+    /// # impl std::fmt::Display for DbError {
+    /// #    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { std::fmt::Debug::fmt(self, f) }
+    /// # }
+    /// # impl std::error::Error for DbError {}
     /// #
     /// # impl Service<u32> for DatabaseService {
     /// #   type Response = String;
@@ -645,6 +653,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Call the new service
     /// let id = 13;
+    /// # let id: u32 = id;
     /// let response = new_service
     ///     .ready_and()
     ///     .await?
