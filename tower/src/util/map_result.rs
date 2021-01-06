@@ -1,10 +1,7 @@
-use futures_util::FutureExt;
+use futures_util::{future::Map, FutureExt};
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
-
-#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
-pub use futures_util::future::Map as MapResultFuture;
 
 /// Service returned by the [`map_result`] combinator.
 ///
@@ -21,6 +18,13 @@ pub struct MapResult<S, F> {
 #[derive(Debug, Clone)]
 pub struct MapResultLayer<F> {
     f: F,
+}
+
+opaque_future! {
+    /// Response future from [`MapResult`] services.
+    ///
+    /// [`MapResult`]: crate::util::MapResult
+    pub type MapResultFuture<F, N> = Map<F, N>;
 }
 
 impl<S, F> MapResult<S, F> {
@@ -47,7 +51,7 @@ where
 
     #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
-        self.inner.call(request).map(self.f.clone())
+        MapResultFuture(self.inner.call(request).map(self.f.clone()))
     }
 }
 
