@@ -1,4 +1,4 @@
-use super::future::background_ready;
+use super::future::{background_ready, ResponseFuture};
 use futures_core::ready;
 use futures_util::future::{MapErr, TryFutureExt};
 use std::{
@@ -40,7 +40,7 @@ where
 {
     type Response = T::Response;
     type Error = crate::BoxError;
-    type Future = MapErr<T::Future, fn(T::Error) -> crate::BoxError>;
+    type Future = ResponseFuture<T::Future, T::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {

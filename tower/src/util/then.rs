@@ -1,13 +1,10 @@
-use futures_util::FutureExt;
+use futures_util::{future, FutureExt};
 use std::{
     future::Future,
     task::{Context, Poll},
 };
 use tower_layer::Layer;
 use tower_service::Service;
-
-#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
-pub use futures_util::future::Then as ThenFuture;
 
 /// Service returned by the [`then`] combinator.
 ///
@@ -33,6 +30,13 @@ impl<S, F> Then<S, F> {
     }
 }
 
+opaque_future! {
+    /// Response future from [`Then`] services.
+    ///
+    /// [`Then`]: crate::util::Then
+    pub type ThenFuture<F1, F2, N> = future::Then<F1, F2, N>;
+}
+
 impl<S, F, Request, Response, Error, Fut> Service<Request> for Then<S, F>
 where
     S: Service<Request>,
@@ -51,7 +55,7 @@ where
 
     #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
-        self.inner.call(request).then(self.f.clone())
+        ThenFuture(self.inner.call(request).then(self.f.clone()))
     }
 }
 

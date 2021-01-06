@@ -1,10 +1,7 @@
-use futures_util::TryFutureExt;
+use futures_util::{future::MapOk, TryFutureExt};
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
-
-#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
-pub use futures_util::future::MapOk as MapResponseFuture;
 
 /// Service returned by the [`map_response`] combinator.
 ///
@@ -21,6 +18,13 @@ pub struct MapResponse<S, F> {
 #[derive(Debug, Clone)]
 pub struct MapResponseLayer<F> {
     f: F,
+}
+
+opaque_future! {
+    /// Response future from [`MapResponse`] services.
+    ///
+    /// [`MapResponse`]: crate::util::MapResponse
+    pub type MapResponseFuture<F, N> = MapOk<F, N>;
 }
 
 impl<S, F> MapResponse<S, F> {
@@ -46,7 +50,7 @@ where
 
     #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
-        self.inner.call(request).map_ok(self.f.clone())
+        MapResponseFuture(self.inner.call(request).map_ok(self.f.clone()))
     }
 }
 
