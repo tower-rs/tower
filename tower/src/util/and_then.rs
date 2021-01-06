@@ -17,6 +17,14 @@ pub struct AndThen<S, F> {
     f: F,
 }
 
+/// A [`Layer`] that produces a [`AndThen`] service.
+///
+/// [`Layer`]: tower_layer::Layer
+#[derive(Debug)]
+pub struct AndThenLayer<F> {
+    f: F,
+}
+
 impl<S, F> AndThen<S, F> {
     /// Creates a new `AndThen` service.
     pub fn new(inner: S, f: F) -> Self {
@@ -42,14 +50,6 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         self.inner.call(request).err_into().and_then(self.f.clone())
     }
-}
-
-/// A [`Layer`] that produces a [`AndThen`] service.
-///
-/// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
-pub struct AndThenLayer<F> {
-    f: F,
 }
 
 impl<F> AndThenLayer<F> {
