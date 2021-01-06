@@ -2,7 +2,7 @@
 //!
 //! # Example
 //!
-//! `Steer` can for example be used to create a router akin to what you might find in web
+//! `Steer` can for example be used to create a router, akin to what you might find in web
 //! frameworks.
 //!
 //! Here, `GET /` will be sent to the `root` service, while all other requests go to `not_found`.
