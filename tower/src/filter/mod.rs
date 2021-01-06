@@ -85,13 +85,12 @@ where
     type Future = ResponseFuture<T::Response, T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map(|res| res.map_err(Into::into))
+        self.inner.poll_ready(cx).map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         ResponseFuture(match self.predicate.check(request) {
             Ok(request) => Either::Right(self.inner.call(request).err_into()),
-
             Err(e) => Either::Left(futures_util::future::ready(Err(e.into()))),
         })
     }
@@ -125,7 +124,7 @@ where
     type Future = AsyncResponseFuture<U, T, Request>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(ready!(self.inner.poll_ready(cx)).map_err(Into::into))
+        self.inner.poll_ready(cx).map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
