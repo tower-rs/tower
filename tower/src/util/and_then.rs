@@ -1,7 +1,10 @@
 use std::task::{Context, Poll};
 
 use futures_core::TryFuture;
-use futures_util::{future::AndThen as AndThenFut, TryFutureExt};
+use futures_util::{
+    future::{AndThen as AndThenFut, ErrInto as ErrIntoFut},
+    TryFutureExt,
+};
 use tower_layer::Layer;
 use tower_service::Service;
 
@@ -21,22 +24,23 @@ impl<S, F> AndThen<S, F> {
     }
 }
 
-impl<S, F, Request, Fut> Service<Request> for AndThen<S, F>
+impl<S, F, Request, Error, Fut> Service<Request> for AndThen<S, F>
 where
     S: Service<Request>,
+    S::Error: Into<Error>,
     F: FnOnce(S::Response) -> Fut + Clone,
-    Fut: TryFuture<Error = S::Error>,
+    Fut: TryFuture<Error = Error>,
 {
     type Response = Fut::Ok;
-    type Error = Fut::Error;
-    type Future = AndThenFut<S::Future, Fut, F>;
+    type Error = Error;
+    type Future = AndThenFut<ErrIntoFut<S::Future, Error>, Fut, F>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
+        self.inner.poll_ready(cx).map_err(Into::into)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        self.inner.call(request).and_then(self.f.clone())
+        self.inner.call(request).err_into().and_then(self.f.clone())
     }
 }
 
