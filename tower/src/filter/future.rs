@@ -52,7 +52,6 @@ impl<P, S, Request> AsyncResponseFuture<P, S, Request>
 where
     P: AsyncPredicate<Request>,
     S: Service<P::Request>,
-    P::Error: Into<BoxError>,
     S::Error: Into<BoxError>,
 {
     pub(crate) fn new(check: P::Future, service: S) -> Self {
@@ -66,7 +65,6 @@ where
 impl<P, S, Request> Future for AsyncResponseFuture<P, S, Request>
 where
     P: AsyncPredicate<Request>,
-    P::Error: Into<crate::BoxError>,
     S: Service<P::Request>,
     S::Error: Into<crate::BoxError>,
 {
@@ -78,12 +76,12 @@ where
         loop {
             match this.state.as_mut().project() {
                 StateProj::Check(mut check) => {
-                    let request = ready!(check.as_mut().poll(cx).map_err(Into::into))?;
+                    let request = ready!(check.as_mut().poll(cx))?;
                     let response = this.service.call(request);
                     this.state.set(State::WaitResponse(response));
                 }
                 StateProj::WaitResponse(response) => {
-                    return Poll::Ready(ready!(response.poll(cx)).map_err(Into::into));
+                    return response.poll(cx).map_err(Into::into);
                 }
             }
         }

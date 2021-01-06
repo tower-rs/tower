@@ -218,11 +218,10 @@ where
     P: Policy<Request>,
 {
     type Future = future::Either<
-        future::Ready<Result<Request, Self::Error>>,
-        future::Pending<Result<Request, Self::Error>>,
+        future::Ready<Result<Request, crate::BoxError>>,
+        future::Pending<Result<Request, crate::BoxError>>,
     >;
     type Request = Request;
-    type Error = crate::BoxError;
 
     fn check(&mut self, request: Request) -> Self::Future {
         if self.0.can_retry(&request) {

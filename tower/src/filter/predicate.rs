@@ -1,20 +1,16 @@
+use crate::BoxError;
 use std::future::Future;
 
 /// Checks a request asynchronously.
 pub trait AsyncPredicate<Request> {
     /// The future returned by `check`.
-    type Future: Future<Output = Result<Self::Request, Self::Error>>;
+    type Future: Future<Output = Result<Self::Request, BoxError>>;
 
     /// The type of requests returned by `check`.
     ///
     /// This request is forwarded to the inner service if the predicate
     /// succeeds.
     type Request;
-    /// The type of errors returned by `check`.
-    ///
-    /// If the predicate fails, this is returned rather than calling the inner
-    /// service.
-    type Error: Into<crate::BoxError>;
 
     /// Check whether the given request should be forwarded.
     ///
@@ -28,42 +24,36 @@ pub trait Predicate<Request> {
     /// This request is forwarded to the inner service if the predicate
     /// succeeds.
     type Request;
-    /// The type of errors returned by `check`.
-    ///
-    /// If the predicate fails, this is returned rather than calling the inner
-    /// service.
-    type Error: Into<crate::BoxError>;
 
     /// Check whether the given request should be forwarded.
     ///
     /// If the future resolves with `Ok`, the request is forwarded to the inner service.
-    fn check(&mut self, request: Request) -> Result<Self::Request, Self::Error>;
+    fn check(&mut self, request: Request) -> Result<Self::Request, BoxError>;
 }
 
 impl<F, T, U, R, E> AsyncPredicate<T> for F
 where
     F: FnMut(T) -> U,
     U: Future<Output = Result<R, E>>,
-    E: Into<crate::BoxError>,
+    E: Into<BoxError>,
 {
-    type Future = U;
+    type Future = futures_util::future::ErrInto<U, BoxError>;
     type Request = R;
-    type Error = E;
 
     fn check(&mut self, request: T) -> Self::Future {
-        self(request)
+        use futures_util::TryFutureExt;
+        self(request).err_into()
     }
 }
 
 impl<F, T, R, E> Predicate<T> for F
 where
     F: FnMut(T) -> Result<R, E>,
-    E: Into<crate::BoxError>,
+    E: Into<BoxError>,
 {
     type Request = R;
-    type Error = E;
 
-    fn check(&mut self, request: T) -> Result<Self::Request, Self::Error> {
-        self(request)
+    fn check(&mut self, request: T) -> Result<Self::Request, BoxError> {
+        self(request).map_err(Into::into)
     }
 }
