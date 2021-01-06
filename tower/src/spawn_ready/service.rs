@@ -1,6 +1,6 @@
 use super::future::{background_ready, ResponseFuture};
 use futures_core::ready;
-use futures_util::future::{MapErr, TryFutureExt};
+use futures_util::future::TryFutureExt;
 use std::{
     future::Future,
     pin::Pin,
