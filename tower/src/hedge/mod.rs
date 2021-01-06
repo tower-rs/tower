@@ -3,7 +3,7 @@
 
 #![warn(missing_debug_implementations, missing_docs, unreachable_pub)]
 
-use crate::filter::Filter;
+use crate::filter::AsyncFilter;
 use futures_util::future;
 use pin_project::pin_project;
 use std::sync::{Arc, Mutex};
@@ -28,7 +28,7 @@ type Histo = Arc<Mutex<RotatingHistogram>>;
 type Service<S, P> = select::Select<
     SelectPolicy<P>,
     Latency<Histo, S>,
-    Delay<DelayPolicy, Filter<Latency<Histo, S>, PolicyPredicate<P>>>,
+    Delay<DelayPolicy, AsyncFilter<Latency<Histo, S>, PolicyPredicate<P>>>,
 >;
 /// A middleware that pre-emptively retries requests which have been outstanding
 /// for longer than a given latency percentile.  If either of the original
@@ -138,7 +138,7 @@ impl<S, P> Hedge<S, P> {
         let recorded_b = Latency::new(histo.clone(), service);
 
         // Check policy to see if the hedge request should be issued.
-        let filtered = Filter::new(recorded_b, PolicyPredicate(policy.clone()));
+        let filtered = AsyncFilter::new(recorded_b, PolicyPredicate(policy.clone()));
 
         // Delay the second request by a percentile of the recorded request latency
         // histogram.
@@ -213,18 +213,19 @@ impl latency::Record for Histo {
     }
 }
 
-impl<P, Request> crate::filter::Predicate<Request> for PolicyPredicate<P>
+impl<P, Request> crate::filter::AsyncPredicate<Request> for PolicyPredicate<P>
 where
     P: Policy<Request>,
 {
     type Future = future::Either<
-        future::Ready<Result<(), crate::filter::error::Error>>,
-        future::Pending<Result<(), crate::filter::error::Error>>,
+        future::Ready<Result<Request, crate::BoxError>>,
+        future::Pending<Result<Request, crate::BoxError>>,
     >;
+    type Request = Request;
 
-    fn check(&mut self, request: &Request) -> Self::Future {
-        if self.0.can_retry(request) {
-            future::Either::Left(future::ready(Ok(())))
+    fn check(&mut self, request: Request) -> Self::Future {
+        if self.0.can_retry(&request) {
+            future::Either::Left(future::ready(Ok(request)))
         } else {
             // If the hedge retry should not be issued, we simply want to wait
             // for the result of the original request.  Therefore we don't want

@@ -88,6 +88,8 @@
 //! [`tower-test`]: https://crates.io/crates/tower-test
 //! [`retry`]: crate::retry
 //! [`timeout`]: crate::timeout
+#[macro_use]
+pub(crate) mod macros;
 #[cfg(feature = "balance")]
 #[cfg_attr(docsrs, doc(cfg(feature = "balance")))]
 pub mod balance;
@@ -112,6 +114,7 @@ pub mod load;
 #[cfg(feature = "load-shed")]
 #[cfg_attr(docsrs, doc(cfg(feature = "load-shed")))]
 pub mod load_shed;
+
 #[cfg(feature = "make")]
 #[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 pub mod make;
@@ -155,7 +158,6 @@ pub use crate::make::MakeService;
 pub use tower_layer::Layer;
 #[doc(inline)]
 pub use tower_service::Service;
-
 #[cfg(any(feature = "buffer", feature = "limit"))]
 mod semaphore;
 

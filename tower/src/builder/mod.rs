@@ -239,6 +239,42 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::timeout::TimeoutLayer::new(timeout))
     }
 
+    /// Conditionally reject requests based on `predicate`.
+    ///
+    /// `predicate` must implement the [`Predicate`] trait.
+    ///
+    /// This wraps the inner service with an instance of the [`Filter`]
+    /// middleware.
+    ///
+    /// [`Filter`]: crate::filter
+    /// [`Predicate`]: crate::filter::Predicate
+    #[cfg(feature = "filter")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
+    pub fn filter<P>(
+        self,
+        predicate: P,
+    ) -> ServiceBuilder<Stack<crate::filter::FilterLayer<P>, L>> {
+        self.layer(crate::filter::FilterLayer::new(predicate))
+    }
+
+    /// Conditionally reject requests based on an asynchronous `predicate`.
+    ///
+    /// `predicate` must implement the [`AsyncPredicate`] trait.
+    ///
+    /// This wraps the inner service with an instance of the [`AsyncFilter`]
+    /// middleware.
+    ///
+    /// [`AsyncFilter`]: crate::filter::AsyncFilter
+    /// [`AsyncPredicate`]: crate::filter::AsyncPredicate
+    #[cfg(feature = "filter")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
+    pub fn filter_async<P>(
+        self,
+        predicate: P,
+    ) -> ServiceBuilder<Stack<crate::filter::AsyncFilterLayer<P>, L>> {
+        self.layer(crate::filter::AsyncFilterLayer::new(predicate))
+    }
+
     /// Map one request type to another.
     ///
     /// This wraps the inner service with an instance of the [`MapRequest`]
@@ -309,27 +345,6 @@ impl<L> ServiceBuilder<L> {
         F: FnMut(R1) -> R2 + Clone,
     {
         self.layer(crate::util::MapRequestLayer::new(f))
-    }
-
-    /// Fallibly one request type to another, or to an error.
-    ///
-    /// This wraps the inner service with an instance of the [`TryMapRequest`]
-    /// middleware.
-    ///
-    /// See the documentation for the [`try_map_request` combinator] for details.
-    ///
-    /// [`TryMapRequest`]: crate::util::MapResponse
-    /// [`try_map_request` combinator]: crate::util::ServiceExt::try_map_request
-    #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
-    pub fn try_map_request<F, R1, R2, E>(
-        self,
-        f: F,
-    ) -> ServiceBuilder<Stack<crate::util::TryMapRequestLayer<F>, L>>
-    where
-        F: FnMut(R1) -> Result<R2, E> + Clone,
-    {
-        self.layer(crate::util::TryMapRequestLayer::new(f))
     }
 
     /// Map one response type to another.
