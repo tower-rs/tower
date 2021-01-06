@@ -1,44 +1,72 @@
 //! This module provides functionality to aid managing routing requests between Tower [`Service`]s.
 //!
 //! # Example
+//!
+//! `Steer` can for example be used to create a router, akin to what you might find in web
+//! frameworks.
+//!
+//! Here, `GET /` will be sent to the `root` service, while all other requests go to `not_found`.
+//!
 //! ```rust
 //! # use std::task::{Context, Poll};
 //! # use tower_service::Service;
 //! # use futures_util::future::{ready, Ready, poll_fn};
 //! # use tower::steer::Steer;
-//! type StdError = Box<dyn std::error::Error + Send + Sync + 'static>;
-//! struct MyService(u8);
+//! # use tower::service_fn;
+//! # use tower::util::BoxService;
+//! # use tower::ServiceExt;
+//! # use std::convert::Infallible;
+//! use http::{Request, Response, StatusCode, Method};
 //!
-//! impl Service<String> for MyService {
-//!     type Response = ();
-//!     type Error = StdError;
-//!     type Future = Ready<Result<(), Self::Error>>;
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // service that responds to `GET /`
+//! let root = service_fn(|req: Request<String>| async move {
+//!     # assert_eq!(req.uri().path(), "/");
+//!     let res = Response::new("Hello, World!".to_string());
+//!     Ok::<_, Infallible>(res)
+//! });
+//! // we have to box the service so its type gets erased and we can put in a `Vec` with other
+//! // services
+//! let root = BoxService::new(root);
 //!
-//!     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-//!         Poll::Ready(Ok(()))
-//!     }
+//! // service that responds with `404 Not Found` to all requests
+//! let not_found = service_fn(|req: Request<String>| async move {
+//!     let res = Response::builder()
+//!         .status(StatusCode::NOT_FOUND)
+//!         .body(String::new())
+//!         .expect("response is valid");
+//!     Ok::<_, Infallible>(res)
+//! });
+//! // box that as well
+//! let not_found = BoxService::new(not_found);
 //!
-//!     fn call(&mut self, req: String) -> Self::Future {
-//!         println!("{}: {}", self.0, req);
-//!         ready(Ok(()))
-//!     }
-//! }
+//! let mut svc = Steer::new(
+//!     // all services we route between
+//!     vec![root, not_found],
+//!     // how we pick which service to send the request to
+//!     |req: &Request<String>, _services: &[_]| {
+//!         if req.method() == Method::GET && req.uri().path() == "/" {
+//!             0 // index of `root`
+//!         } else {
+//!             1 // index of `not_found`
+//!         }
+//!     },
+//! );
 //!
-//! #[tokio::main]
-//! async fn main() {
-//!     let mut s = Steer::new(
-//!         vec![MyService(0), MyService(1)],
-//!         // one service handles strings with uppercase first letters. the other handles the rest.
-//!         |r: &String, _: &[_]| if r.chars().next().unwrap().is_uppercase() { 0 } else { 1 },
-//!     );
+//! // this request will get sent to `root`
+//! let req = Request::get("/").body(String::new()).unwrap();
+//! let res = svc.ready_and().await?.call(req).await?;
+//! assert_eq!(res.into_body(), "Hello, World!");
 //!
-//!     let reqs = vec!["A", "b", "C", "d"];
-//!     let reqs: Vec<String> = reqs.into_iter().map(String::from).collect();
-//!     for r in reqs {
-//!         poll_fn(|cx| s.poll_ready(cx)).await.unwrap();
-//!         s.call(r).await;
-//!     }
-//! }
+//! // this request will get sent to `not_found`
+//! let req = Request::get("/does/not/exist").body(String::new()).unwrap();
+//! let res = svc.ready_and().await?.call(req).await?;
+//! assert_eq!(res.status(), StatusCode::NOT_FOUND);
+//! assert_eq!(res.into_body(), "");
+//! #
+//! # Ok(())
+//! # }
 //! ```
 use std::collections::VecDeque;
 use std::task::{Context, Poll};
