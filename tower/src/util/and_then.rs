@@ -24,16 +24,16 @@ impl<S, F> AndThen<S, F> {
     }
 }
 
-impl<S, F, Request, Error, Fut> Service<Request> for AndThen<S, F>
+impl<S, F, Request, Fut> Service<Request> for AndThen<S, F>
 where
     S: Service<Request>,
-    S::Error: Into<Error>,
+    S::Error: Into<Fut::Error>,
     F: FnOnce(S::Response) -> Fut + Clone,
-    Fut: TryFuture<Error = Error>,
+    Fut: TryFuture,
 {
     type Response = Fut::Ok;
-    type Error = Error;
-    type Future = AndThenFut<ErrIntoFut<S::Future, Error>, Fut, F>;
+    type Error = Fut::Error;
+    type Future = AndThenFut<ErrIntoFut<S::Future, Fut::Error>, Fut, F>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx).map_err(Into::into)
