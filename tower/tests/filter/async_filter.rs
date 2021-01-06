@@ -3,7 +3,7 @@
 mod support;
 use futures_util::{future::poll_fn, pin_mut};
 use std::future::Future;
-use tower::filter::{error::Error, Filter};
+use tower::filter::{error::Error, AsyncFilter};
 use tower_service::Service;
 use tower_test::{assert_request_eq, mock};
 
@@ -52,12 +52,12 @@ async fn rejected_sync() {
 type Mock = mock::Mock<String, String>;
 type Handle = mock::Handle<String, String>;
 
-fn new_service<F, U>(f: F) -> (Filter<Mock, F>, Handle)
+fn new_service<F, U>(f: F) -> (AsyncFilter<Mock, F>, Handle)
 where
     F: Fn(&String) -> U,
     U: Future<Output = Result<(), Error>>,
 {
     let (service, handle) = mock::pair();
-    let service = Filter::new(service, f);
+    let service = AsyncFilter::new(service, f);
     (service, handle)
 }

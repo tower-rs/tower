@@ -15,7 +15,6 @@ mod optional;
 mod ready;
 mod service_fn;
 mod then;
-mod try_map_request;
 
 pub use self::{
     boxed::{BoxService, UnsyncBoxService},
@@ -30,7 +29,6 @@ pub use self::{
     ready::{ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
-    try_map_request::{TryMapRequest, TryMapRequestLayer},
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
@@ -517,10 +515,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapRequest::new(self, f)
     }
 
-    /// Composes a fallible function *in front of* the service.
+    /// Composes this service with a [`Filter`] that conditionally accepts or
+    /// rejects requests based on a [predicate].
     ///
     /// This adapter produces a new service that passes each value through the
-    /// given function `f` before sending it to `self`.
+    /// given function `predicate` before sending it to `self`.
     ///
     /// # Example
     /// ```
@@ -560,7 +559,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// // Fallibly map the request to a new request
     /// let mut new_service = service
-    ///     .try_map_request(|id_str: &str| id_str.parse().map_err(DbError::Parse));
+    ///     .filter(|id_str: &str| id_str.parse().map_err(DbError::Parse));
     ///
     /// // Call the new service
     /// let id = "13";
@@ -573,12 +572,99 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #    };
     /// # }
     /// ```
-    fn try_map_request<F, NewRequest>(self, f: F) -> TryMapRequest<Self, F>
+    ///
+    /// [`Filter`]: crate::filter::Filter
+    /// [predicate]: crate::filter::Predicate
+    #[cfg(feature = "filter")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
+    fn filter<F, NewRequest>(self, filter: F) -> crate::filter::Filter<Self, F>
     where
         Self: Sized,
-        F: FnMut(NewRequest) -> Result<Request, Self::Error>,
+        F: crate::filter::Predicate<NewRequest>,
     {
-        TryMapRequest::new(self, f)
+        crate::filter::Filter::new(self, filter)
+    }
+
+    /// Composes this service with an [`AsyncFilter`] that conditionally accepts or
+    /// rejects requests based on an [async predicate].
+    ///
+    /// This adapter produces a new service that passes each value through the
+    /// given function `predicate` before sending it to `self`.
+    ///
+    /// # Example
+    /// ```
+    /// # use std::convert::TryFrom;
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # enum DbError {
+    /// #   Rejected
+    /// # }
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = String;
+    /// #   type Error = DbError;
+    /// #   type Future = futures_util::future::Ready<Result<String, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(String::new()))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// #    async {
+    /// // A service taking a u32 as a request and returning Result<_, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    /// /// Returns `true` if we should query the database for an ID.
+    /// async fn should_query(id: u32) -> bool {
+    ///     // ...
+    ///     # true
+    /// }
+    ///
+    /// // Filter requests based on `should_query`.
+    /// let mut new_service = service
+    ///     .filter_async(|id: u32| async move {
+    ///         if should_query(id).await {
+    ///             return Ok(id);
+    ///         }
+    ///
+    ///         Err(DbError::Rejected)
+    ///     });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let response = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await;
+    /// # response
+    /// #    };
+    /// # }
+    /// ```
+    ///
+    /// [`AsyncFilter`]: crate::filter::AsyncFilter
+    /// [asynchronous predicate]: crate::filter::AsyncPredicate
+    #[cfg(feature = "filter")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
+    fn filter_async<F, NewRequest>(self, filter: F) -> crate::filter::AsyncFilter<Self, F>
+    where
+        Self: Sized,
+        F: crate::filter::AsyncPredicate<NewRequest>,
+    {
+        crate::filter::AsyncFilter::new(self, filter)
     }
 
     /// Composes an asynchronous function *after* this service.

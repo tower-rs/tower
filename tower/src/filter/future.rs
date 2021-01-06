@@ -1,8 +1,8 @@
 //! Future types
 
-use super::Predicate;
+use super::AsyncPredicate;
+use crate::BoxError;
 use futures_core::ready;
-use futures_util::TryFuture;
 use pin_project::pin_project;
 use std::{
     future::Future,
@@ -11,52 +11,63 @@ use std::{
 };
 use tower_service::Service;
 
-/// Filtered response future
+/// Filtered response future from [`AsyncFilter`] services.
+///
+/// [`AsyncFilter`]: crate::filter::AsyncFilter
 #[pin_project]
 #[derive(Debug)]
-pub struct ResponseFuture<T, S, Request>
+pub struct AsyncResponseFuture<P, S, Request>
 where
-    S: Service<T::Request>,
+    P: AsyncPredicate<Request>,
+    S: Service<P::Request>,
 {
     #[pin]
-    /// Response future state
-    state: State<Request, S::Future>,
-
-    #[pin]
-    /// Predicate future
-    check: T,
+    state: State<P::Future, S::Future>,
 
     /// Inner service
     service: S,
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<Request, U> {
-    Check(Option<Request>),
-    WaitResponse(#[pin] U),
+opaque_future! {
+    /// Filtered response future from [`Filter`] services.
+    ///
+    /// [`Filter`]: crate::filter::Filter
+    pub type ResponseFuture<R, F> =
+        futures_util::future::Either<
+            futures_util::future::Ready<Result<R, crate::BoxError>>,
+            futures_util::future::ErrInto<F, crate::BoxError>
+        >;
 }
 
-impl<F, T, S, Request, E> ResponseFuture<F, S, Request>
+#[pin_project(project = StateProj)]
+#[derive(Debug)]
+enum State<F, G> {
+    /// Waiting for the predicate future
+    Check(#[pin] F),
+    /// Waiting for the response future
+    WaitResponse(#[pin] G),
+}
+
+impl<P, S, Request> AsyncResponseFuture<P, S, Request>
 where
-    F: Future<Output = Result<T, E>>,
-    S: Service<T>,
-    crate::BoxError: From<E>,
-    crate::BoxError: From<S::Error>,
+    P: AsyncPredicate<Request>,
+    S: Service<P::Request>,
+    P::Error: Into<BoxError>,
+    S::Error: Into<BoxError>,
 {
-    pub(crate) fn new(request: Request, check: F, service: S) -> Self {
-        ResponseFuture {
-            state: State::Check(Some(request)),
-            check,
+    pub(crate) fn new(check: P::Future, service: S) -> Self {
+        Self {
+            state: State::Check(check),
             service,
         }
     }
 }
 
-impl<F, T, S, Request, E> Future for ResponseFuture<F, S, Request>
+impl<P, S, Request> Future for AsyncResponseFuture<P, S, Request>
 where
-    F: Future<Output = Result<T, E>>,
-    S: Service<T>,
+    P: AsyncPredicate<Request>,
+    P::Error: Into<crate::BoxError>,
+    S: Service<P::Request>,
     S::Error: Into<crate::BoxError>,
 {
     type Output = Result<S::Response, crate::BoxError>;
@@ -66,22 +77,10 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Check(request) => {
-                    let request = request
-                        .take()
-                        .expect("we either give it back or leave State::Check once we take");
-
-                    // Poll predicate
-                    match this.check.as_mut().poll(cx)? {
-                        Poll::Ready(request) => {
-                            let response = this.service.call(request);
-                            this.state.set(State::WaitResponse(response));
-                        }
-                        Poll::Pending => {
-                            this.state.set(State::Check(Some(request)));
-                            return Poll::Pending;
-                        }
-                    }
+                StateProj::Check(mut check) => {
+                    let request = ready!(check.as_mut().poll(cx).map_err(Into::into))?;
+                    let response = this.service.call(request);
+                    this.state.set(State::WaitResponse(response));
                 }
                 StateProj::WaitResponse(response) => {
                     return Poll::Ready(ready!(response.poll(cx)).map_err(Into::into));
