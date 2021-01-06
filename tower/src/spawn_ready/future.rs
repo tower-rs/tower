@@ -25,7 +25,7 @@ opaque_future! {
     ///
     /// [`SpawnReady`]: crate::spawn_ready::SpawnReady
     pub type ResponseFuture<F, E> = futures_util::future::MapErr<F, fn(E) -> crate::BoxError>;
-
+}
 
 pub(crate) fn background_ready<T, Request>(
     service: T,
