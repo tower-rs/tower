@@ -26,7 +26,7 @@
 //!     let res = Response::new("Hello, World!".to_string());
 //!     Ok::<_, Infallible>(res)
 //! });
-//! // we have to box the service so its type gets erased and we can put in a `Vec` with other
+//! // we have to box the service so its type gets erased and we can put it in a `Vec` with other
 //! // services
 //! let root = BoxService::new(root);
 //!
