@@ -122,7 +122,8 @@ use std::task::{Context, Poll};
 /// use std::fmt;
 /// use std::error::Error;
 ///
-/// // our timeout service which wraps another service
+/// // Our timeout service, which wraps another service and
+/// // adds a timeout to its response future.
 /// pub struct Timeout<T> {
 ///     inner: T,
 ///     timeout: Duration,
@@ -137,7 +138,7 @@ use std::task::{Context, Poll};
 ///     }
 /// }
 ///
-/// // the error returned if processing a request takes too long
+/// // The error returned if processing a request timed out
 /// #[derive(Debug)]
 /// pub struct Expired;
 ///
@@ -149,7 +150,7 @@ use std::task::{Context, Poll};
 ///
 /// impl Error for Expired {}
 ///
-/// // we can implement `Service` for `Timeout<T>` if `T` is a `Service`
+/// // We can implement `Service` for `Timeout<T>` if `T` is a `Service`
 /// impl<T, Request> Service<Request> for Timeout<T>
 /// where
 ///     T: Service<Request>,
@@ -157,23 +158,25 @@ use std::task::{Context, Poll};
 ///     T::Error: Into<Box<dyn Error>> + 'static,
 ///     T::Response: 'static,
 /// {
-///     // `Timeout` doesn't modify the response type so we use `T`'s response type
+///     // `Timeout` doesn't modify the response type, so we use `T`'s response type
 ///     type Response = T::Response;
-///     // convert the errors into trait objects so the types match
+///     // Errors may be either `Expired` if the timeout expired, or the inner service's
+///     // `Error` type. Therefore, we return a boxed `dyn Error` trait object to erase
+///     // the error's type.
 ///     type Error = Box<dyn Error>;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
 ///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-///         // our timeout service is ready if the inner service is ready
-///         // this is how backpressure can be progagated through a tree of nested services
+///         // Our timeout service is ready if the inner service is ready.
+///         // This is how backpressure can be propagated through a tree of nested services.
 ///        self.inner.poll_ready(cx).map_err(Into::into)
 ///     }
 ///
 ///     fn call(&mut self, req: Request) -> Self::Future {
-///         // create a future that completes in `self.timeout`
+///         // Create a future that completes after `self.timeout`
 ///         let timeout = tokio::time::sleep(self.timeout);
 ///
-///         // call the inner service and get a future that resolves to the response
+///         // Call the inner service and get a future that resolves to the response
 ///         let fut = self.inner.call(req);
 ///
 ///         // wrap those two futures in another future that completes when either one completes
