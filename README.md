@@ -19,9 +19,7 @@ pattern. If your protocol is entirely stream based, Tower may not be a good fit.
 
 ## Status
 
-Currently, `tower 0.3` is released on crates. We are currently working on cleaning
-up the codebase and adding more documentation. You can follow our progress in
-this [issue](https://github.com/tower-rs/tower/issues/431).
+Currently, `tower 0.4` is released on crates.io.
 
 ## License
 
