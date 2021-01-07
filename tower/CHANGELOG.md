@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+# 0.4.0 (January 7, 2021)
+
+This is a major breaking release including a large number of changes. In
+particular, this release updates `tower` to depend on Tokio 1.0, and moves all
+middleware into the `tower` crate. In addition, Tower 0.4 reworks several
+middleware APIs, as well as introducing new ones. 
+
+This release does *not* change the core `Service` or `Layer` traits, so `tower`
+0.4 still depends on `tower-service` 0.3 and `tower-layer` 0.3. This means that
+`tower` 0.4 is still compatible with libraries that depend on those crates.
+
 ### Added
 
 - **make**: Added `MakeService::into_service` and `MakeService::as_service` for
