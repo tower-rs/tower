@@ -1,3 +1,8 @@
+# 0.4.0 (January 7, 2021)
+
+- Updated `tokio-test` dependency to 0.4
+- Updated `tokio` dependency to 1.0
+
 # 0.3.0 (December 19, 2019)
 
 - Remove `futures-executor` dependency
