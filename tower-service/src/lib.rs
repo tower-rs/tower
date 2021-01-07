@@ -47,7 +47,6 @@ use std::task::{Context, Poll};
 /// # use std::task::{Poll, Context};
 /// # use std::future::Future;
 /// # use tower_service::Service;
-///
 /// use http::{Request, Response, StatusCode};
 ///
 /// struct HelloWorld;
@@ -71,7 +70,7 @@ use std::task::{Context, Poll};
 ///             .status(StatusCode::OK)
 ///             .body(body)
 ///             .expect("Unable to create `http::Response`");
-///         
+///
 ///         // create a response in a future.
 ///         let fut = async {
 ///             Ok(resp)
@@ -112,7 +111,7 @@ use std::task::{Context, Poll};
 ///
 /// Take timeouts as an example:
 ///
-/// ```rust,ignore
+/// ```rust
 /// use tower_service::Service;
 /// use tower_layer::Layer;
 /// use futures::FutureExt;
@@ -120,16 +119,14 @@ use std::task::{Context, Poll};
 /// use std::task::{Context, Poll};
 /// use std::time::Duration;
 /// use std::pin::Pin;
+/// use std::fmt;
+/// use std::error::Error;
 ///
-///
+/// // our timeout service which wraps another service
 /// pub struct Timeout<T> {
 ///     inner: T,
 ///     timeout: Duration,
 /// }
-///
-/// pub struct TimeoutLayer(Duration);
-///
-/// pub struct Expired;
 ///
 /// impl<T> Timeout<T> {
 ///     pub fn new(inner: T, timeout: Duration) -> Timeout<T> {
@@ -140,32 +137,68 @@ use std::task::{Context, Poll};
 ///     }
 /// }
 ///
+/// // the error returned if processing a request takes too long
+/// #[derive(Debug)]
+/// pub struct Expired;
+///
+/// impl fmt::Display for Expired {
+///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+///         write!(f, "expired")
+///     }
+/// }
+///
+/// impl Error for Expired {}
+///
+/// // we can implement `Service` for `Timeout<T>` if `T` is a `Service`
 /// impl<T, Request> Service<Request> for Timeout<T>
 /// where
 ///     T: Service<Request>,
 ///     T::Future: 'static,
-///     T::Error: From<Expired> + 'static,
-///     T::Response: 'static
+///     T::Error: Into<Box<dyn Error>> + 'static,
+///     T::Response: 'static,
 /// {
+///     // `Timeout` doesn't modify the response type so we use `T`'s response type
 ///     type Response = T::Response;
-///     type Error = T::Error;
+///     // convert the errors into trait objects so the types match
+///     type Error = Box<dyn Error>;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
 ///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///         // our timeout service is ready if the inner service is ready
+///         // this is how backpressure can be progagated through a tree of nested services
 ///        self.inner.poll_ready(cx).map_err(Into::into)
 ///     }
 ///
 ///     fn call(&mut self, req: Request) -> Self::Future {
-///         let timeout = tokio_timer::delay_for(self.timeout)
-///             .map(|_| Err(Self::Error::from(Expired)));
+///         // create a future that completes in `self.timeout`
+///         let timeout = tokio::time::sleep(self.timeout);
 ///
-///         let fut = Box::pin(self.inner.call(req));
-///         let f = futures::select(fut, timeout)
-///             .map(|either| either.factor_first().0);
+///         // call the inner service and get a future that resolves to the response
+///         let fut = self.inner.call(req);
+///
+///         // wrap those two futures in another future that completes when either one completes
+///         //
+///         // if the inner service is too slow the `sleep` future will complete first
+///         // and an error will be returned and `fut` will be dropped and not polled again
+///         //
+///         // we have to box the errors so the types match
+///         let f = async move {
+///             tokio::select! {
+///                 res = fut => {
+///                     res.map_err(|err| err.into())
+///                 },
+///                 _ = timeout => {
+///                     Err(Box::new(Expired) as Box<dyn Error>)
+///                 },
+///             }
+///         };
 ///
 ///         Box::pin(f)
 ///     }
 /// }
+///
+/// // A layer for wrapping services in `Timeout`
+/// pub struct TimeoutLayer(Duration);
 ///
 /// impl TimeoutLayer {
 ///     pub fn new(delay: Duration) -> Self {
@@ -173,15 +206,13 @@ use std::task::{Context, Poll};
 ///     }
 /// }
 ///
-/// impl<S> Layer<S> for TimeoutLayer
-/// {
+/// impl<S> Layer<S> for TimeoutLayer {
 ///     type Service = Timeout<S>;
 ///
 ///     fn layer(&self, service: S) -> Timeout<S> {
 ///         Timeout::new(service, self.0)
 ///     }
 /// }
-///
 /// ```
 ///
 /// The above timeout implementation is decoupled from the underlying protocol
