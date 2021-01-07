@@ -7,18 +7,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 
-- Added `MakeService::into_service` and `MakeService::as_service` for
-  converting `MakeService`s into `Service`s.
+- **make**: Added `MakeService::into_service` and `MakeService::as_service` for
+  converting `MakeService`s into `Service`s ([#492])
+- **steer**: Added `steer` middleware for routing requests to one of a set of
+  services ([#426])
+- **util**: Added `MapRequest` middleware and `ServiceExt::map_request`, for
+  applying a function to a request before passing it to the inner service
+  ([#435])
+- **util**: Added `MapResponse` middleware and `ServiceExt::map_response`, for
+  applying a function to the `Response` type of an inner service after its
+  future completes ([#435])
+- **util**: Added `MapErr` middleware and `ServiceExt::map_err`, for
+  applying a function to the `Error` returned by an inner service if it fails
+  ([#396])
+- **util**: Added `MapResult` middleware and `ServiceExt::map_result`, for
+  applying a function to the `Result` returned by an inner service's future
+  regardless of  whether it succeeds or fails ([#499])
+- **util**: Added `Then` middleware and `ServiceExt::then`, for chaining another
+  future after an inner service's future completes (with a `Response` or an
+  `Error`) ([#500])
+- **util**: Added `AndThen` middleware and `ServiceExt::and_then`, for
+  chaining another future after an inner service's future completes successfully
+  ([#485])
+- **util**: Added `layer_fn`, for constructing a `Layer` from a function taking
+  a `Service` and returning a different `Service` ([#491])
+- **util**: Added `FutureService`, which implements `Service` for a
+  `Future` whose `Output` type is a `Service` ([#496])
+- **util**: Added `BoxService::layer` and `UnsyncBoxService::layer`, to make
+  constructing layers more ergonomic ([#503])
+- **layer**: Added `Layer` impl for `&Layer` ([#446])
+- **retry**: Added `Retry::get_ref`, `Retry::get_mut`, and `Retry::into_inner`
+  to access the inner service ([#463])
+- **timeout**: Added `Timeout::get_ref`, `Timeout::get_mut`, and
+  `Timeout::into_inner` to access the inner service ([#463])
+- **buffer**: Added `Clone` and `Copy` impls for `BufferLayer` (#[493])
+- Several documentation improvements ([#442], [#444], [#445], [#449], [#487],
+  [#490], [#506]])
 
 ### Changed
 
 - All middleware `tower-*` crates were merged into `tower` and placed
-  behind feature flags.
-- Make `ServiceBuilder::service` take `self` by reference rather than by value.
+  behind feature flags ([#432])
+- Updated Tokio dependency to 1.0 ([#489])
+- **builder**: Make `ServiceBuilder::service` take `self` by reference rather
+  than by value ([#504])
+- **reconnect**: Return errors from `MakeService` in the response future, rather than
+  in `poll_ready`, allowing the reconnect service to be reused when a reconnect
+  fails ([#386], [#437])
+- **discover**: Changed `Discover` to be a sealed trait alias for a
+  `TryStream<Item = Change>`. `Discover` implementations are now written by
+  implementing `Stream`. ([#443])
+- **load**: Renamed the `Instrument` trait to `TrackCompletion` ([#445])
+- **load**: Renamed `NoInstrument` to `CompleteOnResponse` ([#445])
+- **balance**: Renamed `BalanceLayer` to `MakeBalanceLayer` ([#449])
+- **balance**: Renamed `BalanceMake` to `MakeBalance` ([#449])
+- **ready-cache**: Changed `ready_cache::error::Failed`'s `fmt::Debug` impl to
+  require the key type to also implement `fmt::Debug` ([#467])
+- **filter**: Changed `Filter` and `Predicate` to use a synchronous function as
+  a predicate ([#508])
+- **filter**: Renamed the previous `Filter` and `Predicate` (where `Predicate`s
+  returned a `Future`) to `AsyncFilter` and `AsyncPredicate` ([#508])
+- **filter**: `Predicate`s now take a `Request` type by value and may return a
+  new request, potentially of a different type ([#508])
+- **filter**: `Predicate`s may now return an error of any type ([#508])
+
+### Fixed
+
+- **limit**: Fixed an issue where `RateLimit` services do not reset the remaining
+  count when rate limiting ([#438], [#439])
+- **util**: Fixed a bug where `oneshot` futures panic if the service does not
+  immediately become ready ([#447])
+- **ready-cache**: Fixed `ready_cache::error::Failed` not returning inner error types
+  via `Error::source` ([#467])
+- **hedge**: Fixed an interaction with `buffer` where `buffer` slots were
+  eagerly reserved for hedge requests even if they were not sent ([#472])
+- **hedge**: Fixed the use of a fixed 10 second bound on the hedge latency
+  histogram resulting on errors with longer-lived requests. The latency
+  histogram now automatically resizes ([#484])
+- **buffer**: Fixed an issue where tasks waiting for buffer capacity were not
+  woken when a buffer is dropped, potentially resulting in a task leak ([#480])
 
 ### Removed
 
 - Remove `ServiceExt::ready`.
+- **discover**: Removed `discover::stream` module, since `Discover` is now an
+  alias for `Stream` ([#443])
+- **buffer**: Removed `MakeBalance::from_rng`, which caused all balancers to use
+  the same RNG ([#497])
+
+[#432]: https://github.com/tower-rs/tower/pull/432
+[#426]: https://github.com/tower-rs/tower/pull/426
+[#435]: https://github.com/tower-rs/tower/pull/435
+[#499]: https://github.com/tower-rs/tower/pull/499
+[#386]: https://github.com/tower-rs/tower/pull/386
+[#437]: https://github.com/tower-rs/tower/pull/487
+[#438]: https://github.com/tower-rs/tower/pull/438
+[#437]: https://github.com/tower-rs/tower/pull/439
+[#443]: https://github.com/tower-rs/tower/pull/443
+[#442]: https://github.com/tower-rs/tower/pull/442
+[#444]: https://github.com/tower-rs/tower/pull/444
+[#445]: https://github.com/tower-rs/tower/pull/445
+[#446]: https://github.com/tower-rs/tower/pull/446
+[#447]: https://github.com/tower-rs/tower/pull/447
+[#449]: https://github.com/tower-rs/tower/pull/449
+[#463]: https://github.com/tower-rs/tower/pull/463
+[#396]: https://github.com/tower-rs/tower/pull/396
+[#467]: https://github.com/tower-rs/tower/pull/467
+[#472]: https://github.com/tower-rs/tower/pull/472
+[#480]: https://github.com/tower-rs/tower/pull/480
+[#484]: https://github.com/tower-rs/tower/pull/484
+[#489]: https://github.com/tower-rs/tower/pull/489
+[#497]: https://github.com/tower-rs/tower/pull/497
+[#487]: https://github.com/tower-rs/tower/pull/487
+[#493]: https://github.com/tower-rs/tower/pull/493
+[#491]: https://github.com/tower-rs/tower/pull/491
+[#495]: https://github.com/tower-rs/tower/pull/495
+[#503]: https://github.com/tower-rs/tower/pull/503
+[#504]: https://github.com/tower-rs/tower/pull/504
+[#492]: https://github.com/tower-rs/tower/pull/492
+[#500]: https://github.com/tower-rs/tower/pull/500
+[#490]: https://github.com/tower-rs/tower/pull/490
+[#506]: https://github.com/tower-rs/tower/pull/506
+[#508]: https://github.com/tower-rs/tower/pull/508
+[#485]: https://github.com/tower-rs/tower/pull/485
 
 # 0.3.1 (January 17, 2020)
 
