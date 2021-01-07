@@ -11,6 +11,7 @@
 [#446]: https://github.com/tower-rs/tower/pull/446
 [#487]: https://github.com/tower-rs/tower/pull/487
 [#490]: https://github.com/tower-rs/tower/pull/490
+
 # 0.3.0 (November 29, 2019)
 
 - Move layer builder from `tower-util` to tower-layer.
