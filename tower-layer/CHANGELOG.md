@@ -1,3 +1,16 @@
+# 0.3.1 (January 7, 2021)
+
+### Added
+
+- Added `layer_fn`, for constructing a `Layer` from a function taking
+  a `Service` and returning a different `Service` ([#491])
+- Added an implementation of `Layer` for `&Layer` ([#446])
+- Multiple documentation improvements ([#487], [#490])
+
+[#491]: https://github.com/tower-rs/tower/pull/491
+[#446]: https://github.com/tower-rs/tower/pull/446
+[#487]: https://github.com/tower-rs/tower/pull/487
+[#490]: https://github.com/tower-rs/tower/pull/490
 # 0.3.0 (November 29, 2019)
 
 - Move layer builder from `tower-util` to tower-layer.
