@@ -48,7 +48,7 @@ impl<M, Target> Reconnect<M, Target>
 where
     M: Service<Target>,
 {
-    /// Lazily connect and reconnect to a Service.
+    /// Lazily connect and reconnect to a [`Service`].
     pub fn new<S, Request>(mk_service: M, target: Target) -> Self {
         Reconnect {
             mk_service,
@@ -58,7 +58,7 @@ where
         }
     }
 
-    /// Reconnect to a already connected Service.
+    /// Reconnect to a already connected [`Service`].
     pub fn with_connection(init_conn: M::Response, mk_service: M, target: Target) -> Self {
         Reconnect {
             mk_service,

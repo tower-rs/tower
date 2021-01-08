@@ -7,7 +7,7 @@ use std::{
 };
 use tower_service::Service;
 
-/// TODO: Dox
+/// The [`Future`] returned by the [`ServiceExt::call_all`] combinator.
 #[pin_project]
 #[derive(Debug)]
 pub(crate) struct CallAll<Svc, S, Q> {
@@ -23,7 +23,6 @@ pub(crate) trait Drive<F: Future> {
 
     fn push(&mut self, future: F);
 
-    // NOTE: this implicitly requires Self: Unpin just like Service does
     fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<F::Output>>;
 }
 
@@ -43,12 +42,12 @@ where
         }
     }
 
-    /// Extract the wrapped `Service`.
+    /// Extract the wrapped [`Service`].
     pub(crate) fn into_inner(mut self) -> Svc {
         self.service.take().expect("Service already taken")
     }
 
-    /// Extract the wrapped `Service`.
+    /// Extract the wrapped [`Service`].
     pub(crate) fn take_service(self: Pin<&mut Self>) -> Svc {
         self.project()
             .service

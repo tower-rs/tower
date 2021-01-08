@@ -1,4 +1,6 @@
-//! Future types for the `Buffer` middleware.
+//! Future types for the [`Buffer`] middleware.
+//!
+//! [`Buffer`]: crate::buffer::Buffer
 
 use super::{error::Closed, message};
 use futures_core::ready;

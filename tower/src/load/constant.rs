@@ -1,4 +1,4 @@
-//! A constant `Load` implementation.
+//! A constant [`Load`] implementation.
 
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
@@ -12,7 +12,7 @@ use pin_project::pin_project;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// Wraps a type so that it implements `Load` and returns a constant load metric.
+/// Wraps a type so that it implements [`Load`] and returns a constant load metric.
 ///
 /// This load estimator is primarily useful for testing.
 #[pin_project]
@@ -57,7 +57,7 @@ where
     }
 }
 
-/// Proxies `Discover` such that all changes are wrapped with a constant load.
+/// Proxies [`Discover`] such that all changes are wrapped with a constant load.
 #[cfg(feature = "discover")]
 #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 impl<D: Discover + Unpin, M: Copy> Stream for Constant<D, M> {

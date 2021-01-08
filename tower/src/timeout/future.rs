@@ -9,7 +9,9 @@ use std::{
 };
 use tokio::time::Sleep;
 
-/// `Timeout` response future
+/// [`Timeout`] response future
+///
+/// [`Timeout`]: crate::timeout::Timeout
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {

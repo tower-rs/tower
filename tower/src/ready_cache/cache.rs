@@ -17,14 +17,14 @@ use tracing::{debug, trace};
 ///
 /// The cache maintains two internal data structures:
 ///
-/// * a set of  _pending_ services that have not yet become ready; and
+/// * a set of _pending_ services that have not yet become ready; and
 /// * a set of _ready_ services that have previously polled ready.
 ///
-/// As each `S` typed `Service` is added to the cache via `ReadyCache::push`, it
-/// is added to the _pending set_. As `ReadyCache::poll_pending` is invoked,
+/// As each `S` typed [`Service`] is added to the cache via [`ReadyCache::push`], it
+/// is added to the _pending set_. As [`ReadyCache::poll_pending`] is invoked,
 /// pending services are polled and added to the _ready set_.
 ///
-/// `ReadyCache::call_ready` (or `ReadyCache::call_ready_index`) dispatches a
+/// [`ReadyCache::call_ready`] (or [`ReadyCache::call_ready_index`]) dispatches a
 /// request to the specified service, but panics if the specified service is not
 /// in the ready set. The `ReadyCache::check_*` functions can be used to ensure
 /// that a service is ready before dispatching a request.
@@ -32,7 +32,7 @@ use tracing::{debug, trace};
 /// The ready set can hold services for an abitrarily long time. During this
 /// time, the runtime may process events that invalidate that ready state (for
 /// instance, if a keepalive detects a lost connection). In such cases, callers
-/// should use `ReadyCache::check_ready` (or `ReadyCache::check_ready_index`)
+/// should use [`ReadyCache::check_ready`] (or [`ReadyCache::check_ready_index`])
 /// immediately before dispatching a request to ensure that the service has not
 /// become unavailable.
 ///
@@ -43,15 +43,15 @@ use tracing::{debug, trace};
 /// specified service is _not_ ready. If an error is returned, this indicats that
 /// the server failed and has been removed from the cache entirely.
 ///
-/// `ReadyCache::evict` can be used to remove a service from the cache (by key),
+/// [`ReadyCache::evict`] can be used to remove a service from the cache (by key),
 /// though the service may not be dropped (if it is currently pending) until
-/// `ReadyCache::poll_pending` is invoked.
+/// [`ReadyCache::poll_pending`] is invoked.
 ///
 /// Note that the by-index accessors are provided to support use cases (like
 /// power-of-two-choices load balancing) where the caller does not care to keep
 /// track of each service's key. Instead, it needs only to access _some_ ready
 /// service. In such a case, it should be noted that calls to
-/// `ReadyCache::poll_pending` and `ReadyCache::evict` may perturb the order of
+/// [`ReadyCache::poll_pending`] and [`ReadyCache::evict`] may perturb the order of
 /// the ready set, so any cached indexes should be discarded after such a call.
 #[derive(Debug)]
 pub struct ReadyCache<K, S, Req>
@@ -85,7 +85,7 @@ enum PendingError<K, E> {
     Inner(K, E),
 }
 
-/// A Future that becomes satisfied when an `S`-typed service is ready.
+/// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
 ///
 /// May fail due to cancelation, i.e. if the service is evicted from the balancer.
 #[derive(Debug)]
@@ -171,7 +171,7 @@ where
     /// Returns true if a service was marked for eviction.
     ///
     /// Services are dropped from the ready set immediately. Services in the
-    /// pending set are marked for cancellation, but `ReadyCache::poll_pending`
+    /// pending set are marked for cancellation, but [`ReadyCache::poll_pending`]
     /// must be called to cause the service to be dropped.
     pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
         let canceled = if let Some(c) = self.pending_cancel_txs.swap_remove(key) {
@@ -197,12 +197,14 @@ where
 {
     /// Pushes a new service onto the pending set.
     ///
-    /// The service will be promoted to the ready set as `poll_pending` is invoked.
+    /// The service will be promoted to the ready set as [`poll_pending`] is invoked.
     ///
     /// Note that this does **not** remove services from the ready set. Once the
     /// old service is used, it will be dropped instead of being added back to
     /// the pending set; OR, when the new service becomes ready, it will replace
     /// the prior service in the ready set.
+    ///
+    /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
     pub fn push(&mut self, key: K, svc: S) {
         let cancel = oneshot::channel();
         self.push_pending(key, svc, cancel);
@@ -223,14 +225,18 @@ where
 
     /// Polls services pending readiness, adding ready services to the ready set.
     ///
-    /// Returns `Async::Ready` when there are no remaining unready services.
-    /// `poll_pending` should be called again after `push_service` or
-    /// `call_ready_index` are invoked.
+    /// Returns [`Poll::Ready`] when there are no remaining unready services.
+    /// [`poll_pending`] should be called again after [`push`] or
+    /// [`call_ready_index`] are invoked.
     ///
     /// Failures indicate that an individual pending service failed to become
     /// ready (and has been removed from the cache). In such a case,
-    /// `poll_pending` should typically be called again to continue driving
+    /// [`poll_pending`] should typically be called again to continue driving
     /// pending services to readiness.
+    ///
+    /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
+    /// [`push`]: crate::ready_cache::cache::ReadyCache::push
+    /// [`call_ready_index`]: crate::ready_cache::cache::ReadyCache::call_ready_index
     pub fn poll_pending(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), error::Failed<K>>> {
         loop {
             match Pin::new(&mut self.pending).poll_next(cx) {

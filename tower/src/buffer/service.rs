@@ -38,7 +38,7 @@ where
     T: Service<Request>,
     T::Error: Into<crate::BoxError>,
 {
-    /// Creates a new `Buffer` wrapping `service`.
+    /// Creates a new [`Buffer`] wrapping `service`.
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
@@ -48,13 +48,17 @@ where
     ///
     /// # A note on choosing a `bound`
     ///
-    /// When `Buffer`'s implementation of `poll_ready` returns `Poll::Ready`, it reserves a
-    /// slot in the channel for the forthcoming `call()`. However, if this call doesn't arrive,
+    /// When [`Buffer`]'s implementation of [`poll_ready`] returns [`Poll::Ready`], it reserves a
+    /// slot in the channel for the forthcoming [`call`]. However, if this call doesn't arrive,
     /// this reserved slot may be held up for a long time. As a result, it's advisable to set
-    /// `bound` to be at least the maximum number of concurrent requests the `Buffer` will see.
+    /// `bound` to be at least the maximum number of concurrent requests the [`Buffer`] will see.
     /// If you do not, all the slots in the buffer may be held up by futures that have just called
-    /// `poll_ready` but will not issue a `call`, which prevents other senders from issuing new
+    /// [`poll_ready`] but will not issue a [`call`], which prevents other senders from issuing new
     /// requests.
+    ///
+    /// [`Poll::Ready`]: std::task::Poll::Ready
+    /// [`call`]: crate::Service::call
+    /// [`poll_ready`]: crate::Service::poll_ready
     pub fn new(service: T, bound: usize) -> Self
     where
         T: Send + 'static,
@@ -67,10 +71,10 @@ where
         service
     }
 
-    /// Creates a new `Buffer` wrapping `service`, but returns the background worker.
+    /// Creates a new [`Buffer`] wrapping `service`, but returns the background worker.
     ///
-    /// This is useful if you do not want to spawn directly onto the `tokio` runtime
-    /// but instead want to use your own executor. This will return the `Buffer` and
+    /// This is useful if you do not want to spawn directly onto the tokio runtime
+    /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
     pub fn pair(service: T, bound: usize) -> (Buffer<T, Request>, Worker<T, Request>)
     where

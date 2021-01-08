@@ -1,5 +1,6 @@
-//! Future types
+//! [`Future`] types
 //!
+//! [`Future`]: std::future::Future
 use crate::semaphore::Permit;
 use futures_core::ready;
 use pin_project::pin_project;
@@ -9,7 +10,9 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Future for the `ConcurrencyLimit` service.
+/// Future for the [`ConcurrencyLimit`] service.
+///
+/// [`ConcurrencyLimit`]: crate::limit::ConcurrencyLimit
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {

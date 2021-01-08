@@ -15,20 +15,24 @@ pub struct BufferLayer<Request> {
 }
 
 impl<Request> BufferLayer<Request> {
-    /// Creates a new `BufferLayer` with the provided `bound`.
+    /// Creates a new [`BufferLayer`] with the provided `bound`.
     ///
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
     ///
     /// # A note on choosing a `bound`
     ///
-    /// When `Buffer`'s implementation of `poll_ready` returns `Poll::Ready`, it reserves a
-    /// slot in the channel for the forthcoming `call()`. However, if this call doesn't arrive,
+    /// When [`Buffer`]'s implementation of [`poll_ready`] returns [`Poll::Ready`], it reserves a
+    /// slot in the channel for the forthcoming [`call`]. However, if this call doesn't arrive,
     /// this reserved slot may be held up for a long time. As a result, it's advisable to set
-    /// `bound` to be at least the maximum number of concurrent requests the `Buffer` will see.
+    /// `bound` to be at least the maximum number of concurrent requests the [`Buffer`] will see.
     /// If you do not, all the slots in the buffer may be held up by futures that have just called
-    /// `poll_ready` but will not issue a `call`, which prevents other senders from issuing new
+    /// [`poll_ready`] but will not issue a [`call`], which prevents other senders from issuing new
     /// requests.
+    ///
+    /// [`Poll::Ready`]: std::task::Poll::Ready
+    /// [`call`]: crate::Service::call
+    /// [`poll_ready`]: crate::Service::poll_ready
     pub fn new(bound: usize) -> Self {
         BufferLayer {
             bound,

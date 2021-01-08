@@ -22,10 +22,10 @@ use tracing::{debug, trace};
 ///
 /// See the [module-level documentation](..) for details.
 ///
-/// Note that `Balance` requires that the `Discover` you use is `Unpin` in order to implement
-/// `Service`. This is because it needs to be accessed from `Service::poll_ready`, which takes
-/// `&mut self`. You can achieve this easily by wrapping your `Discover` in [`Box::pin`] before you
-/// construct the `Balance` instance. For more details, see [#319].
+/// Note that [`Balance`] requires that the [`Discover`] you use is [`Unpin`] in order to implement
+/// [`Service`]. This is because it needs to be accessed from [`Service::poll_ready`], which takes
+/// `&mut self`. You can achieve this easily by wrapping your [`Discover`] in [`Box::pin`] before you
+/// construct the [`Balance`] instance. For more details, see [#319].
 ///
 /// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
 /// [#319]: https://github.com/tower-rs/tower/issues/319

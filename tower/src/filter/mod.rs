@@ -2,13 +2,13 @@
 //! a predicate.
 //!
 //! A predicate takes some request type and returns a `Result<Request, Error>`.
-//! If the predicate returns `Ok`, the inner service is called with the request
+//! If the predicate returns [`Ok`], the inner service is called with the request
 //! returned by the predicate &mdash; which may be the original request or a
-//! modified one. If the predicate returns `Err`, the request is rejected and
+//! modified one. If the predicate returns [`Err`], the request is rejected and
 //! the inner service is not called.
 //!
 //! Predicates may either be synchronous (simple functions from a `Request` to
-//! a `Result`) or asynchronous (functions returning `Future`s). Separate
+//! a [`Result`]) or asynchronous (functions returning [`Future`]s). Separate
 //! traits, [`Predicate`] and [`AsyncPredicate`], represent these two types of
 //! predicate. Note that when it is not necessary to await some other
 //! asynchronous operation in the predicate, the synchronous predicate should be
@@ -17,11 +17,12 @@
 //! The predicate traits are implemented for closures and function pointers.
 //! However, users may also implement them for other types, such as when the
 //! predicate requires some state carried between requests. For example,
-//! `Predicate` could be implemented for a type that rejects a fixed set of
+//! [`Predicate`] could be implemented for a type that rejects a fixed set of
 //! requests by checking if they are contained by a a [`HashSet`] or other
 //! collection.
 //!
-//! [`HashSet`]: std::sync::HashSet
+//! [`Future`]: std::future::Future
+//! [`HashSet`]: std::collections::HashSet
 pub mod future;
 mod layer;
 mod predicate;
@@ -59,12 +60,12 @@ pub struct AsyncFilter<T, U> {
 // ==== impl Filter ====
 
 impl<T, U> Filter<T, U> {
-    /// Returns a new `Filter` service wrapping `inner`.
+    /// Returns a new [`Filter`] service wrapping `inner`.
     pub fn new(inner: T, predicate: U) -> Self {
         Self { inner, predicate }
     }
 
-    /// Returns a new [`Layer`] that wraps services with a `Filter` service
+    /// Returns a new [`Layer`] that wraps services with a [`Filter`] service
     /// with the given [`Predicate`].
     ///
     /// [`Layer`]: crate::Layer
@@ -98,12 +99,12 @@ where
 // ==== impl AsyncFilter ====
 
 impl<T, U> AsyncFilter<T, U> {
-    /// Returns a new `AsyncFilter` service wrapping `inner`.
+    /// Returns a new [`AsyncFilter`] service wrapping `inner`.
     pub fn new(inner: T, predicate: U) -> Self {
         Self { inner, predicate }
     }
 
-    /// Returns a new [`Layer`] that wraps services with an `AsyncFilter`
+    /// Returns a new [`Layer`] that wraps services with an [`AsyncFilter`]
     /// service with the given [`AsyncPredicate`].
     ///
     /// [`Layer`]: crate::Layer

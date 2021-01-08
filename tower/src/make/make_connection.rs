@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tower_service::Service;
 
-/// The `MakeConnection` trait is used to create transports.
+/// The [`MakeConnection`] trait is used to create transports.
 ///
 /// The goal of this service is to allow composable methods for creating
 /// `AsyncRead + AsyncWrite` transports. This could mean creating a TLS

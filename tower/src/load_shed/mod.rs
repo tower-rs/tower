@@ -1,4 +1,4 @@
-//! Tower middleware for shedding load when inner services aren't ready.
+//! Middleware for shedding load when inner services aren't ready.
 
 use std::task::{Context, Poll};
 use tower_service::Service;
@@ -10,7 +10,9 @@ mod layer;
 use self::future::ResponseFuture;
 pub use self::layer::LoadShedLayer;
 
-/// A `Service` that sheds load when the inner service isn't ready.
+/// A [`Service`] that sheds load when the inner service isn't ready.
+///
+/// [`Service`]: crate::Service
 #[derive(Debug)]
 pub struct LoadShed<S> {
     inner: S,
@@ -20,7 +22,7 @@ pub struct LoadShed<S> {
 // ===== impl LoadShed =====
 
 impl<S> LoadShed<S> {
-    /// Wraps a service in `LoadShed` middleware.
+    /// Wraps a service in [`LoadShed`] middleware.
     pub fn new(inner: S) -> Self {
         LoadShed {
             inner,

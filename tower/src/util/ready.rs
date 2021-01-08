@@ -8,9 +8,11 @@ use std::{
 };
 use tower_service::Service;
 
-/// A future that yields the service when it is ready to accept a request.
+/// A [`Future`] that yields the service when it is ready to accept a request.
 ///
-/// `ReadyOneshot` values are produced by `ServiceExt::ready_oneshot`.
+/// [`ReadyOneshot`] values are produced by [`ServiceExt::ready_oneshot`].
+///
+/// [`ServiceExt::ready_oneshot`]: crate::util::ServiceExt::ready_oneshot
 pub struct ReadyOneshot<T, Request> {
     inner: Option<T>,
     _p: PhantomData<fn() -> Request>,
@@ -62,7 +64,9 @@ where
 
 /// A future that yields a mutable reference to the service when it is ready to accept a request.
 ///
-/// `ReadyAnd` values are produced by `ServiceExt::ready_and`.
+/// [`ReadyAnd`] values are produced by [`ServiceExt::ready_and`].
+///
+/// [`ServiceExt::ready_and`]: crate::util::ServiceExt::ready_and
 pub struct ReadyAnd<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
 
 // Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.

@@ -1,6 +1,8 @@
 use std::{error, fmt};
 
-/// Error returned if the inner `Service` has not been set.
+/// Error returned if the inner [`Service`] has not been set.
+///
+/// [`Service`]: crate::Service
 #[derive(Debug)]
 pub struct None(());
 

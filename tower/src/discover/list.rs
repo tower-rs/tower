@@ -10,7 +10,7 @@ use tower_service::Service;
 
 /// Static service discovery based on a predetermined list of services.
 ///
-/// `ServiceList` is created with an initial list of services. The discovery
+/// [`ServiceList`] is created with an initial list of services. The discovery
 /// process will yield this list once and do nothing after.
 #[pin_project]
 #[derive(Debug)]

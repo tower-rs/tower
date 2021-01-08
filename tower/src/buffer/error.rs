@@ -3,7 +3,10 @@
 use crate::BoxError;
 use std::{fmt, sync::Arc};
 
-/// An error produced by a `Service` wrapped by a `Buffer`
+/// An error produced by a [`Service`] wrapped by a [`Buffer`]
+///
+/// [`Service`]: crate::Service
+/// [`Buffer`]: crate::buffer::Buffer
 #[derive(Debug)]
 pub struct ServiceError {
     inner: Arc<BoxError>,

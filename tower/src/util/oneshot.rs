@@ -8,9 +8,9 @@ use std::{
 };
 use tower_service::Service;
 
-/// A `Future` consuming a `Service` and request, waiting until the `Service`
-/// is ready, and then calling `Service::call` with the request, and
-/// waiting for that `Future`.
+/// A [`Future`] consuming a [`Service`] and request, waiting until the [`Service`]
+/// is ready, and then calling [`Service::call`] with the request, and
+/// waiting for that [`Future`].
 #[pin_project]
 #[derive(Debug)]
 pub struct Oneshot<S: Service<Req>, Req> {

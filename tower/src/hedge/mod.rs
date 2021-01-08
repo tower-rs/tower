@@ -30,13 +30,16 @@ type Service<S, P> = select::Select<
     Latency<Histo, S>,
     Delay<DelayPolicy, AsyncFilter<Latency<Histo, S>, PolicyPredicate<P>>>,
 >;
+
 /// A middleware that pre-emptively retries requests which have been outstanding
 /// for longer than a given latency percentile.  If either of the original
 /// future or the retry future completes, that value is used.
 #[derive(Debug)]
 pub struct Hedge<S, P>(Service<S, P>);
 
-/// The Future returned by the hedge Service.
+/// The [`Future`] returned by the [`Hedge`] service.
+///
+/// [`Future`]: std::future::Future
 #[pin_project]
 #[derive(Debug)]
 pub struct Future<S, Request>
@@ -50,11 +53,10 @@ where
 /// A policy which describes which requests can be cloned and then whether those
 /// requests should be retried.
 pub trait Policy<Request> {
-    /// clone_request is called when the request is first received to determine
-    /// if the request is retryable.
+    /// Called when the request is first received to determine if the request is retryable.
     fn clone_request(&self, req: &Request) -> Option<Request>;
-    /// can_retry is called after the hedge timeout to determine if the hedge
-    /// retry should be issued.
+
+    /// Called after the hedge timeout to determine if the hedge retry should be issued.
     fn can_retry(&self, req: &Request) -> bool;
 }
 
@@ -63,12 +65,14 @@ pub trait Policy<Request> {
 #[doc(hidden)]
 #[derive(Clone, Debug)]
 pub struct PolicyPredicate<P>(P);
+
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct DelayPolicy {
     histo: Histo,
     latency_percentile: f32,
 }
+
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct SelectPolicy<P> {
