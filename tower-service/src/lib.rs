@@ -163,7 +163,7 @@ use std::task::{Context, Poll};
 ///     // Errors may be either `Expired` if the timeout expired, or the inner service's
 ///     // `Error` type. Therefore, we return a boxed `dyn Error` trait object to erase
 ///     // the error's type.
-///     type Error = Box<dyn Error>;
+///     type Error = Box<dyn Error + Send + Sync>;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
 ///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
