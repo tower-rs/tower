@@ -155,7 +155,7 @@ use std::task::{Context, Poll};
 /// where
 ///     T: Service<Request>,
 ///     T::Future: 'static,
-///     T::Error: Into<Box<dyn Error>> + 'static,
+///     T::Error: Into<Box<dyn Error + Send + Sync>> + 'static,
 ///     T::Response: 'static,
 /// {
 ///     // `Timeout` doesn't modify the response type, so we use `T`'s response type
