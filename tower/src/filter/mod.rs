@@ -72,6 +72,14 @@ impl<T, U> Filter<T, U> {
     pub fn layer(predicate: U) -> FilterLayer<U> {
         FilterLayer::new(predicate)
     }
+
+    /// Check a `Request` value against this filter's predicate.
+    pub fn check<R>(&mut self, request: R) -> Result<U::Request, BoxError>
+    where
+        U: Predicate<R>,
+    {
+        self.predicate.check(request)
+    }
 }
 
 impl<T, U, Request> Service<Request> for Filter<T, U>
@@ -110,6 +118,14 @@ impl<T, U> AsyncFilter<T, U> {
     /// [`Layer`]: crate::Layer
     pub fn layer(predicate: U) -> FilterLayer<U> {
         FilterLayer::new(predicate)
+    }
+
+    /// Check a `Request` value against this filter's predicate.
+    pub async fn check<R>(&mut self, request: R) -> Result<U::Request, BoxError>
+    where
+        U: AsyncPredicate<R>,
+    {
+        self.predicate.check(request).await
     }
 }
 
