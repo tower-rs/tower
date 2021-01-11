@@ -2,12 +2,12 @@ use std::future::Future;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// Returns a new `ServiceFn` with the given closure.
+/// Returns a new [`ServiceFn`] with the given closure.
 pub fn service_fn<T>(f: T) -> ServiceFn<T> {
     ServiceFn { f }
 }
 
-/// A `Service` implemented by a closure.
+/// A [`Service`] implemented by a closure.
 #[derive(Copy, Clone, Debug)]
 pub struct ServiceFn<T> {
     f: T,

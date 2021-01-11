@@ -1,4 +1,7 @@
-//! `Stream<Item = Request>` + `Service<Request>` => `Stream<Item = Response>`.
+//! [`Stream<Item = Request>`][stream] + [`Service<Request>`] => [`Stream<Item = Response>`][stream].
+//!
+//! [`Service<Request>`]: crate::Service
+//! [stream]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
 
 use super::common;
 use futures_core::Stream;
@@ -13,8 +16,10 @@ use tower_service::Service;
 
 /// A stream of responses received from the inner service in received order.
 ///
-/// Similar to `CallAll` except, instead of yielding responses in request order,
+/// Similar to [`CallAll`] except, instead of yielding responses in request order,
 /// responses are returned as they are available.
+///
+/// [`CallAll`]: crate::util::CallAll
 #[pin_project]
 #[derive(Debug)]
 pub struct CallAllUnordered<Svc, S>
@@ -32,33 +37,35 @@ where
     Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
-    /// Create new `CallAllUnordered` combinator.
+    /// Create new [`CallAllUnordered`] combinator.
     ///
-    /// Each request yielded by `stread` is passed to `svc`, and the resulting responses are
-    /// yielded in the same order by the implementation of `Stream` for
-    /// `CallAllUnordered`.
+    /// [`Stream`]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
     pub fn new(service: Svc, stream: S) -> CallAllUnordered<Svc, S> {
         CallAllUnordered {
             inner: common::CallAll::new(service, stream, FuturesUnordered::new()),
         }
     }
 
-    /// Extract the wrapped `Service`.
+    /// Extract the wrapped [`Service`].
     ///
     /// # Panics
     ///
-    /// Panics if `take_service` was already called.
+    /// Panics if [`take_service`] was already called.
+    ///
+    /// [`take_service`]: crate::util::CallAllUnordered::take_service
     pub fn into_inner(self) -> Svc {
         self.inner.into_inner()
     }
 
     /// Extract the wrapped `Service`.
     ///
-    /// This `CallAll` can no longer be used after this function has been called.
+    /// This [`CallAllUnordered`] can no longer be used after this function has been called.
     ///
     /// # Panics
     ///
-    /// Panics if `take_service` was already called.
+    /// Panics if [`take_service`] was already called.
+    ///
+    /// [`take_service`]: crate::util::CallAllUnordered::take_service
     pub fn take_service(self: Pin<&mut Self>) -> Svc {
         self.project().inner.take_service()
     }

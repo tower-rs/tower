@@ -16,7 +16,7 @@
 //!
 //! The balance service and layer implementations rely on _service discovery_ to provide the
 //! underlying set of services to balance requests across. This happens through the
-//! [`Discover`](crate::discover::Discover) trait, which is essentially a `Stream` that indicates
+//! [`Discover`](crate::discover::Discover) trait, which is essentially a [`Stream`] that indicates
 //! when services become available or go away. If you have a fixed set of services, consider using
 //! [`ServiceList`](crate::discover::ServiceList).
 //!
@@ -27,6 +27,7 @@
 //!
 //! [Power of Two Random Choices]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
 //! [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
+//! [`Stream`]: https://docs.rs/futures/0.3/futures/stream/trait.Stream.html
 
 mod layer;
 mod make;

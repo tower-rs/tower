@@ -6,7 +6,7 @@ use std::{
 use tower_layer::Layer;
 use tower_service::Service;
 
-/// Service returned by the [`then`] combinator.
+/// [`Service`] returned by the [`then`] combinator.
 ///
 /// [`then`]: crate::util::ServiceExt::then
 #[derive(Clone, Debug)]

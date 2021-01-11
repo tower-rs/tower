@@ -8,20 +8,20 @@ use std::{
 };
 use tower_service::Service;
 
-/// Builds SpawnReady instances with the result of an inner Service.
+/// Builds [`SpawnReady`] instances with the result of an inner [`Service`].
 #[derive(Clone, Debug)]
 pub struct MakeSpawnReady<S> {
     inner: S,
 }
 
 impl<S> MakeSpawnReady<S> {
-    /// Creates a new `MakeSpawnReady` wrapping `service`.
+    /// Creates a new [`MakeSpawnReady`] wrapping `service`.
     pub fn new(service: S) -> Self {
         Self { inner: service }
     }
 }
 
-/// Builds a SpawnReady with the result of an inner Future.
+/// Builds a [`SpawnReady`] with the result of an inner [`Future`].
 #[pin_project]
 #[derive(Debug)]
 pub struct MakeFuture<F> {

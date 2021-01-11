@@ -6,7 +6,7 @@ use std::fmt;
 
 /// Declaratively construct [`Service`] values.
 ///
-/// `ServiceBuilder` provides a [builder-like interface][builder] for composing
+/// [`ServiceBuilder`] provides a [builder-like interface][builder] for composing
 /// layers to be applied to a [`Service`].
 ///
 /// # Service
@@ -14,10 +14,9 @@ use std::fmt;
 /// A [`Service`] is a trait representing an asynchronous function of a request
 /// to a response. It is similar to `async fn(Request) -> Result<Response, Error>`.
 ///
-/// A `Service` is typically bound to a single transport, such as a TCP
+/// A [`Service`] is typically bound to a single transport, such as a TCP
 /// connection.  It defines how _all_ inbound or outbound requests are handled
 /// by that connection.
-///
 ///
 /// [builder]: https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
 ///
@@ -67,7 +66,7 @@ use std::fmt;
 ///
 /// # Examples
 ///
-/// A `Service` stack with a single layer:
+/// A [`Service`] stack with a single layer:
 ///
 /// ```
 /// # use tower::Service;
@@ -83,8 +82,8 @@ use std::fmt;
 /// # }
 /// ```
 ///
-/// A `Service` stack with _multiple_ layers that contain rate limiting,
-/// in-flight request limits, and a channel-backed, clonable `Service`:
+/// A [`Service`] stack with _multiple_ layers that contain rate limiting,
+/// in-flight request limits, and a channel-backed, clonable [`Service`]:
 ///
 /// ```
 /// # use tower::Service;
@@ -100,6 +99,7 @@ use std::fmt;
 /// # ;
 /// # }
 /// ```
+///
 /// [`Service`]: crate::Service
 #[derive(Clone)]
 pub struct ServiceBuilder<L> {
@@ -113,7 +113,7 @@ impl Default for ServiceBuilder<Identity> {
 }
 
 impl ServiceBuilder<Identity> {
-    /// Create a new `ServiceBuilder`.
+    /// Create a new [`ServiceBuilder`].
     pub fn new() -> Self {
         ServiceBuilder {
             layer: Identity::new(),
@@ -122,7 +122,7 @@ impl ServiceBuilder<Identity> {
 }
 
 impl<L> ServiceBuilder<L> {
-    /// Add a new layer `T` into the `ServiceBuilder`.
+    /// Add a new layer `T` into the [`ServiceBuilder`].
     ///
     /// This wraps the inner service with the service provided by a user-defined
     /// [`Layer`]. The provided layer must implement the [`Layer`] trait.
@@ -386,11 +386,11 @@ impl<L> ServiceBuilder<L> {
     /// This wraps the inner service with an instance of the [`Then`]
     /// middleware.
     ///
-    /// This is similar to the [`map_response`] and [`map_err] functions,
+    /// This is similar to the [`map_response`] and [`map_err`] functions,
     /// except that the *same* function is invoked when the service's future
     /// completes, whether it completes successfully or fails. This function
-    /// takes the `Result` returned by the service's future, and returns a
-    /// `Result`.
+    /// takes the [`Result`] returned by the service's future, and returns a
+    /// [`Result`].
     ///
     /// See the documentation for the [`then` combinator] for details.
     ///
@@ -410,9 +410,10 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Wrap the service `S` with the middleware provided by this
-    /// `ServiceBuilder`'s [`Layer`]s, returning a new `Service`.
+    /// [`ServiceBuilder`]'s [`Layer`]'s, returning a new [`Service`].
     ///
     /// [`Layer`]: crate::Layer
+    /// [`Service`]: crate::Service
     pub fn service<S>(&self, service: S) -> L::Service
     where
         L: Layer<S>,

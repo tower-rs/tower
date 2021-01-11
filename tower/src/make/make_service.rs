@@ -1,4 +1,4 @@
-//! Contains `MakeService` which is a trait alias for a `Service` of `Service`s.
+//! Contains [`MakeService`] which is a trait alias for a [`Service`] of [`Service`]s.
 
 use crate::sealed::Sealed;
 use std::fmt;
@@ -7,15 +7,15 @@ use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// Creates new `Service` values.
+/// Creates new [`Service`] values.
 ///
-/// Acts as a service factory. This is useful for cases where new `Service`
+/// Acts as a service factory. This is useful for cases where new [`Service`]
 /// values must be produced. One case is a TCP server listener. The listener
-/// accepts new TCP streams, obtains a new `Service` value using the
-/// `MakeService` trait, and uses that new `Service` value to process inbound
+/// accepts new TCP streams, obtains a new [`Service`] value using the
+/// [`MakeService`] trait, and uses that new [`Service`] value to process inbound
 /// requests on that new TCP stream.
 ///
-/// This is essentially a trait alias for a `Service` of `Service`s.
+/// This is essentially a trait alias for a [`Service`] of [`Service`]s.
 pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// Responses given by the service
     type Response;
@@ -23,26 +23,29 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// Errors produced by the service
     type Error;
 
-    /// The `Service` value created by this factory
+    /// The [`Service`] value created by this factory
     type Service: Service<Request, Response = Self::Response, Error = Self::Error>;
 
     /// Errors produced while building a service.
     type MakeError;
 
-    /// The future of the `Service` instance.
+    /// The future of the [`Service`] instance.
     type Future: Future<Output = Result<Self::Service, Self::MakeError>>;
 
-    /// Returns `Ready` when the factory is able to create more services.
+    /// Returns [`Poll::Ready`] when the factory is able to create more services.
     ///
-    /// If the service is at capacity, then `Poll::Pending` is returned and the task
+    /// If the service is at capacity, then [`Poll::Pending`] is returned and the task
     /// is notified when the service becomes ready again. This function is
     /// expected to be called while on a task.
+    ///
+    /// [`Poll::Ready`]: std::task::Poll::Ready
+    /// [`Poll::Pending`]: std::task::Poll::Pending
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::MakeError>>;
 
     /// Create and return a new service value asynchronously.
     fn make_service(&mut self, target: Target) -> Self::Future;
 
-    /// Consume this `MakeService` and convert it into a `Service`.
+    /// Consume this [`MakeService`] and convert it into a [`Service`].
     ///
     /// # Example
     /// ```
@@ -81,7 +84,7 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
         }
     }
 
-    /// Convert this `MakeService` into a `Service` without consuming the original `MakeService`.
+    /// Convert this [`MakeService`] into a [`Service`] without consuming the original [`MakeService`].
     ///
     /// # Example
     /// ```

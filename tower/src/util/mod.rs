@@ -80,10 +80,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Oneshot::new(self, req)
     }
 
-    /// Process all requests from the given `Stream`, and produce a `Stream` of their responses.
+    /// Process all requests from the given [`Stream`], and produce a [`Stream`] of their responses.
     ///
-    /// This is essentially `Stream<Item = Request>` + `Self` => `Stream<Item = Response>`. See the
-    /// documentation for [`CallAll`](struct.CallAll.html) for details.
+    /// This is essentially [`Stream<Item = Request>`][stream] + `Self` => [`Stream<Item =
+    /// Response>`][stream]. See the documentation for [`CallAll`] for
+    /// details.
+    ///
+    /// [`Stream`]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
+    /// [stream]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
     fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
     where
         Self: Sized,
@@ -302,27 +306,27 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// to a different value, regardless of whether the future succeeds or
     /// fails.
     ///
-    /// This is similar to the [`map_response`] and [`map_err] combinators,
+    /// This is similar to the [`map_response`] and [`map_err`] combinators,
     /// except that the *same* function is invoked when the service's future
     /// completes, whether it completes successfully or fails. This function
-    /// takes the `Result` returned by the service's future, and returns a
-    /// `Result`.
+    /// takes the [`Result`] returned by the service's future, and returns a
+    /// [`Result`].
     ///
     /// Like the standard library's [`Result::and_then`], this method can be
     /// used to implement control flow based on `Result` values. For example, it
-    /// may be used to implement error recovery, by turning some `Err`
-    /// responses from the service into `Ok` responses. Similarly, some
+    /// may be used to implement error recovery, by turning some [`Err`]
+    /// responses from the service into [`Ok`] responses. Similarly, some
     /// successful responses from the service could be rejected, by returning an
-    /// `Err` conditionally, depending on the value inside the `Ok`. Finally,
+    /// [`Err`] conditionally, depending on the value inside the [`Ok`.] Finally,
     /// this method can also be used to implement behaviors that must run when a
     /// service's future completes, regardless of whether it succeeded or failed.
     ///
     /// This method can be used to change the [`Response`] type of the service
     /// into a different type. It can also be used to change the [`Error`] type
-    /// of the service. However, because the `map_result` function is not applied
+    /// of the service. However, because the [`map_result`] function is not applied
     /// to the errors returned by the service's [`poll_ready`] method, it must
     /// be possible to convert the service's [`Error`] type into the error type
-    /// returned by the `map_result` function. This is trivial when the function
+    /// returned by the [`map_result`] function. This is trivial when the function
     /// returns the same error type as the service, but in other cases, it can
     /// be useful to use [`BoxError`] to erase differing error types.
     ///
@@ -514,6 +518,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// [`map_response`]: ServiceExt::map_response
     /// [`map_err`]: ServiceExt::map_err
+    /// [`map_result`]: ServiceExt::map_result
     /// [`Error`]: crate::Service::Error
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready
@@ -760,7 +765,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// This method can be thought of as an equivalent to the [`futures`
     /// crate]'s [`FutureExt::then`] combinator, but acting on `Service`s that
     /// _return_ futures, rather than on an individual future. Similarly to that
-    /// combinator, `ServiceExt::then` can be used to implement asynchronous
+    /// combinator, [`ServiceExt::then`] can be used to implement asynchronous
     /// error recovery, by calling some asynchronous function with errors
     /// returned by this service. Alternatively, it may also be used to call a
     /// fallible async function with the successful response of this service.

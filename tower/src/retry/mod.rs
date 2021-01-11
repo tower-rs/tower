@@ -1,4 +1,4 @@
-//! Tower middleware for retrying "failed" requests.
+//! Middleware for retrying "failed" requests.
 
 pub mod budget;
 pub mod future;
@@ -15,7 +15,7 @@ use tower_service::Service;
 
 /// Configure retrying requests of "failed" responses.
 ///
-/// A `Policy` classifies what is a "failed" response.
+/// A [`Policy`] classifies what is a "failed" response.
 #[pin_project]
 #[derive(Clone, Debug)]
 pub struct Retry<P, S> {
@@ -27,7 +27,7 @@ pub struct Retry<P, S> {
 // ===== impl Retry =====
 
 impl<P, S> Retry<P, S> {
-    /// Retry the inner service depending on this `Policy`.
+    /// Retry the inner service depending on this [`Policy`].
     pub fn new(policy: P, service: S) -> Self {
         Retry { policy, service }
     }

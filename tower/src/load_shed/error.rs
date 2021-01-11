@@ -2,9 +2,11 @@
 
 use std::fmt;
 
-/// An error returned by `Overload` when the underlying service
+/// An error returned by [`LoadShed`] when the underlying service
 /// is not ready to handle any requests at the time of being
 /// called.
+///
+/// [`LoadShed`]: crate::load_shed::LoadShed
 pub struct Overloaded {
     _p: (),
 }

@@ -1,4 +1,4 @@
-//! Tower middleware that applies a timeout to requests.
+//! Middleware that applies a timeout to requests.
 //!
 //! If the response does not complete within the specified timeout, the response
 //! will be aborted.
@@ -24,7 +24,7 @@ pub struct Timeout<T> {
 // ===== impl Timeout =====
 
 impl<T> Timeout<T> {
-    /// Creates a new Timeout
+    /// Creates a new [`Timeout`]
     pub fn new(inner: T, timeout: Duration) -> Self {
         Timeout { inner, timeout }
     }

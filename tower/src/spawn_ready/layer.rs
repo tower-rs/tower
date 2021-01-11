@@ -6,7 +6,7 @@ use tower_layer::Layer;
 pub struct SpawnReadyLayer;
 
 impl SpawnReadyLayer {
-    /// Builds a SpawnReady layer with the default executor.
+    /// Builds a [`SpawnReadyLayer`] with the default executor.
     pub fn new() -> Self {
         Self
     }

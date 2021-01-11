@@ -28,7 +28,7 @@ opaque_future! {
 }
 
 impl<S, F> MapResult<S, F> {
-    /// Creates a new `MapResult` service.
+    /// Creates a new [`MapResult`] service.
     pub fn new(inner: S, f: F) -> Self {
         MapResult { f, inner }
     }
