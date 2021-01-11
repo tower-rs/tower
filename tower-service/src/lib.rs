@@ -179,12 +179,12 @@ use std::task::{Context, Poll};
 ///         // Call the inner service and get a future that resolves to the response
 ///         let fut = self.inner.call(req);
 ///
-///         // wrap those two futures in another future that completes when either one completes
+///         // Wrap those two futures in another future that completes when either one completes
 ///         //
-///         // if the inner service is too slow the `sleep` future will complete first
-///         // and an error will be returned and `fut` will be dropped and not polled again
+///         // If the inner service is too slow the `sleep` future will complete first
+///         // And an error will be returned and `fut` will be dropped and not polled again
 ///         //
-///         // we have to box the errors so the types match
+///         // We have to box the errors so the types match
 ///         let f = async move {
 ///             tokio::select! {
 ///                 res = fut => {
