@@ -8,8 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix missing `Sync` implementation for `Buffer` and `ConcurrencyLimit`
   the semaphore. ([#518]).
+- Export `layer_fn` and `LayerFn` from the `tower::layer` module. ([#516])
 
 [#518]: https://github.com/tower-rs/tower/pull/518
+[#516]: https://github.com/tower-rs/tower/pull/516
 
 # 0.4.1 (January 7, 2021)
 
