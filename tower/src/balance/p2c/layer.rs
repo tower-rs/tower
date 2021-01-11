@@ -7,7 +7,7 @@ use tower_layer::Layer;
 ///
 /// This construction may seem a little odd at first glance. This is not a layer that takes
 /// requests and produces responses in the traditional sense. Instead, it is more like
-/// [`MakeService`] in that it takes service _descriptors_ (see `Target` on `MakeService`)
+/// [`MakeService`] in that it takes service _descriptors_ (see `Target` on [`MakeService`])
 /// and produces _services_. Since [`Balance`] spreads requests across a _set_ of services,
 /// the inner service should produce a [`Discover`], not just a single
 /// [`Service`], given a service descriptor.

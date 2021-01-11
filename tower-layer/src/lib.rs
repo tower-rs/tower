@@ -5,6 +5,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![deny(broken_intra_doc_links)]
 
 //! Layer traits and extensions.
 //!

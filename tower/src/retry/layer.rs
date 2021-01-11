@@ -8,7 +8,7 @@ pub struct RetryLayer<P> {
 }
 
 impl<P> RetryLayer<P> {
-    /// Create a new `RetryLayer` from a retry policy
+    /// Create a new [`RetryLayer`] from a retry policy
     pub fn new(policy: P) -> Self {
         RetryLayer { policy }
     }

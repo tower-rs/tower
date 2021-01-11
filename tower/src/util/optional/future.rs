@@ -7,7 +7,9 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Response future returned by `Optional`.
+/// Response future returned by [`Optional`].
+///
+/// [`Optional`]: crate::util::Optional
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<T> {

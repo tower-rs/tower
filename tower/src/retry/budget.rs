@@ -21,7 +21,7 @@ pub struct Budget {
 }
 
 /// Indicates that it is not currently allowed to "withdraw" another retry
-/// from the [`Budget`](Budget).
+/// from the [`Budget`].
 #[derive(Debug)]
 pub struct Overdrawn {
     _inner: (),
@@ -52,7 +52,7 @@ struct Generation {
 // ===== impl Budget =====
 
 impl Budget {
-    /// Create a `Budget` that allows for a certain percent of the total
+    /// Create a [`Budget`] that allows for a certain percent of the total
     /// requests to be retried.
     ///
     /// - The `ttl` is the duration of how long a single `deposit` should be

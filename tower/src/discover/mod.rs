@@ -2,11 +2,11 @@
 //!
 //! This module provides the [`Change`] enum, which indicates the arrival or departure of a service
 //! from a collection of similar services. Most implementations should use the [`Discover`] trait
-//! in their bounds to indicate that they can handle services coming and going. `Discover` itself
-//! is primarily a convenience wrapper around `TryStream<Ok = Change>`.
+//! in their bounds to indicate that they can handle services coming and going. [`Discover`] itself
+//! is primarily a convenience wrapper around [`TryStream<Ok = Change>`][`TryStream`].
 //!
 //! Every discovered service is assigned an identifier that is distinct among the currently active
-//! services. If that service later goes away, a `Change::Remove` is yielded with that service's
+//! services. If that service later goes away, a [`Change::Remove`] is yielded with that service's
 //! identifier. From that point forward, the identifier may be re-used.
 //!
 //! # Examples
@@ -30,6 +30,8 @@
 //!     }
 //! }
 //! ```
+//!
+//! [`TryStream`]: https://docs.rs/futures/latest/futures/stream/trait.TryStream.html
 
 mod error;
 mod list;
@@ -53,10 +55,12 @@ use std::{
 pub trait Discover: Sealed<Change<(), ()>> {
     /// A unique identifier for each active service.
     ///
-    /// An identifier can be re-used once a `Change::Remove` has been yielded for its service.
+    /// An identifier can be re-used once a [`Change::Remove`] has been yielded for its service.
     type Key: Eq;
 
-    /// The type of `Service` yielded by this `Discover`.
+    /// The type of [`Service`] yielded by this [`Discover`].
+    ///
+    /// [`Service`]: crate::Service
     type Service;
 
     /// Error produced during discovery

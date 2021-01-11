@@ -1,4 +1,5 @@
 use std::fmt;
+
 #[derive(Debug)]
 /// An error that can never occur.
 pub enum Never {}

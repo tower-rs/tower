@@ -3,9 +3,9 @@
 //! This module provides the [`Load`] trait, which allows measuring how loaded a service is.
 //! It also provides several wrapper types that measure load in different ways:
 //!
-//!  - [`Constant`] — Always returns the same constant load value for a service.
-//!  - [`PendingRequests`] — Measures load by tracking the number of in-flight requests.
-//!  - [`PeakEwma`] — Measures load using a moving average of the peak latency for the service.
+//! - [`Constant`] — Always returns the same constant load value for a service.
+//! - [`PendingRequests`] — Measures load by tracking the number of in-flight requests.
+//! - [`PeakEwma`] — Measures load using a moving average of the peak latency for the service.
 //!
 //! In general, you will want to use one of these when using the types in [`tower::balance`] which
 //! balance services depending on their load. Which load metric to use depends on your exact
@@ -24,7 +24,7 @@
 //!
 //! To support these use-cases, the load estimators in this module are parameterized by the
 //! [`TrackCompletion`] trait, with [`CompleteOnResponse`] as the default type. The behavior of
-//! `CompleteOnOnResponse` is what you would normally expect for a request-response cycle: when the
+//! [`CompleteOnResponse`] is what you would normally expect for a request-response cycle: when the
 //! response is produced, the request is considered "finished", and load goes down. This can be
 //! overriden by your own user-defined type to track more complex request completion semantics. See
 //! the documentation for [`completion`] for more details.
@@ -53,8 +53,10 @@
 //!     }
 //! }
 //! ```
+//!
 //! [`tower::balance`]: crate::balance
 //! [`Discover`]: crate::discover::Discover
+//! [`CompleteOnResponse`]: crate::load::completion::CompleteOnResponse
 // TODO: a custom completion example would be good here
 
 pub mod completion;

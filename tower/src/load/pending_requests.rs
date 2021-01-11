@@ -1,4 +1,4 @@
-//! A `Load` implementation that measures load using the number of in-flight requests.
+//! A [`Load`] implementation that measures load using the number of in-flight requests.
 
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
@@ -23,11 +23,11 @@ pub struct PendingRequests<S, C = CompleteOnResponse> {
     completion: C,
 }
 
-/// Shared between instances of `PendingRequests` and `Handle` to track active references.
+/// Shared between instances of [`PendingRequests`] and [`Handle`] to track active references.
 #[derive(Clone, Debug, Default)]
 struct RefCount(Arc<()>);
 
-/// Wraps a `D`-typed stream of discovered services with `PendingRequests`.
+/// Wraps a `D`-typed stream of discovered services with [`PendingRequests`].
 #[pin_project]
 #[derive(Debug)]
 #[cfg(feature = "discover")]
@@ -98,7 +98,7 @@ where
 
 #[cfg(feature = "discover")]
 impl<D, C> PendingRequestsDiscover<D, C> {
-    /// Wraps a `Discover``, wrapping all of its services with `PendingRequests`.
+    /// Wraps a [`Discover`], wrapping all of its services with [`PendingRequests`].
     pub fn new<Request>(discover: D, completion: C) -> Self
     where
         D: Discover,

@@ -1,11 +1,10 @@
-//! Contains `OptionService` and related types and functions.
+//! Contains [`Optional`] and related types and functions.
 //!
-//! See `OptionService` documentation for more details.
-//!
+//! See [`Optional`] documentation for more details.
 
-/// Error types for `OptionalService`.
+/// Error types for [`Optional`].
 pub mod error;
-/// Future types for `OptionalService`.
+/// Future types for [`Optional`].
 pub mod future;
 
 use self::future::ResponseFuture;
@@ -14,14 +13,16 @@ use tower_service::Service;
 
 /// Optionally forwards requests to an inner service.
 ///
-/// If the inner service is `None`, `Error::None` is returned as the response.
+/// If the inner service is [`None`], [`optional::None`] is returned as the response.
+///
+/// [`optional::None`]: crate::util::error::optional::None
 #[derive(Debug)]
 pub struct Optional<T> {
     inner: Option<T>,
 }
 
 impl<T> Optional<T> {
-    /// Create a new `OptionService`
+    /// Create a new [`Optional`].
     pub fn new<Request>(inner: Option<T>) -> Optional<T>
     where
         T: Service<Request>,

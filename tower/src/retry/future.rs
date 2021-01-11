@@ -8,7 +8,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// The `Future` returned by a `Retry` service.
+/// The [`Future`] returned by a [`Retry`] service.
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<P, S, Request>
@@ -26,11 +26,11 @@ where
 #[pin_project(project = StateProj)]
 #[derive(Debug)]
 enum State<F, P> {
-    /// Polling the future from `Service::call`
+    /// Polling the future from [`Service::call`]
     Called(#[pin] F),
-    /// Polling the future from `Policy::retry`
+    /// Polling the future from [`Policy::retry`]
     Checking(#[pin] P),
-    /// Polling `Service::poll_ready` after `Checking` was OK.
+    /// Polling [`Service::poll_ready`] after [`Checking`] was OK.
     Retrying,
 }
 

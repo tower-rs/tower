@@ -1,8 +1,8 @@
-//! This module provides functionality to aid managing routing requests between Tower [`Service`]s.
+//! This module provides functionality to aid managing routing requests between [`Service`]s.
 //!
 //! # Example
 //!
-//! `Steer` can for example be used to create a router, akin to what you might find in web
+//! [`Steer`] can for example be used to create a router, akin to what you might find in web
 //! frameworks.
 //!
 //! Here, `GET /` will be sent to the `root` service, while all other requests go to `not_found`.
@@ -87,21 +87,23 @@ where
     }
 }
 
-/// `Steer` manages a list of `Service`s which all handle the same type of request.
+/// [`Steer`] manages a list of [`Service`]s which all handle the same type of request.
 ///
 /// An example use case is a sharded service.
 /// It accepts new requests, then:
-/// 1. Determines, via the provided [`Picker`], which `Service` the request coresponds to.
-/// 2. Waits (in `poll_ready`) for *all* services to be ready.
-/// 3. Calls the correct `Service` with the request, and returns a future corresponding to the
+/// 1. Determines, via the provided [`Picker`], which [`Service`] the request coresponds to.
+/// 2. Waits (in [`Service::poll_ready`]) for *all* services to be ready.
+/// 3. Calls the correct [`Service`] with the request, and returns a future corresponding to the
 ///    call.
 ///
-/// Note that `Steer` must wait for all services to be ready since it can't know ahead of time
-/// which `Service` the next message will arrive for, and is unwilling to buffer items
-/// indefinitely. This will cause head-of-line blocking unless paired with a `Service` that does
-/// buffer items indefinitely, and thus always returns `Poll::Ready`. For example, wrapping each
-/// component service with a `tower-buffer` with a high enough limit (the maximum number of
-/// concurrent requests) will prevent head-of-line blocking in `Steer`.
+/// Note that [`Steer`] must wait for all services to be ready since it can't know ahead of time
+/// which [`Service`] the next message will arrive for, and is unwilling to buffer items
+/// indefinitely. This will cause head-of-line blocking unless paired with a [`Service`] that does
+/// buffer items indefinitely, and thus always returns [`Poll::Ready`]. For example, wrapping each
+/// component service with a [`Buffer`] with a high enough limit (the maximum number of concurrent
+/// requests) will prevent head-of-line blocking in [`Steer`].
+///
+/// [`Buffer`]: crate::buffer::Buffer
 #[derive(Debug)]
 pub struct Steer<S, F, Req> {
     router: F,
@@ -111,9 +113,9 @@ pub struct Steer<S, F, Req> {
 }
 
 impl<S, F, Req> Steer<S, F, Req> {
-    /// Make a new [`Steer`] with a list of `Service`s and a `Picker`.
+    /// Make a new [`Steer`] with a list of [`Service`]'s and a [`Picker`].
     ///
-    /// Note: the order of the `Service`s is significant for [`Picker::pick`]'s return value.
+    /// Note: the order of the [`Service`]'s is significant for [`Picker::pick`]'s return value.
     pub fn new(services: impl IntoIterator<Item = S>, router: F) -> Self {
         let services: Vec<_> = services.into_iter().collect();
         let not_ready: VecDeque<_> = services.iter().enumerate().map(|(i, _)| i).collect();

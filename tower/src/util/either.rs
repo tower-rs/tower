@@ -1,6 +1,6 @@
-//! Contains `Either` and related types and functions.
+//! Contains [`Either`] and related types and functions.
 //!
-//! See `Either` documentation for more details.
+//! See [`Either`] documentation for more details.
 
 use futures_core::ready;
 use pin_project::pin_project;
@@ -14,14 +14,14 @@ use tower_service::Service;
 /// Combine two different service types into a single type.
 ///
 /// Both services must be of the same request, response, and error types.
-/// `Either` is useful for handling conditional branching in service middleware
+/// [`Either`] is useful for handling conditional branching in service middleware
 /// to different inner service types.
 #[pin_project(project = EitherProj)]
 #[derive(Clone, Debug)]
 pub enum Either<A, B> {
-    /// One type of backing `Service`.
+    /// One type of backing [`Service`].
     A(#[pin] A),
-    /// The other type of backing `Service`.
+    /// The other type of backing [`Service`].
     B(#[pin] B),
 }
 

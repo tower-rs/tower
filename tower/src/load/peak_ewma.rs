@@ -22,7 +22,7 @@ use tracing::trace;
 
 /// Measures the load of the underlying service using Peak-EWMA load measurement.
 ///
-/// `PeakEwma` implements `Load` with the `Cost` metric that estimates the amount of
+/// [`PeakEwma`] implements [`Load`] with the [`Cost`] metric that estimates the amount of
 /// pending work to an endpoint. Work is calculated by multiplying the
 /// exponentially-weighted moving average (EWMA) of response latencies by the number of
 /// pending requests. The Peak-EWMA algorithm is designed to be especially sensitive to
@@ -161,7 +161,7 @@ impl<S, C> PeakEwma<S, C> {
 
 #[cfg(feature = "discover")]
 impl<D, C> PeakEwmaDiscover<D, C> {
-    /// Wraps a `D`-typed `Discover` so that services have a `PeakEwma` load metric.
+    /// Wraps a `D`-typed [`Discover`] so that services have a [`PeakEwma`] load metric.
     ///
     /// The provided `default_rtt` is used as the default RTT estimate for newly
     /// added services.
@@ -354,8 +354,8 @@ mod tests {
         assert!(8.0 * NANOS_PER_MILLI < load && load < 9.0 * NANOS_PER_MILLI);
     }
 
-    // /// The default RTT estimate decays, so that new nodes are considered if the
-    // /// default RTT is too high.
+    // The default RTT estimate decays, so that new nodes are considered if the default RTT is too
+    // high.
     #[tokio::test]
     async fn compound_decay() {
         time::pause();
