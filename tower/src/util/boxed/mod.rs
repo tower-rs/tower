@@ -1,15 +1,15 @@
-//! Trait object `Service` instances
+//! Trait object [`Service`] instances
 //!
-//! Dynamically dispatched `Service` objects allow for erasing the underlying
-//! `Service` type and using the `Service` instances as opaque handles. This can
+//! Dynamically dispatched [`Service`] objects allow for erasing the underlying
+//! [`Service`] type and using the `Service` instances as opaque handles. This can
 //! be useful when the service instance cannot be explicitly named for whatever
 //! reason.
 //!
-//! There are two variants of service objects. `BoxService` requires both the
-//! service and the response future to be `Send`. These values can move freely
-//! across threads. `UnsyncBoxService` requires both the service and the
+//! There are two variants of service objects. [`BoxService`] requires both the
+//! service and the response future to be [`Send`]. These values can move freely
+//! across threads. [`UnsyncBoxService`] requires both the service and the
 //! response future to remain on the current thread. This is useful for
-//! representing services that are backed by `Rc` or other non-`Send` types.
+//! representing services that are backed by [`Rc`] or other non-[`Send`] types.
 //!
 //! # Examples
 //!
@@ -28,6 +28,9 @@
 //! # drop(service);
 //! }
 //! ```
+//!
+//! [`Service`]: crate::Service
+//! [`Rc`]: std::rc::Rc
 
 mod sync;
 mod unsync;

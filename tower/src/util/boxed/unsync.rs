@@ -8,14 +8,14 @@ use std::{
     task::{Context, Poll},
 };
 
-/// A boxed `Service` trait object.
+/// A boxed [`Service`] trait object.
 pub struct UnsyncBoxService<T, U, E> {
     inner: Box<dyn Service<T, Response = U, Error = E, Future = UnsyncBoxFuture<U, E>>>,
 }
 
-/// A boxed `Future` trait object.
+/// A boxed [`Future`] trait object.
 ///
-/// This type alias represents a boxed future that is *not* `Send` and must
+/// This type alias represents a boxed future that is *not* [`Send`] and must
 /// remain on the current thread.
 type UnsyncBoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>>>>;
 
@@ -35,7 +35,7 @@ impl<T, U, E> UnsyncBoxService<T, U, E> {
         UnsyncBoxService { inner }
     }
 
-    /// Returns a [`Layer`] for wrapping a [`Service`] in an `UnsyncBoxService` middleware.
+    /// Returns a [`Layer`] for wrapping a [`Service`] in an [`UnsyncBoxService`] middleware.
     ///
     /// [`Layer`]: crate::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>

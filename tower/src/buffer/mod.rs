@@ -1,7 +1,7 @@
 //! Middleware that provides a buffered mpsc channel to a service.
 //!
 //! Sometimes you want to give out multiple handles to a single service, and allow each handle to
-//! enqueue requests. That is, you want a `Service` to be `Clone`. This module allows you to do
+//! enqueue requests. That is, you want a [`Service`] to be [`Clone`]. This module allows you to do
 //! that by placing the service behind a multi-producer, single-consumer buffering channel. Clients
 //! enqueue requests by sending on the channel from any of the handles ([`Buffer`]), and the single
 //! service running elsewhere (usually spawned) receives and services the requests one by one. Each
@@ -33,6 +33,8 @@
 //!     }
 //! }
 //! ```
+//!
+//! [`Service`]: crate::Service
 
 pub mod error;
 pub mod future;

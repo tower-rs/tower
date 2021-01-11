@@ -10,9 +10,9 @@ use std::{
 
 /// A boxed `Service + Send` trait object.
 ///
-/// `BoxService` turns a service into a trait object, allowing the response
+/// [`BoxService`] turns a service into a trait object, allowing the response
 /// future type to be dynamic. This type requires both the service and the
-/// response future to be `Send`.
+/// response future to be [`Send`].
 ///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
@@ -21,7 +21,7 @@ pub struct BoxService<T, U, E> {
 
 /// A boxed `Future + Send` trait object.
 ///
-/// This type alias represents a boxed future that is `Send` and can be moved
+/// This type alias represents a boxed future that is [`Send`] and can be moved
 /// across threads.
 type BoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
@@ -41,7 +41,7 @@ impl<T, U, E> BoxService<T, U, E> {
         BoxService { inner }
     }
 
-    /// Returns a [`Layer`] for wrapping a [`Service`] in a `BoxService`
+    /// Returns a [`Layer`] for wrapping a [`Service`] in a [`BoxService`]
     /// middleware.
     ///
     /// [`Layer`]: crate::Layer

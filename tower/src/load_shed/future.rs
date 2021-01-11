@@ -10,7 +10,9 @@ use pin_project::pin_project;
 
 use super::error::Overloaded;
 
-/// Future for the `LoadShed` service.
+/// Future for the [`LoadShed`] service.
+///
+/// [`LoadShed`]: crate::load_shed::LoadShed
 #[pin_project]
 pub struct ResponseFuture<F> {
     #[pin]

@@ -10,7 +10,7 @@ use std::{
 
 /// Attaches `H`-typed completion tracker to `V` typed values.
 ///
-/// Handles (of type `H`) are intended to be RAII guards that primarily implement `Drop` and update
+/// Handles (of type `H`) are intended to be RAII guards that primarily implement [`Drop`] and update
 /// load metric state as they are dropped. This trait allows implementors to "forward" the handle
 /// to later parts of the request-handling pipeline, so that the handle is only dropped when the
 /// request has truly completed.
@@ -24,10 +24,12 @@ use std::{
 /// once the response future is resolved. This is appropriate when a response is discrete and
 /// cannot comprise multiple messages.
 ///
-/// In many cases, the `Output` type is simply `V`. However, `TrackCompletion` may alter the type
-/// in order to instrument it appropriately. For example, an HTTP `TrackCompletion` may modify the
-/// body type: so a `TrackCompletion` that takes values of type `http::Response<A>` may output
-/// values of type `http::Response<B>`.
+/// In many cases, the `Output` type is simply `V`. However, [`TrackCompletion`] may alter the type
+/// in order to instrument it appropriately. For example, an HTTP [`TrackCompletion`] may modify
+/// the body type: so a [`TrackCompletion`] that takes values of type
+/// [`http::Response<A>`][response] may output values of type [`http::Response<B>`][response].
+///
+/// [response]: https://docs.rs/http/latest/http/response/struct.Response.html
 pub trait TrackCompletion<H, V>: Clone {
     /// The instrumented value type.
     type Output;
@@ -36,13 +38,13 @@ pub trait TrackCompletion<H, V>: Clone {
     fn track_completion(&self, handle: H, value: V) -> Self::Output;
 }
 
-/// A `TrackCompletion` implementation that considers the request completed when the response
+/// A [`TrackCompletion`] implementation that considers the request completed when the response
 /// future is resolved.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct CompleteOnResponse;
 
-/// Attaches a `C`-typed completion tracker to the result of an `F`-typed `Future`.
+/// Attaches a `C`-typed completion tracker to the result of an `F`-typed [`Future`].
 #[pin_project]
 #[derive(Debug)]
 pub struct TrackCompletionFuture<F, C, H> {

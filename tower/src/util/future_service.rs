@@ -6,9 +6,9 @@ use std::{
 };
 use tower_service::Service;
 
-/// Returns a new `FutureService` for the given future.
+/// Returns a new [`FutureService`] for the given future.
 ///
-/// A `FutureService` allows you to treat a future that resolves to a service as a service. This
+/// A [`FutureService`] allows you to treat a future that resolves to a service as a service. This
 /// can be useful for services that are created asynchronously.
 ///
 /// # Example
@@ -37,10 +37,10 @@ use tower_service::Service;
 /// # }
 /// ```
 ///
-/// # Regarding the `Unpin` bound
+/// # Regarding the [`Unpin`] bound
 ///
-/// The `Unpin` bound on `F` is necessary because the future will be polled in
-/// `Service::poll_ready` which doesn't have a pinned receiver (it takes `&mut self` and not `self:
+/// The [`Unpin`] bound on `F` is necessary because the future will be polled in
+/// [`Service::poll_ready`] which doesn't have a pinned receiver (it takes `&mut self` and not `self:
 /// Pin<&mut Self>`). So we cannot put the future into a `Pin` without requiring `Unpin`.
 ///
 /// This will most likely come up if you're calling `future_service` with an async block. In that
@@ -55,9 +55,9 @@ where
     }
 }
 
-/// A type that implements `Service` for a `Future` that produces a `Service`.
+/// A type that implements [`Service`] for a [`Future`] that produces a [`Service`].
 ///
-/// See `future_service` for more details.
+/// See [`future_service`] for more details.
 #[derive(Clone)]
 pub struct FutureService<F, S> {
     state: State<F, S>,
