@@ -80,6 +80,21 @@ impl<T, U> Filter<T, U> {
     {
         self.predicate.check(request)
     }
+
+    /// Get a reference to the inner service
+    pub fn get_ref(&self) -> &T {
+        &self.inner
+    }
+
+    /// Get a mutable reference to the inner service
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+
+    /// Consume `self`, returning the inner service
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
 }
 
 impl<T, U, Request> Service<Request> for Filter<T, U>
@@ -126,6 +141,21 @@ impl<T, U> AsyncFilter<T, U> {
         U: AsyncPredicate<R>,
     {
         self.predicate.check(request).await
+    }
+
+    /// Get a reference to the inner service
+    pub fn get_ref(&self) -> &T {
+        &self.inner
+    }
+
+    /// Get a mutable reference to the inner service
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+
+    /// Consume `self`, returning the inner service
+    pub fn into_inner(self) -> T {
+        self.inner
     }
 }
 
