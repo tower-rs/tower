@@ -1,3 +1,4 @@
+#[cfg(any(feature = "util", feature = "spawn-ready", feature = "filter"))]
 macro_rules! opaque_future {
     ($(#[$m:meta])* pub type $name:ident<$($param:ident),+> = $actual:ty;) => {
         #[pin_project::pin_project]
