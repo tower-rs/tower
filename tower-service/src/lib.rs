@@ -191,7 +191,7 @@ use std::task::{Context, Poll};
 ///                     res.map_err(|err| err.into())
 ///                 },
 ///                 _ = timeout => {
-///                     Err(Box::new(Expired) as Box<dyn Error>)
+///                     Err(Box::new(Expired) as Box<dyn Error + Send + Sync>)
 ///                 },
 ///             }
 ///         };
