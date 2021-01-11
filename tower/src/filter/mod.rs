@@ -74,9 +74,9 @@ impl<T, U> Filter<T, U> {
     }
 
     /// Check a `Request` value against this filter's predicate.
-    pub fn check<Request>(&mut self, request: Request) -> Result<U::Request, BoxError>
+    pub fn check<R>(&mut self, request: R) -> Result<U::Request, BoxError>
     where
-        U: Predicate<Request>,
+        U: Predicate<R>,
     {
         self.predicate.check(request)
     }
@@ -121,9 +121,9 @@ impl<T, U> AsyncFilter<T, U> {
     }
 
     /// Check a `Request` value against this filter's predicate.
-    pub async fn check<Request>(&mut self, request: Request) -> Result<U::Request, BoxError>
+    pub async fn check<R>(&mut self, request: R) -> Result<U::Request, BoxError>
     where
-        U: AsyncPredicate<Request>,
+        U: AsyncPredicate<R>,
     {
         self.predicate.check(request).await
     }
