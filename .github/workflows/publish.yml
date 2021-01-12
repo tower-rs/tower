@@ -13,6 +13,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v1
+      - name: Install nightly Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
       - name: Generate documentation
         uses: actions-rs/cargo@v1
         with:
