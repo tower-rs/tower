@@ -28,6 +28,15 @@ impl<S, F> Then<S, F> {
     pub fn new(inner: S, f: F) -> Self {
         Then { f, inner }
     }
+
+    /// Returns a new [`Layer`] that produces [`Then`] services.
+    ///
+    /// This is a convenience function that simply calls [`ThenLayer::new`].
+    ///
+    /// [`Layer`]: tower_layer::Layer
+    pub fn layer(f: F) -> ThenLayer<F> {
+        ThenLayer { f }
+    }
 }
 
 opaque_future! {

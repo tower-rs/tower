@@ -12,10 +12,10 @@ pub struct MapErr<S, F> {
     f: F,
 }
 
-/// A [`Layer`] that produces a [`MapErr`] service.
+/// A [`Layer`] that produces [`MapErr`] services.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MapErrLayer<F> {
     f: F,
 }
@@ -31,6 +31,15 @@ impl<S, F> MapErr<S, F> {
     /// Creates a new [`MapErr`] service.
     pub fn new(inner: S, f: F) -> Self {
         MapErr { f, inner }
+    }
+
+    /// Returns a new [`Layer`] that produces [`MapErr`] services.
+    ///
+    /// This is a convenience function that simply calls [`MapErrLayer::new`].
+    ///
+    /// [`Layer`]: tower_layer::Layer
+    pub fn layer(f: F) -> MapErrLayer<F> {
+        MapErrLayer { f }
     }
 }
 
