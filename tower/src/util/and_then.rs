@@ -47,7 +47,7 @@ where
 /// A [`Layer`] that produces a [`AndThen`] service.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AndThenLayer<F> {
     f: F,
 }

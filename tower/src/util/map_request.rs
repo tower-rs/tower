@@ -50,7 +50,7 @@ where
 /// A [`Layer`] that produces [`MapRequest`] services.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MapRequestLayer<F> {
     f: F,
 }
