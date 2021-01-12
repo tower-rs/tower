@@ -17,7 +17,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --workspace --no-deps
+          args: --workspace --no-deps --all-features
+          # Tower uses nightly-only RustDoc features
+          toolchain: nightly
+        env:
+          # Enable the RustDoc `#[doc(cfg(...))]` attribute.
+          RUSTDOCFLAGS: --cfg docsrs
       - name: Deploy documentation
         if: success()
         uses: crazy-max/ghaction-github-pages@v1
