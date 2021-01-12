@@ -88,7 +88,7 @@ See [here](modules) for a complete list of all middleware provided by
 Tower.
 
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
-[`Layer]: https://docs.rs/tower/latest/tower/trait.Layer.html
+[`Layer`]: https://docs.rs/tower/latest/tower/trait.Layer.html
 [timeouts]: https://docs.rs/tower/latest/tower/timeout/
 [rate limiting]: https://docs.rs/tower/latest/tower/limit/rate
 [load balancing]: https://docs.rs/tower/latest/tower/balance/
