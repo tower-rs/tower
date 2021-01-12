@@ -47,7 +47,7 @@ where
 /// A [`Layer`] that produces a [`AndThen`] service.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AndThenLayer<F> {
     f: F,
 }
@@ -56,6 +56,15 @@ impl<S, F> AndThen<S, F> {
     /// Creates a new `AndThen` service.
     pub fn new(inner: S, f: F) -> Self {
         AndThen { f, inner }
+    }
+
+    /// Returns a new [`Layer`] that produces [`AndThen`] services.
+    ///
+    /// This is a convenience function that simply calls [`AndThenLayer::new`].
+    ///
+    /// [`Layer`]: tower_layer::Layer
+    pub fn layer(f: F) -> AndThenLayer<F> {
+        AndThenLayer { f }
     }
 }
 

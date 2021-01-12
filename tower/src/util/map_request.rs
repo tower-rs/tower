@@ -16,6 +16,15 @@ impl<S, F> MapRequest<S, F> {
     pub fn new(inner: S, f: F) -> Self {
         MapRequest { inner, f }
     }
+
+    /// Returns a new [`Layer`] that produces [`MapRequest`] services.
+    ///
+    /// This is a convenience function that simply calls [`MapRequestLayer::new`].
+    ///
+    /// [`Layer`]: tower_layer::Layer
+    pub fn layer(f: F) -> MapRequestLayer<F> {
+        MapRequestLayer { f }
+    }
 }
 
 impl<S, F, R1, R2> Service<R1> for MapRequest<S, F>
@@ -38,10 +47,10 @@ where
     }
 }
 
-/// A [`Layer`] that produces a [`MapRequest`] service.
+/// A [`Layer`] that produces [`MapRequest`] services.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MapRequestLayer<F> {
     f: F,
 }
