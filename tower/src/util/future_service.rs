@@ -45,10 +45,9 @@ use tower_service::Service;
 ///
 /// This will most likely come up if you're calling `future_service` with an async block. In that
 /// case you can use `Box::pin(async { ... })` as shown in the example.
-pub fn future_service<F, S, R, E>(future: F) -> FutureService<F, S>
+pub fn future_service<F, S, E>(future: F) -> FutureService<F, S>
 where
     F: Future<Output = Result<S, E>> + Unpin,
-    S: Service<R, Error = E>,
 {
     FutureService::new(future)
 }
