@@ -3,13 +3,25 @@
 Tower is a library of modular and reusable components for building robust
 networking clients and servers.
 
-[![Build Status][azure-badge]][azure-url]
-[![Gitter][gitter-badge]][gitter-url]
+[![Crates.io][crates-badge]][crates-url]
+[![Documentation][docs-badge]][docs-url]
+[![Documentation (master)][docs-master-badge]][docs-master-url]
+[![MIT licensed][mit-badge]][mit-url]
+[![Build Status][actions-badge]][actions-url]
+[![Discord chat][discord-badge]][discord-url]
 
-[azure-badge]: https://dev.azure.com/tower-rs/Tower/_apis/build/status/tower-rs.tower?branchName=master
-[azure-url]: https://dev.azure.com/tower-rs/Tower/_build/latest?definitionId=1&branchName=master
-[gitter-badge]: https://badges.gitter.im/tower-rs/tower.svg
-[gitter-url]: https://gitter.im/tower-rs/tower
+[crates-badge]: https://img.shields.io/crates/v/tower.svg
+[crates-url]: https://crates.io/crates/tower
+[docs-badge]: https://docs.rs/tower/badge.svg
+[docs-url]: https://docs.rs/tower
+[docs-master-badge]: https://img.shields.io/badge/docs-master-blue
+[docs-master-url]: https://tower-rs.github.io/tower/tower
+[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
+[mit-url]: LICENSE
+[actions-badge]: https://github.com/tower-rs/tower/workflows/CI/badge.svg
+[actions-url]:https://github.com/tower-rs/tower/actions?query=workflow%3ACI
+[discord-badge]: https://img.shields.io/discord/500028886025895936?logo=discord&label=discord&logoColor=white
+[discord-url]: https://discord.gg/EeF3cQw
 
 ## Overview
 
