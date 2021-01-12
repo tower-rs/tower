@@ -57,6 +57,15 @@ impl<S, F> AndThen<S, F> {
     pub fn new(inner: S, f: F) -> Self {
         AndThen { f, inner }
     }
+
+    /// Returns a new [`Layer`] that produces [`AndThen`] services.
+    ///
+    /// This is a convenience function that simply calls [`AndThenLayer::new`].
+    ///
+    /// [`Layer`]: tower_layer::Layer
+    pub fn layer(f: F) -> AndThenLayer<F> {
+        AndThenLayer { f }
+    }
 }
 
 impl<S, F, Request, Fut> Service<Request> for AndThen<S, F>
