@@ -15,7 +15,7 @@ pub struct MapErr<S, F> {
 /// A [`Layer`] that produces a [`MapErr`] service.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MapErrLayer<F> {
     f: F,
 }
