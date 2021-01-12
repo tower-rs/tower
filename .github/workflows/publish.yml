@@ -20,8 +20,9 @@ jobs:
           args: --workspace --no-deps --all-features
           # Tower uses nightly-only RustDoc features
           toolchain: nightly
-          env:
-            RUSTDOCFLAGS: --cfg docsrs
+        env:
+          # Enable the RustDoc `#[doc(cfg(...))]` attribute.
+          RUSTDOCFLAGS: --cfg docsrs
       - name: Deploy documentation
         if: success()
         uses: crazy-max/ghaction-github-pages@v1
