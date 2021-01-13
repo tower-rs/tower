@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#525]: https://github.com/tower-rs/tower/pull/525
 
 # 0.4.2 (January 11, 2021)
+
 ### Added
 
 - Export `layer_fn` and `LayerFn` from the `tower::layer` module. ([#516])
