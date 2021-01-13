@@ -67,7 +67,7 @@
 //! ```
 //!
 //! Alternatively, you can only enable some features. For example, to enable
-//! only the [`retry`] and [`timeout`] middleware, write:
+//! only the [`retry`] and [`timeout`][timeouts] middleware, write:
 //!
 //! ```toml
 //! tower = { version = "0.4", features = ["retry", "timeout"] }
@@ -77,7 +77,7 @@
 //! Tower.
 //!
 //! [`Service`]: crate::Service
-//! [`Layer]: crate::Layer
+//! [`Layer`]: crate::Layer
 //! [timeouts]: crate::timeout
 //! [rate limiting]: crate::limit::rate
 //! [load balancing]: crate::balance
@@ -88,7 +88,6 @@
 //! [`tower-layer`]: https://crates.io/crates/tower-layer
 //! [`tower-test`]: https://crates.io/crates/tower-test
 //! [`retry`]: crate::retry
-//! [`timeout`]: crate::timeout
 #[macro_use]
 pub(crate) mod macros;
 #[cfg(feature = "balance")]
