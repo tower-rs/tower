@@ -50,9 +50,7 @@ where
     F: Future<Output = Result<S, E>> + Unpin,
     S: Service<R, Error = E>,
 {
-    FutureService {
-        state: State::Future(future),
-    }
+    FutureService::new(future)
 }
 
 /// A type that implements [`Service`] for a [`Future`] that produces a [`Service`].
@@ -61,6 +59,53 @@ where
 #[derive(Clone)]
 pub struct FutureService<F, S> {
     state: State<F, S>,
+}
+
+impl<F, S> FutureService<F, S> {
+    /// Returns a new [`FutureService`] for the given future.
+    ///
+    /// A [`FutureService`] allows you to treat a future that resolves to a service as a service. This
+    /// can be useful for services that are created asynchronously.
+    ///
+    /// # Example
+    /// ```
+    /// use tower::{service_fn, Service, ServiceExt};
+    /// use tower::util::FutureService;
+    /// use std::convert::Infallible;
+    ///
+    /// # fn main() {
+    /// # async {
+    /// // A future which outputs a type implementing `Service`.
+    /// let future_of_a_service = async {
+    ///     let svc = service_fn(|_req: ()| async { Ok::<_, Infallible>("ok") });
+    ///     Ok::<_, Infallible>(svc)
+    /// };
+    ///
+    /// // Wrap the future with a `FutureService`, allowing it to be used
+    /// // as a service without awaiting the future's completion:
+    /// let mut svc = FutureService::new(Box::pin(future_of_a_service));
+    ///
+    /// // Now, when we wait for the service to become ready, it will
+    /// // drive the future to completion internally.
+    /// let svc = svc.ready_and().await.unwrap();
+    /// let res = svc.call(()).await.unwrap();
+    /// # };
+    /// # }
+    /// ```
+    ///
+    /// # Regarding the [`Unpin`] bound
+    ///
+    /// The [`Unpin`] bound on `F` is necessary because the future will be polled in
+    /// [`Service::poll_ready`] which doesn't have a pinned receiver (it takes `&mut self` and not `self:
+    /// Pin<&mut Self>`). So we cannot put the future into a `Pin` without requiring `Unpin`.
+    ///
+    /// This will most likely come up if you're calling `future_service` with an async block. In that
+    /// case you can use `Box::pin(async { ... })` as shown in the example.
+    pub fn new(future: F) -> Self {
+        Self {
+            state: State::Future(future),
+        }
+    }
 }
 
 impl<F, S> fmt::Debug for FutureService<F, S>
