@@ -3,11 +3,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+# 0.4.3 (January 13, 2021)
+
+### Added
+
+- **filter**: `Filter::check` and `AsyncFilter::check` methods which check a
+  request against the filter's `Predicate` ([#521])
+- **filter**: Added `get_ref`, `get_mut`, and `into_inner` methods to `Filter`
+  and `AsyncFilter`, allowing access to the wrapped service ([#522])
+- **util**: Added `layer` associated function to `AndThen`, `Then`,
+  `MapRequest`, `MapResponse`, and `MapResult` types. These return a `Layer`
+  that produces middleware of that type, as a convenience to avoid having to
+  import the `Layer` type separately. ([#524])
+- **util**: Added missing `Clone` impls to `AndThenLayer`, `MapRequestLayer`,
+  and `MapErrLayer`, when the mapped function implements `Clone` ([#525])
+- **util**: Added `FutureService::new` constructor, with less restrictive bounds
+  than the `future_service` free function ([#523])
+
+[#521]: https://github.com/tower-rs/tower/pull/521
+[#522]: https://github.com/tower-rs/tower/pull/522
+[#523]: https://github.com/tower-rs/tower/pull/523
+[#524]: https://github.com/tower-rs/tower/pull/524
+[#525]: https://github.com/tower-rs/tower/pull/525
 
 # 0.4.2 (January 11, 2021)
 
-- Fix missing `Sync` implementation for `Buffer` and `ConcurrencyLimit` ([#518])
+### Added
+
 - Export `layer_fn` and `LayerFn` from the `tower::layer` module. ([#516])
+
+### Fixed
+
+- Fix missing `Sync` implementation for `Buffer` and `ConcurrencyLimit` ([#518])
 
 [#518]: https://github.com/tower-rs/tower/pull/518
 [#516]: https://github.com/tower-rs/tower/pull/516
