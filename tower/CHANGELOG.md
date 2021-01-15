@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **util**: Implement `Layer` for `Either<A, B>`.
+- **make**: Added `Shared` which lets you implement `MakeService` by cloning a
+  service.
 
 # 0.4.3 (January 13, 2021)
 
