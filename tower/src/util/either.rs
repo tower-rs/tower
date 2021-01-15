@@ -10,6 +10,7 @@ use std::{
     task::{Context, Poll},
 };
 use tower_service::Service;
+use tower_layer::Layer;
 
 /// Combine two different service types into a single type.
 ///
@@ -68,6 +69,21 @@ where
         match self.project() {
             EitherProj::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
             EitherProj::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
+        }
+    }
+}
+
+impl<S, A, B> Layer<S> for Either<A, B>
+where
+    A: Layer<S>,
+    B: Layer<S>,
+{
+    type Service = Either<A::Service, B::Service>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        match self {
+            Either::A(layer) => Either::A(layer.layer(inner)),
+            Either::B(layer) => Either::B(layer.layer(inner)),
         }
     }
 }
