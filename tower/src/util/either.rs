@@ -9,8 +9,8 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tower_service::Service;
 use tower_layer::Layer;
+use tower_service::Service;
 
 /// Combine two different service types into a single type.
 ///
