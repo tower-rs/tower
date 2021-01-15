@@ -25,6 +25,25 @@ edition = "2018"
 
 [features]
 default = ["log"]
+full = [
+  "log",
+  "balance",
+  "buffer",
+  "discover",
+  "filter",
+  "hedge",
+  "limit",
+  "load",
+  "load-shed",
+  "make",
+  "ready-cache",
+  "reconnect",
+  "retry",
+  "spawn-ready",
+  "steer",
+  "timeout",
+  "util",
+]
 log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio-stream"]
 buffer = ["tokio/sync", "tokio/rt", "tokio-stream"]
