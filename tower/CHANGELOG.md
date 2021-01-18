@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **util**: Implement `Layer` for `Either<A, B>`.
 - **util**: Implement `Clone` for `FilterLayer`.
+- **timeout**: Implement `Clone` for `TimeoutLayer`.
 
 # 0.4.3 (January 13, 2021)
 
