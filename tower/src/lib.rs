@@ -33,7 +33,7 @@
 //! asynchronous function from a request type to a response type, a [`Layer`] is
 //! a function taking a [`Service`] of one type and returning a [`Service`] of a
 //! different type. The [`ServiceBuilder`] type is used to add middleware to a
-//! service by composing it with multiple multiple [`Layer`]s.
+//! service by composing it with multiple [`Layer`]s.
 //!
 //! ## The Tower Ecosystem
 //!
