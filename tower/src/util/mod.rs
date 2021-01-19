@@ -102,7 +102,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// This method can be used to change the [`Response`] type of the service
     /// into a different type. You can use this method to chain along a computation once the
-    /// services response has been resolved.
+    /// service's response has been resolved.
     ///
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready
@@ -171,7 +171,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// This method can be used to change the [`Response`] type of the service
     /// into a different type. It is similar to the [`Result::map`]
     /// method. You can use this method to chain along a computation once the
-    /// services response has been resolved.
+    /// service's response has been resolved.
     ///
     /// [`Response`]: crate::Service::Response
     /// [`poll_ready`]: crate::Service::poll_ready
@@ -234,7 +234,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapResponse::new(self, f)
     }
 
-    /// Maps this services's error value to a different value. This does not
+    /// Maps this service's error value to a different value. This does not
     /// alter the behaviour of the [`poll_ready`] method.
     ///
     /// This method can be used to change the [`Error`] type of the service
