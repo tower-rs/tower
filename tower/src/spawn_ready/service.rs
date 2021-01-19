@@ -1,4 +1,4 @@
-use super::{future::ResponseFuture, layer::SpawnReadyLayer};
+use super::future::ResponseFuture;
 use crate::{util::ServiceExt, BoxError};
 use futures_core::ready;
 use futures_util::future::TryFutureExt;
@@ -29,11 +29,6 @@ impl<S> SpawnReady<S> {
         Self {
             inner: Inner::Service(Some(service)),
         }
-    }
-
-    /// Builds a [`SpawnReadyLayer`].
-    pub fn layer() -> SpawnReadyLayer {
-        SpawnReadyLayer::default()
     }
 }
 
