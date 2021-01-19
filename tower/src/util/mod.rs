@@ -1,4 +1,4 @@
-//! Various utility types and functions that are generally with Tower.
+//! Various utility types and functions that are generally used with Tower.
 
 mod and_then;
 mod boxed;
