@@ -97,7 +97,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         CallAll::new(self, reqs)
     }
 
-    /// Executes a new future after this service's after this services future resolves. This does
+    /// Executes a new future after this service's future resolves. This does
     /// not alter the behaviour of the [`poll_ready`] method.
     ///
     /// This method can be used to change the [`Response`] type of the service
