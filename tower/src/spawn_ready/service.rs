@@ -36,7 +36,7 @@ impl<S, Req> Service<Req> for SpawnReady<S>
 where
     Req: 'static,
     S: Service<Req> + Send + 'static,
-    S::Error: Into<BoxError> + 'static,
+    S::Error: Into<BoxError>,
 {
     type Response = S::Response;
     type Error = BoxError;
