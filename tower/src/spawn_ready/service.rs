@@ -31,6 +31,7 @@ impl<S> SpawnReady<S> {
         }
     }
 
+    /// Creates a layer that wraps services with [`SpawnReady`].
     pub fn layer() -> super::SpawnReadyLayer {
         super::SpawnReadyLayer::default()
     }
