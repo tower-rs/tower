@@ -30,3 +30,35 @@ where
         (self.f)(req)
     }
 }
+
+impl<T> ServiceFn<T> {
+    pub fn poll_ready_fn<F>(self, f: F) -> PollReadyFn<Self, F>
+    where
+        Self: Sized,
+    {
+        PollReadyFn { svc: self, f }
+    }
+}
+
+pub struct PollReadyFn<S, F> {
+    svc: S,
+    f: F,
+}
+
+impl<R, S, F> Service<R> for PollReadyFn<S, F>
+where
+    S: Service<R>,
+    F: FnMut(&mut Context<'_>) -> Poll<Result<(), S::Error>>,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        (self.f)(cx)
+    }
+
+    fn call(&mut self, req: R) -> Self::Future {
+        self.svc.call(req)
+    }
+}
