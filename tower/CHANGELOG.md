@@ -6,14 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+# 0.4.4 (January 20, 2021)
+
 ### Added
-- **util**: Implement `Layer` for `Either<A, B>`.
-- **util**: Implement `Clone` for `FilterLayer`.
-- **timeout**: Implement `Clone` for `TimeoutLayer`.
-- **limit**: Implement `Clone` for `RateLimitLayer`.
+
+- **util**: Implement `Layer` for `Either<A, B>`. ([#531])
+- **util**: Implement `Clone` for `FilterLayer`. ([#535])
+- **timeout**: Implement `Clone` for `TimeoutLayer`. ([#535])
+- **limit**: Implement `Clone` for `RateLimitLayer`. ([#535])
 
 ### Fixed
-- Added "full" feature which turns on all other features.
+
+- Added "full" feature which turns on all other features. ([#532])
+- **spawn-ready**: Avoid oneshot allocations. ([#538])
+
+[#531]: https://github.com/tower-rs/tower/pull/531
+[#532]: https://github.com/tower-rs/tower/pull/532
+[#535]: https://github.com/tower-rs/tower/pull/535
+[#538]: https://github.com/tower-rs/tower/pull/538
 
 # 0.4.3 (January 13, 2021)
 
