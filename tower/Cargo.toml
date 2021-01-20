@@ -8,13 +8,13 @@ name = "tower"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "vX.X.X" git tag.
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower/0.4.3"
+documentation = "https://docs.rs/tower/0.4.4"
 description = """
 Tower is a library of modular and reusable components for building robust
 clients and servers.
@@ -25,6 +25,24 @@ edition = "2018"
 
 [features]
 default = ["log"]
+full = [
+  "balance",
+  "buffer",
+  "discover",
+  "filter",
+  "hedge",
+  "limit",
+  "load",
+  "load-shed",
+  "make",
+  "ready-cache",
+  "reconnect",
+  "retry",
+  "spawn-ready",
+  "steer",
+  "timeout",
+  "util",
+]
 log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio-stream"]
 buffer = ["tokio/sync", "tokio/rt", "tokio-stream"]
