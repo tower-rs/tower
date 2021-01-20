@@ -11,6 +11,7 @@ mod map_request;
 mod map_response;
 mod map_result;
 
+mod map_future;
 mod oneshot;
 mod optional;
 mod ready;
@@ -26,6 +27,7 @@ pub use self::{
     map_request::{MapRequest, MapRequestLayer},
     map_response::{MapResponse, MapResponseLayer},
     map_result::{MapResult, MapResultLayer},
+    map_future::MapFuture,
     oneshot::Oneshot,
     optional::Optional,
     ready::{ReadyAnd, ReadyOneshot},
@@ -858,6 +860,13 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Fut: Future<Output = Result<Response, Error>>,
     {
         Then::new(self, f)
+    }
+
+    fn map_future<F, Fut>(self, f: F) -> MapFuture<Self, F>
+    where
+        Self: Sized,
+    {
+        MapFuture::new(self, f)
     }
 }
 
