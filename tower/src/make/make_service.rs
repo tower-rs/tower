@@ -261,7 +261,7 @@ impl<S> Shared<S> {
     }
 }
 
-impl<S> Service<()> for Shared<S>
+impl<S, T> Service<T> for Shared<S>
 where
     S: Clone,
 {
@@ -273,7 +273,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, _req: ()) -> Self::Future {
+    fn call(&mut self, _target: T) -> Self::Future {
         SharedFuture(futures_util::future::ready(Ok(self.service.clone())))
     }
 }
