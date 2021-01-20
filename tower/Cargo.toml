@@ -26,7 +26,6 @@ edition = "2018"
 [features]
 default = ["log"]
 full = [
-  "log",
   "balance",
   "buffer",
   "discover",
