@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **timeout**: Implement `Clone` for `TimeoutLayer`.
 - **limit**: Implement `Clone` for `RateLimitLayer`.
 
+### Fixed
+- Added "full" feature which turns on all other features.
+
 # 0.4.3 (January 13, 2021)
 
 ### Added
