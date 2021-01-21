@@ -1,4 +1,5 @@
-use super::future::{background_ready, ResponseFuture};
+use super::future::ResponseFuture;
+use crate::{util::ServiceExt, BoxError};
 use futures_core::ready;
 use futures_util::future::TryFutureExt;
 use std::{
@@ -6,43 +7,42 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::oneshot;
 use tower_service::Service;
 
 /// Spawns tasks to drive an inner service to readiness.
 ///
 /// See crate level documentation for more details.
 #[derive(Debug)]
-pub struct SpawnReady<T> {
-    inner: Inner<T>,
+pub struct SpawnReady<S> {
+    inner: Inner<S>,
 }
 
 #[derive(Debug)]
-enum Inner<T> {
-    Service(Option<T>),
-    Future(oneshot::Receiver<Result<T, crate::BoxError>>),
+enum Inner<S> {
+    Service(Option<S>),
+    Future(tokio::task::JoinHandle<Result<S, BoxError>>),
 }
 
-impl<T> SpawnReady<T> {
+impl<S> SpawnReady<S> {
     /// Creates a new [`SpawnReady`] wrapping `service`.
-    pub fn new(service: T) -> Self {
+    pub fn new(service: S) -> Self {
         Self {
             inner: Inner::Service(Some(service)),
         }
     }
 }
 
-impl<T, Request> Service<Request> for SpawnReady<T>
+impl<S, Req> Service<Req> for SpawnReady<S>
 where
-    T: Service<Request> + Send + 'static,
-    T::Error: Into<crate::BoxError>,
-    Request: Send + 'static,
+    Req: 'static,
+    S: Service<Req> + Send + 'static,
+    S::Error: Into<BoxError>,
 {
-    type Response = T::Response;
-    type Error = crate::BoxError;
-    type Future = ResponseFuture<T::Future, T::Error>;
+    type Response = S::Response;
+    type Error = BoxError;
+    type Future = ResponseFuture<S::Future, S::Error>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), BoxError>> {
         loop {
             self.inner = match self.inner {
                 Inner::Service(ref mut svc) => {
@@ -50,10 +50,8 @@ where
                         return Poll::Ready(r.map_err(Into::into));
                     }
 
-                    let (bg, rx) = background_ready(svc.take().expect("illegal state"));
-
-                    tokio::spawn(bg);
-
+                    let svc = svc.take().expect("illegal state");
+                    let rx = tokio::spawn(svc.ready_oneshot().map_err(Into::into));
                     Inner::Future(rx)
                 }
                 Inner::Future(ref mut fut) => {
@@ -64,7 +62,7 @@ where
         }
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: Req) -> Self::Future {
         match self.inner {
             Inner::Service(Some(ref mut svc)) => {
                 ResponseFuture(svc.call(request).map_err(Into::into))

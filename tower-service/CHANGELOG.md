@@ -1,3 +1,7 @@
+# Unreleased
+
+- Improve example in `Service` docs.
+
 # 0.3.0 (November 29, 2019)
 
 - Update to `futures 0.3`.

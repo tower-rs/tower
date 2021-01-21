@@ -9,7 +9,7 @@ use tower_layer::Layer;
 /// [predicate]: crate::filter::Predicate
 /// [`Layer`]: crate::Layer
 /// [`Filter`]: crate::filter::Filter
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FilterLayer<U> {
     predicate: U,
 }

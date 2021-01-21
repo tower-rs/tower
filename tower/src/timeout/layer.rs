@@ -3,7 +3,7 @@ use std::time::Duration;
 use tower_layer::Layer;
 
 /// Applies a timeout to requests via the supplied inner service.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TimeoutLayer {
     timeout: Duration,
 }
