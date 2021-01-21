@@ -24,7 +24,7 @@ pub use self::{
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
-    map_future::MapFuture,
+    map_future::{MapFuture, MapFutureLayer},
     map_request::{MapRequest, MapRequestLayer},
     map_response::{MapResponse, MapResponseLayer},
     map_result::{MapResult, MapResultLayer},
@@ -862,6 +862,70 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Then::new(self, f)
     }
 
+    /// Composes a function that transforms futures produced by the service.
+    ///
+    /// This takes a function or closure returning a future computed from the future returned by
+    /// the service's [`call`] method, as opposed to the responses produced by the future.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt, BoxError};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # type Record = ();
+    /// # type DbError = crate::BoxError;
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = DbError;
+    /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(()))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// use std::time::Duration;
+    /// use tokio::time::timeout;
+    ///
+    /// // A service returning Result<Record, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    /// #    async {
+    ///
+    /// let mut new_service = service.map_future(|future| async move {
+    ///     let res = timeout(Duration::from_secs(1), future).await?;
+    ///     Ok::<_, BoxError>(res)
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let record = new_service
+    ///     .ready_and()
+    ///     .await?
+    ///     .call(id)
+    ///     .await?;
+    /// # Ok::<(), BoxError>(())
+    /// #    };
+    /// # }
+    /// ```
+    ///
+    /// Note that normally you wouldn't implement timeouts like this and instead use [`Timeout`].
+    ///
+    /// [`call`]: crate::Service::call
+    /// [`Timeout`]: crate::timeout::Timeout
     fn map_future<F, Fut, Response, Error>(self, f: F) -> MapFuture<Self, F>
     where
         Self: Sized,

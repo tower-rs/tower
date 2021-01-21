@@ -1,27 +1,48 @@
 use std::{
+    fmt,
     future::Future,
     task::{Context, Poll},
 };
 use tower_layer::Layer;
 use tower_service::Service;
 
+/// [`Service`] returned by the [`map_future`] combinator.
+///
+/// [`map_future`]: crate::util::ServiceExt::map_future
+#[derive(Clone)]
 pub struct MapFuture<S, F> {
     inner: S,
     f: F,
 }
 
-#[derive(Debug, Clone)]
-pub struct MapFutureLayer<F> {
-    f: F,
-}
-
 impl<S, F> MapFuture<S, F> {
+    /// Creates a new [`MapFuture`] service.
     pub fn new(inner: S, f: F) -> Self {
         Self { inner, f }
     }
 
+    /// Returns a new [`Layer`] that produces [`MapFuture`] services.
+    ///
+    /// This is a convenience function that simply calls [`MapFutureLayer::new`].
+    ///
+    /// [`Layer`]: tower_layer::Layer
     pub fn layer(f: F) -> MapFutureLayer<F> {
-        MapFutureLayer { f }
+        MapFutureLayer::new(f)
+    }
+
+    /// Get a reference to the inner service
+    pub fn get_ref(&self) -> &S {
+        &self.inner
+    }
+
+    /// Get a mutable reference to the inner service
+    pub fn get_mut(&mut self) -> &mut S {
+        &mut self.inner
+    }
+
+    /// Consume `self`, returning the inner service
+    pub fn into_inner(self) -> S {
+        self.inner
     }
 }
 
@@ -45,7 +66,34 @@ where
     }
 }
 
-impl<S, F> Layer<S> for MapFuture<S, F>
+impl<S, F> fmt::Debug for MapFuture<S, F>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MapFuture")
+            .field("inner", &self.inner)
+            .field("f", &format_args!("<{}>", std::any::type_name::<F>()))
+            .finish()
+    }
+}
+
+/// A [`Layer`] that produces a [`MapFuture`] service.
+///
+/// [`Layer`]: tower_layer::Layer
+#[derive(Debug, Clone)]
+pub struct MapFutureLayer<F> {
+    f: F,
+}
+
+impl<F> MapFutureLayer<F> {
+    /// Creates a new [`MapFutureLayer`] layer.
+    pub fn new(f: F) -> Self {
+        Self { f }
+    }
+}
+
+impl<S, F> Layer<S> for MapFutureLayer<F>
 where
     F: Clone,
 {
