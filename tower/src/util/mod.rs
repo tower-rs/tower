@@ -24,10 +24,10 @@ pub use self::{
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
+    map_future::MapFuture,
     map_request::{MapRequest, MapRequestLayer},
     map_response::{MapResponse, MapResponseLayer},
     map_result::{MapResult, MapResultLayer},
-    map_future::MapFuture,
     oneshot::Oneshot,
     optional::Optional,
     ready::{ReadyAnd, ReadyOneshot},
@@ -862,9 +862,12 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Then::new(self, f)
     }
 
-    fn map_future<F, Fut>(self, f: F) -> MapFuture<Self, F>
+    fn map_future<F, Fut, Response, Error>(self, f: F) -> MapFuture<Self, F>
     where
         Self: Sized,
+        F: FnMut(Self::Future) -> Fut,
+        Error: From<Self::Error>,
+        Fut: Future<Output = Result<Response, Error>>,
     {
         MapFuture::new(self, f)
     }
