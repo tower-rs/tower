@@ -55,6 +55,67 @@
 //!
 //! # Usage
 //!
+//! Tower provides an abstraction layer, and generic implementations of various
+//! middleware. This means that the `tower` crate on its own does *not* provide
+//! a working implementation of a network client or server. Instead, Tower's
+//! [`Service` trait][`Service`] provides an integration point between
+//! application code, libraries providing middleware implementations, and
+//! libraries that implement servers and/or clients for various network
+//! protocols.
+//!
+//! Depending on your particular use case, you might use Tower in several ways:
+//!
+//! * **Implementing application logic** for a networked program. You might
+//!   use the [`Service`] trait to model your application's behavior, and use
+//!   the middleware [provided by this crate](#modules) and by other libraries
+//!   to add functionality to clients and servers provided by one or more
+//!   protocol implementations.
+//! * **Implementing middleware** to add custom behavior to network clients and
+//!   servers in a reusable manner. This might be general-purpose middleware
+//!   (and if it is, please consider releasing your middleware as a library for
+//!   other Tower users!) or application-specific behavior that needs to be
+//!   shared between multiple clients or servers.
+//! * **Implementing a network protocol**. Libraries that implement network
+//!   protocols (such as HTTP) can depend on `tower-service` to use the
+//!   [`Service`] trait as an integration point between the protocol and user
+//!   code. For example, a client for some protocol might implement [`Service`],
+//!   allowing users to add arbitrary Tower middleware to those clients.
+//!   Similarly, a server might be created from a user-provided [`Service`].
+//!
+//!   Additionally, when a network protocol requires functionality already
+//!   provided by existing Tower middleware, a protocol implementation might use
+//!   Tower middleware internally, as well as as an integration point.
+//!
+//! ## Library Support
+//!
+//! A number of third-party libraries support Tower and the [`Service`] trait.
+//! The following is an incomplete list of such libraries:
+//!
+//! * [`hyper`]: A fast and correct low-level HTTP implementation.
+//! * [`tonic`]: A [gRPC-over-HTTP/2][grpc] implementation built on top of
+//!   [`hyper`]. See [here][tonic-examples] for examples of using [`tonic`] with
+//!   Tower.
+//! * [`warp`]: A lightweight, composable web framework. See
+//!   [here][warp-service] for details on using [`warp`] with Tower.
+//! * [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
+//!   Server Protocol][lsp] based on Tower.
+//!
+//! [`hyper`]: https://crates.io/crates/hyper
+//! [`tonic`]: https://crates.io/crates/tonic
+//! [tonic-examples]: https://github.com/hyperium/tonic/tree/master/examples/src/tower
+//! [grpc]: https://grpc.io
+//! [`warp`]: https://crates.io/crates/warp
+//! [warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
+//! [`tower-lsp`]: https://crates.io/crates/tower-lsp
+//! [`lspower`]: https://crates.io/crates/lspower
+//! [lsp]: https://microsoft.github.io/language-server-protocol/
+//!
+//! If you're the maintainer of a crate that supports Tower, we'd love to add
+//! your crate to this list! Please [open a PR] adding a brief description of
+//! your library!
+//!
+//! ## Getting Started
+//!
 //! The various middleware implementations provided by this crate are feature
 //! flagged, so that users can only compile the parts of Tower they need. By
 //! default, all the optional middleware are disabled.
@@ -88,6 +149,7 @@
 //! [`tower-layer`]: https://crates.io/crates/tower-layer
 //! [`tower-test`]: https://crates.io/crates/tower-test
 //! [`retry`]: crate::retry
+//! [open a PR]: https://github.com/tower-rs/tower/compare
 #[macro_use]
 pub(crate) mod macros;
 #[cfg(feature = "balance")]
