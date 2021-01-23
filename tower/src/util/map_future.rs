@@ -81,7 +81,7 @@ where
 /// A [`Layer`] that produces a [`MapFuture`] service.
 ///
 /// [`Layer`]: tower_layer::Layer
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MapFutureLayer<F> {
     f: F,
 }
@@ -101,5 +101,13 @@ where
 
     fn layer(&self, inner: S) -> Self::Service {
         MapFuture::new(inner, self.f.clone())
+    }
+}
+
+impl<F> fmt::Debug for MapFutureLayer<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MapFutureLayer")
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .finish()
     }
 }
