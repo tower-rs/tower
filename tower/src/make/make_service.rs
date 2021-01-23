@@ -297,7 +297,7 @@ mod tests {
     async fn as_make_service() {
         let mut shared = Shared::new(service_fn(echo::<&'static str>));
 
-        poll_fn(|cx| MakeService::poll_ready(&mut shared, cx))
+        poll_fn(|cx| MakeService::<(), _>::poll_ready(&mut shared, cx))
             .await
             .unwrap();
         let mut svc = shared.make_service(()).await.unwrap();
@@ -311,9 +311,9 @@ mod tests {
     #[tokio::test]
     async fn as_make_service_into_service() {
         let shared = Shared::new(service_fn(echo::<&'static str>));
-        let mut shared = MakeService::into_service(shared);
+        let mut shared = MakeService::<(), _>::into_service(shared);
 
-        poll_fn(|cx| Service::poll_ready(&mut shared, cx))
+        poll_fn(|cx| Service::<()>::poll_ready(&mut shared, cx))
             .await
             .unwrap();
         let mut svc = shared.call(()).await.unwrap();
