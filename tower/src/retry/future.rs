@@ -1,19 +1,20 @@
 //! Future types
 
-use super::{Policy, Retry};
+use super::{Retry};
 use futures_core::ready;
 use pin_project::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
+use crate::retry::PolicyV2;
 
 /// The [`Future`] returned by a [`Retry`] service.
 #[pin_project]
 #[derive(Debug)]
 pub struct ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error>,
+    P: PolicyV2<Request, S::Response, S::Error>,
     S: Service<Request>,
 {
     request: Option<Request>,
@@ -36,7 +37,7 @@ enum State<F, P> {
 
 impl<P, S, Request> ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error>,
+    P: PolicyV2<Request, S::Response, S::Error>,
     S: Service<Request>,
 {
     pub(crate) fn new(
@@ -54,7 +55,7 @@ where
 
 impl<P, S, Request> Future for ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: PolicyV2<Request, S::Response, S::Error> + Clone,
     S: Service<Request> + Clone,
 {
     type Output = Result<S::Response, S::Error>;
@@ -67,11 +68,11 @@ where
                 StateProj::Called(future) => {
                     let result = ready!(future.poll(cx));
                     if let Some(ref req) = this.request {
-                        match this.retry.policy.retry(req, result.as_ref()) {
-                            Some(checking) => {
+                        match this.retry.policy.retry(req, result) {
+                            Err(checking) => {
                                 this.state.set(State::Checking(checking));
                             }
-                            None => return Poll::Ready(result),
+                            Ok(result) => return Poll::Ready(result),
                         }
                     } else {
                         // request wasn't cloned, so no way to retry it
