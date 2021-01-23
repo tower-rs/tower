@@ -73,7 +73,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MapFuture")
             .field("inner", &self.inner)
-            .field("f", &format_args!("<{}>", std::any::type_name::<F>()))
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
             .finish()
     }
 }
