@@ -1,13 +1,13 @@
 //! Future types
 
-use super::{Retry};
+use super::Retry;
+use crate::retry::PolicyV2;
 use futures_core::ready;
 use pin_project::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
-use crate::retry::PolicyV2;
 
 /// The [`Future`] returned by a [`Retry`] service.
 #[pin_project]

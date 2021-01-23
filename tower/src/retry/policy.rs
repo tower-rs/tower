@@ -58,7 +58,7 @@ pub trait Policy<Req, Res, E>: Sized {
     ///
     /// [`Service::Response`]: crate::Service::Response
     /// [`Service::Error`]: crate::Service::Error
-    fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future>;
+    fn retry(&self, req: &Req, result: Result<Res, E>) -> Result<Result<Res, E>, Self::Future>;
 
     /// Tries to clone a request before being passed to the inner service.
     ///

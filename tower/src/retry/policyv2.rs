@@ -1,5 +1,5 @@
-use std::future::Future;
 use crate::retry::Policy;
+use std::future::Future;
 
 /// TODO docs
 pub trait PolicyV2<Req, Res, E>: Sized {
@@ -26,13 +26,16 @@ pub trait PolicyV2<Req, Res, E>: Sized {
     fn clone_request(&self, req: &Req) -> Option<Req>;
 }
 
-impl<T, Req, Res, E> PolicyV2<Req, Res, E> for T where T: Policy<Req, Res, E> {
+impl<T, Req, Res, E> PolicyV2<Req, Res, E> for T
+where
+    T: Policy<Req, Res, E>,
+{
     type Future = T::Future;
 
     fn retry(&self, req: &Req, result: Result<Res, E>) -> Result<Result<Res, E>, Self::Future> {
         match Policy::<Req, Res, E>::retry(self, req, result.as_ref()) {
             Some(fut) => Err(fut),
-            None => Ok(result)
+            None => Ok(result),
         }
     }
 
