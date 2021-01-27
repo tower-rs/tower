@@ -1,4 +1,5 @@
 use futures_util::{future, TryFutureExt};
+use std::fmt;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -6,10 +7,22 @@ use tower_service::Service;
 /// Service returned by the [`map_err`] combinator.
 ///
 /// [`map_err`]: crate::util::ServiceExt::map_err
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MapErr<S, F> {
     inner: S,
     f: F,
+}
+
+impl<S, F> fmt::Debug for MapErr<S, F>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MapErr")
+            .field("inner", &self.inner)
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .finish()
+    }
 }
 
 /// A [`Layer`] that produces [`MapErr`] services.
