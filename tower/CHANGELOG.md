@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+- **util**: Add `ServiceExt::map_future`. ([#542])
+
+[#542]: https://github.com/tower-rs/tower/pull/542
+
 # 0.4.4 (January 20, 2021)
 
 ### Added
