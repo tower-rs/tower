@@ -68,8 +68,8 @@
 //! # Ok(())
 //! # }
 //! ```
-use std::collections::VecDeque;
 use std::task::{Context, Poll};
+use std::{collections::VecDeque, marker::PhantomData};
 use tower_service::Service;
 
 /// This is how callers of [`Steer`] tell it which `Service` a `Req` corresponds to.
@@ -109,7 +109,7 @@ pub struct Steer<S, F, Req> {
     router: F,
     services: Vec<S>,
     not_ready: VecDeque<usize>,
-    _phantom: std::marker::PhantomData<Req>,
+    _phantom: PhantomData<Req>,
 }
 
 impl<S, F, Req> Steer<S, F, Req> {
@@ -123,7 +123,7 @@ impl<S, F, Req> Steer<S, F, Req> {
             router,
             services,
             not_ready,
-            _phantom: Default::default(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -163,5 +163,20 @@ where
         let cl = &mut self.services[idx];
         self.not_ready.push_back(idx);
         cl.call(req)
+    }
+}
+
+impl<S, F, Req> Clone for Steer<S, F, Req>
+where
+    S: Clone,
+    F: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            router: self.router.clone(),
+            services: self.services.clone(),
+            not_ready: self.not_ready.clone(),
+            _phantom: PhantomData,
+        }
     }
 }

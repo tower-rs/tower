@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **util**: Add `ServiceExt::map_future`. ([#542])
 - **util**: Make combinators implement `Debug` in more cases
 - `tracing` is now only pulled in for the features that need it.
+- **steer**: `Steer` now implements `Clone`.
 
 [#542]: https://github.com/tower-rs/tower/pull/542
 
