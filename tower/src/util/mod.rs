@@ -38,6 +38,8 @@ pub use self::{
 pub use self::call_all::{CallAll, CallAllUnordered};
 use std::future::Future;
 
+use crate::layer::util::Identity;
+
 pub mod error {
     //! Error types
 
@@ -938,3 +940,32 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
 }
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Service<Request> {}
+
+/// Convert an `Option<Layer>` into a [`Layer`].
+///
+/// ```
+/// # use std::time::Duration;
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// # use tower::util::option_layer;
+/// # #[cfg(feature = "timeout")]
+/// # use tower::timeout::TimeoutLayer;
+/// # #[cfg(all(feature = "timeout", feature = "util"))]
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
+/// # let timeout = Some(Duration::new(10, 0));
+/// // Layer to apply a timeout if configured
+/// let maybe_timeout = option_layer(timeout.map(TimeoutLayer::new));
+/// # ServiceBuilder::new()
+/// #     .layer(maybe_timeout)
+/// #     .service(svc);
+/// # }
+/// ```
+///
+/// [`Layer`]: crate::layer::Layer
+pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
+    if let Some(layer) = layer {
+        Either::A(layer)
+    } else {
+        Either::B(Identity::new())
+    }
+}
