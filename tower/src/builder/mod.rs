@@ -140,9 +140,7 @@ impl<L> ServiceBuilder<L> {
     /// # use std::time::Duration;
     /// # use tower::Service;
     /// # use tower::builder::ServiceBuilder;
-    /// # #[cfg(feature = "timeout")]
     /// # use tower::timeout::TimeoutLayer;
-    /// # #[cfg(all(feature = "timeout", feature = "util"))]
     /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
     /// # let timeout = Some(Duration::new(10, 0));
     /// // Apply a timeout if configured

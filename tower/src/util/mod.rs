@@ -947,17 +947,15 @@ impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Servi
 /// # use std::time::Duration;
 /// # use tower::Service;
 /// # use tower::builder::ServiceBuilder;
-/// # use tower::util::option_layer;
-/// # #[cfg(feature = "timeout")]
+/// use tower::util::option_layer;
 /// # use tower::timeout::TimeoutLayer;
-/// # #[cfg(all(feature = "timeout", feature = "util"))]
 /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
 /// # let timeout = Some(Duration::new(10, 0));
 /// // Layer to apply a timeout if configured
 /// let maybe_timeout = option_layer(timeout.map(TimeoutLayer::new));
-/// # ServiceBuilder::new()
-/// #     .layer(maybe_timeout)
-/// #     .service(svc);
+///  ServiceBuilder::new()
+///      .layer(maybe_timeout)
+///      .service(svc);
 /// # }
 /// ```
 ///
