@@ -14,8 +14,6 @@ None.
 
 - **util**: Add `ServiceExt::map_future`. ([#542])
 - **builder**: Add `ServiceBuilder::option_layer` to optionally add a layer. ([#555])
-- **spawn-ready**: SpawnReady now propagates the current `tracing` span to
-  spawned tasks ([#557])
 - **make**: Add `Shared` which lets you implement `MakeService` by cloning a
   service. ([#533])
 
@@ -23,8 +21,10 @@ None.
 
 - **util**: Make combinators that contain closures implement `Debug`. They
   previously wouldn't since closures never implement `Debug`. ([#552])
-- Only pull in `tracing` for the features that need it. ([#551])
 - **steer**: Implement `Clone` for `Steer`. ([#554])
+- **spawn-ready**: SpawnReady now propagates the current `tracing` span to
+  spawned tasks ([#557])
+- Only pull in `tracing` for the features that need it. ([#551])
 
 [#542]: https://github.com/tower-rs/tower/pull/542
 [#555]: https://github.com/tower-rs/tower/pull/555
