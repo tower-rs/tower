@@ -49,7 +49,6 @@ async fn propagates_trace_spans() {
     use tower::{util::ServiceExt, Service};
     use tracing::Instrument;
 
-    time::pause();
     let _t = support::trace_init();
 
     let span = tracing::info_span!("my_span");
@@ -58,6 +57,5 @@ async fn propagates_trace_spans() {
     let mut service = SpawnReady::new(service);
     let result = tokio::spawn(service.oneshot(()).instrument(span));
 
-    time::sleep(time::Duration::from_millis(100)).await;
     result.await.expect("service panicked").expect("failed");
 }
