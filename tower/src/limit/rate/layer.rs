@@ -4,7 +4,7 @@ use tower_layer::Layer;
 
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RateLimitLayer {
     rate: Rate,
 }

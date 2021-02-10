@@ -8,13 +8,13 @@ name = "tower"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "vX.X.X" git tag.
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower/0.4.3"
+documentation = "https://docs.rs/tower/0.4.4"
 description = """
 Tower is a library of modular and reusable components for building robust
 clients and servers.
@@ -25,20 +25,38 @@ edition = "2018"
 
 [features]
 default = ["log"]
+full = [
+  "balance",
+  "buffer",
+  "discover",
+  "filter",
+  "hedge",
+  "limit",
+  "load",
+  "load-shed",
+  "make",
+  "ready-cache",
+  "reconnect",
+  "retry",
+  "spawn-ready",
+  "steer",
+  "timeout",
+  "util",
+]
 log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio-stream"]
-buffer = ["tokio/sync", "tokio/rt", "tokio-stream"]
+buffer = ["tokio/sync", "tokio/rt", "tokio-util", "tracing"]
 discover = []
 filter = ["futures-util"]
-hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time"]
-limit = ["tokio/time", "tokio/sync"]
-load = ["tokio/time"]
+hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time", "tracing"]
+limit = ["tokio/time", "tokio/sync", "tokio-util", "tracing"]
+load = ["tokio/time", "tracing"]
 load-shed = []
 make = ["tokio/io-std", "futures-util"]
-ready-cache = ["futures-util", "indexmap", "tokio/sync"]
-reconnect = ["make", "tokio/io-std"]
+ready-cache = ["futures-util", "indexmap", "tokio/sync", "tracing"]
+reconnect = ["make", "tokio/io-std", "tracing"]
 retry = ["tokio/time"]
-spawn-ready = ["futures-util", "tokio/sync", "tokio/rt"]
+spawn-ready = ["futures-util", "tokio/sync", "tokio/rt", "util"]
 steer = ["futures-util"]
 timeout = ["tokio/time"]
 util = ["futures-util"]
@@ -48,7 +66,6 @@ futures-core = "0.3"
 pin-project = "1"
 tower-layer = { version = "0.3.1", path = "../tower-layer" }
 tower-service = { version = "0.3" }
-tracing = "0.1.2"
 
 futures-util = { version = "0.3", default-features = false, features = ["alloc"], optional = true }
 hdrhistogram = { version = "6.0", optional = true }
@@ -57,6 +74,8 @@ rand = { version = "0.8", features = ["small_rng"], optional = true }
 slab = { version = "0.4", optional = true }
 tokio = { version = "1", optional = true, features = ["sync"] }
 tokio-stream = { version = "0.1.0", optional = true }
+tokio-util = { version = "0.6.3", default-features = false, optional = true }
+tracing = { version = "0.1.2", optional = true }
 
 [dev-dependencies]
 futures = "0.3"

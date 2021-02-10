@@ -20,17 +20,17 @@
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! // service that responds to `GET /`
+//! // Service that responds to `GET /`
 //! let root = service_fn(|req: Request<String>| async move {
 //!     # assert_eq!(req.uri().path(), "/");
 //!     let res = Response::new("Hello, World!".to_string());
 //!     Ok::<_, Infallible>(res)
 //! });
-//! // we have to box the service so its type gets erased and we can put in a `Vec` with other
+//! // We have to box the service so its type gets erased and we can put it in a `Vec` with other
 //! // services
 //! let root = BoxService::new(root);
 //!
-//! // service that responds with `404 Not Found` to all requests
+//! // Service that responds with `404 Not Found` to all requests
 //! let not_found = service_fn(|req: Request<String>| async move {
 //!     let res = Response::builder()
 //!         .status(StatusCode::NOT_FOUND)
@@ -38,28 +38,28 @@
 //!         .expect("response is valid");
 //!     Ok::<_, Infallible>(res)
 //! });
-//! // box that as well
+//! // Box that as well
 //! let not_found = BoxService::new(not_found);
 //!
 //! let mut svc = Steer::new(
-//!     // all services we route between
+//!     // All services we route between
 //!     vec![root, not_found],
-//!     // how we pick which service to send the request to
+//!     // How we pick which service to send the request to
 //!     |req: &Request<String>, _services: &[_]| {
 //!         if req.method() == Method::GET && req.uri().path() == "/" {
-//!             0 // index of `root`
+//!             0 // Index of `root`
 //!         } else {
-//!             1 // index of `not_found`
+//!             1 // Index of `not_found`
 //!         }
 //!     },
 //! );
 //!
-//! // this request will get sent to `root`
+//! // This request will get sent to `root`
 //! let req = Request::get("/").body(String::new()).unwrap();
 //! let res = svc.ready_and().await?.call(req).await?;
 //! assert_eq!(res.into_body(), "Hello, World!");
 //!
-//! // this request will get sent to `not_found`
+//! // This request will get sent to `not_found`
 //! let req = Request::get("/does/not/exist").body(String::new()).unwrap();
 //! let res = svc.ready_and().await?.call(req).await?;
 //! assert_eq!(res.status(), StatusCode::NOT_FOUND);
@@ -68,8 +68,8 @@
 //! # Ok(())
 //! # }
 //! ```
-use std::collections::VecDeque;
 use std::task::{Context, Poll};
+use std::{collections::VecDeque, marker::PhantomData};
 use tower_service::Service;
 
 /// This is how callers of [`Steer`] tell it which `Service` a `Req` corresponds to.
@@ -109,7 +109,7 @@ pub struct Steer<S, F, Req> {
     router: F,
     services: Vec<S>,
     not_ready: VecDeque<usize>,
-    _phantom: std::marker::PhantomData<Req>,
+    _phantom: PhantomData<Req>,
 }
 
 impl<S, F, Req> Steer<S, F, Req> {
@@ -123,7 +123,7 @@ impl<S, F, Req> Steer<S, F, Req> {
             router,
             services,
             not_ready,
-            _phantom: Default::default(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -163,5 +163,20 @@ where
         let cl = &mut self.services[idx];
         self.not_ready.push_back(idx);
         cl.call(req)
+    }
+}
+
+impl<S, F, Req> Clone for Steer<S, F, Req>
+where
+    S: Clone,
+    F: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            router: self.router.clone(),
+            services: self.services.clone(),
+            not_ready: self.not_ready.clone(),
+            _phantom: PhantomData,
+        }
     }
 }

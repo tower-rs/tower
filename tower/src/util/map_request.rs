@@ -1,3 +1,4 @@
+use std::fmt;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
 use tower_service::Service;
@@ -5,10 +6,22 @@ use tower_service::Service;
 /// Service returned by the [`MapRequest`] combinator.
 ///
 /// [`MapRequest`]: crate::util::ServiceExt::map_request
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MapRequest<S, F> {
     inner: S,
     f: F,
+}
+
+impl<S, F> fmt::Debug for MapRequest<S, F>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MapRequest")
+            .field("inner", &self.inner)
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .finish()
+    }
 }
 
 impl<S, F> MapRequest<S, F> {
