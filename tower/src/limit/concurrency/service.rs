@@ -1,16 +1,26 @@
 use super::future::ResponseFuture;
-use crate::semaphore::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::PollSemaphore;
 use tower_service::Service;
 
 use futures_core::ready;
-use std::task::{Context, Poll};
+use std::{
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 /// Enforces a limit on the concurrent number of requests the underlying
 /// service can handle.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ConcurrencyLimit<T> {
     inner: T,
-    semaphore: Semaphore,
+    semaphore: PollSemaphore,
+    /// The currently acquired semaphore permit, if there is sufficient
+    /// concurrency to send a new request.
+    ///
+    /// The permit is acquired in `poll_ready`, and taken in `call` when sending
+    /// a new request.
+    permit: Option<OwnedSemaphorePermit>,
 }
 
 impl<T> ConcurrencyLimit<T> {
@@ -18,7 +28,8 @@ impl<T> ConcurrencyLimit<T> {
     pub fn new(inner: T, max: usize) -> Self {
         ConcurrencyLimit {
             inner,
-            semaphore: Semaphore::new(max),
+            semaphore: PollSemaphore::new(Arc::new(Semaphore::new(max))),
+            permit: None,
         }
     }
 
@@ -47,26 +58,46 @@ where
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // First, poll the semaphore...
-        ready!(self.semaphore.poll_acquire(cx)).expect(
-            "ConcurrencyLimit semaphore is never closed, so `poll_acquire` \
-             should never fail",
-        );
-        // ...and if it's ready, poll the inner service.
+        // If we haven't already acquired a permit from the semaphore, try to
+        // acquire one first.
+        if self.permit.is_none() {
+            self.permit = ready!(self.semaphore.poll_acquire(cx));
+            debug_assert!(
+                self.permit.is_some(),
+                "ConcurrencyLimit semaphore is never closed, so `poll_acquire` \
+                 should never fail",
+            );
+        }
+
+        // Once we've acquired a permit (or if we already had one), poll the
+        // inner service.
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         // Take the permit
         let permit = self
-            .semaphore
-            .take_permit()
+            .permit
+            .take()
             .expect("max requests in-flight; poll_ready must be called first");
 
         // Call the inner service
         let future = self.inner.call(request);
 
         ResponseFuture::new(future, permit)
+    }
+}
+
+impl<T: Clone> Clone for ConcurrencyLimit<T> {
+    fn clone(&self) -> Self {
+        // Since we hold an `OwnedSemaphorePermit`, we can't derive `Clone`.
+        // Instead, when cloning the service, create a new service with the
+        // same semaphore, but with the permit in the un-acquired state.
+        Self {
+            inner: self.inner.clone(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+        }
     }
 }
 

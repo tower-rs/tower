@@ -7,6 +7,8 @@ use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
+pub(crate) mod shared;
+
 /// Creates new [`Service`] values.
 ///
 /// Acts as a service factory. This is useful for cases where new [`Service`]

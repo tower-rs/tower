@@ -134,6 +134,31 @@ impl<L> ServiceBuilder<L> {
         }
     }
 
+    /// Optionally add a new layer `T` into the [`ServiceBuilder`].
+    ///
+    /// ```
+    /// # use std::time::Duration;
+    /// # use tower::Service;
+    /// # use tower::builder::ServiceBuilder;
+    /// # use tower::timeout::TimeoutLayer;
+    /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
+    /// # let timeout = Some(Duration::new(10, 0));
+    /// // Apply a timeout if configured
+    /// ServiceBuilder::new()
+    ///     .option_layer(timeout.map(TimeoutLayer::new))
+    ///     .service(svc)
+    /// # ;
+    /// # }
+    /// ```
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn option_layer<T>(
+        self,
+        layer: Option<T>,
+    ) -> ServiceBuilder<Stack<crate::util::Either<T, Identity>, L>> {
+        self.layer(crate::util::option_layer(layer))
+    }
+
     /// Buffer requests when when the next layer is not ready.
     ///
     /// This wraps the inner service with an instance of the [`Buffer`]
