@@ -4,7 +4,7 @@ mod support;
 
 use tokio::time;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok};
-use tower::spawn_ready::SpawnReadyLayer;
+use tower::spawn_ready::{SpawnReady, SpawnReadyLayer};
 use tower_test::mock;
 
 #[tokio::test(flavor = "current_thread")]
@@ -42,4 +42,20 @@ async fn when_inner_fails() {
         assert_ready_err!(service.poll_ready()).to_string(),
         "foobar"
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn propagates_trace_spans() {
+    use tower::{util::ServiceExt, Service};
+    use tracing::Instrument;
+
+    let _t = support::trace_init();
+
+    let span = tracing::info_span!("my_span");
+
+    let service = support::AssertSpanSvc::new(span.clone());
+    let mut service = SpawnReady::new(service);
+    let result = tokio::spawn(service.oneshot(()).instrument(span));
+
+    result.await.expect("service panicked").expect("failed");
 }
