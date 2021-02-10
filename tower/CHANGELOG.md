@@ -16,7 +16,7 @@ None.
 - **builder**: Add `ServiceBuilder::option_layer` to optionally add a layer. ([#555])
 - **spawn-ready**: SpawnReady now propagates the current `tracing` span to
   spawned tasks ([#557])
-- **make**: Added `Shared` which lets you implement `MakeService` by cloning a
+- **make**: Add `Shared` which lets you implement `MakeService` by cloning a
   service. ([#533])
 
 ### Fixed
