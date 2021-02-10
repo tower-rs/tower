@@ -45,7 +45,7 @@ full = [
 ]
 log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio-stream"]
-buffer = ["tokio/sync", "tokio/rt", "tokio-stream", "tokio-util", "tracing"]
+buffer = ["tokio/sync", "tokio/rt", "tokio-util", "tracing"]
 discover = []
 filter = ["futures-util"]
 hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time", "tracing"]
