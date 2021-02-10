@@ -4,13 +4,13 @@ use super::{
 };
 use futures_core::ready;
 use pin_project::pin_project;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 use tower_service::Service;
 
 /// Task that handles processing the buffer. This type should not be used
@@ -33,7 +33,7 @@ where
     finish: bool,
     failed: Option<ServiceError>,
     handle: Handle,
-    close: Option<crate::semaphore::Close>,
+    close: Option<Weak<Semaphore>>,
 }
 
 /// Get the error out
@@ -50,12 +50,13 @@ where
     pub(crate) fn new(
         service: T,
         rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
-        close: crate::semaphore::Close,
+        semaphore: &Arc<Semaphore>,
     ) -> (Handle, Worker<T, Request>) {
         let handle = Handle {
             inner: Arc::new(Mutex::new(None)),
         };
 
+        let semaphore = Arc::downgrade(semaphore);
         let worker = Worker {
             current_message: None,
             finish: false,
@@ -63,7 +64,7 @@ where
             rx,
             service,
             handle: handle.clone(),
-            close: Some(close),
+            close: Some(semaphore),
         };
 
         (handle, worker)
@@ -140,6 +141,17 @@ where
         // requests that we receive before we've exhausted the receiver receive the error:
         self.failed = Some(error);
     }
+
+    /// Closes the buffer's semaphore if it is still open, waking any pending
+    /// tasks.
+    fn close_semaphore(&mut self) {
+        if let Some(close) = self.close.take().as_ref().and_then(Weak::upgrade) {
+            tracing::debug!("buffer closing; waking pending tasks");
+            close.close();
+        } else {
+            tracing::trace!("buffer already closed");
+        }
+    }
 }
 
 impl<T, Request> Future for Worker<T, Request>
@@ -199,10 +211,7 @@ where
                                 .expect("Worker::failed did not set self.failed?")
                                 .clone()));
                             // Wake any tasks waiting on channel capacity.
-                            if let Some(close) = self.close.take() {
-                                tracing::debug!("waking pending tasks");
-                                close.close();
-                            }
+                            self.close_semaphore();
                         }
                     }
                 }
@@ -223,9 +232,7 @@ where
     T::Error: Into<crate::BoxError>,
 {
     fn drop(mut self: Pin<&mut Self>) {
-        if let Some(close) = self.as_mut().close.take() {
-            close.close();
-        }
+        self.as_mut().close_semaphore();
     }
 }
 

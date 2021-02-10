@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tracing` is now only pulled in for the features that need it.
 - **util**: Add `option_layer` to convert an `Option<Layer>` into a `Layer`. ([#555])
 - **builder**: Add `ServiceBuilder::option_layer` to optionally add a layer. ([#555])
+- **steer**: `Steer` now implements `Clone
 
 [#542]: https://github.com/tower-rs/tower/pull/542
 [#555]: https://github.com/tower-rs/tower/pull/555

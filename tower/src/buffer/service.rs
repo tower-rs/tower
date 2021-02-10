@@ -4,9 +4,11 @@ use super::{
     worker::{Handle, Worker},
 };
 
-use crate::semaphore::Semaphore;
+use futures_core::ready;
+use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::PollSemaphore;
 use tower_service::Service;
 
 /// Adds an mpsc buffer in front of an inner service.
@@ -29,7 +31,11 @@ where
     // `async fn ready`, which borrows the sender. Therefore, we implement our
     // own bounded MPSC on top of the unbounded channel, using a semaphore to
     // limit how many items are in the channel.
-    semaphore: Semaphore,
+    semaphore: PollSemaphore,
+    // The current semaphore permit, if one has been acquired.
+    //
+    // This is acquired in `poll_ready` and taken in `call`.
+    permit: Option<OwnedSemaphorePermit>,
     handle: Handle,
 }
 
@@ -83,16 +89,15 @@ where
         Request: Send + 'static,
     {
         let (tx, rx) = mpsc::unbounded_channel();
-        let (semaphore, wake_waiters) = Semaphore::new_with_close(bound);
-        let (handle, worker) = Worker::new(service, rx, wake_waiters);
-        (
-            Buffer {
-                tx,
-                handle,
-                semaphore,
-            },
-            worker,
-        )
+        let semaphore = Arc::new(Semaphore::new(bound));
+        let (handle, worker) = Worker::new(service, rx, &semaphore);
+        let buffer = Buffer {
+            tx,
+            handle,
+            semaphore: PollSemaphore::new(semaphore),
+            permit: None,
+        };
+        (buffer, worker)
     }
 
     fn get_worker_error(&self) -> crate::BoxError {
@@ -116,19 +121,28 @@ where
             return Poll::Ready(Err(self.get_worker_error()));
         }
 
-        // Then, poll to acquire a semaphore permit. If we acquire a permit,
-        // then there's enough buffer capacity to send a new request. Otherwise,
-        // we need to wait for capacity.
-        self.semaphore
-            .poll_acquire(cx)
-            .map_err(|_| self.get_worker_error())
+        // Then, check if we've already acquired a permit.
+        if self.permit.is_some() {
+            // We've already reserved capacity to send a request. We're ready!
+            return Poll::Ready(Ok(()));
+        }
+
+        // Finally, if we haven't already acquired a permit, poll the semaphore
+        // to acquire one. If we acquire a permit, then there's enough buffer
+        // capacity to send a new request. Otherwise, we need to wait for
+        // capacity.
+        let permit =
+            ready!(self.semaphore.poll_acquire(cx)).ok_or_else(|| self.get_worker_error())?;
+        self.permit = Some(permit);
+
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         tracing::trace!("sending request to buffer worker");
         let _permit = self
-            .semaphore
-            .take_permit()
+            .permit
+            .take()
             .expect("buffer full; poll_ready must be called first");
 
         // get the current Span so that we can explicitly propagate it to the worker
@@ -161,6 +175,9 @@ where
             tx: self.tx.clone(),
             handle: self.handle.clone(),
             semaphore: self.semaphore.clone(),
+            // The new clone hasn't acquired a permit yet. It will when it's
+            // next polled ready.
+            permit: None,
         }
     }
 }
