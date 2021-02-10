@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **util**: Add `option_layer` to convert an `Option<Layer>` into a `Layer`. ([#555])
 - **builder**: Add `ServiceBuilder::option_layer` to optionally add a layer. ([#555])
 - **steer**: `Steer` now implements `Clone
+- **make**: Added `Shared` which lets you implement `MakeService` by cloning a
+  service.
 
 [#542]: https://github.com/tower-rs/tower/pull/542
 [#555]: https://github.com/tower-rs/tower/pull/555
@@ -34,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#532]: https://github.com/tower-rs/tower/pull/532
 [#535]: https://github.com/tower-rs/tower/pull/535
 [#538]: https://github.com/tower-rs/tower/pull/538
+>>>>>>> master
 
 # 0.4.3 (January 13, 2021)
 
