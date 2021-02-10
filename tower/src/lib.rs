@@ -220,8 +220,6 @@ pub use crate::make::MakeService;
 pub use tower_layer::Layer;
 #[doc(inline)]
 pub use tower_service::Service;
-#[cfg(any(feature = "buffer", feature = "limit"))]
-mod semaphore;
 
 #[allow(unreachable_pub)]
 mod sealed {
