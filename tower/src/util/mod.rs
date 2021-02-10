@@ -953,9 +953,10 @@ impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Servi
 /// # let timeout = Some(Duration::new(10, 0));
 /// // Layer to apply a timeout if configured
 /// let maybe_timeout = option_layer(timeout.map(TimeoutLayer::new));
-///  ServiceBuilder::new()
-///      .layer(maybe_timeout)
-///      .service(svc);
+///
+/// ServiceBuilder::new()
+///     .layer(maybe_timeout)
+///     .service(svc);
 /// # }
 /// ```
 ///
