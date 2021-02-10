@@ -346,6 +346,49 @@ async fn wakes_pending_waiters_on_failure() {
     );
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn doesnt_leak_permits() {
+    let _t = support::trace_init();
+
+    let (service, mut handle) = mock::pair::<_, ()>();
+
+    let (mut service1, worker) = Buffer::pair(service, 2);
+    let mut worker = task::spawn(worker);
+    let mut service2 = service1.clone();
+    let mut service3 = service1.clone();
+
+    // Attempt to poll the first clone of the buffer to readiness multiple
+    // times. These should all succeed, because the readiness is never
+    // *consumed* --- no request is sent.
+    assert_ready_ok!(task::spawn(service1.ready_and()).poll());
+    assert_ready_ok!(task::spawn(service1.ready_and()).poll());
+    assert_ready_ok!(task::spawn(service1.ready_and()).poll());
+
+    // It should also be possible to drive the second clone of the service to
+    // readiness --- it should only acquire one permit, as well.
+    assert_ready_ok!(task::spawn(service2.ready_and()).poll());
+    assert_ready_ok!(task::spawn(service2.ready_and()).poll());
+    assert_ready_ok!(task::spawn(service2.ready_and()).poll());
+
+    // The third clone *doesn't* poll ready, because the first two clones have
+    // each acquired one permit.
+    let mut ready3 = task::spawn(service3.ready_and());
+    assert_pending!(ready3.poll());
+
+    // Consume the first service's readiness.
+    let mut response = task::spawn(service1.call(()));
+    handle.allow(1);
+    assert_pending!(worker.poll());
+
+    handle.next_request().await.unwrap().1.send_response(());
+    assert_pending!(worker.poll());
+    assert_ready_ok!(response.poll());
+
+    // Now, the third service should acquire a permit...
+    assert!(ready3.is_woken());
+    assert_ready_ok!(ready3.poll());
+}
+
 type Mock = mock::Mock<&'static str, &'static str>;
 type Handle = mock::Handle<&'static str, &'static str>;
 
