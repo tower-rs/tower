@@ -360,7 +360,7 @@ async fn propagates_trace_spans() {
     let worker = tokio::spawn(worker);
 
     let result =
-        tokio::spawn(async move { service.ready_and().await?.call(()).await }.instrument(span));
+        tokio::spawn(service.oneshot(()).instrument(span));
 
     result.await.expect("service panicked").expect("failed");
     worker.await.expect("worker panicked");

@@ -42,6 +42,7 @@ pub struct AssertSpanSvc {
     span: tracing::Span,
     polled: bool,
 }
+
 pub struct AssertSpanError(String);
 
 impl fmt::Debug for AssertSpanError {

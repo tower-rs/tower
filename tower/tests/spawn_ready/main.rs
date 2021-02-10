@@ -57,7 +57,7 @@ async fn propagates_trace_spans() {
     let service = support::AssertSpanSvc::new(span.clone());
     let mut service = SpawnReady::new(service);
     let result =
-        tokio::spawn(async move { service.ready_and().await?.call(()).await }.instrument(span));
+        tokio::spawn(service.oneshot(()).instrument(span));
 
     time::sleep(time::Duration::from_millis(100)).await;
     result.await.expect("service panicked").expect("failed");
