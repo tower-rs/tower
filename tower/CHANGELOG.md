@@ -10,8 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **util**: Make combinators implement `Debug` in more cases
 - `tracing` is now only pulled in for the features that need it.
 - **steer**: `Steer` now implements `Clone`.
+- **spawn-ready**: SpawnReady now propagates the current `tracing` span to
+  spawned tasks ([#557])
 
 [#542]: https://github.com/tower-rs/tower/pull/542
+[#557]: https://github.com/tower-rs/tower/pull/557
 
 # 0.4.4 (January 20, 2021)
 
