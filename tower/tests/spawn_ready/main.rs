@@ -2,15 +2,13 @@
 #[path = "../support.rs"]
 mod support;
 
-use tokio::time;
+use tokio::task;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok};
 use tower::spawn_ready::SpawnReadyLayer;
 use tower_test::mock;
 
 #[tokio::test(flavor = "current_thread")]
 async fn when_inner_is_not_ready() {
-    time::pause();
-
     let _t = support::trace_init();
 
     let layer = SpawnReadyLayer::new();
@@ -23,7 +21,8 @@ async fn when_inner_is_not_ready() {
 
     // Make the service is Ready
     handle.allow(1);
-    time::sleep(time::Duration::from_millis(100)).await;
+    // Yield to the executor to ensure that the background task can run.
+    task::yield_now().await;
     assert_ready_ok!(service.poll_ready());
 }
 
