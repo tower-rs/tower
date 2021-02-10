@@ -23,7 +23,7 @@ None.
 
 - **util**: Make combinators that contain closures implement `Debug`. They
   previously wouldn't since closures never implement `Debug`. ([#552])
-- `tracing` is now only pulled in for the features that need it. ([#551])
+- Only pull in `tracing` for the features that need it. ([#551])
 - **steer**: Implement `Clone` for `Steer`. ([#554])
 
 [#542]: https://github.com/tower-rs/tower/pull/542
