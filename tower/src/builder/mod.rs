@@ -405,6 +405,18 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::MapErrLayer::new(f))
     }
 
+    /// Composes a function that transforms futures produced by the service.
+    ///
+    /// This wraps the inner service with an instance of the [`MapFutureLayer`] middleware.
+    ///
+    /// See the documentation for the [`map_future`] combinator for details.
+    ///
+    /// [`MapFutureLayer`]: crate::util::MapFutureLayer
+    /// [`map_future`]: crate::util::ServiceExt::map_future
+    pub fn map_future<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapFutureLayer<F>, L>> {
+        self.layer(crate::util::MapFutureLayer::new(f))
+    }
+
     /// Apply a function after the service, regardless of whether the future
     /// succeeds or fails.
     ///
