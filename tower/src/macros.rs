@@ -2,7 +2,8 @@
     feature = "util",
     feature = "spawn-ready",
     feature = "filter",
-    feature = "make"
+    feature = "make",
+    feature = "multiplex",
 ))]
 macro_rules! opaque_future {
     ($(#[$m:meta])* pub type $name:ident<$($param:ident),+> = $actual:ty;) => {

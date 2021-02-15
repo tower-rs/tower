@@ -180,6 +180,9 @@ pub mod load_shed;
 #[cfg(feature = "make")]
 #[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 pub mod make;
+#[cfg(feature = "multiplex")]
+#[cfg_attr(docsrs, doc(cfg(feature = "multiplex")))]
+pub mod multiplex;
 #[cfg(feature = "ready-cache")]
 #[cfg_attr(docsrs, doc(cfg(feature = "ready-cache")))]
 pub mod ready_cache;

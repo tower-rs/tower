@@ -429,6 +429,16 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::ThenLayer::new(f))
     }
 
+    #[cfg(feature = "multiplex")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "multiplex")))]
+    pub fn multiplex<A, P>(
+        self,
+        first: A,
+        picker: P,
+    ) -> ServiceBuilder<Stack<crate::multiplex::MultiplexLayer<A, P>, L>> {
+        self.layer(crate::multiplex::MultiplexLayer::new(first, picker))
+    }
+
     /// Returns the underlying `Layer` implementation.
     pub fn into_inner(self) -> L {
         self.layer
