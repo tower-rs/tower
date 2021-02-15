@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use crate::util::Either;
 use crate::BoxError;
 use futures_util::ready;
@@ -55,7 +53,7 @@ impl<A, B, P> Multiplex<A, B, P> {
 }
 
 pub trait Picker<R: ?Sized> {
-    fn pick(&mut self, req: &R) -> Pick;
+    fn pick(&mut self, req: &mut R) -> Pick;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -66,9 +64,9 @@ pub enum Pick {
 
 impl<F, T> Picker<T> for F
 where
-    F: FnMut(&T) -> Pick,
+    F: FnMut(&mut T) -> Pick,
 {
-    fn pick(&mut self, req: &T) -> Pick {
+    fn pick(&mut self, req: &mut T) -> Pick {
         self(req)
     }
 }
@@ -99,7 +97,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: R) -> Self::Future {
+    fn call(&mut self, mut req: R) -> Self::Future {
         assert!(
             self.first_ready && self.second_ready,
             "Multiplex must wait for all services to be ready. Did you forget to call poll_ready()?",
@@ -108,7 +106,7 @@ where
         self.first_ready = false;
         self.second_ready = false;
 
-        let future = match self.picker.pick(&req) {
+        let future = match self.picker.pick(&mut req) {
             Pick::First => Either::A(self.first.call(req)),
             Pick::Second => Either::B(self.second.call(req)),
         };
