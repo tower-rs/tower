@@ -1,3 +1,5 @@
+// TODO(david): docs
+
 use crate::util::Either;
 use crate::BoxError;
 use futures_util::ready;
@@ -50,10 +52,16 @@ impl<A, B, P> Multiplex<A, B, P> {
             second_ready: false,
         }
     }
+
+    // TODO(david): accessors for `first` and `second`
 }
 
 pub trait Picker<R: ?Sized> {
+    // `&mut R` so we can insert into request extensions while picking a service. Useful for
+    // parsing the URI
     fn pick(&mut self, req: &mut R) -> Pick;
+
+    // TODO(david): add `and` and `or` methods for composing pickers
 }
 
 #[derive(Debug, Copy, Clone)]
