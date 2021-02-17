@@ -111,12 +111,15 @@ where
             "Multiplex must wait for all services to be ready. Did you forget to call poll_ready()?",
         );
 
-        self.first_ready = false;
-        self.second_ready = false;
-
         let future = match self.picker.pick(&mut req) {
-            Pick::First => Either::A(self.first.call(req)),
-            Pick::Second => Either::B(self.second.call(req)),
+            Pick::First => {
+                self.first_ready = false;
+                Either::A(self.first.call(req))
+            }
+            Pick::Second => {
+                self.second_ready = false;
+                Either::B(self.second.call(req))
+            }
         };
 
         ResponseFuture { inner: future }
