@@ -1,3 +1,5 @@
+//! TODO(david): docs
+
 /// TODO(david): docs
 pub trait Picker<R: ?Sized> {
     // `&mut R` so we can insert into request extensions while picking a service. Useful for
@@ -114,6 +116,28 @@ where
         match self.0.pick(req) {
             Pick::First => Pick::Second,
             Pick::Second => Pick::First,
+        }
+    }
+}
+
+/// TODO(david): docs
+pub fn from_bool_fn<F>(f: F) -> FromBoolFn<F> {
+    FromBoolFn(f)
+}
+
+/// TODO(david): docs
+#[derive(Debug, Copy, Clone)]
+pub struct FromBoolFn<F>(F);
+
+impl<R, F> Picker<R> for FromBoolFn<F>
+where
+    F: FnMut(&mut R) -> bool,
+{
+    fn pick(&mut self, req: &mut R) -> Pick {
+        if (self.0)(req) {
+            Pick::First
+        } else {
+            Pick::Second
         }
     }
 }

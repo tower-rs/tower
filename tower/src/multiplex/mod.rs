@@ -1,12 +1,14 @@
 //! TODO(david): docs
 
 mod layer;
-mod picker;
 mod service;
 
+pub mod picker;
+
+#[doc(inline)]
 pub use self::{
     layer::MultiplexLayer,
-    picker::{Pick, Picker, not, And, Or},
+    picker::{Pick, Picker},
     service::{Multiplex, ResponseFuture},
 };
 
