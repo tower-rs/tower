@@ -413,6 +413,8 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`MapFutureLayer`]: crate::util::MapFutureLayer
     /// [`map_future`]: crate::util::ServiceExt::map_future
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_future<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapFutureLayer<F>, L>> {
         self.layer(crate::util::MapFutureLayer::new(f))
     }
