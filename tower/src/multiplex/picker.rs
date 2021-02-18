@@ -96,3 +96,24 @@ where
         }
     }
 }
+
+/// TODO(david): docs
+pub fn not<P>(picker: P) -> Not<P> {
+    Not(picker)
+}
+
+/// TODO(david): docs
+#[derive(Debug, Copy, Clone)]
+pub struct Not<P>(P);
+
+impl<P, R> Picker<R> for Not<P>
+where
+    P: Picker<R>,
+{
+    fn pick(&mut self, req: &mut R) -> Pick {
+        match self.0.pick(req) {
+            Pick::First => Pick::Second,
+            Pick::Second => Pick::First,
+        }
+    }
+}

@@ -6,7 +6,7 @@ mod service;
 
 pub use self::{
     layer::MultiplexLayer,
-    picker::{Pick, Picker},
+    picker::{Pick, Picker, not, And, Or},
     service::{Multiplex, ResponseFuture},
 };
 

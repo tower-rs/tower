@@ -429,6 +429,7 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::ThenLayer::new(f))
     }
 
+    /// TODO(david): docs
     #[cfg(feature = "multiplex")]
     #[cfg_attr(docsrs, doc(cfg(feature = "multiplex")))]
     pub fn multiplex<A, P>(
