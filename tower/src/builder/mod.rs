@@ -459,6 +459,22 @@ impl<L> ServiceBuilder<L> {
     {
         self.layer.layer(service)
     }
+
+    /// Wrap the async function `F` with the middleware provided by this [`ServiceBuilder`]'s
+    /// [`Layer`]'s, returning a new [`Service`].
+    ///
+    /// This is a convenience for doing `.service(service_fn(handler_function))`.
+    ///
+    /// [`Layer`]: crate::Layer
+    /// [`Service`]: crate::Service
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn service_fn<F>(self, f: F) -> L::Service
+    where
+        L: Layer<crate::util::ServiceFn<F>>,
+    {
+        self.service(crate::util::service_fn(f))
+    }
 }
 
 impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {
