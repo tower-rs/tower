@@ -30,7 +30,7 @@ pub use self::{
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
-    ready::{ReadyAnd, ReadyOneshot},
+    ready::{Ready, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
@@ -61,11 +61,11 @@ pub mod future {
 /// adapters
 pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// Yields a mutable reference to the service when it is ready to accept a request.
-    fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
+    fn ready(&mut self) -> Ready<'_, Self, Request>
     where
         Self: Sized,
     {
-        ReadyAnd::new(self)
+        Ready::new(self)
     }
 
     /// Yields the service when it is ready to accept a request.
@@ -222,7 +222,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let name = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -289,7 +289,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let code = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await
@@ -390,7 +390,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let name = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -460,7 +460,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let record = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -511,7 +511,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -579,7 +579,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -648,7 +648,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = "13";
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -735,7 +735,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// # let id: u32 = id;
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -837,7 +837,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let record = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -915,7 +915,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let record = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;

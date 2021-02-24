@@ -31,7 +31,7 @@ use tower_service::Service;
 ///
 /// // Now, when we wait for the service to become ready, it will
 /// // drive the future to completion internally.
-/// let svc = svc.ready_and().await.unwrap();
+/// let svc = svc.ready().await.unwrap();
 /// let res = svc.call(()).await.unwrap();
 /// # };
 /// # }
@@ -87,7 +87,7 @@ impl<F, S> FutureService<F, S> {
     ///
     /// // Now, when we wait for the service to become ready, it will
     /// // drive the future to completion internally.
-    /// let svc = svc.ready_and().await.unwrap();
+    /// let svc = svc.ready().await.unwrap();
     /// let res = svc.call(()).await.unwrap();
     /// # };
     /// # }
@@ -188,7 +188,7 @@ mod tests {
             "FutureService { state: State::Future(<futures_util::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, core::convert::Infallible>>>) }"
         );
 
-        pending_svc.ready_and().await.unwrap();
+        pending_svc.ready().await.unwrap();
 
         assert_eq!(
             format!("{:?}", pending_svc),
