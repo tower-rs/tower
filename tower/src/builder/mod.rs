@@ -461,9 +461,18 @@ impl<L> ServiceBuilder<L> {
     }
 
     /// Wrap the async function `F` with the middleware provided by this [`ServiceBuilder`]'s
-    /// [`Layer`]'s, returning a new [`Service`].
+    /// [`Layer`]s, returning a new [`Service`].
     ///
-    /// This is a convenience for doing [`.service(service_fn(handler_function))`][`service_fn`].
+    /// This is a convenience method which is equivalent to calling
+    /// [`ServiceBuilder::service`] with a [`service_fn`], like this:
+    /// ```rust
+    /// # use tower::{ServiceBuilder, ServiceFn};
+    /// # async fn handler_fn(_: ()) -> Result<(), ()> { Ok(()) }
+    /// # let _ = {
+    /// ServiceBuilder::new()
+    ///     // ...
+    ///     .service(service_fn(handler_fn))
+    /// # };
     ///
     /// # Example
     ///
