@@ -348,7 +348,7 @@ async fn wakes_pending_waiters_on_failure() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn propagates_trace_spans() {
-    use tower::{util::ServiceExt, Service};
+    use tower::util::ServiceExt;
     use tracing::Instrument;
 
     let _t = support::trace_init();
@@ -356,7 +356,7 @@ async fn propagates_trace_spans() {
     let span = tracing::info_span!("my_span");
 
     let service = support::AssertSpanSvc::new(span.clone());
-    let (mut service, worker) = Buffer::pair(service, 5);
+    let (service, worker) = Buffer::pair(service, 5);
     let worker = tokio::spawn(worker);
 
     let result = tokio::spawn(service.oneshot(()).instrument(span));
