@@ -18,6 +18,7 @@ mod ready;
 mod service_fn;
 mod then;
 
+#[allow(deprecated)]
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxService, UnsyncBoxService},
@@ -30,7 +31,6 @@ pub use self::{
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
-    #[allow(deprecated)]
     ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
@@ -74,6 +74,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         since = "0.4.6",
         note = "please use the `ServiceExt::ready` method instead"
     )]
+    #[allow(deprecated)]
     fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
     where
         Self: Sized,
