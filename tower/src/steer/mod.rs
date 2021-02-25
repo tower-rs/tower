@@ -56,12 +56,12 @@
 //!
 //! // This request will get sent to `root`
 //! let req = Request::get("/").body(String::new()).unwrap();
-//! let res = svc.ready_and().await?.call(req).await?;
+//! let res = svc.ready().await?.call(req).await?;
 //! assert_eq!(res.into_body(), "Hello, World!");
 //!
 //! // This request will get sent to `not_found`
 //! let req = Request::get("/does/not/exist").body(String::new()).unwrap();
-//! let res = svc.ready_and().await?.call(req).await?;
+//! let res = svc.ready().await?.call(req).await?;
 //! assert_eq!(res.status(), StatusCode::NOT_FOUND);
 //! assert_eq!(res.into_body(), "");
 //! #

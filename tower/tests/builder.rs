@@ -28,7 +28,7 @@ async fn builder_service() {
     // allow a request through
     handle.allow(1);
 
-    let fut = client.ready_and().await.unwrap().call("hello");
+    let fut = client.ready().await.unwrap().call("hello");
     assert_request_eq!(handle, true).send_response("world");
     assert_eq!(fut.await.unwrap(), true);
 }
