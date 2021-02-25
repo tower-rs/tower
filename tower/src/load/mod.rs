@@ -47,9 +47,9 @@
 //!     S2: Load<Metric = S1::Metric> + Service<R, Response = S1::Response, Error = S1::Error>
 //! {
 //!     if svc1.load() < svc2.load() {
-//!         svc1.ready_and().await?.call(request).await
+//!         svc1.ready().await?.call(request).await
 //!     } else {
-//!         svc2.ready_and().await?.call(request).await
+//!         svc2.ready().await?.call(request).await
 //!     }
 //! }
 //! ```
