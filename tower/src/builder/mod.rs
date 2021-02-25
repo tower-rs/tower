@@ -159,6 +159,15 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::option_layer(layer))
     }
 
+    /// Add a [`Layer`] built from a function that accepts a service and returns another service.
+    ///
+    /// See the documentation for [`layer_fn`] for more details.
+    ///
+    /// [`layer_fn`]: crate::layer::layer_fn
+    pub fn layer_fn<F>(self, f: F) -> ServiceBuilder<Stack<crate::layer::LayerFn<F>, L>> {
+        self.layer(crate::layer::layer_fn(f))
+    }
+
     /// Buffer requests when when the next layer is not ready.
     ///
     /// This wraps the inner service with an instance of the [`Buffer`]
