@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+- **builder**: Add `ServiceBuilder::layer_fn` to add a layer built from a function.
 - **builder**: Add `ServiceBuilder::map_future` for transforming the futures produced
   by a service.
 - **util**: Add example for `service_fn`.
