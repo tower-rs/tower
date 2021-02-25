@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-None.
+- **builder**: Add `ServiceBuilder::map_future` for transforming the futures produced
+  by a service.
+- **util**: Add example for `service_fn`.
 
 # 0.4.5 (February 10, 2021)
 
