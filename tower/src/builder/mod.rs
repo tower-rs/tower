@@ -468,6 +468,58 @@ impl<L> ServiceBuilder<L> {
     {
         self.layer.layer(service)
     }
+
+    /// Wrap the async function `F` with the middleware provided by this [`ServiceBuilder`]'s
+    /// [`Layer`]s, returning a new [`Service`].
+    ///
+    /// This is a convenience method which is equivalent to calling
+    /// [`ServiceBuilder::service`] with a [`service_fn`], like this:
+    ///
+    /// ```rust
+    /// # use tower::{ServiceBuilder, service_fn};
+    /// # async fn handler_fn(_: ()) -> Result<(), ()> { Ok(()) }
+    /// # let _ = {
+    /// ServiceBuilder::new()
+    ///     // ...
+    ///     .service(service_fn(handler_fn))
+    /// # };
+    /// ```
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    /// use tower::{ServiceBuilder, ServiceExt, BoxError, service_fn};
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), BoxError> {
+    /// async fn handle(request: &'static str) -> Result<&'static str, BoxError> {
+    ///    Ok(request)
+    /// }
+    ///
+    /// let svc = ServiceBuilder::new()
+    ///     .buffer(1024)
+    ///     .timeout(Duration::from_secs(10))
+    ///     .service_fn(handle);
+    ///
+    /// let response = svc.oneshot("foo").await?;
+    ///
+    /// assert_eq!(response, "foo");
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [`Layer`]: crate::Layer
+    /// [`Service`]: crate::Service
+    /// [`service_fn`]: crate::service_fn
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn service_fn<F>(self, f: F) -> L::Service
+    where
+        L: Layer<crate::util::ServiceFn<F>>,
+    {
+        self.service(crate::util::service_fn(f))
+    }
 }
 
 impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {
