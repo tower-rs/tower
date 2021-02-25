@@ -239,19 +239,19 @@ async fn wakes_pending_waiters_on_close() {
 
     // keep the request in the worker
     handle.allow(0);
-    let service1 = service.ready_and().await.unwrap();
+    let service1 = service.ready().await.unwrap();
     assert_pending!(worker.poll());
     let mut response = task::spawn(service1.call("hello"));
 
     let mut service1 = service.clone();
-    let mut ready_and1 = task::spawn(service1.ready_and());
+    let mut ready1 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
-    assert_pending!(ready_and1.poll(), "no capacity");
+    assert_pending!(ready1.poll(), "no capacity");
 
     let mut service1 = service.clone();
-    let mut ready_and2 = task::spawn(service1.ready_and());
+    let mut ready2 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
-    assert_pending!(ready_and2.poll(), "no capacity");
+    assert_pending!(ready2.poll(), "no capacity");
 
     // kill the worker task
     drop(worker);
@@ -264,24 +264,24 @@ async fn wakes_pending_waiters_on_close() {
     );
 
     assert!(
-        ready_and1.is_woken(),
-        "dropping worker should wake ready_and task 1"
+        ready1.is_woken(),
+        "dropping worker should wake ready task 1"
     );
-    let err = assert_ready_err!(ready_and1.poll());
+    let err = assert_ready_err!(ready1.poll());
     assert!(
         err.is::<error::Closed>(),
-        "ready_and 1 should fail with a Closed, got: {:?}",
+        "ready 1 should fail with a Closed, got: {:?}",
         err
     );
 
     assert!(
-        ready_and2.is_woken(),
-        "dropping worker should wake ready_and task 2"
+        ready2.is_woken(),
+        "dropping worker should wake ready task 2"
     );
-    let err = assert_ready_err!(ready_and1.poll());
+    let err = assert_ready_err!(ready1.poll());
     assert!(
         err.is::<error::Closed>(),
-        "ready_and 2 should fail with a Closed, got: {:?}",
+        "ready 2 should fail with a Closed, got: {:?}",
         err
     );
 }
@@ -297,19 +297,19 @@ async fn wakes_pending_waiters_on_failure() {
 
     // keep the request in the worker
     handle.allow(0);
-    let service1 = service.ready_and().await.unwrap();
+    let service1 = service.ready().await.unwrap();
     assert_pending!(worker.poll());
     let mut response = task::spawn(service1.call("hello"));
 
     let mut service1 = service.clone();
-    let mut ready_and1 = task::spawn(service1.ready_and());
+    let mut ready1 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
-    assert_pending!(ready_and1.poll(), "no capacity");
+    assert_pending!(ready1.poll(), "no capacity");
 
     let mut service1 = service.clone();
-    let mut ready_and2 = task::spawn(service1.ready_and());
+    let mut ready2 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
-    assert_pending!(ready_and2.poll(), "no capacity");
+    assert_pending!(ready2.poll(), "no capacity");
 
     // fail the inner service
     handle.send_error("foobar");
@@ -324,24 +324,24 @@ async fn wakes_pending_waiters_on_failure() {
     );
 
     assert!(
-        ready_and1.is_woken(),
-        "dropping worker should wake ready_and task 1"
+        ready1.is_woken(),
+        "dropping worker should wake ready task 1"
     );
-    let err = assert_ready_err!(ready_and1.poll());
+    let err = assert_ready_err!(ready1.poll());
     assert!(
         err.is::<error::ServiceError>(),
-        "ready_and 1 should fail with a ServiceError, got: {:?}",
+        "ready 1 should fail with a ServiceError, got: {:?}",
         err
     );
 
     assert!(
-        ready_and2.is_woken(),
-        "dropping worker should wake ready_and task 2"
+        ready2.is_woken(),
+        "dropping worker should wake ready task 2"
     );
-    let err = assert_ready_err!(ready_and1.poll());
+    let err = assert_ready_err!(ready1.poll());
     assert!(
         err.is::<error::ServiceError>(),
-        "ready_and 2 should fail with a ServiceError, got: {:?}",
+        "ready 2 should fail with a ServiceError, got: {:?}",
         err
     );
 }
@@ -379,19 +379,19 @@ async fn doesnt_leak_permits() {
     // Attempt to poll the first clone of the buffer to readiness multiple
     // times. These should all succeed, because the readiness is never
     // *consumed* --- no request is sent.
-    assert_ready_ok!(task::spawn(service1.ready_and()).poll());
-    assert_ready_ok!(task::spawn(service1.ready_and()).poll());
-    assert_ready_ok!(task::spawn(service1.ready_and()).poll());
+    assert_ready_ok!(task::spawn(service1.ready()).poll());
+    assert_ready_ok!(task::spawn(service1.ready()).poll());
+    assert_ready_ok!(task::spawn(service1.ready()).poll());
 
     // It should also be possible to drive the second clone of the service to
     // readiness --- it should only acquire one permit, as well.
-    assert_ready_ok!(task::spawn(service2.ready_and()).poll());
-    assert_ready_ok!(task::spawn(service2.ready_and()).poll());
-    assert_ready_ok!(task::spawn(service2.ready_and()).poll());
+    assert_ready_ok!(task::spawn(service2.ready()).poll());
+    assert_ready_ok!(task::spawn(service2.ready()).poll());
+    assert_ready_ok!(task::spawn(service2.ready()).poll());
 
     // The third clone *doesn't* poll ready, because the first two clones have
     // each acquired one permit.
-    let mut ready3 = task::spawn(service3.ready_and());
+    let mut ready3 = task::spawn(service3.ready());
     assert_pending!(ready3.poll());
 
     // Consume the first service's readiness.
