@@ -474,20 +474,22 @@ impl<L> ServiceBuilder<L> {
     ///
     /// This is a convenience method which is equivalent to calling
     /// [`ServiceBuilder::service`] with a [`service_fn`], like this:
+    ///
     /// ```rust
-    /// # use tower::{ServiceBuilder, ServiceFn};
+    /// # use tower::{ServiceBuilder, service_fn};
     /// # async fn handler_fn(_: ()) -> Result<(), ()> { Ok(()) }
     /// # let _ = {
     /// ServiceBuilder::new()
     ///     // ...
     ///     .service(service_fn(handler_fn))
     /// # };
+    /// ```
     ///
     /// # Example
     ///
     /// ```rust
     /// use std::time::Duration;
-    /// use tower::{ServiceBuilder, ServiceExt, BoxError};
+    /// use tower::{ServiceBuilder, ServiceExt, BoxError, service_fn};
     ///
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), BoxError> {
