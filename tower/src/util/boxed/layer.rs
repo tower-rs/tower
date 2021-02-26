@@ -3,14 +3,20 @@ use std::{fmt, sync::Arc};
 use tower_layer::{layer_fn, Layer};
 use tower_service::Service;
 
-/// A boxed `Layer` trait object.
+/// A boxed [`Layer`] trait object.
 ///
-/// [`BoxLayer`] turns a layer into a trait object, allowing the output service to be dynamic.
+/// [`BoxLayer`] turns a layer into a trait object, allowing both the [`Layer`] itself
+/// and the output [`Service`] to be dynamic, while having consistent types.
+///
+/// This [`Layer`] produces [`BoxService`] instances erasing the type of the 
+/// [`Service`] produced by the wrapped [`Layer`].
 ///
 /// # Example
 ///
-/// `BoxLayer` can for example be useful to create layers dynamically that otherwise wouldn't have
-/// the same types.
+/// `BoxLayer` can, for example, be useful to create layers dynamically that otherwise wouldn't have
+/// the same types. In this example, we include a [`Timeout`] layer
+/// only if an environment variable is set. We can use `BoxLayer`
+/// to return a consistent type regardless of runtime configuration:
 ///
 /// ```
 /// use std::time::Duration;
@@ -40,6 +46,11 @@ use tower_service::Service;
 ///     }
 /// }
 /// ```
+///
+/// [`Layer`]: tower_layer::Layer
+/// [`Service`]: tower_service::Service
+/// [`BoxService`]: super::BoxService
+/// [`Timeout`]: crate::timeout
 pub struct BoxLayer<In, T, U, E> {
     boxed: Arc<dyn Layer<In, Service = BoxService<T, U, E>> + Send + Sync + 'static>,
 }
