@@ -8,7 +8,7 @@ use tower_service::Service;
 /// [`BoxLayer`] turns a layer into a trait object, allowing both the [`Layer`] itself
 /// and the output [`Service`] to be dynamic, while having consistent types.
 ///
-/// This [`Layer`] produces [`BoxService`] instances erasing the type of the 
+/// This [`Layer`] produces [`BoxService`] instances erasing the type of the
 /// [`Service`] produced by the wrapped [`Layer`].
 ///
 /// # Example
