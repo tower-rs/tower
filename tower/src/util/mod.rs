@@ -21,7 +21,7 @@ mod then;
 #[allow(deprecated)]
 pub use self::{
     and_then::{AndThen, AndThenLayer},
-    boxed::{BoxService, UnsyncBoxService},
+    boxed::{BoxLayer, BoxService, UnsyncBoxService},
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
