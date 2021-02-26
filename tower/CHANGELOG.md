@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+- **builder**: Add `ServiceBuilder::layer_fn` to add a layer built from a function.
 - **builder**: Add `ServiceBuilder::map_future` for transforming the futures produced
+- **builder**: Add `ServiceBuilder::service_fn` for applying `Layer`s to an
+  async function using `util::service_fn`.
+- **util**: Add example for `service_fn`.
 - **util**: Add `BoxLayer` for creating boxed `Layer` trait objects.
 
 # 0.4.5 (February 10, 2021)

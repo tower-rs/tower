@@ -4,11 +4,52 @@ use std::task::{Context, Poll};
 use tower_service::Service;
 
 /// Returns a new [`ServiceFn`] with the given closure.
+///
+/// This lets you build a [`Service`] from an async function that returns a [`Result`].
+///
+/// # Example
+///
+/// ```
+/// use tower::{service_fn, Service, ServiceExt, BoxError};
+/// # struct Request;
+/// # impl Request {
+/// #     fn new() -> Self { Self }
+/// # }
+/// # struct Response(&'static str);
+/// # impl Response {
+/// #     fn new(body: &'static str) -> Self {
+/// #         Self(body)
+/// #     }
+/// #     fn into_body(self) -> &'static str { self.0 }
+/// # }
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), BoxError> {
+/// async fn handle(request: Request) -> Result<Response, BoxError> {
+///     let response = Response::new("Hello, World!");
+///     Ok(response)
+/// }
+///
+/// let mut service = service_fn(handle);
+///
+/// let response = service
+///     .ready_and()
+///     .await?
+///     .call(Request::new())
+///     .await?;
+///
+/// assert_eq!("Hello, World!", response.into_body());
+/// #
+/// # Ok(())
+/// # }
+/// ```
 pub fn service_fn<T>(f: T) -> ServiceFn<T> {
     ServiceFn { f }
 }
 
 /// A [`Service`] implemented by a closure.
+///
+/// See [`service_fn`] for more details.
 #[derive(Copy, Clone)]
 pub struct ServiceFn<T> {
     f: T,

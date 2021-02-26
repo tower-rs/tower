@@ -46,7 +46,7 @@ async fn when_inner_fails() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn propagates_trace_spans() {
-    use tower::{util::ServiceExt, Service};
+    use tower::util::ServiceExt;
     use tracing::Instrument;
 
     let _t = support::trace_init();
@@ -54,7 +54,7 @@ async fn propagates_trace_spans() {
     let span = tracing::info_span!("my_span");
 
     let service = support::AssertSpanSvc::new(span.clone());
-    let mut service = SpawnReady::new(service);
+    let service = SpawnReady::new(service);
     let result = tokio::spawn(service.oneshot(()).instrument(span));
 
     result.await.expect("service panicked").expect("failed");
