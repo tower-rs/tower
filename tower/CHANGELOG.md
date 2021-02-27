@@ -6,12 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- **builder**: Add `ServiceBuilder::layer_fn` to add a layer built from a function.
-- **builder**: Add `ServiceBuilder::map_future` for transforming the futures produced
+
+# 0.4.6 (February 26, 2021)
+
+### Deprecated
+
+- **util**: Deprecated `ServiceExt::ready_and` (renamed to `ServiceExt::ready`).
+  ([#567])
+- **util**: Deprecated `ReadyAnd` future (renamed to `Ready`). ([#567])
+### Added
+
+- **builder**: Add `ServiceBuilder::layer_fn` to add a layer built from a
+  function. ([#560])
+- **builder**: Add `ServiceBuilder::map_future` for transforming the futures
+  produced by a service. ([#559])
 - **builder**: Add `ServiceBuilder::service_fn` for applying `Layer`s to an
-  async function using `util::service_fn`.
-- **util**: Add example for `service_fn`.
-- **util**: Add `BoxLayer` for creating boxed `Layer` trait objects.
+  async function using `util::service_fn`. ([#564])
+- **util**: Add example for `service_fn`. ([#563])
+- **util**: Add `BoxLayer` for creating boxed `Layer` trait objects. ([#569])
+
+[#567]: https://github.com/tower-rs/tower/pull/567
+[#560]: https://github.com/tower-rs/tower/pull/560
+[#559]: https://github.com/tower-rs/tower/pull/559
+[#564]: https://github.com/tower-rs/tower/pull/564
+[#563]: https://github.com/tower-rs/tower/pull/563
+[#569]: https://github.com/tower-rs/tower/pull/569
 
 # 0.4.5 (February 10, 2021)
 
