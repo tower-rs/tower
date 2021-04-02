@@ -186,6 +186,9 @@ pub mod ready_cache;
 #[cfg(feature = "reconnect")]
 #[cfg_attr(docsrs, doc(cfg(feature = "reconnect")))]
 pub mod reconnect;
+#[cfg(feature = "remote")]
+#[cfg_attr(docsrs, doc(cfg(feature = "remote")))]
+pub mod remote;
 #[cfg(feature = "retry")]
 #[cfg_attr(docsrs, doc(cfg(feature = "retry")))]
 pub mod retry;
