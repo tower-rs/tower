@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+- **builder**: Add `ServiceBuilder::check_service` to check the request,
+    response, and error types of the output service.
+- **builder**: Add `ServiceBuilder::check_service_clone` to check the output
+    service can be cloned.
 
 # 0.4.6 (February 26, 2021)
 
