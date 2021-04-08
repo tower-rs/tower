@@ -1,6 +1,7 @@
 //! Builder types to compose layers and services
 
 use tower_layer::{Identity, Layer, Stack};
+use tower_service::Service;
 
 use std::fmt;
 
@@ -519,6 +520,134 @@ impl<L> ServiceBuilder<L> {
         L: Layer<crate::util::ServiceFn<F>>,
     {
         self.service(crate::util::service_fn(f))
+    }
+
+    /// Check that the builder implements `Clone`.
+    ///
+    /// This can be useful when debugging type errors in `ServiceBuilder`s with lots of layers.
+    ///
+    /// Doesn't actually change the builder but serves as a type check.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    ///
+    /// let builder = ServiceBuilder::new()
+    ///     // Do something before processing the request
+    ///     .map_request(|request: String| {
+    ///         println!("got request!");
+    ///         request
+    ///     })
+    ///     // Ensure our `ServiceBuilder` can be cloned
+    ///     .check_clone()
+    ///     // Do something after processing the request
+    ///     .map_response(|response: String| {
+    ///         println!("got response!");
+    ///         response
+    ///     });
+    /// ```
+    #[inline]
+    pub fn check_clone(self) -> Self
+    where
+        Self: Clone,
+    {
+        self
+    }
+
+    /// Check that the builder when given a service of type `S` produces a service that implements
+    /// `Clone`.
+    ///
+    /// This can be useful when debugging type errors in `ServiceBuilder`s with lots of layers.
+    ///
+    /// Doesn't actually change the builder but serves as a type check.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    ///
+    /// # #[derive(Clone)]
+    /// # struct MyService;
+    /// #
+    /// let builder = ServiceBuilder::new()
+    ///     // Do something before processing the request
+    ///     .map_request(|request: String| {
+    ///         println!("got request!");
+    ///         request
+    ///     })
+    ///     // Ensure that the service produced when given a `MyService` implements
+    ///     .check_service_clone::<MyService>()
+    ///     // Do something after processing the request
+    ///     .map_response(|response: String| {
+    ///         println!("got response!");
+    ///         response
+    ///     });
+    /// ```
+    #[inline]
+    pub fn check_service_clone<S>(self) -> Self
+    where
+        L: Layer<S>,
+        L::Service: Clone,
+    {
+        self
+    }
+
+    /// Check that the builder when given a service of type `S` produces a service with the given
+    /// request, response, and error types.
+    ///
+    /// This can be useful when debugging type errors in `ServiceBuilder`s with lots of layers.
+    ///
+    /// Doesn't actually change the builder but serves as a type check.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    /// use std::task::{Poll, Context};
+    /// use tower::{Service, ServiceExt};
+    ///
+    /// // An example service
+    /// struct MyService;
+    ///
+    /// impl Service<Request> for MyService {
+    ///   type Response = Response;
+    ///   type Error = Error;
+    ///   type Future = futures_util::future::Ready<Result<Response, Error>>;
+    ///
+    ///   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    ///       // ...
+    ///       # todo!()
+    ///   }
+    ///
+    ///   fn call(&mut self, request: Request) -> Self::Future {
+    ///       // ...
+    ///       # todo!()
+    ///   }
+    /// }
+    ///
+    /// struct Request;
+    /// struct Response;
+    /// struct Error;
+    ///
+    /// struct WrappedResponse(Response);
+    ///
+    /// let builder = ServiceBuilder::new()
+    ///     // At this point in the builder if given a `MyService` it produces a service that
+    ///     // accepts `Request`s, produces `Response`s, and fails with `Error`s
+    ///     .check_service::<MyService, Request, Response, Error>()
+    ///     // Wrap responses in `WrappedResponse`
+    ///     .map_response(|response: Response| WrappedResponse(response))
+    ///     // Now the response type will be `WrappedResponse`
+    ///     .check_service::<MyService, _, WrappedResponse, _>();
+    /// ```
+    #[inline]
+    pub fn check_service<S, T, U, E>(self) -> Self
+    where
+        L: Layer<S>,
+        L::Service: Service<T, Response = U, Error = E>,
+    {
+        self
     }
 }
 
