@@ -4,7 +4,7 @@ use tokio::sync::{oneshot, OwnedSemaphorePermit};
 /// Message sent over buffer
 #[derive(Debug)]
 pub(crate) struct Message<Request, Fut> {
-    pub(crate) request: Request,
+    pub(crate) request: Option<Request>,
     pub(crate) tx: Tx<Fut>,
     pub(crate) span: tracing::Span,
     pub(super) _permit: OwnedSemaphorePermit,

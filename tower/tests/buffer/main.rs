@@ -1,7 +1,7 @@
 #![cfg(feature = "buffer")]
 #[path = "../support.rs"]
 mod support;
-use std::thread;
+use std::{convert::Infallible, thread};
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
 use tower::buffer::{error, Buffer};
 use tower::{util::ServiceExt, Service};
@@ -406,6 +406,41 @@ async fn doesnt_leak_permits() {
     // Now, the third service should acquire a permit...
     assert!(ready3.is_woken());
     assert_ready_ok!(ready3.poll());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn extracting_inner_service() {
+    let _t = support::trace_init();
+
+    let service = tower::service_fn(|request: i32| async move { Ok::<_, Infallible>(request * 2) });
+    let mut service = tower::buffer::Buffer::new(service, 10);
+
+    // acquire a permit
+    service.ready().await.unwrap();
+
+    // extract the inner service
+    let mut inner = service.clone().try_into_inner().unwrap();
+
+    // should be callable
+    let res = inner.ready().await.unwrap().call(1).await.unwrap();
+    assert_eq!(res, 2);
+
+    // the permit we acquired before is no longer valid
+    assert!(service
+        .call(10)
+        .await
+        .unwrap_err()
+        .downcast::<tower::buffer::error::ServiceExtractedFromWorker>()
+        .is_ok());
+
+    // `poll_ready` also fails
+    assert!(service
+        .ready()
+        .await
+        .err()
+        .unwrap()
+        .downcast::<tower::buffer::error::ServiceExtractedFromWorker>()
+        .is_ok());
 }
 
 type Mock = mock::Mock<&'static str, &'static str>;

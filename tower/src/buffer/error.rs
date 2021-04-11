@@ -17,6 +17,12 @@ pub struct Closed {
     _p: (),
 }
 
+/// An error produced by calling a [`Buffer`] who's worker's service has been extraced
+/// with [`Buffer::try_into_inner`].
+pub struct ServiceExtractedFromWorker {
+    _p: (),
+}
+
 // ===== impl ServiceError =====
 
 impl ServiceError {
@@ -66,3 +72,25 @@ impl fmt::Display for Closed {
 }
 
 impl std::error::Error for Closed {}
+
+// ===== impl ServiceExtractedFromWorker =====
+
+impl ServiceExtractedFromWorker {
+    pub(crate) fn new() -> Self {
+        ServiceExtractedFromWorker { _p: () }
+    }
+}
+
+impl fmt::Debug for ServiceExtractedFromWorker {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_tuple("ServiceExtractedFromWorker").finish()
+    }
+}
+
+impl fmt::Display for ServiceExtractedFromWorker {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str("buffer's worker service has been extracted")
+    }
+}
+
+impl std::error::Error for ServiceExtractedFromWorker {}
