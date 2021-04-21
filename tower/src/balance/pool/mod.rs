@@ -168,7 +168,7 @@ where
 }
 
 /// A [builder] that lets you configure how a [`Pool`] determines whether the underlying service is
-/// loaded or not. See the [module-level documentation](index.html) and the builder's methods for
+/// loaded or not. See the [module-level documentation](self) and the builder's methods for
 /// details.
 ///
 ///  [builder]: https://rust-lang-nursery.github.io/api-guidelines/type-safety.html#builders-enable-construction-of-complex-values-c-builder
@@ -201,7 +201,7 @@ impl Builder {
         Self::default()
     }
 
-    /// When the estimated load (see the [module-level docs](index.html)) drops below this
+    /// When the estimated load (see the [module-level docs](self)) drops below this
     /// threshold, and there are at least two services active, a service is removed.
     ///
     /// The default value is 0.01. That is, when one in every 100 `poll_ready` calls return
@@ -211,7 +211,7 @@ impl Builder {
         self
     }
 
-    /// When the estimated load (see the [module-level docs](index.html)) exceeds this
+    /// When the estimated load (see the [module-level docs](self)) exceeds this
     /// threshold, and no service is currently in the process of being added, a new service is
     /// scheduled to be added to the underlying [`Balance`].
     ///
