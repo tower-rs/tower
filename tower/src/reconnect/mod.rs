@@ -9,8 +9,8 @@
 //! call the service again even if the inner `MakeService` was unable to
 //! connect on the last call.
 //!
-//! [`MakeService`]: ../make/trait.MakeService.html
-//! [`Service`]: ../trait.Service.html
+//! [`MakeService`]: crate::make::MakeService
+//! [`Service`]: crate::Service
 
 mod future;
 

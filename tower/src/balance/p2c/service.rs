@@ -27,7 +27,7 @@ use tracing::{debug, trace};
 /// `&mut self`. You can achieve this easily by wrapping your [`Discover`] in [`Box::pin`] before you
 /// construct the [`Balance`] instance. For more details, see [#319].
 ///
-/// [`Box::pin`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.pin
+/// [`Box::pin`]: std::boxed::Box::pin()
 /// [#319]: https://github.com/tower-rs/tower/issues/319
 pub struct Balance<D, Req>
 where
