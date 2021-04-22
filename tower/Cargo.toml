@@ -96,3 +96,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [package.metadata.playground]
 features = ["full"]
+
+[[example]]
+name = "tower-balance"
+path = "examples/tower-balance.rs"
+required-features = ["full"]
