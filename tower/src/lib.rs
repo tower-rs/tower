@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.4.4")]
+#![doc(html_root_url = "https://docs.rs/tower/0.4.6")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
@@ -220,8 +220,6 @@ pub use crate::make::MakeService;
 pub use tower_layer::Layer;
 #[doc(inline)]
 pub use tower_service::Service;
-#[cfg(any(feature = "buffer", feature = "limit"))]
-mod semaphore;
 
 #[allow(unreachable_pub)]
 mod sealed {

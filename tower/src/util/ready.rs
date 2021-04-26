@@ -64,15 +64,23 @@ where
 
 /// A future that yields a mutable reference to the service when it is ready to accept a request.
 ///
+/// [`Ready`] values are produced by [`ServiceExt::ready`].
+///
+/// [`ServiceExt::ready`]: crate::util::ServiceExt::ready
+pub struct Ready<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
+
+/// A future that yields a mutable reference to the service when it is ready to accept a request.
+///
 /// [`ReadyAnd`] values are produced by [`ServiceExt::ready_and`].
 ///
 /// [`ServiceExt::ready_and`]: crate::util::ServiceExt::ready_and
-pub struct ReadyAnd<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
+#[deprecated(since = "0.4.6", note = "Please use the Ready future instead")]
+pub type ReadyAnd<'a, T, Request> = Ready<'a, T, Request>;
 
 // Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
-impl<'a, T, Request> Unpin for ReadyAnd<'a, T, Request> {}
+impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
 
-impl<'a, T, Request> ReadyAnd<'a, T, Request>
+impl<'a, T, Request> Ready<'a, T, Request>
 where
     T: Service<Request>,
 {
@@ -82,7 +90,7 @@ where
     }
 }
 
-impl<'a, T, Request> Future for ReadyAnd<'a, T, Request>
+impl<'a, T, Request> Future for Ready<'a, T, Request>
 where
     T: Service<Request>,
 {
@@ -93,11 +101,11 @@ where
     }
 }
 
-impl<'a, T, Request> fmt::Debug for ReadyAnd<'a, T, Request>
+impl<'a, T, Request> fmt::Debug for Ready<'a, T, Request>
 where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("ReadyAnd").field(&self.0).finish()
+        f.debug_tuple("Ready").field(&self.0).finish()
     }
 }

@@ -1,6 +1,7 @@
 //! Builder types to compose layers and services
 
 use tower_layer::{Identity, Layer, Stack};
+use tower_service::Service;
 
 use std::fmt;
 
@@ -132,6 +133,40 @@ impl<L> ServiceBuilder<L> {
         ServiceBuilder {
             layer: Stack::new(layer, self.layer),
         }
+    }
+
+    /// Optionally add a new layer `T` into the [`ServiceBuilder`].
+    ///
+    /// ```
+    /// # use std::time::Duration;
+    /// # use tower::Service;
+    /// # use tower::builder::ServiceBuilder;
+    /// # use tower::timeout::TimeoutLayer;
+    /// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
+    /// # let timeout = Some(Duration::new(10, 0));
+    /// // Apply a timeout if configured
+    /// ServiceBuilder::new()
+    ///     .option_layer(timeout.map(TimeoutLayer::new))
+    ///     .service(svc)
+    /// # ;
+    /// # }
+    /// ```
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn option_layer<T>(
+        self,
+        layer: Option<T>,
+    ) -> ServiceBuilder<Stack<crate::util::Either<T, Identity>, L>> {
+        self.layer(crate::util::option_layer(layer))
+    }
+
+    /// Add a [`Layer`] built from a function that accepts a service and returns another service.
+    ///
+    /// See the documentation for [`layer_fn`] for more details.
+    ///
+    /// [`layer_fn`]: crate::layer::layer_fn
+    pub fn layer_fn<F>(self, f: F) -> ServiceBuilder<Stack<crate::layer::LayerFn<F>, L>> {
+        self.layer(crate::layer::layer_fn(f))
     }
 
     /// Buffer requests when when the next layer is not ready.
@@ -380,6 +415,20 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::MapErrLayer::new(f))
     }
 
+    /// Composes a function that transforms futures produced by the service.
+    ///
+    /// This wraps the inner service with an instance of the [`MapFutureLayer`] middleware.
+    ///
+    /// See the documentation for the [`map_future`] combinator for details.
+    ///
+    /// [`MapFutureLayer`]: crate::util::MapFutureLayer
+    /// [`map_future`]: crate::util::ServiceExt::map_future
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn map_future<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapFutureLayer<F>, L>> {
+        self.layer(crate::util::MapFutureLayer::new(f))
+    }
+
     /// Apply a function after the service, regardless of whether the future
     /// succeeds or fails.
     ///
@@ -419,6 +468,186 @@ impl<L> ServiceBuilder<L> {
         L: Layer<S>,
     {
         self.layer.layer(service)
+    }
+
+    /// Wrap the async function `F` with the middleware provided by this [`ServiceBuilder`]'s
+    /// [`Layer`]s, returning a new [`Service`].
+    ///
+    /// This is a convenience method which is equivalent to calling
+    /// [`ServiceBuilder::service`] with a [`service_fn`], like this:
+    ///
+    /// ```rust
+    /// # use tower::{ServiceBuilder, service_fn};
+    /// # async fn handler_fn(_: ()) -> Result<(), ()> { Ok(()) }
+    /// # let _ = {
+    /// ServiceBuilder::new()
+    ///     // ...
+    ///     .service(service_fn(handler_fn))
+    /// # };
+    /// ```
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    /// use tower::{ServiceBuilder, ServiceExt, BoxError, service_fn};
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), BoxError> {
+    /// async fn handle(request: &'static str) -> Result<&'static str, BoxError> {
+    ///    Ok(request)
+    /// }
+    ///
+    /// let svc = ServiceBuilder::new()
+    ///     .buffer(1024)
+    ///     .timeout(Duration::from_secs(10))
+    ///     .service_fn(handle);
+    ///
+    /// let response = svc.oneshot("foo").await?;
+    ///
+    /// assert_eq!(response, "foo");
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [`Layer`]: crate::Layer
+    /// [`Service`]: crate::Service
+    /// [`service_fn`]: crate::service_fn
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn service_fn<F>(self, f: F) -> L::Service
+    where
+        L: Layer<crate::util::ServiceFn<F>>,
+    {
+        self.service(crate::util::service_fn(f))
+    }
+
+    /// Check that the builder implements `Clone`.
+    ///
+    /// This can be useful when debugging type errors in `ServiceBuilder`s with lots of layers.
+    ///
+    /// Doesn't actually change the builder but serves as a type check.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    ///
+    /// let builder = ServiceBuilder::new()
+    ///     // Do something before processing the request
+    ///     .map_request(|request: String| {
+    ///         println!("got request!");
+    ///         request
+    ///     })
+    ///     // Ensure our `ServiceBuilder` can be cloned
+    ///     .check_clone()
+    ///     // Do something after processing the request
+    ///     .map_response(|response: String| {
+    ///         println!("got response!");
+    ///         response
+    ///     });
+    /// ```
+    #[inline]
+    pub fn check_clone(self) -> Self
+    where
+        Self: Clone,
+    {
+        self
+    }
+
+    /// Check that the builder when given a service of type `S` produces a service that implements
+    /// `Clone`.
+    ///
+    /// This can be useful when debugging type errors in `ServiceBuilder`s with lots of layers.
+    ///
+    /// Doesn't actually change the builder but serves as a type check.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    ///
+    /// # #[derive(Clone)]
+    /// # struct MyService;
+    /// #
+    /// let builder = ServiceBuilder::new()
+    ///     // Do something before processing the request
+    ///     .map_request(|request: String| {
+    ///         println!("got request!");
+    ///         request
+    ///     })
+    ///     // Ensure that the service produced when given a `MyService` implements
+    ///     .check_service_clone::<MyService>()
+    ///     // Do something after processing the request
+    ///     .map_response(|response: String| {
+    ///         println!("got response!");
+    ///         response
+    ///     });
+    /// ```
+    #[inline]
+    pub fn check_service_clone<S>(self) -> Self
+    where
+        L: Layer<S>,
+        L::Service: Clone,
+    {
+        self
+    }
+
+    /// Check that the builder when given a service of type `S` produces a service with the given
+    /// request, response, and error types.
+    ///
+    /// This can be useful when debugging type errors in `ServiceBuilder`s with lots of layers.
+    ///
+    /// Doesn't actually change the builder but serves as a type check.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use tower::ServiceBuilder;
+    /// use std::task::{Poll, Context};
+    /// use tower::{Service, ServiceExt};
+    ///
+    /// // An example service
+    /// struct MyService;
+    ///
+    /// impl Service<Request> for MyService {
+    ///   type Response = Response;
+    ///   type Error = Error;
+    ///   type Future = futures_util::future::Ready<Result<Response, Error>>;
+    ///
+    ///   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    ///       // ...
+    ///       # todo!()
+    ///   }
+    ///
+    ///   fn call(&mut self, request: Request) -> Self::Future {
+    ///       // ...
+    ///       # todo!()
+    ///   }
+    /// }
+    ///
+    /// struct Request;
+    /// struct Response;
+    /// struct Error;
+    ///
+    /// struct WrappedResponse(Response);
+    ///
+    /// let builder = ServiceBuilder::new()
+    ///     // At this point in the builder if given a `MyService` it produces a service that
+    ///     // accepts `Request`s, produces `Response`s, and fails with `Error`s
+    ///     .check_service::<MyService, Request, Response, Error>()
+    ///     // Wrap responses in `WrappedResponse`
+    ///     .map_response(|response: Response| WrappedResponse(response))
+    ///     // Now the response type will be `WrappedResponse`
+    ///     .check_service::<MyService, _, WrappedResponse, _>();
+    /// ```
+    #[inline]
+    pub fn check_service<S, T, U, E>(self) -> Self
+    where
+        L: Layer<S>,
+        L::Service: Service<T, Response = U, Error = E>,
+    {
+        self
     }
 }
 

@@ -11,30 +11,35 @@ mod map_request;
 mod map_response;
 mod map_result;
 
+mod map_future;
 mod oneshot;
 mod optional;
 mod ready;
 mod service_fn;
 mod then;
 
+#[allow(deprecated)]
 pub use self::{
     and_then::{AndThen, AndThenLayer},
-    boxed::{BoxService, UnsyncBoxService},
+    boxed::{BoxLayer, BoxService, UnsyncBoxService},
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
+    map_future::{MapFuture, MapFutureLayer},
     map_request::{MapRequest, MapRequestLayer},
     map_response::{MapResponse, MapResponseLayer},
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
-    ready::{ReadyAnd, ReadyOneshot},
+    ready::{Ready, ReadyAnd, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
 use std::future::Future;
+
+use crate::layer::util::Identity;
 
 pub mod error {
     //! Error types
@@ -57,6 +62,19 @@ pub mod future {
 /// adapters
 pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// Yields a mutable reference to the service when it is ready to accept a request.
+    fn ready(&mut self) -> Ready<'_, Self, Request>
+    where
+        Self: Sized,
+    {
+        Ready::new(self)
+    }
+
+    /// Yields a mutable reference to the service when it is ready to accept a request.
+    #[deprecated(
+        since = "0.4.6",
+        note = "please use the `ServiceExt::ready` method instead"
+    )]
+    #[allow(deprecated)]
     fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
     where
         Self: Sized,
@@ -218,7 +236,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let name = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -285,7 +303,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let code = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await
@@ -386,7 +404,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let name = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -456,7 +474,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let record = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -507,7 +525,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -575,7 +593,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -644,7 +662,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = "13";
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -731,7 +749,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// let id = 13;
     /// # let id: u32 = id;
     /// let response = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await;
@@ -833,7 +851,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// // Call the new service
     /// let id = 13;
     /// let record = new_service
-    ///     .ready_and()
+    ///     .ready()
     ///     .await?
     ///     .call(id)
     ///     .await?;
@@ -859,6 +877,108 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     {
         Then::new(self, f)
     }
+
+    /// Composes a function that transforms futures produced by the service.
+    ///
+    /// This takes a function or closure returning a future computed from the future returned by
+    /// the service's [`call`] method, as opposed to the responses produced by the future.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt, BoxError};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # type Record = ();
+    /// # type DbError = crate::BoxError;
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = DbError;
+    /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(()))
+    /// #   }
+    /// # }
+    /// #
+    /// # fn main() {
+    /// use std::time::Duration;
+    /// use tokio::time::timeout;
+    ///
+    /// // A service returning Result<Record, DbError>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    /// #    async {
+    ///
+    /// let mut new_service = service.map_future(|future| async move {
+    ///     let res = timeout(Duration::from_secs(1), future).await?;
+    ///     Ok::<_, BoxError>(res)
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let record = new_service
+    ///     .ready()
+    ///     .await?
+    ///     .call(id)
+    ///     .await?;
+    /// # Ok::<(), BoxError>(())
+    /// #    };
+    /// # }
+    /// ```
+    ///
+    /// Note that normally you wouldn't implement timeouts like this and instead use [`Timeout`].
+    ///
+    /// [`call`]: crate::Service::call
+    /// [`Timeout`]: crate::timeout::Timeout
+    fn map_future<F, Fut, Response, Error>(self, f: F) -> MapFuture<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(Self::Future) -> Fut,
+        Error: From<Self::Error>,
+        Fut: Future<Output = Result<Response, Error>>,
+    {
+        MapFuture::new(self, f)
+    }
 }
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Service<Request> {}
+
+/// Convert an `Option<Layer>` into a [`Layer`].
+///
+/// ```
+/// # use std::time::Duration;
+/// # use tower::Service;
+/// # use tower::builder::ServiceBuilder;
+/// use tower::util::option_layer;
+/// # use tower::timeout::TimeoutLayer;
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
+/// # let timeout = Some(Duration::new(10, 0));
+/// // Layer to apply a timeout if configured
+/// let maybe_timeout = option_layer(timeout.map(TimeoutLayer::new));
+///
+/// ServiceBuilder::new()
+///     .layer(maybe_timeout)
+///     .service(svc);
+/// # }
+/// ```
+///
+/// [`Layer`]: crate::layer::Layer
+pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
+    if let Some(layer) = layer {
+        Either::A(layer)
+    } else {
+        Either::B(Identity::new())
+    }
+}

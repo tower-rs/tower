@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 use tower_service::Service;
+use tracing::Instrument;
 
 /// Spawns tasks to drive an inner service to readiness.
 ///
@@ -56,7 +57,8 @@ where
                     }
 
                     let svc = svc.take().expect("illegal state");
-                    let rx = tokio::spawn(svc.ready_oneshot().map_err(Into::into));
+                    let rx =
+                        tokio::spawn(svc.ready_oneshot().map_err(Into::into).in_current_span());
                     Inner::Future(rx)
                 }
                 Inner::Future(ref mut fut) => {

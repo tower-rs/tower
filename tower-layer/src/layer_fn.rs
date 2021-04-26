@@ -88,7 +88,7 @@ where
 impl<F> fmt::Debug for LayerFn<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LayerFn")
-            .field("f", &format_args!("<{}>", std::any::type_name::<F>()))
+            .field("f", &format_args!("{}", std::any::type_name::<F>()))
             .finish()
     }
 }
@@ -107,7 +107,7 @@ mod tests {
         let _svc = layer.layer("foo");
 
         assert_eq!(
-            "LayerFn { f: <tower_layer::layer_fn::tests::layer_fn_has_useful_debug_impl::{{closure}}> }".to_string(),
+            "LayerFn { f: tower_layer::layer_fn::tests::layer_fn_has_useful_debug_impl::{{closure}} }".to_string(),
             format!("{:?}", layer),
         );
     }

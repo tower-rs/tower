@@ -32,8 +32,9 @@
 //! [`Service`]: crate::Service
 //! [`Rc`]: std::rc::Rc
 
+mod layer;
 mod sync;
 mod unsync;
 
 #[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
-pub use self::{sync::BoxService, unsync::UnsyncBoxService};
+pub use self::{layer::BoxLayer, sync::BoxService, unsync::UnsyncBoxService};
