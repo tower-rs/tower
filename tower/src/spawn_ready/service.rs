@@ -33,6 +33,14 @@ impl<S> SpawnReady<S> {
     }
 }
 
+impl<S> Drop for SpawnReady<S> {
+    fn drop(&mut self) {
+        if let Inner::Future(ref mut task) = self.inner {
+            task.abort();
+        }
+    }
+}
+
 impl<S, Req> Service<Req> for SpawnReady<S>
 where
     Req: 'static,
@@ -72,4 +80,28 @@ where
             _ => unreachable!("poll_ready must be called"),
         }
     }
+}
+
+#[tokio::test]
+async fn abort_on_drop() {
+    use crate::util::ServiceExt;
+    let (mock, mut handle) = tower_test::mock::pair::<(), ()>();
+    let mut svc = SpawnReady::new(mock);
+    handle.allow(0);
+
+    // Drive the service to readiness until we signal a drop.
+    let (drop_tx, drop_rx) = tokio::sync::oneshot::channel();
+    let mut task = tokio_test::task::spawn(async move {
+        tokio::select! {
+            _ = drop_rx => {}
+            _ = svc.ready() => {}
+        }
+    });
+    tokio_test::assert_pending!(task.poll());
+    tokio_test::assert_pending!(handle.poll_request());
+
+    // End the task and ensure that the inner service has been dropped.
+    assert!(drop_tx.send(()).is_ok());
+    tokio_test::assert_ready!(task.poll());
+    assert!(tokio_test::assert_ready!(handle.poll_request()).is_none());
 }
