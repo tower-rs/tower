@@ -94,7 +94,7 @@ async fn abort_on_drop() {
     let mut task = tokio_test::task::spawn(async move {
         tokio::select! {
             _ = drop_rx => {}
-            _ = svc.ready() => {}
+            _ = svc.ready() => unreachable!("Service must not become ready"),
         }
     });
     tokio_test::assert_pending!(task.poll());
