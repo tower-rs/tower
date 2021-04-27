@@ -5,6 +5,7 @@ mod support;
 use tokio::time;
 use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok};
 use tower::spawn_ready::{SpawnReady, SpawnReadyLayer};
+use tower::util::ServiceExt;
 use tower_test::mock;
 
 #[tokio::test(flavor = "current_thread")]
@@ -46,7 +47,6 @@ async fn when_inner_fails() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn propagates_trace_spans() {
-    use tower::util::ServiceExt;
     use tracing::Instrument;
 
     let _t = support::trace_init();
@@ -58,4 +58,28 @@ async fn propagates_trace_spans() {
     let result = tokio::spawn(service.oneshot(()).instrument(span));
 
     result.await.expect("service panicked").expect("failed");
+}
+
+#[cfg(test)]
+#[tokio::test(flavor = "current_thread")]
+async fn abort_on_drop() {
+    let (mock, mut handle) = mock::pair::<(), ()>();
+    let mut svc = SpawnReady::new(mock);
+    handle.allow(0);
+
+    // Drive the service to readiness until we signal a drop.
+    let (drop_tx, drop_rx) = tokio::sync::oneshot::channel();
+    let mut task = tokio_test::task::spawn(async move {
+        tokio::select! {
+            _ = drop_rx => {}
+            _ = svc.ready() => unreachable!("Service must not become ready"),
+        }
+    });
+    assert_pending!(task.poll());
+    assert_pending!(handle.poll_request());
+
+    // End the task and ensure that the inner service has been dropped.
+    assert!(drop_tx.send(()).is_ok());
+    tokio_test::assert_ready!(task.poll());
+    assert!(tokio_test::assert_ready!(handle.poll_request()).is_none());
 }
