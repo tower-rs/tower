@@ -6,10 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+# 0.4.7 (April 27, 2021)
+
+### Added
+
 - **builder**: Add `ServiceBuilder::check_service` to check the request,
-    response, and error types of the output service.
+    response, and error types of the output service. ([#576])
 - **builder**: Add `ServiceBuilder::check_service_clone` to check the output
-    service can be cloned.
+    service can be cloned. ([#576])
+
+### Fixed
+
+- **spawn_ready**: Abort spawned background tasks when the `SpawnReady` service
+  is dropped, fixing a potential task/resource leak (#[581])
+- Fixed broken documentation links ([#578])
+
+[#576]: https://github.com/tower-rs/tower/pull/576
+[#578]: https://github.com/tower-rs/tower/pull/578
+[#581]: https://github.com/tower-rs/tower/pull/581
 
 # 0.4.6 (February 26, 2021)
 
