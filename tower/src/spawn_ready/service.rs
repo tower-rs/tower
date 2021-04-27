@@ -82,6 +82,7 @@ where
     }
 }
 
+#[cfg(test)]
 #[tokio::test]
 async fn abort_on_drop() {
     use crate::util::ServiceExt;
