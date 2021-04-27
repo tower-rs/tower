@@ -81,28 +81,3 @@ where
         }
     }
 }
-
-#[cfg(test)]
-#[tokio::test]
-async fn abort_on_drop() {
-    use crate::util::ServiceExt;
-    let (mock, mut handle) = tower_test::mock::pair::<(), ()>();
-    let mut svc = SpawnReady::new(mock);
-    handle.allow(0);
-
-    // Drive the service to readiness until we signal a drop.
-    let (drop_tx, drop_rx) = tokio::sync::oneshot::channel();
-    let mut task = tokio_test::task::spawn(async move {
-        tokio::select! {
-            _ = drop_rx => {}
-            _ = svc.ready() => unreachable!("Service must not become ready"),
-        }
-    });
-    tokio_test::assert_pending!(task.poll());
-    tokio_test::assert_pending!(handle.poll_request());
-
-    // End the task and ensure that the inner service has been dropped.
-    assert!(drop_tx.send(()).is_ok());
-    tokio_test::assert_ready!(task.poll());
-    assert!(tokio_test::assert_ready!(handle.poll_request()).is_none());
-}
