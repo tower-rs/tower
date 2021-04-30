@@ -45,7 +45,7 @@ where
 {
     type Future = Ready<Self>;
 
-    fn retry(&self, _req: &Req, _result: Result<&Res, &E>) -> Option<Self::Future> {
+    fn retry(&self, _req: &mut Req, _result: &mut Result<Res, E>) -> Option<Self::Future> {
         None
     }
 
