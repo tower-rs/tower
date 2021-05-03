@@ -32,6 +32,35 @@ fn poll_ready_inner_failure() {
     assert_eq!(cache.len(), 1);
 }
 
+#[tokio::test]
+async fn poll_ready_task_panics() {
+    let _t = support::trace_init();
+
+    struct PanicService;
+
+    impl<T> tower::Service<T> for PanicService {
+        type Future = future::re;
+    }
+
+    let mut task = task::spawn(());
+    let mut cache = ReadyCache::<usize, Mock, Req>::default();
+
+    let (service0, mut handle0) = mock::pair::<Req, Req>();
+    handle0.send_error("doom");
+    cache.push(0, service0);
+
+    let (service1, mut handle1) = mock::pair::<Req, Req>();
+    handle1.allow(1);
+    cache.push(1, service1);
+
+    let failed = assert_ready!(task.enter(|cx, _| cache.poll_pending(cx))).unwrap_err();
+
+    assert_eq!(failed.0, 0);
+    assert_eq!(format!("{}", failed.1), "doom");
+
+    assert_eq!(cache.len(), 1);
+}
+
 #[test]
 fn poll_ready_not_ready() {
     let _t = support::trace_init();
