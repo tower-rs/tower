@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 use tower_service::Service;
+use tracing::Instrument;
 
 /// Spawns tasks to drive an inner service to readiness.
 ///
@@ -32,6 +33,14 @@ impl<S> SpawnReady<S> {
     }
 }
 
+impl<S> Drop for SpawnReady<S> {
+    fn drop(&mut self) {
+        if let Inner::Future(ref mut task) = self.inner {
+            task.abort();
+        }
+    }
+}
+
 impl<S, Req> Service<Req> for SpawnReady<S>
 where
     Req: 'static,
@@ -51,7 +60,8 @@ where
                     }
 
                     let svc = svc.take().expect("illegal state");
-                    let rx = tokio::spawn(svc.ready_oneshot().map_err(Into::into));
+                    let rx =
+                        tokio::spawn(svc.ready_oneshot().map_err(Into::into).in_current_span());
                     Inner::Future(rx)
                 }
                 Inner::Future(ref mut fut) => {

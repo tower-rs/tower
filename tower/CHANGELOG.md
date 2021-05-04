@@ -6,9 +6,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+# 0.4.7 (April 27, 2021)
+
+### Added
+
+- **builder**: Add `ServiceBuilder::check_service` to check the request,
+    response, and error types of the output service. ([#576])
+- **builder**: Add `ServiceBuilder::check_service_clone` to check the output
+    service can be cloned. ([#576])
+
+### Fixed
+
+- **spawn_ready**: Abort spawned background tasks when the `SpawnReady` service
+  is dropped, fixing a potential task/resource leak (#[581])
+- Fixed broken documentation links ([#578])
+
+[#576]: https://github.com/tower-rs/tower/pull/576
+[#578]: https://github.com/tower-rs/tower/pull/578
+[#581]: https://github.com/tower-rs/tower/pull/581
+
+# 0.4.6 (February 26, 2021)
+
+### Deprecated
+
+- **util**: Deprecated `ServiceExt::ready_and` (renamed to `ServiceExt::ready`).
+  ([#567])
+- **util**: Deprecated `ReadyAnd` future (renamed to `Ready`). ([#567])
+### Added
+
+- **builder**: Add `ServiceBuilder::layer_fn` to add a layer built from a
+  function. ([#560])
+- **builder**: Add `ServiceBuilder::map_future` for transforming the futures
+  produced by a service. ([#559])
+- **builder**: Add `ServiceBuilder::service_fn` for applying `Layer`s to an
+  async function using `util::service_fn`. ([#564])
+- **util**: Add example for `service_fn`. ([#563])
+- **util**: Add `BoxLayer` for creating boxed `Layer` trait objects. ([#569])
+
+[#567]: https://github.com/tower-rs/tower/pull/567
+[#560]: https://github.com/tower-rs/tower/pull/560
+[#559]: https://github.com/tower-rs/tower/pull/559
+[#564]: https://github.com/tower-rs/tower/pull/564
+[#563]: https://github.com/tower-rs/tower/pull/563
+[#569]: https://github.com/tower-rs/tower/pull/569
+
+# 0.4.5 (February 10, 2021)
+
+### Added
+
 - **util**: Add `ServiceExt::map_future`. ([#542])
+- **builder**: Add `ServiceBuilder::option_layer` to optionally add a layer. ([#555])
+- **make**: Add `Shared` which lets you implement `MakeService` by cloning a
+  service. ([#533])
+
+### Fixed
+
+- **util**: Make combinators that contain closures implement `Debug`. They
+  previously wouldn't since closures never implement `Debug`. ([#552])
+- **steer**: Implement `Clone` for `Steer`. ([#554])
+- **spawn-ready**: SpawnReady now propagates the current `tracing` span to
+  spawned tasks ([#557])
+- Only pull in `tracing` for the features that need it. ([#551])
 
 [#542]: https://github.com/tower-rs/tower/pull/542
+[#555]: https://github.com/tower-rs/tower/pull/555
+[#557]: https://github.com/tower-rs/tower/pull/557
+[#533]: https://github.com/tower-rs/tower/pull/533
+[#551]: https://github.com/tower-rs/tower/pull/551
+[#554]: https://github.com/tower-rs/tower/pull/554
+[#552]: https://github.com/tower-rs/tower/pull/552
 
 # 0.4.4 (January 20, 2021)
 

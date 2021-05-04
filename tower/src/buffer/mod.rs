@@ -27,7 +27,7 @@
 //!         let mut svc = svc.clone();
 //!         tokio::spawn(async move {
 //!             for i in 0usize.. {
-//!                 svc.ready_and().await.expect("service crashed").call(i).await;
+//!                 svc.ready().await.expect("service crashed").call(i).await;
 //!             }
 //!         });
 //!     }
