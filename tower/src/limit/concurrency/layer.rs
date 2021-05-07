@@ -36,7 +36,7 @@ pub struct GlobalConcurrencyLimitLayer {
 }
 
 impl GlobalConcurrencyLimitLayer {
-    /// Create a new global concurrency limit layer.
+    /// Create a new `GlobalConcurrencyLimitLayer`.
     pub fn new(semaphore: Arc<Semaphore>) -> Self {
         GlobalConcurrencyLimitLayer { semaphore }
     }
@@ -46,6 +46,6 @@ impl<S> Layer<S> for GlobalConcurrencyLimitLayer {
     type Service = ConcurrencyLimit<S>;
 
     fn layer(&self, service: S) -> Self::Service {
-        ConcurrencyLimit::new_owned(service, self.semaphore.clone())
+        ConcurrencyLimit::new_shared(service, self.semaphore.clone())
     }
 }
