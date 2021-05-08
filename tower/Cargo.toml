@@ -8,13 +8,13 @@ name = "tower"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "vX.X.X" git tag.
-version = "0.4.6"
+version = "0.4.7"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower/0.4.6"
+documentation = "https://docs.rs/tower/0.4.7"
 description = """
 Tower is a library of modular and reusable components for building robust
 clients and servers.
@@ -96,3 +96,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [package.metadata.playground]
 features = ["full"]
+
+[[example]]
+name = "tower-balance"
+path = "examples/tower-balance.rs"
+required-features = ["full"]
