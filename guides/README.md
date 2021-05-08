@@ -5,7 +5,7 @@ experience is assumed. Some experience with asynchronous Rust is also
 recommended. If you're brand new to async Rust we recommend the [Asynchronous
 Programming in Rust][async-book] book.
 
-Additionally, some of these guides explains Tower from the perspective of HTTP
+Additionally, some of these guides explain Tower from the perspective of HTTP
 servers and clients. However Tower is useful for anything that follows and async
 request/response pattern. Not just web services even though that is its primary
 use case.

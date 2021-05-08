@@ -150,7 +150,7 @@ duration `handler` is allowed to take. If it doesn't produce a response within
 that amount of time an error is returned.
 
 Your first idea might be to modify `Server` to support being configured with a
-timeout which it will somehow apply to call of the handler. However it turns out
+timeout which it will somehow apply to the call of the handler. However it turns out
 you can actually add a timeout without modifying `Server`. Using
 `tokio::time::timeout` we can make a new handler function that calls our
 previous `handle_request` but with a timeout of 30 seconds:
@@ -188,7 +188,7 @@ async fn handler_with_timout_and_content_type(
 }
 ```
 
-We now have handler that will process an HTTP request, take no longer than 30
+We now have a handler that will process an HTTP request, take no longer than 30
 seconds, and always have the right `Content-Type` header all without modifying
 our original `handle_request` function or `Server` struct.
 
@@ -805,7 +805,7 @@ avaiable using something like [`futures::future::poll_fn`] (or
 This concept of services communicating with their callers about their capacity
 is called "backpressure propagation". The fundamental idea is that you shouldn't
 send a request to a service that doesn't have the capacity to handle it. Instead
-you should wait, call another service, or somehow scale up the number of service
+you should wait, call another service, or somehow scale up the number of services
 available.
 
 Finally, it might also be possible for some error to happen while reserving
@@ -834,7 +834,7 @@ and auto scaling.
 Since you never know exactly which middlewares a `Service` might consist of it
 is important to not forget about `poll_ready`.
 
-With all this in place the way to most common call a service is:
+With all this in place, the most common way to call a service is:
 
 ```rust
 use tower::{
