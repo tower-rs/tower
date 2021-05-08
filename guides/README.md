@@ -3,7 +3,7 @@
 These guides are meant to be an introduction to Tower. At least basic Rust
 experience is assumed. Some experience with asynchronous Rust is also
 recommended. If you're brand new to async Rust we recommend the [Asynchronous
-Programming in Rust][async-book] book.
+Programming in Rust][async-book] book or the [Tokio tutorial][tokio-tutorial].
 
 Additionally, some of these guides explain Tower from the perspective of HTTP
 servers and clients. However Tower is useful for anything that follows and async
@@ -18,4 +18,5 @@ use case.
   where you should start.
 
 [async-book]: https://rust-lang.github.io/async-book/
+[tokio-tutorial]: https://tokio.rs/tokio/tutorial
 [invent]: https://github.com/tower-rs/tower/blob/master/guides/inventing-service.md
