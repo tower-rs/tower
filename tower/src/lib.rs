@@ -116,6 +116,9 @@
 //!
 //! ## Getting Started
 //!
+//! If you're brand new to Tower and want to start with the basics we recommend you
+//! check out some of our [guides].
+//!
 //! The various middleware implementations provided by this crate are feature
 //! flagged, so that users can only compile the parts of Tower they need. By
 //! default, all the optional middleware are disabled.
@@ -150,6 +153,8 @@
 //! [`tower-test`]: https://crates.io/crates/tower-test
 //! [`retry`]: crate::retry
 //! [open a PR]: https://github.com/tower-rs/tower/compare
+//! [guides]: https://github.com/tower-rs/tower/tree/master/guides
+
 #[macro_use]
 pub(crate) mod macros;
 #[cfg(feature = "balance")]
