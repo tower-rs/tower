@@ -802,7 +802,7 @@ returns `Poll::Ready(())` then capacity would be reserved and `call` can be
 called.
 
 It would still be possible get a `Future` that resolves when capacity is
-avaiable using something like [`futures::future::poll_fn`] (or
+available using something like [`futures::future::poll_fn`] (or
 [`tower::ServiceExt::ready`]).
 
 This concept of services communicating with their callers about their capacity
