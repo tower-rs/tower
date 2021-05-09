@@ -156,7 +156,7 @@ you can actually add a timeout without modifying `Server`. Using
 previous `handle_request` but with a timeout of 30 seconds:
 
 ```rust
-async fn handler_with_timout(request: Request) -> Result<Response, Error> {
+async fn handler_with_timeout(request: Request) -> Result<Response, Error> {
     let result = tokio::time::timeout(
         Duration::from_secs(30),
         handle_request(request)
@@ -179,10 +179,10 @@ We can wrap `handler_with_timeout` in a similar way and modify the response like
 so:
 
 ```rust
-async fn handler_with_timout_and_content_type(
+async fn handler_with_timeout_and_content_type(
     request: Request,
 ) -> Result<Response, Error> {
-    let mut response = handler_with_timout(request).await?;
+    let mut response = handler_with_timeout(request).await?;
     response.set_header("Content-Type", "application/json");
     Ok(response)
 }
@@ -201,8 +201,8 @@ we have many `handle_with_*` functions that each add a little bit of behavior.
 Having to hard code the chain of which intermediate handler calls which isn't
 great. Our current chain is
 
-1. `handler_with_timout_and_content_type` which calls
-2. `handler_with_timout` which calls
+1. `handler_with_timeout_and_content_type` which calls
+2. `handler_with_timeout` which calls
 3. `handle_request` which actually processes the request
 
 It would be nice if we could somehow compose these three functions without
