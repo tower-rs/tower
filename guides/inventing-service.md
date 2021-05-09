@@ -808,8 +808,9 @@ available using something like [`futures::future::poll_fn`] (or
 This concept of services communicating with their callers about their capacity
 is called "backpressure propagation". The fundamental idea is that you shouldn't
 send a request to a service that doesn't have the capacity to handle it. Instead
-you should wait, call another service, or somehow scale up the number of services
-available.
+you should wait, call another service, or somehow scale up the number of
+services available. You can learn more about the general concept of backpressure
+[here][backpressure].
 
 Finally, it might also be possible for some error to happen while reserving
 capacity so `poll_ready` probably should return `Poll<Result<(), Self::Error>>`.
@@ -857,3 +858,4 @@ let response = service
 [dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
 [`futures::future::poll_fn`]: https://docs.rs/futures/0.3.14/futures/future/fn.poll_fn.html
 [`tower::ServiceExt::ready`]: https://docs.rs/tower/0.4.7/tower/trait.ServiceExt.html#method.ready
+[backpressure]: https://medium.com/@jayphelps/backpressure-explained-the-flow-of-data-through-software-2350b3e77ce7
