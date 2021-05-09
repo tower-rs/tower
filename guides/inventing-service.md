@@ -260,6 +260,9 @@ trait Handler {
 We still have to require that `Handler::Future` implements `Future` where the
 output type is `Result<Response, Error>` as that is what `Server::run` requires.
 
+Having `call` take `&mut self` is useful because it allows handlers to update
+their internal state if necessary.
+
 Lets convert our original `handle_request` function into an implementation of
 this trait:
 
