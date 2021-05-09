@@ -773,8 +773,8 @@ trait Service<R> {
 enough to receive one new request. We would then require users to first call
 `service.ready().await` before doing `service.call(request).await`.
 
-This way way `ConcurrencyLimit` could track capacity inside `ready` and not
-allow users to call `call` until there is sufficient capacity.
+This way `ConcurrencyLimit` could track capacity inside `ready` and not allow
+users to call `call` until there is sufficient capacity.
 
 `Service`s that don't care about capacity can just return immediately from
 `ready` or delegate to some inner `Service` they're wrapping.
