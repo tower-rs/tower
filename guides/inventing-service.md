@@ -749,17 +749,17 @@ impl<R, T> Service<R> for ConcurrencyLimit<T> {
         //    currently.
         // 2. If there is capacity left send the request to `T`
         //    and increment the counter.
-        // 3. If not somehow wait a bit and check the capacity
-        //    again.
+        // 3. If not somehow wait until capacity becomes available.
     }
 }
 ```
 
-If there is no capacity left we just have to wait a bit and then check again. So
-if the service is receiving a lot of requests you can imagine waiting for a long
-time.  It would also be nice if we had a way to tell the caller that there was
-no more capacity left. Maybe they wanted to react to that by calling another
-service instead.
+If there is no capacity left we have to wait and somehow get notified when
+capacity becomes available. So if the service is receiving a lot of requests we
+risk spending a lot of time waiting. It would be nice if we had a way to tell
+the caller that there was no more capacity left. Maybe they wanted to react to
+that by calling another service or somehow creating another service to handle
+part of the load.
 
 In a way it would be nice if `Service` had a method like this:
 
@@ -773,8 +773,13 @@ trait Service<R> {
 enough to receive one new request. We would then require users to first call
 `service.ready().await` before doing `service.call(request).await`.
 
-This way `ConcurrencyLimit` could track capacity inside `ready` and not allow
-users to call `call` until there is sufficient capacity.
+Separating "calling the service" from "reserving capacity" also unlocks new use
+cases such as being able to maintain a set of "ready services" that we keep up
+to date in the background such that when a request arrives we already have a
+ready service to send it to and don't have to first wait for it to become ready.
+
+With this setup `ConcurrencyLimit` could track capacity inside `ready` and not
+allow users to call `call` until there is sufficient capacity.
 
 `Service`s that don't care about capacity can just return immediately from
 `ready` or delegate to some inner `Service` they're wrapping.
@@ -796,7 +801,7 @@ trait Service<R> {
 ```
 
 This means if the service is at capacity `poll_ready` will return
-`Poll::Pending` and somehow ensure to call the provided `Context` when capacity
+`Poll::Pending` and somehow ensure to be woken up using `Context` when capacity
 becomes available. At that point `poll_ready` can be called again and if it
 returns `Poll::Ready(())` then capacity would be reserved and `call` can be
 called.
