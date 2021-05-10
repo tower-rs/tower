@@ -774,9 +774,10 @@ impl<R, T> Service<R> for ConcurrencyLimit<T> {
 If there is no capacity left we have to wait and somehow get notified when
 capacity becomes available. So if the service is receiving a lot of requests we
 risk spending a lot of time waiting. It would be nice if we had a way to tell
-the caller that there was no more capacity left. Maybe they wanted to react to
-that by calling another service or somehow creating another service to handle
-part of the load.
+the caller that there was no more capacity left. Maybe they wanted to react by
+calling another service or somehow creating a new service to handle part of the
+load. We also risk running out of memory if we keep accepting requests faster
+than we can process them.
 
 In a way it would be nice if `Service` had a method like this:
 
