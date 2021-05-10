@@ -38,9 +38,11 @@ impl Server {
     where
         F: Fn(Request) -> Response,
     {
+        let listener = TcpListener::bind(self.addr).await?;
+
         loop {
-            let mut connection = receive_connection().await?;
-            let request = parse_http_request(&mut connection).await?;
+            let mut connection = listener.accept().await?;
+            let request = read_http_request(&mut connection).await?;
 
             // Call the handler provided by the user
             let response = handler(request);
@@ -87,11 +89,15 @@ impl Server {
         // ...which is a `Future` who's `Output` is a `Response`
         Fut: Future<Output = Response>,
     {
+        let listener = TcpListener::bind(self.addr).await?;
+
         loop {
-            let mut connection = receive_connection().await?;
-            let request = parse_http_request(&mut connection).await?;
+            let mut connection = listener.accept().await?;
+            let request = read_http_request(&mut connection).await?;
+
             // Await the future returned by `handler`
             let response = handler(request).await;
+
             write_http_response(connection).await?;
         }
     }
@@ -131,12 +137,16 @@ impl Server {
         // The response future is now allowed to fail
         Fut: Future<Output = Result<Response, Error>>,
     {
+        let listener = TcpListener::bind(self.addr).await?;
+
         loop {
-            let mut connection = receive_connection().await?;
-            let request = parse_http_request(&mut connection).await?;
+            let mut connection = listener.accept().await?;
+            let request = read_http_request(&mut connection).await?;
+
+            // Pattern match on the result of the response future
             match handler(request).await {
                 Ok(response) => write_http_response(connection).await?,
-                Err(error) => handle_error_somehow(error),
+                Err(error) => handle_error_somehow(error, connection),
             }
         }
     }
@@ -195,6 +205,10 @@ our original `handle_request` function or `Server` struct.
 Designing libraries that can be extended in this way is very powerful since it
 allows users to extend things without having to wait for the library maintainers
 to add support for it.
+
+It also makes testing easier since you can break your code into small isolated
+units and write fine grained tests for them, without worrying about all the
+other pieces.
 
 However there is one problem. Our current setup doesn't scale very well. Imagine
 we have many `handle_with_*` functions that each add a little bit of behavior.
@@ -482,13 +496,16 @@ impl Server {
     where
         T: Handler,
     {
+        let listener = TcpListener::bind(self.addr).await?;
+
         loop {
-            let mut connection = receive_connection().await?;
-            let request = parse_http_request(&mut connection).await?;
+            let mut connection = listener.accept().await?;
+            let request = read_http_request(&mut connection).await?;
+
             // have to call `Handler::call` here
             match handler.call(request).await {
                 Ok(response) => write_http_response(connection).await?,
-                Err(error) => handle_error_somehow(error),
+                Err(error) => handle_error_somehow(error, connection),
             }
         }
     }
