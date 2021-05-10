@@ -753,8 +753,8 @@ The only thing left to talk about is "backpressure" and `poll_ready`.
 
 Imagine you wanted to write a rate limit middleware that wraps a `Service` and
 puts a limit on the maximum number of concurrent requests the underlying service
-can will receive. This would be useful if you had some service that had a hard
-upper limit on the amount of load it could handle.
+will receive. This would be useful if you had some service that had a hard upper
+limit on the amount of load it could handle.
 
 With our current `Service` trait we don't really have a good way to implement
 something like that. We could try:
