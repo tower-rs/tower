@@ -724,7 +724,7 @@ Some example services provided by Tower:
 - `RateLimit` - To limit the number of requests a service can handle over a
   period of time.
 
-Types like `Timeout` and `JsonContentType` are typically called "middlewares"
+Types like `Timeout` and `JsonContentType` are typically called "middleware"
 since they wrap another `Service` and transform the request or response in some
 way. Whereas types like `RequestHandler` is typically called "leaf services"
 since it sits at the leaves of a tree of nested services. The actual responses
