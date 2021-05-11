@@ -116,7 +116,7 @@ where
 impl<D, Req> Balance<D, Req>
 where
     D: Discover + Unpin,
-    D::Key: Hash + Clone,
+    D::Key: fmt::Debug + Hash + Clone,
     D::Error: Into<crate::BoxError>,
     D::Service: Service<Req> + Load,
     <D::Service as Load>::Metric: std::fmt::Debug,
@@ -137,11 +137,11 @@ where
             {
                 None => return Poll::Ready(None),
                 Some(Change::Remove(key)) => {
-                    trace!("remove");
+                    trace!(?key, "remove");
                     self.services.evict(&key);
                 }
                 Some(Change::Insert(key, svc)) => {
-                    trace!("insert");
+                    trace!(?key, "insert");
                     // If this service already existed in the set, it will be
                     // replaced as the new one becomes ready.
                     self.services.push(key, svc);
@@ -222,7 +222,7 @@ where
 impl<D, Req> Service<Req> for Balance<D, Req>
 where
     D: Discover + Unpin,
-    D::Key: Hash + Clone,
+    D::Key: fmt::Debug + Hash + Clone,
     D::Error: Into<crate::BoxError>,
     D::Service: Service<Req> + Load,
     <D::Service as Load>::Metric: std::fmt::Debug,

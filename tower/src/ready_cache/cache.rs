@@ -191,24 +191,30 @@ where
     /// Services are dropped from the ready set immediately. Services in the
     /// pending set are marked for cancellation, but [`ReadyCache::poll_pending`]
     /// must be called to cause the service to be dropped.
-    pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
+    pub fn evict<Q: fmt::Debug + Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
+        tracing::trace!(?key, "evicting");
         let canceled = if let Some(c) = self.pending_cancel_txs.swap_remove(key) {
             c.send(()).expect("cancel receiver lost");
+            tracing::trace!(?key, "evicting: canceled");
             true
         } else {
+            tracing::trace!(?key, "evicting: no cancel tx");
             false
         };
 
         self.ready
             .swap_remove_full(key)
-            .map(|_| true)
+            .map(|_| {
+                tracing::trace!(?key, "evicting: removed");
+                true
+            })
             .unwrap_or(canceled)
     }
 }
 
 impl<K, S, Req> ReadyCache<K, S, Req>
 where
-    K: Clone + Eq + Hash,
+    K: fmt::Debug + Clone + Eq + Hash,
     S: Service<Req>,
     <S as Service<Req>>::Error: Into<crate::BoxError>,
     S::Error: Into<crate::BoxError>,
@@ -229,7 +235,9 @@ where
     }
 
     fn push_pending(&mut self, key: K, svc: S, (cancel_tx, cancel_rx): CancelPair) {
+        tracing::trace!(?key, "push_pending");
         if let Some(c) = self.pending_cancel_txs.insert(key.clone(), cancel_tx) {
+            tracing::trace!(?key, "push_pending: removing existing cancel tx");
             // If there is already a service for this key, cancel it.
             c.send(()).expect("cancel receiver lost");
         }
@@ -263,6 +271,11 @@ where
                 Poll::Ready(Some(Ok((key, svc, cancel_rx)))) => {
                     trace!("endpoint ready");
                     let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
+                    tracing::trace!(
+                        ?key,
+                        cancel_tx.is_some = cancel_tx.is_some(),
+                        "poll_pending: became ready, remove cancel tx"
+                    );
                     if let Some(cancel_tx) = cancel_tx {
                         // Keep track of the cancelation so that it need not be
                         // recreated after the service is used.
@@ -292,6 +305,11 @@ where
                 }
                 Poll::Ready(Some(Err(PendingError::Inner(key, e)))) => {
                     let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
+                    tracing::trace!(
+                        ?key,
+                        cancel_tx.is_some = cancel_tx.is_some(),
+                        "poll_pending: failed; remove cancel tx"
+                    );
                     if cancel_tx.is_some() {
                         return Err(error::Failed(key, e.into())).into();
                     } else {
@@ -342,7 +360,7 @@ where
                     .ready
                     .swap_remove_index(index)
                     .expect("invalid ready index");
-
+                tracing::trace!(?key, index, "check_ready_index: became unready");
                 // If a new version of this service has been added to the
                 // unready set, don't overwrite it.
                 if !self.pending_contains(&key) {
@@ -357,6 +375,7 @@ where
                     .ready
                     .swap_remove_index(index)
                     .expect("invalid ready index");
+                tracing::trace!(?key, index, "check_ready_index: failed");
                 Err(error::Failed(key, e.into()))
             }
         }
@@ -386,12 +405,16 @@ where
             .swap_remove_index(index)
             .expect("check_ready_index was not called");
 
+        tracing::trace!(?key, index, "call_ready_index: calling");
         let fut = svc.call(req);
 
         // If a new version of this service has been added to the
         // unready set, don't overwrite it.
         if !self.pending_contains(&key) {
+            tracing::trace!(?key, index, "call_ready_index: push to pending");
             self.push_pending(key, svc, cancel);
+        } else {
+            tracing::trace!(?key, index, "call_ready_index: already pending");
         }
 
         fut
