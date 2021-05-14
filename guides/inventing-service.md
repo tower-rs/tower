@@ -373,7 +373,7 @@ block. That means the lifetime of our future is tied to the lifetime of `&mut
 self`. This doesn't work for us since we might want to run our response futures
 on multiple threads to get better performance or produce multiple response
 futures and run them all in parallel. That isn't possible if a reference to the
-handler lives inside the futures.
+handler lives inside the futures<sup>[1](#gats)</sup>.
 
 Instead we need convert the `&mut self` into an owned `self`. That is exactly
 what `Clone` does:
@@ -545,19 +545,19 @@ library on crates.io for other people to use!
 
 Our little `Handler` trait is working quite nicely but currently it only
 supports our `Request` and `Response` types. It would be nice if those where
-generic so users could use whatever type they want:
+generic so users could use whatever type they want.
+
+We make `Request` a generic type parameter of the trait so that a given service
+can accept many different types of requests. We make `Response` an associated type
+because for any given `Request` type, there can only be one (associated) `Response`
+type: the one the corresponding call returns!
 
 ```rust
-// Lets make the request type a generic type parameter.
-// This allows users to implement `Handler` multiple times for
-// the same type. Its not something we need but our users might.
 trait Handler<Request> {
-    // Similarly to `Future` we add an associated type for the
-    // response
     type Response;
 
-    // Might as well add one for error as well. No reason for that
-    // to be a hardcoded type
+    // Error should also be an associated type. No reason for that to be a
+    // hardcoded type
     type Error;
 
     // Our future type from before but now its output must use
@@ -565,7 +565,7 @@ trait Handler<Request> {
     type Future: Future<Output = Result<Self::Response, Self::Error>>;
 
     // `call` is unchanged but note that `Request` here is our generic
-    // `Request` type paramter and not the `Request` type we've used
+    // `Request` type parameter and not the `Request` type we've used
     // until now
     fn call(&mut self, request: Request) -> Self::Future;
 }
@@ -772,12 +772,11 @@ impl<R, T> Service<R> for ConcurrencyLimit<T> {
 ```
 
 If there is no capacity left we have to wait and somehow get notified when
-capacity becomes available. So if the service is receiving a lot of requests we
-risk spending a lot of time waiting. It would be nice if we had a way to tell
-the caller that there was no more capacity left. Maybe they wanted to react by
-calling another service or somehow creating a new service to handle part of the
-load. We also risk running out of memory if we keep accepting requests faster
-than we can process them.
+capacity becomes available. Additionally we have to keep the request in memory
+while we're waiting (also called buffering). It would be robust to only allocate
+space for the request when we are sure the service has capacity to handle it.
+Otherwise we risk using a lot of memory buffering requests while we wait for our
+service to become ready.
 
 In a way it would be nice if `Service` had a method like this:
 
@@ -819,21 +818,30 @@ trait Service<R> {
 ```
 
 This means if the service is at capacity `poll_ready` will return
-`Poll::Pending` and somehow ensure to be woken up using `Context` when capacity
-becomes available. At that point `poll_ready` can be called again and if it
-returns `Poll::Ready(())` then capacity would be reserved and `call` can be
-called.
+`Poll::Pending` and somehow notify the caller using the waker from the `Context`
+when capacity becomes available. At that point `poll_ready` can be called again
+and if it returns `Poll::Ready(())` then capacity would be reserved and `call`
+can be called.
+
+`poll_ready` not returning a `Future` also means we're able to quickly check if
+a service is ready without being forced to wait for it to become ready. If we
+call `poll_ready` and get back `Poll::Pending` we can simply decide to do
+something else instead of waiting. Among other things, this allows you to build
+load balancers that estimates the load of services by how often they return
+`Poll::Pending` and sends requests to the service with the least load.
 
 It would still be possible get a `Future` that resolves when capacity is
 available using something like [`futures::future::poll_fn`] (or
 [`tower::ServiceExt::ready`]).
 
 This concept of services communicating with their callers about their capacity
-is called "backpressure propagation". The fundamental idea is that you shouldn't
-send a request to a service that doesn't have the capacity to handle it. Instead
-you should wait, call another service, or somehow scale up the number of
-services available. You can learn more about the general concept of backpressure
-[here][backpressure].
+is called "backpressure propagation". Think of it as services pushing back on
+their callers telling them to slow down if they're going too fast. The
+fundamental idea is that you shouldn't send a request to a service that doesn't
+have the capacity to handle it. Instead you should wait (buffering), drop the
+request (load shedding), or handle the lack of capacity in some other way. You
+can learn more about the general concept of backpressure [here][backpressure]
+and [here][backpressure2].
 
 Finally, it might also be possible for some error to happen while reserving
 capacity so `poll_ready` probably should return `Poll<Result<(), Self::Error>>`.
@@ -854,7 +862,7 @@ pub trait Service<Request> {
 }
 ```
 
-Middlewares that care about backpressure is pretty rare but it does enable some
+Middlewares that care about backpressure are pretty rare but it does enable some
 interesting use cases such as various kinds of rate limiting, load balancing,
 and auto scaling.
 
@@ -877,8 +885,22 @@ let response = service
     .call(request).await?;
 ```
 
+---
+
+## Footnotes
+
+<a name="gats">1</a>: To be a bit more precise, the reason this requires the
+response future to be `'static` is that writing `Box<dyn Future>` actually
+becomes `Box<dyn Future + 'static>` which the anonymous lifetime in
+`fn call(&'_ mut self, ...)` doesn't satisfy. In the future we're hoping to
+use [Generic associated types][gat] to expression this a bit more cleanly.
+That will allow us to define the response future as `type Future<'a>` and `call`
+as `fn call<'a>(&'a mut self, ...) -> Self::Future<'a>`.
+
 [async-trait]: https://crates.io/crates/async-trait
 [dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
 [`futures::future::poll_fn`]: https://docs.rs/futures/0.3.14/futures/future/fn.poll_fn.html
 [`tower::ServiceExt::ready`]: https://docs.rs/tower/0.4.7/tower/trait.ServiceExt.html#method.ready
 [backpressure]: https://medium.com/@jayphelps/backpressure-explained-the-flow-of-data-through-software-2350b3e77ce7
+[backpressure2]: https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
+[gat]: https://github.com/rust-lang/rust/issues/44265
