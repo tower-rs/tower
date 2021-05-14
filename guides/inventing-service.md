@@ -79,8 +79,13 @@ about any of the low level details.
 However, our current design has one issue: we cannot handle requests
 asynchronously. Imagine our user needs to query a database or send a request to
 some other server while handling the request. Currently, that would require
-blocking while we wait for a response. That isn't great. Lets fix that by having
-the handler function return a future:
+[blocking] while we wait for the handler to produce a response. If we want our
+server to be able to handle a large number of concurrent connections, we need
+to be able to serve other requests while we wait for that request to complete
+asynchronously. Let's fix this by having the handler function return a [future]:
+
+[blocking]: https://ryhl.io/blog/async-what-is-blocking/
+[future]: https://doc.rust-lang.org/stable/std/future/trait.Future.html
 
 ```rust
 impl Server {
@@ -88,7 +93,7 @@ impl Server {
     where
         // `handler` now returns a generic type `Fut`...
         F: Fn(Request) -> Fut,
-        // ...which is a `Future` who's `Output` is a `Response`
+        // ...which is a `Future` whose `Output` is a `Response`
         Fut: Future<Output = Response>,
     {
         let listener = TcpListener::bind(self.addr).await?;
@@ -126,9 +131,9 @@ async fn handle_request(request: Request) -> Response {
 server.run(handle_request).await?;
 ```
 
-This is much nicer since our request handling can now call other async
-functions. However there is still something missing. What if our handler
-encounters an error and cannot produce a response? Lets make it return a
+This is much nicer, since our request handling can now call other async
+functions. However, there is still something missing. What if our handler
+encounters an error and cannot produce a response? Let's make it return a
 `Result`:
 
 ```rust
