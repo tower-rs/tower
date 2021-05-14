@@ -33,6 +33,11 @@ pattern. If your protocol is entirely stream based, Tower may not be a good fit.
 
 Currently, `tower 0.4` is released on crates.io.
 
+## Getting Started
+
+If you're brand new to Tower and want to start with the basics we recommend you
+check out some of our [guides].
+
 ## License
 
 This project is licensed under the [MIT license](LICENSE).
@@ -42,3 +47,5 @@ This project is licensed under the [MIT license](LICENSE).
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in Tower by you, shall be licensed as MIT, without any additional
 terms or conditions.
+
+[guides]: https://github.com/tower-rs/tower/tree/master/guides
