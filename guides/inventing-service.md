@@ -25,12 +25,12 @@ The question is, what should `the_users_application` be?
 The simplest thing that just might work is:
 
 ```rust
-fn handle_request(request: Request) -> Response {
+fn handle_request(request: HttpRequest) -> HttpResponse {
     // ...
 }
 ```
 
-Where `Request` and `Response` are some structs provided by our framework.
+Where `HttpRequest` and `HttpResponse` are some structs provided by our framework.
 
 With this, we can implement `Server::run` like so:
 
@@ -38,7 +38,7 @@ With this, we can implement `Server::run` like so:
 impl Server {
     async fn run<F>(self, handler: F) -> Result<(), Error>
     where
-        F: Fn(Request) -> Response,
+        F: Fn(HttpRequest) -> HttpResponse,
     {
         let listener = TcpListener::bind(self.addr).await?;
 
@@ -56,16 +56,16 @@ impl Server {
 ```
 
 Here, we have an asynchronous function `run` which takes a closure that accepts a
-`Request` and returns a `Response`.
+`HttpRequest` and returns a `HttpResponse`.
 
 That means users can use our `Server` like so:
 
 ```rust
-fn handle_request(request: Request) -> Response {
+fn handle_request(request: HttpRequest) -> HttpResponse {
     if request.path() == "/" {
-        Response::ok("Hello, World!")
+        HttpResponse::ok("Hello, World!")
     } else {
-        Response::not_found()
+        HttpResponse::not_found()
     }
 }
 
@@ -84,17 +84,14 @@ server to be able to handle a large number of concurrent connections, we need
 to be able to serve other requests while we wait for that request to complete
 asynchronously. Let's fix this by having the handler function return a [future]:
 
-[blocking]: https://ryhl.io/blog/async-what-is-blocking/
-[future]: https://doc.rust-lang.org/stable/std/future/trait.Future.html
-
 ```rust
 impl Server {
     async fn run<F, Fut>(self, handler: F) -> Result<(), Error>
     where
         // `handler` now returns a generic type `Fut`...
-        F: Fn(Request) -> Fut,
-        // ...which is a `Future` whose `Output` is a `Response`
-        Fut: Future<Output = Response>,
+        F: Fn(HttpRequest) -> Fut,
+        // ...which is a `Future` whose `Output` is a `HttpResponse`
+        Fut: Future<Output = HttpResponse>,
     {
         let listener = TcpListener::bind(self.addr).await?;
 
@@ -115,15 +112,15 @@ Using this API is very similar to before:
 
 ```rust
 // Now an async function
-async fn handle_request(request: Request) -> Response {
+async fn handle_request(request: HttpRequest) -> HttpResponse {
     if request.path() == "/" {
-        Response::ok("Hello, World!")
+        HttpResponse::ok("Hello, World!")
     } else if request.path() == "/important-data" {
         // We can now do async stuff in here
         let some_data = fetch_data_from_database().await;
         make_response(some_data)
     } else {
-        Response::not_found()
+        HttpResponse::not_found()
     }
 }
 
@@ -140,9 +137,9 @@ encounters an error and cannot produce a response? Let's make it return a
 impl Server {
     async fn run<F, Fut>(self, handler: F) -> Result<(), Error>
     where
-        F: Fn(Request) -> Fut,
+        F: Fn(HttpRequest) -> Fut,
         // The response future is now allowed to fail
-        Fut: Future<Output = Result<Response, Error>>,
+        Fut: Future<Output = Result<HttpResponse, Error>>,
     {
         let listener = TcpListener::bind(self.addr).await?;
 
@@ -164,10 +161,10 @@ impl Server {
 
 Now, suppose we want to ensure that all requests complete in a timely manner
 or fail, rather than keeping the client waiting indefinitely for a response that
-may never arrive. We can do this by adding a _timeout_ to each request. A 
-timeout sets a limit on the maximum duration the `handler` is allowed to take. 
+may never arrive. We can do this by adding a _timeout_ to each request. A
+timeout sets a limit on the maximum duration the `handler` is allowed to take.
 If it doesn't produce a response within that amount of time, an error is returned.
-This allows the client to retry that request or report an error to the user, rather 
+This allows the client to retry that request or report an error to the user, rather
 than waiting forever.
 
 Your first idea might be to modify `Server` so that it can be configured with a timeout.
@@ -176,10 +173,8 @@ you can actually add a timeout without modifying `Server`. Using
 [`tokio::time::timeout`], we can make a new handler function that calls our
 previous `handle_request`, but with a timeout of 30 seconds:
 
-[`tokio::time::timeout`]: https://docs.rs/tokio/latest/tokio/time/fn.timeout.html
-
 ```rust
-async fn handler_with_timeout(request: Request) -> Result<Response, Error> {
+async fn handler_with_timeout(request: HttpRequest) -> Result<HttpResponse, Error> {
     let result = tokio::time::timeout(
         Duration::from_secs(30),
         handle_request(request)
@@ -203,8 +198,8 @@ so:
 
 ```rust
 async fn handler_with_timeout_and_content_type(
-    request: Request,
-) -> Result<Response, Error> {
+    request: HttpRequest,
+) -> Result<HttpResponse, Error> {
     let mut response = handler_with_timeout(request).await?;
     response.set_header("Content-Type", "application/json");
     Ok(response)
@@ -224,10 +219,10 @@ units and write fine-grained tests for them, without worrying about all the
 other pieces.
 
 However, there is one problem. Our current design lets us compose new
-behavior by wrapping a handler function in a new handler function that 
+behavior by wrapping a handler function in a new handler function that
 implements the behavior and then calls the inner function. This works, but
-it doesn't scale very well if we want to add *lots* of additional functionality. 
-Imagine we have many `handle_with_*` functions that each add a little bit 
+it doesn't scale very well if we want to add *lots* of additional functionality.
+Imagine we have many `handle_with_*` functions that each add a little bit
 new of behavior. Having to hard-code the chain of which intermediate handler
 calls which will become challenging. Our current chain is
 
@@ -237,8 +232,6 @@ calls which will become challenging. Our current chain is
 
 It would be nice if we could somehow [compose] these three functions without
 having to hard-code the exact order. Something like:
-
-[compose]: https://en.wikipedia.org/wiki/Function_composition
 
 ```rust
 let final_handler = with_content_type(with_timeout(handle_request));
@@ -251,20 +244,20 @@ server.run(final_handler).await?;
 ```
 
 You could implement `with_content_type` and `with_timeout` as functions that
-took an argument of type `F: Fn(Request) -> Future<Output = Result<Response,
-Error>>` and returned a closure like `impl Fn(Request) -> Future<Output =
-Result<Response, Error>>`. This works, but all these closure types can quickly 
-become hard to deal with.
+took an argument of type `F: Fn(HttpRequest) -> Future<Output =
+Result<HttpResponse, Error>>` and returned a closure like `impl Fn(HttpRequest)
+-> Future<Output = Result<HttpResponse, Error>>`. This works, but all these
+closure types can quickly become hard to deal with.
 
 ## The `Handler` trait
 
 Let's try another approach. Rather than `Server::run` accepting a closure
-(`Fn(Request) -> ...`), let's make a new trait that encapsulates the same `async
-fn(Request) -> Result<Response, Error>`:
+(`Fn(HttpRequest) -> ...`), let's make a new trait that encapsulates the same `async
+fn(HttpRequest) -> Result<HttpResponse, Error>`:
 
 ```rust
 trait Handler {
-    async fn call(&mut self, request: Request) -> Result<Response, Error>;
+    async fn call(&mut self, request: HttpRequest) -> Result<HttpResponse, Error>;
 }
 ```
 
@@ -274,7 +267,7 @@ we don't have to deal with `Fn`s all the time.
 However, Rust currently doesn't support async trait methods, so we have two options:
 
 1. Make `call` return a boxed future like `Pin<Box<dyn Future<Output =
-   Result<Response, Error>>>`. This is what the [async-trait] crate does.
+   Result<HttpResponse, Error>>>`. This is what the [async-trait] crate does.
 2. Add an associated `type Future` to `Handler` so users get to pick their own
    type.
 
@@ -284,14 +277,14 @@ use `Pin<Box<...>>`.
 
 ```rust
 trait Handler {
-    type Future: Future<Output = Result<Response, Error>>;
+    type Future: Future<Output = Result<HttpResponse, Error>>;
 
-    fn call(&mut self, request: Request) -> Self::Future;
+    fn call(&mut self, request: HttpRequest) -> Self::Future;
 }
 ```
 
 We still have to require that `Handler::Future` implements `Future` with the
-output type `Result<Response, Error>`, as that is what `Server::run` requires.
+output type `Result<HttpResponse, Error>`, as that is what `Server::run` requires.
 
 Having `call` take `&mut self` is useful because it allows handlers to update
 their internal state if necessary<sup>[1](#pin)</sup>.
@@ -305,18 +298,18 @@ struct RequestHandler;
 impl Handler for RequestHandler {
     // We use `Pin<Box<...>>` here for simplicity, but could also define our
     // own `Future` type to avoid the overhead
-    type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<HttpResponse, Error>>>>;
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: HttpRequest) -> Self::Future {
         Box::pin(async move {
             // same implementation as we had before
             if request.path() == "/" {
-                Ok(Response::ok("Hello, World!"))
+                Ok(HttpResponse::ok("Hello, World!"))
             } else if request.path() == "/important-data" {
                 let some_data = fetch_data_from_database().await?;
                 Ok(make_response(some_data))
             } else {
-                Ok(Response::not_found())
+                Ok(HttpResponse::not_found())
             }
         })
     }
@@ -345,9 +338,9 @@ impl<T> Handler for Timeout<T>
 where
     T: Handler,
 {
-    type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<HttpResponse, Error>>>>;
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: HttpRequest) -> Self::Future {
         Box::pin(async move {
             let result = tokio::time::timeout(
                 self.duration,
@@ -366,7 +359,7 @@ where
 
 The important line here is `self.inner_handler.call(request)`. This is where we
 delegate to the inner handler and let it do its thing. We don't know what it is,
-we just know that it produces a `Result<Response, Error>` when its done.
+we just know that it produces a `Result<HttpResponse, Error>` when its done.
 
 This code doesn't quite compile though. We get an error like this:
 
@@ -374,7 +367,7 @@ This code doesn't quite compile though. We get an error like this:
 error[E0759]: `self` has an anonymous lifetime `'_` but it needs to satisfy a `'static` lifetime requirement
    --> src/lib.rs:145:29
     |
-144 |       fn call(&mut self, request: Request) -> Self::Future {
+144 |       fn call(&mut self, request: HttpRequest) -> Self::Future {
     |               --------- this data with an anonymous lifetime `'_`...
 145 |           Box::pin(async move {
     |  _____________________________^
@@ -416,9 +409,9 @@ impl<T> Handler for Timeout<T>
 where
     T: Handler + Clone,
 {
-    type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<HttpResponse, Error>>>>;
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: HttpRequest) -> Self::Future {
         // Get an owned clone of `&mut self`
         let mut this = self.clone();
 
@@ -493,9 +486,9 @@ impl<T> Handler for JsonContentType<T>
 where
     T: Handler + Clone + 'static,
 {
-    type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<HttpResponse, Error>>>>;
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: HttpRequest) -> Self::Future {
         let mut this = self.clone();
 
         Box::pin(async move {
@@ -565,14 +558,14 @@ library on crates.io for other people to use!
 ## Making `Handler` more flexible
 
 Our little `Handler` trait is working quite nicely, but currently it only
-supports our `Request` and `Response` types. It would be nice if those where
-generic, so users could use whatever type they want.
+supports our `HttpRequest` and `HttpResponse` types. It would be nice if those
+where generic, so users could use whatever type they want.
 
-We make `Request` a generic type parameter of the trait so that a given service
-can accept many different types of requests. That allows to define handlers that
-can be use for different protocols. We make `Response` an associated type
-because for any _given_ `Request` type, there can only be one (associated)
-`Response` type: the one the corresponding call returns!
+We make the request a generic type parameter of the trait so that a given
+service can accept many different types of requests. That allows to define
+handlers that can be use for different protocols. We make response an associated
+type because for any _given_ request type, there can only be one (associated)
+response type: the one the corresponding call returns!
 
 ```rust
 trait Handler<Request> {
@@ -596,10 +589,10 @@ trait Handler<Request> {
 Our implementation for `RequestHandler` now becomes
 
 ```rust
-impl Handler<Request> for RequestHandler {
-    type Response = Response;
+impl Handler<HttpRequest> for RequestHandler {
+    type Response = HttpResponse;
     type Error = Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<HttpResponse, Error>>>>;
 
     fn call(&mut self, request: Request) -> Self::Future {
         // same as before
@@ -676,10 +669,10 @@ impl<R, T> Handler<R> for JsonContentType<T>
 where
     R: 'static,
     // `T` must accept requests of any type `R` and return
-    // responses of type `Response`
-    T: Handler<R, Response = Response> + Clone + 'static,
+    // responses of type `HttpResponse`
+    T: Handler<R, Response = HttpResponse> + Clone + 'static,
 {
-    type Response = Response;
+    type Response = HttpResponse;
 
     // Our error type is whatever `T`'s error type is
     type Error = T::Error;
@@ -698,13 +691,14 @@ where
 }
 ```
 
-Finally, the `Handler` passed to `Server::run` must use `Request` and `Response`:
+Finally, the `Handler` passed to `Server::run` must use `HttpRequest` and
+`HttpResponse`:
 
 ```rust
 impl Server {
     async fn run<T>(self, mut handler: T) -> Result<(), Error>
     where
-        T: Handler<Request, Response = Response>,
+        T: Handler<HttpRequest, Response = HttpResponse>,
     {
         // ...
     }
@@ -728,8 +722,8 @@ application up into small independent parts and re-use them. Not bad!
 
 Until now, we've only talked about HTTP from the server's perspective. But, our
 `Handler` trait actually fits HTTP clients as well. One can imagine a client
-`Handler` that accepts some `Request` struct and asynchronously sends it to
-someone on the internet. Our `Timeout` wrapper is actually useful here as well.
+`Handler` that accepts some request and asynchronously sends it to someone on
+the internet. Our `Timeout` wrapper is actually useful here as well.
 `JsonContentType` probably isn't, since it's not the clients job to set response
 headers.
 
@@ -752,7 +746,7 @@ This is actually _almost_ the `Service` trait defined in Tower. If you've been
 able to follow along until this point you now understand most of Tower. Besides
 the `Service` trait, Tower also provides several utilities that implement
 `Service` by wrapping some other type that also implements `Service`, exactly
-like we did with `Timeout` and `JsonContentType`. These services can be 
+like we did with `Timeout` and `JsonContentType`. These services can be
 composed in ways similar to what we've done thus far.
 
 Some example services provided by Tower:
@@ -761,20 +755,18 @@ Some example services provided by Tower:
 - [`Retry`] - To automatically retry failed requests.
 - [`RateLimit`] - To limit the number of requests a service can handle over a
   period of time.
-  
+
 [`Timeout`]: https://docs.rs/tower/latest/tower/timeout/index.html
 [`Retry`]: https://docs.rs/tower/latest/tower/retry/index.html
 [`Retry`]: https://docs.rs/tower/latest/tower/limit/rate/index.html
 
 Types like `Timeout` and `JsonContentType` are typically called _middleware_,
 since they wrap another `Service` and transform the request or response in some
-way. Types like `RequestHandler` are typically called _leaf service_s, since they
-sit at the leaves of a tree of nested services. The actual responses are normally 
+way. Types like `RequestHandler` are typically called _leaf services_, since they
+sit at the leaves of a tree of nested services. The actual responses are normally
 produced in leaf services and modified by middleware.
 
 The only thing left to talk about is _backpressure_ and [`poll_ready`].
-
-[`poll_ready`]: https://docs.rs/tower/0.4.7/tower/trait.Service.html#tymethod.poll_ready
 
 ## Backpressure
 
@@ -802,10 +794,10 @@ impl<R, T> Service<R> for ConcurrencyLimit<T> {
 If there is no capacity left, we have to wait and somehow get notified when
 capacity becomes available. Additionally, we have to keep the request in memory
 while we're waiting (also called _buffering_). This means that the more requests
-that are waiting for capacity, the more memory our program would use --- if more 
-requests are produced than our service can handle, we might run out of memory! 
+that are waiting for capacity, the more memory our program would use --- if more
+requests are produced than our service can handle, we might run out of memory!
 It would be more robust to only allocate space for the request when we are sure
-the service has capacity to handle it. Otherwise, we risk using a lot of memory 
+the service has capacity to handle it. Otherwise, we risk using a lot of memory
 buffering requests while we wait for our service to become ready.
 
 It would be nice if `Service` had a method like this:
@@ -947,3 +939,8 @@ Generic associated types will allow us to define the response future as
 [backpressure]: https://medium.com/@jayphelps/backpressure-explained-the-flow-of-data-through-software-2350b3e77ce7
 [backpressure2]: https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
 [gat]: https://github.com/rust-lang/rust/issues/44265
+[blocking]: https://ryhl.io/blog/async-what-is-blocking/
+[future]: https://doc.rust-lang.org/stable/std/future/trait.Future.html
+[`tokio::time::timeout`]: https://docs.rs/tokio/latest/tokio/time/fn.timeout.html
+[compose]: https://en.wikipedia.org/wiki/Function_composition
+[`poll_ready`]: https://docs.rs/tower/0.4.7/tower/trait.Service.html#tymethod.poll_ready
