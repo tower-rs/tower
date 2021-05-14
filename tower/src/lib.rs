@@ -116,7 +116,7 @@
 //!
 //! ## Getting Started
 //!
-//! If you're brand new to Tower and want to start with the basics we recommend you
+//! If you're brand new to Tower and want to start with the basics, we recommend you
 //! check out some of our [guides].
 //!
 //! The various middleware implementations provided by this crate are feature
