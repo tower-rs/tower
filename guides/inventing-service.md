@@ -820,22 +820,23 @@ enough to receive one new request. We would then require users to first call
 `service.ready().await` before doing `service.call(request).await`.
 
 Separating "calling the service" from "reserving capacity" also unlocks new use
-cases such as being able to maintain a set of "ready services" that we keep up
-to date in the background such that when a request arrives we already have a
+cases, such as being able to maintain a set of "ready services" that we keep up
+to date in the background, so that when a request arrives we already have a
 ready service to send it to and don't have to first wait for it to become ready.
 
-With this setup `ConcurrencyLimit` could track capacity inside `ready` and not
+With this design, `ConcurrencyLimit` could track capacity inside `ready` and not
 allow users to call `call` until there is sufficient capacity.
 
 `Service`s that don't care about capacity can just return immediately from
-`ready` or delegate to some inner `Service` they're wrapping.
+`ready`, or if they wrap some inner `Service`, they could delegate to its
+`ready` method.
 
-However we still cannot define async functions inside traits. We could add
-another associated type to `Service` called `ReadyFuture` but having to return a
+However, we still cannot define async functions inside traits. We could add
+another associated type to `Service` called `ReadyFuture`, but having to return a
 `Future` will give us the same lifetime issues we've run into before. It would
-be nice if there was someway around that.
+be nice if there was some way around that.
 
-Instead we can take some inspiration from the `Future` trait and define a method
+Instead, we can take some inspiration from the `Future` trait and define a method
 called `poll_ready`:
 
 ```rust
@@ -846,31 +847,31 @@ trait Service<R> {
 }
 ```
 
-This means if the service is at capacity `poll_ready` will return
+This means if the service is at capacity, `poll_ready` will return
 `Poll::Pending` and notify the caller using the waker from the
-`Context` when capacity becomes available. At that point `poll_ready` can be
-called again and if it returns `Poll::Ready(())` then capacity would be reserved
-and `call` can be called.
+`Context` when capacity becomes available. At that point, `poll_ready` can be
+called again, and if it returns `Poll::Ready(())` then capacity is  reserved and
+`call` can be called.
 
 Note that there is technically nothing that prevents users from calling `call`
-without first making sure the service is ready. Doing so however is considered a
-violation of the `Service` contract and implementations are allowed to `panic`
+without first making sure the service is ready. However, doing so is considered a
+violation of the `Service` API contract, and implementations are allowed to `panic`
 if `call` is called on a service that isn't ready!
 
 `poll_ready` not returning a `Future` also means we're able to quickly check if
 a service is ready without being forced to wait for it to become ready. If we
-call `poll_ready` and get back `Poll::Pending` we can simply decide to do
+call `poll_ready` and get back `Poll::Pending`, we can simply decide to do
 something else instead of waiting. Among other things, this allows you to build
-load balancers that estimates the load of services by how often they return
-`Poll::Pending` and sends requests to the service with the least load.
+load balancers that estimate the load of services by how often they return
+`Poll::Pending`, and send requests to the service with the least load.
 
 It would still be possible get a `Future` that resolves when capacity is
 available using something like [`futures::future::poll_fn`] (or
 [`tower::ServiceExt::ready`]).
 
 This concept of services communicating with their callers about their capacity
-is called "backpressure propagation". Think of it as services pushing back on
-their callers telling them to slow down if they're going too fast. The
+is called "backpressure propagation". You can think of it as services pushing back on
+their callers, and telling them to slow down if they're producing requests too fast. The
 fundamental idea is that you shouldn't send a request to a service that doesn't
 have the capacity to handle it. Instead you should wait (buffering), drop the
 request (load shedding), or handle the lack of capacity in some other way. You
@@ -878,7 +879,7 @@ can learn more about the general concept of backpressure [here][backpressure]
 and [here][backpressure2].
 
 Finally, it might also be possible for some error to happen while reserving
-capacity so `poll_ready` probably should return `Poll<Result<(), Self::Error>>`.
+capacity, so `poll_ready` probably should return `Poll<Result<(), Self::Error>>`.
 With this change we've now arrived at the complete `tower::Service` trait:
 
 ```rust
@@ -896,11 +897,12 @@ pub trait Service<Request> {
 }
 ```
 
-Middlewares that care about backpressure are pretty rare but it does enable some
-interesting use cases such as various kinds of rate limiting, load balancing,
+Many middleware don't add their own backpressure, and simply delegate to the
+wrapped service's `poll_ready_. However, backpressure in middleware does enable
+some interesting use cases, such as various kinds of rate limiting, load balancing,
 and auto scaling.
 
-Since you never know exactly which middlewares a `Service` might consist of it
+Since you never know exactly which middleware a `Service` might consist of, it
 is important to not forget about `poll_ready`.
 
 With all this in place, the most common way to call a service is:
@@ -924,17 +926,17 @@ let response = service
 ## Footnotes
 
 <a name="pin">1</a>: There has been some discussion around whether `call` should
-take `Pin<&mut Self>` or not but so far we've decided to go with a plain `&mut
-self` which means handlers (ahem services) must be `Unpin`. In practice that is
+take `Pin<&mut Self>` or not, but so far we've decided to go with a plain `&mut
+self` which means handlers (ahem, _services_) must be `Unpin`. In practice that is
 rarely an issue. More details [here](https://github.com/tower-rs/tower/issues/319).
 
 <a name="gats">2</a>: To be a bit more precise, the reason this requires the
 response future to be `'static` is that writing `Box<dyn Future>` actually
-becomes `Box<dyn Future + 'static>` which the anonymous lifetime in `fn call(&'_
-mut self, ...)` doesn't satisfy. In the future we're hoping to use [Generic
-associated types][gat] get around this. That will allow us to define the
-response future as `type Future<'a>` and `call` as `fn call<'a>(&'a mut self,
-...) -> Self::Future<'a>`.
+becomes `Box<dyn Future + 'static>`, which the anonymous lifetime in `fn call(&'_
+mut self, ...)` doesn't satisfy. In the future, the Rust compiler team plans to
+a feature called [generic associated types][gat] which will let us get around this.
+Generic associated types will allow us to define the response future as
+`type Future<'a>`, and `call` as `fn call<'a>(&'a mut self, ...) -> Self::Future<'a>`.
 
 [async-trait]: https://crates.io/crates/async-trait
 [dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
