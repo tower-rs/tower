@@ -552,7 +552,7 @@ generic so users could use whatever type they want.
 
 We make `Request` a generic type parameter of the trait so that a given service
 can accept many different types of requests. We make `Response` an associated type
-because for any given `Request` type, there can only be one (associated) `Response`
+because for any _given_ `Request` type, there can only be one (associated) `Response`
 type: the one the corresponding call returns!
 
 ```rust
@@ -821,8 +821,8 @@ trait Service<R> {
 ```
 
 This means if the service is at capacity `poll_ready` will return
-`Poll::Pending` and somehow notify the caller, using the waker from the
-`Context`, when capacity becomes available. At that point `poll_ready` can be
+`Poll::Pending` and notify the caller using the waker from the
+`Context` when capacity becomes available. At that point `poll_ready` can be
 called again and if it returns `Poll::Ready(())` then capacity would be reserved
 and `call` can be called.
 
