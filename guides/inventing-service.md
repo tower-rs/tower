@@ -162,15 +162,21 @@ impl Server {
 
 ## Adding on more behavior
 
-Next-up you might want to add supports for timeouts. A timeout is the max
-duration `handler` is allowed to take. If it doesn't produce a response within
-that amount of time an error is returned.
+Now, suppose we want to ensure that all requests complete in a timely manner
+or fail, rather than keeping the client waiting indefinitely for a response that
+may never arrive. We can do this by adding a _timeout_ to each request. A 
+timeout sets a limit on the maximum duration the `handler` is allowed to take. 
+If it doesn't produce a response within that amount of time, an error is returned.
+This allows the client to retry that request or report an error to the user, rather 
+than waiting forever.
 
-Your first idea might be to modify `Server` to support being configured with a
-timeout which it will somehow apply to the call of the handler. However it turns out
+Your first idea might be to modify `Server` so that it can be configured with a timeout.
+It would then apply that timeout every time it calls `handler.` However, it turns out
 you can actually add a timeout without modifying `Server`. Using
-`tokio::time::timeout` we can make a new handler function that calls our
-previous `handle_request` but with a timeout of 30 seconds:
+[`tokio::time::timeout`], we can make a new handler function that calls our
+previous `handle_request`, but with a timeout of 30 seconds:
+
+[`tokio::time::timeout`]: https://docs.rs/tokio/latest/tokio/time/fn.timeout.html
 
 ```rust
 async fn handler_with_timeout(request: Request) -> Result<Response, Error> {
@@ -190,9 +196,9 @@ async fn handler_with_timeout(request: Request) -> Result<Response, Error> {
 This provides a quite nice separation of concerns. We were able to add a timeout
 without changing any of our existing code.
 
-Lets add one more feature in this way. Imagine we're building a JSON API and
+Let's add one more feature in this way. Imagine we're building a JSON API and
 would therefore like a `Content-Type: application/json` header on all responses.
-We can wrap `handler_with_timeout` in a similar way and modify the response like
+We can wrap `handler_with_timeout` in a similar way, and modify the response like
 so:
 
 ```rust
@@ -206,28 +212,33 @@ async fn handler_with_timeout_and_content_type(
 ```
 
 We now have a handler that will process an HTTP request, take no longer than 30
-seconds, and always have the right `Content-Type` header all without modifying
+seconds, and always have the right `Content-Type` header, all without modifying
 our original `handle_request` function or `Server` struct.
 
-Designing libraries that can be extended in this way is very powerful since it
-allows users to extend things without having to wait for the library maintainers
-to add support for it.
+Designing libraries that can be extended in this way is very powerful, since it
+allows users to extend the library's functionality by layering in new behavior,
+without having to wait for the library maintainers to add support for it.
 
-It also makes testing easier since you can break your code into small isolated
-units and write fine grained tests for them, without worrying about all the
+It also makes testing easier, since you can break your code into small isolated
+units and write fine-grained tests for them, without worrying about all the
 other pieces.
 
-However there is one problem. Our current setup doesn't scale very well. Imagine
-we have many `handle_with_*` functions that each add a little bit of behavior.
-Having to hard code the chain of which intermediate handler calls which isn't
-great. Our current chain is
+However, there is one problem. Our current design lets us compose new
+behavior by wrapping a handler function in a new handler function that 
+implements the behavior and then calls the inner function. This works, but
+it doesn't scale very well if we want to add *lots* of additional functionality. 
+Imagine we have many `handle_with_*` functions that each add a little bit 
+new of behavior. Having to hard-code the chain of which intermediate handler
+calls which will become challenging. Our current chain is
 
 1. `handler_with_timeout_and_content_type` which calls
 2. `handler_with_timeout` which calls
 3. `handle_request` which actually processes the request
 
-It would be nice if we could somehow compose these three functions without
-having to hard code the exact order. Something like:
+It would be nice if we could somehow [compose] these three functions without
+having to hard-code the exact order. Something like:
+
+[compose]: https://en.wikipedia.org/wiki/Function_composition
 
 ```rust
 let final_handler = with_content_type(with_timeout(handle_request));
@@ -239,17 +250,17 @@ While still being able to run our handler like before:
 server.run(final_handler).await?;
 ```
 
-You could imagine `with_content_type` and `with_timeout` being functions that
+You could implement `with_content_type` and `with_timeout` as functions that
 took an argument of type `F: Fn(Request) -> Future<Output = Result<Response,
 Error>>` and returned a closure like `impl Fn(Request) -> Future<Output =
-Result<Response, Error>>` but all these closure types quickly become hard to
-deal with.
+Result<Response, Error>>`. This works, but all these closure types can quickly 
+become hard to deal with.
 
 ## The `Handler` trait
 
-Lets try another approach. Rather than `Server::run` accepting a closure
-(`Fn(Request) -> ...`) lets make a new trait that encapsulates the same `async
-fn(Request) -> Result<Response, Error>` setup:
+Let's try another approach. Rather than `Server::run` accepting a closure
+(`Fn(Request) -> ...`), let's make a new trait that encapsulates the same `async
+fn(Request) -> Result<Response, Error>`:
 
 ```rust
 trait Handler {
@@ -257,18 +268,18 @@ trait Handler {
 }
 ```
 
-Having a trait like this allows us to write concrete types that implement it so
+Having a trait like this allows us to write concrete types that implement it, so
 we don't have to deal with `Fn`s all the time.
 
-However Rust currently doesn't support async traits so we have two options:
+However, Rust currently doesn't support async trait methods, so we have two options:
 
 1. Make `call` return a boxed future like `Pin<Box<dyn Future<Output =
    Result<Response, Error>>>`. This is what the [async-trait] crate does.
 2. Add an associated `type Future` to `Handler` so users get to pick their own
    type.
 
-Lets go with option 2 as its the most flexible. Users who have a concrete future
-type can use that without the cost of a `Box` and users who don't care can still
+Let's go with option two, as it's the most flexible. Users who have a concrete future
+type can use that without the cost of a `Box`, and users who don't care can still
 use `Pin<Box<...>>`.
 
 ```rust
@@ -279,20 +290,20 @@ trait Handler {
 }
 ```
 
-We still have to require that `Handler::Future` implements `Future` where the
-output type is `Result<Response, Error>` as that is what `Server::run` requires.
+We still have to require that `Handler::Future` implements `Future` with the
+output type `Result<Response, Error>`, as that is what `Server::run` requires.
 
 Having `call` take `&mut self` is useful because it allows handlers to update
 their internal state if necessary<sup>[1](#pin)</sup>.
 
-Lets convert our original `handle_request` function into an implementation of
+Let's convert our original `handle_request` function into an implementation of
 this trait:
 
 ```rust
 struct RequestHandler;
 
 impl Handler for RequestHandler {
-    // We use `Pin<Box<...>>` here for simplicity but could also define our
+    // We use `Pin<Box<...>>` here for simplicity, but could also define our
     // own `Future` type to avoid the overhead
     type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
 
