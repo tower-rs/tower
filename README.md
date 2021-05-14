@@ -33,7 +33,7 @@ pattern. If your protocol is entirely stream based, Tower may not be a good fit.
 
 Currently, `tower 0.4` is released on crates.io.
 
-## Getting started
+## Getting Started
 
 If you're brand new to Tower and want to start with the basics we recommend you
 check out some of our [guides].
