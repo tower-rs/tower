@@ -12,11 +12,12 @@ widely known protocol, and one of Tower's more common use-cases.
 
 ## Guides
 
-- ["Inventing the `Service` trait"][invent] walks through how you Tower's 
-  fundamental `Service` trait could be designed from scratch. If you
-  have no experience with Tower and want to learn the absolute basics, this is
-  where you should start.
+- ["Inventing the `Service` trait"][invent] walks through how Tower's
+  fundamental [`Service`] trait could be designed from scratch. If you have no
+  experience with Tower and want to learn the absolute basics, this is where you
+  should start.
 
 [async-book]: https://rust-lang.github.io/async-book/
 [tokio-tutorial]: https://tokio.rs/tokio/tutorial
 [invent]: https://github.com/tower-rs/tower/blob/master/guides/inventing-service.md
+[`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html

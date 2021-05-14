@@ -55,8 +55,8 @@ impl Server {
 }
 ```
 
-Here, we have an asynchronous function `run` which takes a closure that accepts a
-`HttpRequest` and returns a `HttpResponse`.
+Here, we have an asynchronous function `run` which takes a closure that accepts an
+`HttpRequest` and returns an `HttpResponse`.
 
 That means users can use our `Server` like so:
 
@@ -90,7 +90,7 @@ impl Server {
     where
         // `handler` now returns a generic type `Fut`...
         F: Fn(HttpRequest) -> Fut,
-        // ...which is a `Future` whose `Output` is a `HttpResponse`
+        // ...which is a `Future` whose `Output` is an `HttpResponse`
         Fut: Future<Output = HttpResponse>,
     {
         let listener = TcpListener::bind(self.addr).await?;
