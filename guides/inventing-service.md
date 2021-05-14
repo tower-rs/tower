@@ -420,9 +420,6 @@ where
 }
 ```
 
-The response future now satisfies the `'static` lifetime requirement since it
-doesn't contain references.
-
 Note that cloning is very cheap in this case since `RequestHandler` doesn't have
 any data and `Timeout<T>` only adds a `Duration`.
 
@@ -461,7 +458,9 @@ where
 }
 ```
 
-It now compiles!
+The response future now satisfies the `'static` lifetime requirement since it
+doesn't contain references (and any references `T` contains are `'static`) and
+so it compiles!
 
 Lets create a similar handler struct for adding a `Content-Type` header on the
 response:
