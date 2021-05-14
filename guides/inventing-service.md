@@ -476,11 +476,11 @@ where
 }
 ```
 
-The response future now satisfies the `'static` lifetime requirement since it
-doesn't contain references (and any references `T` contains are `'static`) and
-so it compiles!
+The response future now satisfies the `'static` lifetime requirement, since it
+doesn't contain references (and any references `T` contains are `'static`). Now,
+our code compiles!
 
-Lets create a similar handler struct for adding a `Content-Type` header on the
+Let's create a similar handler struct for adding a `Content-Type` header on the
 response:
 
 ```rust
@@ -544,7 +544,7 @@ JsonContentType {
 }
 ```
 
-And if we add some `new` methods to our types they become a little easier to
+And if we add some `new` methods to our types,they become a little easier to
 compose:
 
 ```rust
@@ -558,13 +558,13 @@ server.run(handler).await
 ```
 
 This works quite well! We're now able to layer on additional functionality to
-`RequestHandler` without having to modify its implementation. In theory we could
+`RequestHandler` without having to modify its implementation. In theory, we could
 put our `JsonContentType` and `Timeout` handlers into a crate and release it as
 library on crates.io for other people to use!
 
 ## Making `Handler` more flexible
 
-Our little `Handler` trait is working quite nicely but currently it only
+Our little `Handler` trait is working quite nicely, but currently it only
 supports our `Request` and `Response` types. It would be nice if those where
 generic so users could use whatever type they want.
 
@@ -581,11 +581,11 @@ trait Handler<Request> {
     // hardcoded type
     type Error;
 
-    // Our future type from before but now its output must use
+    // Our future type from before, but now it's output must use
     // the generic `Response` and `Error` types
     type Future: Future<Output = Result<Self::Response, Self::Error>>;
 
-    // `call` is unchanged but note that `Request` here is our generic
+    // `call` is unchanged, but note that `Request` here is our generic
     // `Request` type parameter and not the `Request` type we've used
     // until now
     fn call(&mut self, request: Request) -> Self::Future;
@@ -607,11 +607,11 @@ impl Handler<Request> for RequestHandler {
 ```
 
 `Timeout<T>` is a bit different. Since it wraps some other `Handler` and adds an
-async timeout it actually doesn't care about what the request or response types
-are. As long as the `Handler` it is wrapping uses the same types.
+async timeout, it actually doesn't care about what the request or response types
+are, as long as the `Handler` it is wrapping uses the same types.
 
 The `Error` type is a bit different. Since `tokio::time::timeout` returns
-`Result<T, tokio::time::error::Elapsed>` we must be able to convert a
+`Result<T, tokio::time::error::Elapsed>`, we must be able to convert a
 `tokio::time::error::Elapsed` into the inner `Handler`'s error type.
 
 If we put all those things together we get
@@ -631,7 +631,7 @@ where
     // `T`'s error type
     T::Error: From<tokio::time::error::Elapsed>,
 {
-    // Our response type is the same as `T`'s since we
+    // Our response type is the same as `T`'s, since we
     // don't have to modify the result
     type Response = T::Response;
 
@@ -697,7 +697,7 @@ where
 }
 ```
 
-Finally the `Handler` passed to `Server::run` must use `Request` and `Response`:
+Finally, the `Handler` passed to `Server::run` must use `Request` and `Response`:
 
 ```rust
 impl Server {
@@ -725,16 +725,16 @@ application up into small independent parts and re-use them. Not bad!
 
 ## "What if I told you..."
 
-Until now we've only talked about HTTP from the servers perspective. But our
+Until now, we've only talked about HTTP from the server's perspective. But, our
 `Handler` trait actually fits HTTP clients as well. One can imagine a client
 `Handler` that accepts some `Request` struct and asynchronously sends it to
 someone on the internet. Our `Timeout` wrapper is actually useful here as well.
-`JsonContentType` probably isn't since its not the clients job to set response
+`JsonContentType` probably isn't, since it's not the clients job to set response
 headers.
 
 Since our `Handler` trait is useful for defining both servers and clients,
 `Handler` probably isn't an appropriate name anymore. A client doesn't handle an
-request, it sends it to a server and the server handles it. Lets instead call
+request, it sends it to a server and the server handles it. Let's instead call
 our trait `Service`:
 
 ```rust
@@ -749,25 +749,31 @@ trait Service<Request> {
 
 This is actually _almost_ the `Service` trait defined in Tower. If you've been
 able to follow along until this point you now understand most of Tower. Besides
-the `Service` trait Tower also provides several utilities that implement
-`Service` by wrapping some other type that also implements `Service`. Exactly
-like we did with `Timeout` and `JsonContentType`. Things can be composed in ways
-similar to what we've done thus far.
+the `Service` trait, Tower also provides several utilities that implement
+`Service` by wrapping some other type that also implements `Service`, exactly
+like we did with `Timeout` and `JsonContentType`. These services can be 
+composed in ways similar to what we've done thus far.
 
 Some example services provided by Tower:
 
-- `Timeout` - This is pretty much identical to the timeout we have built.
-- `Retry` - To automatically retry failed requests.
-- `RateLimit` - To limit the number of requests a service can handle over a
+- [`Timeout`] - This is pretty much identical to the timeout we have built.
+- [`Retry`] - To automatically retry failed requests.
+- [`RateLimit`] - To limit the number of requests a service can handle over a
   period of time.
+  
+[`Timeout`]: https://docs.rs/tower/latest/tower/timeout/index.html
+[`Retry`]: https://docs.rs/tower/latest/tower/retry/index.html
+[`Retry`]: https://docs.rs/tower/latest/tower/limit/rate/index.html
 
-Types like `Timeout` and `JsonContentType` are typically called "middleware"
+Types like `Timeout` and `JsonContentType` are typically called _middleware_,
 since they wrap another `Service` and transform the request or response in some
-way. Whereas types like `RequestHandler` is typically called a "leaf service"
-since it sits at the leaves of a tree of nested services. The actual responses
-are normally produced in leaf services and modified by middlewares.
+way. Types like `RequestHandler` are typically called _leaf service_s, since they
+sit at the leaves of a tree of nested services. The actual responses are normally 
+produced in leaf services and modified by middleware.
 
-The only thing left to talk about is "backpressure" and `poll_ready`.
+The only thing left to talk about is _backpressure_ and [`poll_ready`].
+
+[`poll_ready`]: https://docs.rs/tower/0.4.7/tower/trait.Service.html#tymethod.poll_ready
 
 ## Backpressure
 
@@ -776,7 +782,7 @@ puts a limit on the maximum number of concurrent requests the underlying service
 will receive. This would be useful if you had some service that had a hard upper
 limit on the amount of load it could handle.
 
-With our current `Service` trait we don't really have a good way to implement
+With our current `Service` trait, we don't really have a good way to implement
 something like that. We could try:
 
 ```rust
@@ -792,14 +798,16 @@ impl<R, T> Service<R> for ConcurrencyLimit<T> {
 }
 ```
 
-If there is no capacity left we have to wait and somehow get notified when
-capacity becomes available. Additionally we have to keep the request in memory
-while we're waiting (also called buffering). It would be more robust to only
-allocate space for the request when we are sure the service has capacity to
-handle it. Otherwise we risk using a lot of memory buffering requests while we
-wait for our service to become ready.
+If there is no capacity left, we have to wait and somehow get notified when
+capacity becomes available. Additionally, we have to keep the request in memory
+while we're waiting (also called _buffering_). This means that the more requests
+that are waiting for capacity, the more memory our program would use --- if more 
+requests are produced than our service can handle, we might run out of memory! 
+It would be more robust to only allocate space for the request when we are sure
+the service has capacity to handle it. Otherwise, we risk using a lot of memory 
+buffering requests while we wait for our service to become ready.
 
-In a way it would be nice if `Service` had a method like this:
+It would be nice if `Service` had a method like this:
 
 ```rust
 trait Service<R> {
