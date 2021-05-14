@@ -285,8 +285,8 @@ this trait:
 struct RequestHandler;
 
 impl Handler for RequestHandler {
-    // We use `Pin<Box<...>>` here for simplicity
-    // but something like `futures::future::Ready` would also work
+    // We use `Pin<Box<...>>` here for simplicity but could also define our
+    // own `Future` type to avoid the overhead
     type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
 
     fn call(&mut self, request: Request) -> Self::Future {
