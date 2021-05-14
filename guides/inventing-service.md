@@ -364,8 +364,8 @@ where
 }
 ```
 
-The important line being `self.inner_handler.call(request)`. This is where we
-delegate to the inner handler and let it do its thing. We don't know what it is
+The important line here is `self.inner_handler.call(request)`. This is where we
+delegate to the inner handler and let it do its thing. We don't know what it is,
 we just know that it produces a `Result<Response, Error>` when its done.
 
 This code doesn't quite compile though. We get an error like this:
@@ -389,12 +389,12 @@ error[E0759]: `self` has an anonymous lifetime `'_` but it needs to satisfy a `'
 
 The issue is that we're capturing a `&mut self` and moving it into an async
 block. That means the lifetime of our future is tied to the lifetime of `&mut
-self`. This doesn't work for us since we might want to run our response futures
-on multiple threads to get better performance or produce multiple response
+self`. This doesn't work for us, since we might want to run our response futures
+on multiple threads to get better performance, or produce multiple response
 futures and run them all in parallel. That isn't possible if a reference to the
 handler lives inside the futures<sup>[2](#gats)</sup>.
 
-Instead we need convert the `&mut self` into an owned `self`. That is exactly
+Instead we need to convert the `&mut self` into an owned `self`. That is exactly
 what `Clone` does:
 
 ```rust
@@ -438,8 +438,8 @@ where
 }
 ```
 
-Note that cloning is very cheap in this case since `RequestHandler` doesn't have
-any data and `Timeout<T>` only adds a `Duration`.
+Note that cloning is very cheap in this case, since `RequestHandler` doesn't have
+any data and `Timeout<T>` only adds a `Duration` (which is `Copy`).
 
 One step closer. We now get a different error:
 
@@ -461,7 +461,7 @@ error[E0310]: the parameter type `T` may not live long enough
 ```
 
 The problem now is that `T` can be any type whatsoever. It can even be a type
-that contains references like `Vec<&'a str>`. However that wont work for the
+that contains references, like `Vec<&'a str>`. However that won't work for the
 same reason as before. We need the response future to have a `'static` lifetime
 so we can more easily pass it around.
 
