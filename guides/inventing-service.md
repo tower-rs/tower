@@ -620,8 +620,7 @@ where
     // Error type is also the same
     type Error = T::Error;
 
-    // Future must output a `Result` with the new
-    // response and error types
+    // Future must output a `Result` with the correct types
     type Future = Pin<Box<dyn Future<Output = Result<T::Response, T::Error>>>>;
 
     fn call(&mut self, request: R) -> Self::Future {
@@ -658,7 +657,7 @@ impl<R, T> Handler<R> for JsonContentType<T>
 where
     R: 'static,
     // `T` must accept requests of any type `R` and return
-    // responses of type `Response`.
+    // responses of type `Response`
     T: Handler<R, Response = Response> + Clone + 'static,
 {
     type Response = Response;
@@ -735,7 +734,7 @@ able to follow along until this point you now understand most of Tower. Besides
 the `Service` trait Tower also provides several utilities that implement
 `Service` by wrapping some other type that also implements `Service`. Exactly
 like we did with `Timeout` and `JsonContentType`. Things can be composed in ways
-similar to what we've just did.
+similar to what we've done thus far.
 
 Some example services provided by Tower:
 
@@ -746,7 +745,7 @@ Some example services provided by Tower:
 
 Types like `Timeout` and `JsonContentType` are typically called "middleware"
 since they wrap another `Service` and transform the request or response in some
-way. Whereas types like `RequestHandler` is typically called "leaf services"
+way. Whereas types like `RequestHandler` is typically called a "leaf service"
 since it sits at the leaves of a tree of nested services. The actual responses
 are normally produced in leaf services and modified by middlewares.
 
@@ -765,21 +764,22 @@ something like that. We could try:
 ```rust
 impl<R, T> Service<R> for ConcurrencyLimit<T> {
     fn call(&mut self, request: R) -> Self::Future {
-        // 1. Check a counter for the number of running requests
-        //    currently.
+        // 1. Check a counter for the number of requests currently being
+        //    processed.
         // 2. If there is capacity left send the request to `T`
         //    and increment the counter.
         // 3. If not somehow wait until capacity becomes available.
+        // 4. When the response has been produced, decrement the counter.
     }
 }
 ```
 
 If there is no capacity left we have to wait and somehow get notified when
 capacity becomes available. Additionally we have to keep the request in memory
-while we're waiting (also called buffering). It would be robust to only allocate
-space for the request when we are sure the service has capacity to handle it.
-Otherwise we risk using a lot of memory buffering requests while we wait for our
-service to become ready.
+while we're waiting (also called buffering). It would be more robust to only
+allocate space for the request when we are sure the service has capacity to
+handle it. Otherwise we risk using a lot of memory buffering requests while we
+wait for our service to become ready.
 
 In a way it would be nice if `Service` had a method like this:
 
@@ -821,10 +821,15 @@ trait Service<R> {
 ```
 
 This means if the service is at capacity `poll_ready` will return
-`Poll::Pending` and somehow notify the caller using the waker from the `Context`
-when capacity becomes available. At that point `poll_ready` can be called again
-and if it returns `Poll::Ready(())` then capacity would be reserved and `call`
-can be called.
+`Poll::Pending` and somehow notify the caller, using the waker from the
+`Context`, when capacity becomes available. At that point `poll_ready` can be
+called again and if it returns `Poll::Ready(())` then capacity would be reserved
+and `call` can be called.
+
+Note that there is technically nothing that prevents users from calling `call`
+without first making sure the service is ready. Doing so however is considered a
+violation of the `Service` contract and implementations are allowed to `panic`
+if `call` is called on a service that isn't ready!
 
 `poll_ready` not returning a `Future` also means we're able to quickly check if
 a service is ready without being forced to wait for it to become ready. If we
