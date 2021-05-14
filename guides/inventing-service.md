@@ -1,10 +1,10 @@
 # Inventing the `Service` trait
 
-At the core of Tower is the `Service` trait. It models an asynchronous function
-that takes a request and produces a response. However, some aspects of its design
-may not be immediately obvious. Rather than starting with the `Service trait as it
-exists in Tower today, let's look at the motivation behind `Service` by imagining
-how you might invent it if you started from scratch.
+At the core of Tower is the [`Service`] trait. A `Service` is an asynchronous
+function that takes a request and produces a response. However, some aspects of
+its design may not be immediately obvious. Rather than starting with the
+`Service` trait as it exists in Tower today, let's look at the motivation behind
+`Service` by imagining how you might invent it if you started from scratch.
 
 Imagine you are building a little HTTP framework in Rust. The framework would
 allow users to implement an HTTP server by supplying code that receives requests
@@ -566,12 +566,13 @@ library on crates.io for other people to use!
 
 Our little `Handler` trait is working quite nicely, but currently it only
 supports our `Request` and `Response` types. It would be nice if those where
-generic so users could use whatever type they want.
+generic, so users could use whatever type they want.
 
 We make `Request` a generic type parameter of the trait so that a given service
-can accept many different types of requests. We make `Response` an associated type
-because for any _given_ `Request` type, there can only be one (associated) `Response`
-type: the one the corresponding call returns!
+can accept many different types of requests. That allows to define handlers that
+can be use for different protocols. We make `Response` an associated type
+because for any _given_ `Request` type, there can only be one (associated)
+`Response` type: the one the corresponding call returns!
 
 ```rust
 trait Handler<Request> {
@@ -898,7 +899,7 @@ pub trait Service<Request> {
 ```
 
 Many middleware don't add their own backpressure, and simply delegate to the
-wrapped service's `poll_ready_. However, backpressure in middleware does enable
+wrapped service's `poll_read_`. However, backpressure in middleware does enable
 some interesting use cases, such as various kinds of rate limiting, load balancing,
 and auto scaling.
 
@@ -938,6 +939,7 @@ a feature called [generic associated types][gat] which will let us get around th
 Generic associated types will allow us to define the response future as
 `type Future<'a>`, and `call` as `fn call<'a>(&'a mut self, ...) -> Self::Future<'a>`.
 
+[`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
 [async-trait]: https://crates.io/crates/async-trait
 [dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
 [`futures::future::poll_fn`]: https://docs.rs/futures/0.3.14/futures/future/fn.poll_fn.html

@@ -6,9 +6,9 @@ recommended. If you're brand new to async Rust, we recommend the [Asynchronous
 Programming in Rust][async-book] book or the [Tokio tutorial][tokio-tutorial].
 
 Additionally, some of these guides explain Tower from the perspective of HTTP
-servers and clients. However Tower is useful for anything that follows and async
-request/response pattern. Not just web services even though that is its primary
-use case.
+servers and clients. However, Tower is useful for any network protocol that
+follows an async request/response pattern. HTTP is used here because it is a
+widely known protocol, and one of Tower's more common use-cases.
 
 ## Guides
 
