@@ -1,12 +1,14 @@
 # Inventing the `Service` trait
 
 At the core of Tower is the `Service` trait. It models an asynchronous function
-that takes a request and produces a response. However rather than diving into
-exactly what that means right away lets instead see how you could have invented
-the `Service` trait yourself, from scratch.
+that takes a request and produces a response. However, some aspects of its design
+may not be immediately obvious. Rather than starting with the `Service trait as it
+exists in Tower today, let's look at the motivation behind `Service` by imagining
+how you might invent it if you started from scratch.
 
-Imagine you were building a little HTTP framework in Rust. Something that allows
-users to easily receive requests and reply with some response.
+Imagine you are building a little HTTP framework in Rust. The framework would
+allow users to implement an HTTP server by supplying code that receives requests
+and replies with some response.
 
 You might have an API like this:
 
@@ -30,7 +32,7 @@ fn handle_request(request: Request) -> Response {
 
 Where `Request` and `Response` are some structs provided by our framework.
 
-With this we can implement `Server::run` like so:
+With this, we can implement `Server::run` like so:
 
 ```rust
 impl Server {
@@ -53,7 +55,7 @@ impl Server {
 }
 ```
 
-Here we have an asynchronous function `run` which takes a closure that accepts a
+Here, we have an asynchronous function `run` which takes a closure that accepts a
 `Request` and returns a `Response`.
 
 That means users can use our `Server` like so:
@@ -74,9 +76,9 @@ server.run(handle_request).await?;
 This is not bad. It makes it easy for users to run HTTP servers without worrying
 about any of the low level details.
 
-However our current design has one issue: We cannot handle the request
+However, our current design has one issue: we cannot handle requests
 asynchronously. Imagine our user needs to query a database or send a request to
-some other server while handling the request. That would currently require
+some other server while handling the request. Currently, that would require
 blocking while we wait for a response. That isn't great. Lets fix that by having
 the handler function return a future:
 
