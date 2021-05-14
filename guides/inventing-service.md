@@ -892,11 +892,11 @@ let response = service
 
 <a name="gats">1</a>: To be a bit more precise, the reason this requires the
 response future to be `'static` is that writing `Box<dyn Future>` actually
-becomes `Box<dyn Future + 'static>` which the anonymous lifetime in
-`fn call(&'_ mut self, ...)` doesn't satisfy. In the future we're hoping to
-use [Generic associated types][gat] to expression this a bit more cleanly.
-That will allow us to define the response future as `type Future<'a>` and `call`
-as `fn call<'a>(&'a mut self, ...) -> Self::Future<'a>`.
+becomes `Box<dyn Future + 'static>` which the anonymous lifetime in `fn call(&'_
+mut self, ...)` doesn't satisfy. In the future we're hoping to use [Generic
+associated types][gat] get around this. That will allow us to define the
+response future as `type Future<'a>` and `call` as `fn call<'a>(&'a mut self,
+...) -> Self::Future<'a>`.
 
 [async-trait]: https://crates.io/crates/async-trait
 [dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
