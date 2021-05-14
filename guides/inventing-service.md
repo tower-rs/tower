@@ -401,7 +401,7 @@ where
     type Future = Pin<Box<dyn Future<Output = Result<Response, Error>>>>;
 
     fn call(&mut self, request: Request) -> Self::Future {
-        // get an owned clone of `&mut self`
+        // Get an owned clone of `&mut self`
         let mut this = self.clone();
 
         Box::pin(async move {
@@ -419,6 +419,9 @@ where
     }
 }
 ```
+
+The response future now satisfies the `'static` lifetime requirement since it
+doesn't contain references.
 
 Note that cloning is very cheap in this case since `RequestHandler` doesn't have
 any data and `Timeout<T>` only adds a `Duration`.
