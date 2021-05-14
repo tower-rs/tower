@@ -1,5 +1,7 @@
 # Unreleased
 
+- Clarify subtlety around cloning and readiness in the `Service` docs.
+
 # 0.3.1 (November 29, 2019)
 
 - Improve example in `Service` docs. ([#510])

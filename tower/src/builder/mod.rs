@@ -429,7 +429,7 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::MapFutureLayer::new(f))
     }
 
-    /// Apply a function after the service, regardless of whether the future
+    /// Apply an asynchronous function after the service, regardless of whether the future
     /// succeeds or fails.
     ///
     /// This wraps the inner service with an instance of the [`Then`]
@@ -451,6 +451,23 @@ impl<L> ServiceBuilder<L> {
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {
         self.layer(crate::util::ThenLayer::new(f))
+    }
+
+    /// Maps this service's result type (`Result<Self::Response, Self::Error>`)
+    /// to a different value, regardless of whether the future succeeds or
+    /// fails.
+    ///
+    /// This wraps the inner service with an instance of the [`MapResult`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`map_result` combinator] for details.
+    ///
+    /// [`map_result` combinator]: crate::util::ServiceExt::map_result
+    /// [`MapResult`]: crate::util::MapResult
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn map_result<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapResultLayer<F>, L>> {
+        self.layer(crate::util::MapResultLayer::new(f))
     }
 
     /// Returns the underlying `Layer` implementation.

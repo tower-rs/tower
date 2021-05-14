@@ -33,6 +33,14 @@ impl<S> SpawnReady<S> {
     }
 }
 
+impl<S> Drop for SpawnReady<S> {
+    fn drop(&mut self) {
+        if let Inner::Future(ref mut task) = self.inner {
+            task.abort();
+        }
+    }
+}
+
 impl<S, Req> Service<Req> for SpawnReady<S>
 where
     Req: 'static,
