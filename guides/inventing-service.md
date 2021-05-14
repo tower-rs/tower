@@ -756,10 +756,6 @@ Some example services provided by Tower:
 - [`RateLimit`] - To limit the number of requests a service can handle over a
   period of time.
 
-[`Timeout`]: https://docs.rs/tower/latest/tower/timeout/index.html
-[`Retry`]: https://docs.rs/tower/latest/tower/retry/index.html
-[`Retry`]: https://docs.rs/tower/latest/tower/limit/rate/index.html
-
 Types like `Timeout` and `JsonContentType` are typically called _middleware_,
 since they wrap another `Service` and transform the request or response in some
 way. Types like `RequestHandler` are typically called _leaf services_, since they
@@ -931,16 +927,19 @@ a feature called [generic associated types][gat] which will let us get around th
 Generic associated types will allow us to define the response future as
 `type Future<'a>`, and `call` as `fn call<'a>(&'a mut self, ...) -> Self::Future<'a>`.
 
+[`RateLimit`]: https://docs.rs/tower/latest/tower/limit/rate/index.html
+[`Retry`]: https://docs.rs/tower/latest/tower/retry/index.html
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
-[async-trait]: https://crates.io/crates/async-trait
-[dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
+[`Timeout`]: https://docs.rs/tower/latest/tower/timeout/index.html
 [`futures::future::poll_fn`]: https://docs.rs/futures/0.3.14/futures/future/fn.poll_fn.html
-[`tower::ServiceExt::ready`]: https://docs.rs/tower/0.4.7/tower/trait.ServiceExt.html#method.ready
-[backpressure]: https://medium.com/@jayphelps/backpressure-explained-the-flow-of-data-through-software-2350b3e77ce7
-[backpressure2]: https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
-[gat]: https://github.com/rust-lang/rust/issues/44265
-[blocking]: https://ryhl.io/blog/async-what-is-blocking/
-[future]: https://doc.rust-lang.org/stable/std/future/trait.Future.html
-[`tokio::time::timeout`]: https://docs.rs/tokio/latest/tokio/time/fn.timeout.html
-[compose]: https://en.wikipedia.org/wiki/Function_composition
 [`poll_ready`]: https://docs.rs/tower/0.4.7/tower/trait.Service.html#tymethod.poll_ready
+[`tokio::time::timeout`]: https://docs.rs/tokio/latest/tokio/time/fn.timeout.html
+[`tower::ServiceExt::ready`]: https://docs.rs/tower/0.4.7/tower/trait.ServiceExt.html#method.ready
+[async-trait]: https://crates.io/crates/async-trait
+[backpressure2]: https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/
+[backpressure]: https://medium.com/@jayphelps/backpressure-explained-the-flow-of-data-through-software-2350b3e77ce7
+[blocking]: https://ryhl.io/blog/async-what-is-blocking/
+[compose]: https://en.wikipedia.org/wiki/Function_composition
+[dropping]: https://doc.rust-lang.org/stable/std/ops/trait.Drop.html
+[future]: https://doc.rust-lang.org/stable/std/future/trait.Future.html
+[gat]: https://github.com/rust-lang/rust/issues/44265
