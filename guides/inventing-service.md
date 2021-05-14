@@ -233,9 +233,10 @@ server.run(final_handler).await?;
 ```
 
 You could imagine `with_content_type` and `with_timeout` being functions that
-took an argument of type `F: Fn(Request) -> Future<Output = Response>` and
-returned a closure like `impl Fn(Request) -> Future<Output = Result<Response,
-Error>>` but all these closure types quickly become hard to deal with.
+took an argument of type `F: Fn(Request) -> Future<Output = Result<Response,
+Error>>` and returned a closure like `impl Fn(Request) -> Future<Output =
+Result<Response, Error>>` but all these closure types quickly become hard to
+deal with.
 
 ## The `Handler` trait
 
