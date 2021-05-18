@@ -19,5 +19,5 @@ widely known protocol, and one of Tower's more common use-cases.
 
 [async-book]: https://rust-lang.github.io/async-book/
 [tokio-tutorial]: https://tokio.rs/tokio/tutorial
-[invent]: https://github.com/tower-rs/tower/blob/master/guides/inventing-service.md
+[invent]: https://tokio.rs/blog/2021-05-14-inventing-the-service-trait
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
