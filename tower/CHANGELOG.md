@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **builder**: Add `ServiceBuilder::map_result` analogous to
   `ServiceExt::map_result`.
+- **buffer**: Add `Buffer::try_into_inner` for recovering inner service
 
 # 0.4.7 (April 27, 2021)
 

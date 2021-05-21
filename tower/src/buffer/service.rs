@@ -1,10 +1,12 @@
 use super::{
+    error::ServiceExtractedFromWorker,
     future::ResponseFuture,
     message::Message,
     worker::{Handle, Worker},
 };
 
 use futures_core::ready;
+use parking_lot::Mutex;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit, Semaphore};
@@ -37,6 +39,8 @@ where
     // This is acquired in `poll_ready` and taken in `call`.
     permit: Option<OwnedSemaphorePermit>,
     handle: Handle,
+    // Shared handle to the service that allows us to extract it in `into_inner`.
+    service: Arc<Mutex<Option<T>>>,
 }
 
 impl<T, Request> Buffer<T, Request>
@@ -90,14 +94,25 @@ where
     {
         let (tx, rx) = mpsc::unbounded_channel();
         let semaphore = Arc::new(Semaphore::new(bound));
-        let (handle, worker) = Worker::new(service, rx, &semaphore);
+        let service = Arc::new(Mutex::new(Some(service)));
+        let (handle, worker) = Worker::new(service.clone(), rx, &semaphore);
         let buffer = Buffer {
             tx,
             handle,
             semaphore: PollSemaphore::new(semaphore),
             permit: None,
+            service,
         };
         (buffer, worker)
+    }
+
+    /// Attempt to extract the worker's service.
+    ///
+    /// Will return `None` if the service has already been extraced or if the worker is dead.
+    ///
+    /// After extracting the inner service all requests will fail with [`ServiceExtractedFromWorker`].
+    pub fn try_into_inner(self) -> Option<T> {
+        self.service.lock().take()
     }
 
     fn get_worker_error(&self) -> crate::BoxError {
@@ -115,7 +130,12 @@ where
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // First, check if the worker is still alive.
+        // First, check if the inner service has been extraced
+        if self.service.lock().is_none() {
+            return Poll::Ready(Err(Box::new(ServiceExtractedFromWorker::new())));
+        }
+
+        // Then, check if the worker is still alive.
         if self.tx.is_closed() {
             // If the inner service has errored, then we error here.
             return Poll::Ready(Err(self.get_worker_error()));
@@ -139,6 +159,11 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
+        // Check if the inner service has been extraced
+        if self.service.lock().is_none() {
+            return ResponseFuture::failed(Box::new(ServiceExtractedFromWorker::new()));
+        }
+
         tracing::trace!("sending request to buffer worker");
         let _permit = self
             .permit
@@ -155,7 +180,7 @@ where
         let (tx, rx) = oneshot::channel();
 
         match self.tx.send(Message {
-            request,
+            request: Some(request),
             span,
             tx,
             _permit,
@@ -178,6 +203,7 @@ where
             // The new clone hasn't acquired a permit yet. It will when it's
             // next polled ready.
             permit: None,
+            service: self.service.clone(),
         }
     }
 }

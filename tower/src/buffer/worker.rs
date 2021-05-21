@@ -3,8 +3,9 @@ use super::{
     message::Message,
 };
 use futures_core::ready;
+use parking_lot::Mutex;
 use pin_project::pin_project;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use std::{
     future::Future,
     pin::Pin,
@@ -29,7 +30,7 @@ where
 {
     current_message: Option<Message<Request, T::Future>>,
     rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
-    service: T,
+    service: Arc<Mutex<Option<T>>>,
     finish: bool,
     failed: Option<ServiceError>,
     handle: Handle,
@@ -48,7 +49,7 @@ where
     T::Error: Into<crate::BoxError>,
 {
     pub(crate) fn new(
-        service: T,
+        service: Arc<Mutex<Option<T>>>,
         rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
         semaphore: &Arc<Semaphore>,
     ) -> (Handle, Worker<T, Request>) {
@@ -124,7 +125,7 @@ where
         // sending the error to all outstanding requests.
         let error = ServiceError::new(error);
 
-        let mut inner = self.handle.inner.lock().unwrap();
+        let mut inner = self.handle.inner.lock();
 
         if inner.is_some() {
             // Future::poll was called after we've already errored out!
@@ -152,6 +153,13 @@ where
             tracing::trace!("buffer already closed");
         }
     }
+
+    fn with_service<F, Out>(&mut self, f: F) -> Option<Out>
+    where
+        F: FnOnce(&mut T) -> Out,
+    {
+        self.service.lock().as_mut().map(f)
+    }
 }
 
 impl<T, Request> Future for Worker<T, Request>
@@ -168,7 +176,7 @@ where
 
         loop {
             match ready!(self.poll_next_msg(cx)) {
-                Some((msg, first)) => {
+                Some((mut msg, first)) => {
                     let _guard = msg.span.enter();
                     if let Some(ref failed) = self.failed {
                         tracing::trace!("notifying caller about worker failure");
@@ -181,10 +189,24 @@ where
                         resumed = !first,
                         message = "worker received request; waiting for service readiness"
                     );
-                    match self.service.poll_ready(cx) {
+                    let poll = if let Some(poll) = self.with_service(|svc| svc.poll_ready(cx)) {
+                        poll
+                    } else {
+                        self.finish = true;
+                        return Poll::Ready(());
+                    };
+                    match poll {
                         Poll::Ready(Ok(())) => {
                             tracing::debug!(service.ready = true, message = "processing request");
-                            let response = self.service.call(msg.request);
+
+                            let request = msg.request.take().unwrap();
+                            let response =
+                                if let Some(future) = self.with_service(|svc| svc.call(request)) {
+                                    future
+                                } else {
+                                    self.finish = true;
+                                    return Poll::Ready(());
+                                };
 
                             // Send the response future back to the sender.
                             //
@@ -240,7 +262,6 @@ impl Handle {
     pub(crate) fn get_error_on_closed(&self) -> crate::BoxError {
         self.inner
             .lock()
-            .unwrap()
             .as_ref()
             .map(|svc_err| svc_err.clone().into())
             .unwrap_or_else(|| Closed::new().into())
