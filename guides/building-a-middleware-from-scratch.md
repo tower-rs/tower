@@ -257,7 +257,7 @@ Its possible to make any type `Unpin` using `Box::pin`. But that requires
 allocating which is what we're trying to avoid. The proper solution is to use
 "pin projection".
 
-Pin projection sounds a lot more fancy than it really is. It basically means to
+Pin projection sounds a lot fancier than it really is. It basically means to
 go from a `Pin<&mut ResponseFuture<F>>` to a `Pin<&mut F>`. Its a bit like doing
 `self.response_future` while maintaining the `Pin`.
 
