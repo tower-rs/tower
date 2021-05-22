@@ -233,5 +233,3 @@ mod sealed {
 
 /// Alias for a type-erased error type.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-mod timeout2;
