@@ -397,7 +397,7 @@ enum TimeoutError<Error> {
 }
 ```
 
-While this seems ideal on the surface as we're not loosing any type information
+While this seems ideal on the surface as we're not losing any type information
 and can use `match` to get at the exact error, the approach has three issues:
 
 1. In practice its common to nest lots of middleware. That would make the final
