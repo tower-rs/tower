@@ -3,8 +3,8 @@
 In ["Inventing the `Service` trait"][invent] we learned all the motivations
 behind [`Service`] and why its designed the way it is. We also built a few
 smaller middleware ourselves but we took a few shortcuts in our implementation.
-In this guide we're going to build `Timeout` as it exists in Tower today without
-taking any shortcuts.
+In this guide we're going to build the `Timeout` middleware as it exists in
+Tower today without taking any shortcuts.
 
 Writing a robust middleware requires working with async Rust at a slightly lower
 level than you might be used to. The goal of this guide is to demystify the
@@ -32,7 +32,7 @@ struct Timeout<T> {
 ```
 
 As we learned in ["Inventing the `Service` trait"][invent] its important for
-services to clone such that you can convert the `&mut self` given to
+services to implement `Clone` such that you can convert the `&mut self` given to
 `Service::call` into an owned `self` that can be moved into the response future,
 if necessary. We should therefore add `#[derive(Clone)]` to our struct. We
 should also drive `Debug` while we're at it:
@@ -56,10 +56,11 @@ impl<S> Timeout<S> {
 ```
 
 Note that we don't have to add any trait bounds on `S` even though we expect `S`
-to implement `Service`. In Rust is common practice to only add trait bounds on
-the places that actually need them and since `new` doesn't we leave them off.
+to implement `Service`. In Rust is common practice to only add trait bounds
+where they're required and since `new` doesn't require anything from `S` we
+don't add any trait bounds.
 
-Now the interesting bit. How to implement `Service` for `Timeout<S>`. Lets start
+Now the interesting bit. How to implement `Service` for `Timeout<S>`? Lets start
 with an implementation that just forwards everything to the inner service:
 
 ```rust
@@ -75,6 +76,8 @@ where
     type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Our middleware doesn't care about backpressure so its ready as long
+        // as the inner service is ready.
         self.inner.poll_ready(cx)
     }
 
@@ -91,9 +94,9 @@ To actually add a timeout to the inner service what we essentially have to do is
 detect when the future returned by `self.inner.call(request)` has been running
 longer than `self.duration` and abort with an error.
 
-The approach we're going to take is to call `tokio::time::sleep` to get a future
-that completes when we're out of them and then select the value from whichever
-of the two futures is the first to complete. We could also use
+The approach we're going to take is to call [`tokio::time::sleep`] to get a
+future that completes when we're out of time and then select the value from
+whichever of the two futures is the first to complete. We could also use
 `tokio::time::timeout` but `sleep` works just as well.
 
 Creating both futures is done like this:
@@ -113,20 +116,19 @@ fn call(&mut self, request: Request) -> Self::Future {
 }
 ```
 
-One possible return type is be `Pin<Box<dyn Future<...>>>`. However we want our
-`Timeout` to add as little overhead as possible so we would like to find a way
+One possible return type is `Pin<Box<dyn Future<...>>>`. However we want our
+`Timeout` to add as little overhead as possible, so we would like to find a way
 to avoid allocating a `Box`. Imagine we have a large stack, with dozens of
-nested `Service`s, where each layer allocates a new `Box` for every request, that
-passes through it. That would result in a lot of allocations which might impact
-performance.
+nested `Service`s, where each layer allocates a new `Box` for every request
+that passes through it. That would result in a lot of allocations which might
+impact performance.
 
 ## The response future
 
-To avoid having to use a `Box` lets instead write our own `Future`
-implementation. We start by creating a struct called `ResponseFuture`. It has to
-be generic over the inner service's response future type. This is analogous to
-wrapping services in other services, but this time we're wrapping futures in
-other futures.
+To avoid using `Box` lets instead write our own `Future` implementation. We
+start by creating a struct called `ResponseFuture`. It has to be generic over
+the inner service's response future type. This is analogous to wrapping services
+in other services, but this time we're wrapping futures in other futures.
 
 ```rust
 use tokio::time::Sleep;
@@ -137,8 +139,8 @@ pub struct ResponseFuture<F> {
 }
 ```
 
-`F` will be the type of `self.inner.call(request)`. Updating our `call` function
-we get:
+`F` will be the type of `self.inner.call(request)`. Updating our `Service`
+implementation we get:
 
 ```rust
 impl<S, Request> Service<Request> for Timeout<S>
@@ -148,7 +150,7 @@ where
     type Response = S::Response;
     type Error = S::Error;
 
-    // We have to `Timeout`'s response future as well.
+    // Use our new `ResponseFuture` type.
     type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -159,7 +161,8 @@ where
         let response_future = self.inner.call(request);
         let sleep = tokio::time::sleep(self.timeout);
 
-        // Create our response future with the future from the inner service
+        // Create our response future by wrapping the future from the inner
+        // service.
         ResponseFuture {
             response_future,
             sleep,
@@ -194,7 +197,7 @@ Ideally what we want to write inside `poll` is something like:
 1. First poll `self.response_future` and if its done return the response or error it
    resolved to.
 2. Otherwise poll `self.sleep` and if its done return an error.
-3. Since neither future is ready return `Poll::Pending`.
+3. If neither future is ready return `Poll::Pending`.
 
 We might try:
 
@@ -239,7 +242,7 @@ What Rust is trying to tell us is that we need a `Pin<&mut F>` to be able to
 call `poll`. Accessing `F` through `self.response_future` when `self` is a
 `Pin<&mut Self>` doesn't work.
 
-One solution is to make `ResponseFuture<F>` implement `Unpin`. If a type
+One solution is to make `ResponseFuture<F>` implement [`Unpin`]. If a type
 implements `Unpin` it means we can ignore `Pin` and treat a `Pin<&mut Self>` as
 just a `&mut self`, as if the `Pin` wasn't there. As `Unpin` is an auto trait
 the compiler will automatically implement it if all types contained are also
@@ -263,7 +266,8 @@ Pin projection is possible to implement manually but it usually requires writing
 is a library called [pin-project] that can handle all the dirty details for us.
 
 Using pin-project we can annotate a struct with `#[pin_project]` and add
-`#[pin]` to each that we want to able to access through a pinned reference:
+`#[pin]` to each field that we want to be able to access through a pinned
+reference:
 
 ```rust
 use pin_project::pin_project;
@@ -283,17 +287,17 @@ where
     type Output = Result<Response, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Call the magical `project` method generated by #[pin_project].
+        // Call the magical `project` method generated by `#[pin_project]`.
         let this = self.project();
 
         // `project` returns a `__ResponseFutureProjection` but we can ignore
         // the exact type. It has fields that matches `ResponseFuture` but
         // maintain pins for fields annotated with `#[pin]`.
 
-        // `this.response_future` is now a `Pin<&mut F>`
+        // `this.response_future` is now a `Pin<&mut F>`.
         let response_future: Pin<&mut F> = this.response_future;
 
-        // And `this.sleep` is a `Pin<&mut Sleep>`
+        // And `this.sleep` is a `Pin<&mut Sleep>`.
         let sleep: Pin<&mut Sleep> = this.sleep;
 
         // If we had another field that wasn't annotated with `#[pin]` that
@@ -306,10 +310,11 @@ where
 
 The key here is that we're able to go from a `Pin<&mut Struct>` to a `Pin<&mut
 Field>` without having to write _any_ `unsafe` code. pin-project takes care of
-maintaining all the invariants. As long as we stick to that (and don't write any
-`unsafe` code ourselves) we guaranteed to not have any undefined behavior.
+maintaining all the invariants. As long as we stick to pin-project (and don't
+write any `unsafe` code ourselves) we are guaranteed to not have any undefined
+behavior.
 
-Pinning in Rust is also a complex topic that is hard to understand but thanks to
+Pinning in Rust is a complex topic that is hard to understand but thanks to
 pin-project we're able to ignore most of that complexity. Crucially, it means we
 don't have to fully understand pinning to write Tower middleware. So if you
 didn't quite get all the stuff about `Pin` and `Unpin` fear not because
@@ -328,19 +333,19 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
 
-        // First check if the response future is done
+        // First check if the response future is ready.
         match this.response_future.poll(cx) {
             Poll::Ready(result) => {
-                // The inner service is done computing a response (or it has
-                // failed)
+                // The inner service has a response ready for us or it has
+                // failed.
                 return Poll::Ready(result);
             }
             Poll::Pending => {
-                // Not quite done yet...
+                // Not quite ready yet...
             }
         }
 
-        // Then check if the sleep is done. If so the response has taken too
+        // Then check if the sleep is ready. If so the response has taken too
         // long and we have to return an error.
         match this.sleep.poll(cx) {
             Poll::Ready(()) => {
@@ -352,7 +357,7 @@ where
             }
         }
 
-        // If neither future is done then we are still pending
+        // If neither future is ready then we are still pending.
         Poll::Pending
     }
 }
@@ -363,9 +368,10 @@ finishes first?
 
 ## The error type
 
-The error type we're promising to return now is `Error` which is the same as the
-inner service's error type. However we know nothing about that type. Its
-completely opaque to us and we have no way of constructing values of that type.
+The error type we're promising to return now is the generic `Error` type which
+is the same as the inner service's error type. However we know nothing about
+that type. It is completely opaque to us and we have no way of constructing
+values of that type.
 
 We have three options:
 
@@ -385,17 +391,17 @@ Option 2 would mean defining an enum like this:
 ```rust
 enum TimeoutError<Error> {
     // Variant used if we hit the timeout
-    Timeout,
+    Timeout(InnerTimeoutError),
     // Variant used if the inner service produced an error
     Service(Error),
 }
 ```
 
 While this seems ideal on the surface as we're not loosing any type information
-and can use `match` to get at the exact error it has two issues:
+and can use `match` to get at the exact error, the approach has three issues:
 
 1. In practice its common to nest lots of middleware. That would make the final
-   error enum very large. Its not unlikely to look something like this:
+   error enum very large. Its not unlikely to look something like
    `BufferError<RateLimitError<TimeoutError<MyError>>>`. Pattern matching on
    such a type (to for example determine if the error is retry-able) is very
    tedious.
@@ -419,21 +425,21 @@ advantages:
 However it also has the following downsides:
 
 1. As we're using dynamic downcasting the compiler can no longer guarantee that
-   we're exhaustively checking every possible error type.
+   we're exhaustively checking for every possible error type.
 2. Creating an error now requires an allocation. In practice we expect errors to
    be infrequent and therefore this shouldn't be a problem.
 
 Which option you prefer is a matter of personal preference. Both have their
 advantages and disadvantages. However the pattern that we've decided to use in
 Tower is boxed trait objects. You can find the original discussion
-[here][https://github.com/tower-rs/tower/issues/131].
+[here](https://github.com/tower-rs/tower/issues/131).
 
 For our `Timeout` middleware that means we need to create a struct that
 implements `std::error::Error` such that we can convert it into a `Box<dyn
 std::error::Error + Send + Sync>`. We also have to require that the inner
-service's implements `Into<Box<dyn std::error::Error + Send + Sync>>`. Luckily
-all errors automatically satisfies that so it wont require users to write any
-additional code.
+service's error type implements `Into<Box<dyn std::error::Error + Send +
+Sync>>`. Luckily all errors automatically satisfies that so it wont require
+users to write any additional code.
 
 The code for our error type looks like this:
 
@@ -470,12 +476,12 @@ Our future implementation now becomes:
 impl<F, Response, Error> Future for ResponseFuture<F>
 where
     F: Future<Output = Result<Response, Error>>,
-    // Require that the inner service's error can be converted into a `BoxError`
+    // Require that the inner service's error can be converted into a `BoxError`.
     Error: Into<BoxError>,
 {
     type Output = Result<
         Response,
-        // The error type of `ResponseFuture` is now `BoxError`
+        // The error type of `ResponseFuture` is now `BoxError`.
         BoxError,
     >;
 
@@ -516,7 +522,7 @@ where
     S::Error: Into<BoxError>,
 {
     type Response = S::Response;
-    // The error type of `Timeout` is now `BoxError`
+    // The error type of `Timeout` is now `BoxError`.
     type Error = BoxError;
     type Future = ResponseFuture<S::Future>;
 
@@ -647,8 +653,8 @@ type BoxError = Box<dyn std::error::Error + Send + Sync>;
 You can find the code in Tower [here][timeout-in-tower].
 
 The pattern of implementing `Service` for some type that wraps another `Service`
-and returning a future that wraps another future is how most Tower middleware
-work.
+and returning a `Future` that wraps another `Future` is how most Tower
+middleware work.
 
 Some other good examples are:
 
@@ -665,10 +671,10 @@ middleware. If you want more practice here are some exercises to play with:
   that transforms the request, response, or error using a closure given by the
   user.
 - Implement [`ConcurrencyLimit`]. Hint: You're going to need [`PollSemaphore`] to
-  implement [`poll_ready`].
+  implement `poll_ready`.
 
-If you have questions you're welcome to post in the Tower channel in the [Tokio
-Discord server][discord].
+If you have questions you're welcome to post in `#tower` in the [Tokio Discord
+server][discord].
 
 [invent]: https://tokio.rs/blog/2021-05-14-inventing-the-service-trait
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
@@ -681,5 +687,7 @@ Discord server][discord].
 [`LoadShed`]: https://github.com/tower-rs/tower/blob/master/tower/src/load_shed/mod.rs
 [`Steer`]: https://github.com/tower-rs/tower/blob/master/tower/src/steer/mod.rs
 [`tokio::time::timeout`]: https://docs.rs/tokio/latest/tokio/time/fn.timeout.html
+[`tokio::time::sleep`]: https://docs.rs/tokio/latest/tokio/time/fn.sleep.html
 [`PollSemaphore`]: https://docs.rs/tokio-util/latest/tokio_util/sync/struct.PollSemaphore.html
 [discord]: https://discord.gg/tokio
+[`Unpin`]: https://doc.rust-lang.org/stable/std/marker/trait.Unpin.html
