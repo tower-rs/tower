@@ -64,7 +64,7 @@ Now the interesting bit. How to implement `Service` for `Timeout<S>`? Lets start
 with an implementation that just forwards everything to the inner service:
 
 ```rust
-use tower_service::Service;
+use tower::Service;
 use std::task::{Context, Poll};
 
 impl<S, Request> Service<Request> for Timeout<S>
@@ -560,7 +560,7 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::time::Sleep;
-use tower_service::Service;
+use tower::Service;
 
 #[derive(Debug, Clone)]
 struct Timeout<S> {
