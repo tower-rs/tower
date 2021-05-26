@@ -11,7 +11,7 @@ async fn service_driven_to_readiness() {
 
     struct PollMeTwice {
         ready: bool,
-    };
+    }
     impl Service<()> for PollMeTwice {
         type Error = ();
         type Response = ();
