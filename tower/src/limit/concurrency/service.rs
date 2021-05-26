@@ -26,7 +26,7 @@ pub struct ConcurrencyLimit<T> {
 impl<T> ConcurrencyLimit<T> {
     /// Create a new concurrency limiter.
     pub fn new(inner: T, max: usize) -> Self {
-        Self::new_shared(inner, Arc::new(Semaphore::new(max)))
+        Self::with_semaphore(inner, Arc::new(Semaphore::new(max)))
     }
 
     /// Create a new concurrency limiter with a provided shared semaphore
