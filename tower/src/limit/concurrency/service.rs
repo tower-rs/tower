@@ -30,7 +30,7 @@ impl<T> ConcurrencyLimit<T> {
     }
 
     /// Create a new concurrency limiter with a provided shared semaphore
-    pub fn new_shared(inner: T, semaphore: Arc<Semaphore>) -> Self {
+    pub fn with_semaphore(inner: T, semaphore: Arc<Semaphore>) -> Self {
         ConcurrencyLimit {
             inner,
             semaphore: PollSemaphore::new(semaphore),
