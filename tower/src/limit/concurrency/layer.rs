@@ -28,10 +28,12 @@ impl<S> Layer<S> for ConcurrencyLimitLayer {
 
 /// Enforces a limit on the concurrent number of requests the underlying
 /// service can handle.
+///
 /// Unlike [`ConcurrencyLimitLayer`], which enforces a per-service concurrency
 /// limit, this layer accepts a owned semaphore (`Arc<Semaphore>`) which can be
 /// shared across multiple services.
-/// Cloning it will not create a new semaphore.
+///
+/// Cloning this layer will not create a new semaphore.
 #[derive(Debug, Clone)]
 pub struct GlobalConcurrencyLimitLayer {
     semaphore: Arc<Semaphore>,
