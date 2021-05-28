@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+Nothing yet.
+
+# 0.4.8 (May 28, 2021)
+
 - **builder**: Add `ServiceBuilder::map_result` analogous to
   `ServiceExt::map_result`.
 - **limit**: Add `GlobalConcurrencyLimitLayer` allowing to reuse concurrency
   limit across multiple services ([#574])
+
+[#574]: https://github.com/tower-rs/tower/pull/574
 
 # 0.4.7 (April 27, 2021)
 
