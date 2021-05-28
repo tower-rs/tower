@@ -172,7 +172,7 @@ where
 ```
 
 A key point here is that Rust's futures are _lazy_. That means nothing actually
-happens until they're `await`ed to polled. So `self.inner.call(request)` will
+happens until they're `await`ed or polled. So `self.inner.call(request)` will
 return immediately without actually processing the request.
 
 Next we go ahead and implement `Future` for `ResponseFuture`:
@@ -192,11 +192,11 @@ where
 }
 ```
 
-Ideally what we want to write inside `poll` is something like:
+Ideally we want to write something like this:
 
-1. First poll `self.response_future` and if its done return the response or error it
+1. First poll `self.response_future` and if its ready return the response or error it
    resolved to.
-2. Otherwise poll `self.sleep` and if its done return an error.
+2. Otherwise poll `self.sleep` and if its ready return an error.
 3. If neither future is ready return `Poll::Pending`.
 
 We might try:
@@ -438,7 +438,7 @@ For our `Timeout` middleware that means we need to create a struct that
 implements `std::error::Error` such that we can convert it into a `Box<dyn
 std::error::Error + Send + Sync>`. We also have to require that the inner
 service's error type implements `Into<Box<dyn std::error::Error + Send +
-Sync>>`. Luckily all errors automatically satisfies that so it wont require
+Sync>>`. Luckily most errors automatically satisfies that so it wont require
 users to write any additional code.
 
 The code for our error type looks like this:
