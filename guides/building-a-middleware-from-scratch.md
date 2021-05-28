@@ -64,7 +64,7 @@ Now the interesting bit. How to implement `Service` for `Timeout<S>`? Lets start
 with an implementation that just forwards everything to the inner service:
 
 ```rust
-use tower_service::Service;
+use tower::Service;
 use std::task::{Context, Poll};
 
 impl<S, Request> Service<Request> for Timeout<S>
@@ -257,7 +257,7 @@ Its possible to make any type `Unpin` using `Box::pin`. But that requires
 allocating which is what we're trying to avoid. The proper solution is to use
 "pin projection".
 
-Pin projection sounds a lot more fancy than it really is. It basically means to
+Pin projection sounds a lot fancier than it really is. It basically means to
 go from a `Pin<&mut ResponseFuture<F>>` to a `Pin<&mut F>`. Its a bit like doing
 `self.response_future` while maintaining the `Pin`.
 
@@ -397,7 +397,7 @@ enum TimeoutError<Error> {
 }
 ```
 
-While this seems ideal on the surface as we're not loosing any type information
+While this seems ideal on the surface as we're not losing any type information
 and can use `match` to get at the exact error, the approach has three issues:
 
 1. In practice its common to nest lots of middleware. That would make the final
@@ -560,7 +560,7 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::time::Sleep;
-use tower_service::Service;
+use tower::Service;
 
 #[derive(Debug, Clone)]
 struct Timeout<S> {
