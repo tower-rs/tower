@@ -12,11 +12,12 @@ Nothing yet.
 # 0.4.8 (May 28, 2021)
 
 - **builder**: Add `ServiceBuilder::map_result` analogous to
-  `ServiceExt::map_result`.
-- **limit**: Add `GlobalConcurrencyLimitLayer` allowing to reuse concurrency
+  `ServiceExt::map_result` ([#583]) 
+- **limit**: Add `GlobalConcurrencyLimitLayer` to allow reusing a concurrency
   limit across multiple services ([#574])
 
 [#574]: https://github.com/tower-rs/tower/pull/574
+[#583]: https://github.com/tower-rs/tower/pull/583
 
 # 0.4.7 (April 27, 2021)
 
