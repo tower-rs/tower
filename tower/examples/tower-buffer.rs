@@ -4,17 +4,13 @@
 /// sharable between threads.
 /// We demonstrate this by using the `ServiceBuilder` to create a "stack" of services
 /// that wrap our SlowFibCalculator example object.
-use futures_core::{future::BoxFuture, Future, Stream, TryStream};
-use futures_util::future::{self, FutureExt, Lazy};
-use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
-use num_traits::{PrimInt, ToPrimitive};
-use pin_project::pin_project;
-use rand::{self, Rng};
-use std::hash::Hash;
-use std::time::Duration;
+use futures_core::Future;
+use futures_util::{stream::FuturesUnordered, stream::StreamExt};
+use num_traits::PrimInt;
 use std::{
     pin::Pin,
     task::{Context, Poll},
+    time::Duration
 };
 use tokio::{task, time};
 use tower::{
@@ -22,46 +18,45 @@ use tower::{
 };
 
 /// The SlowFibCalculator struct
-struct SlowFibCalculator {
+struct SlowFibCalculator<N: PrimInt + Send> {
     delay: Duration,
-    requests: usize,
-    responses: usize,
+    fib_prev: N,
+    fib_next: N,
+    requests: u64,
+    responses: u64,
 }
 
 /// SlowFibCalculator is an Example [Service]
 /// Note that its primary method, `calculate` takes &mut self
 /// and struct itself is not Sync or Send, so we certainly
 /// wouldn't be able to use this from multiple threads simultaneously
-impl SlowFibCalculator {
+impl<N: PrimInt + Send> SlowFibCalculator<N> {
     pub fn new(delay: Duration) -> Self {
         SlowFibCalculator {
+            fib_prev: N::zero(),
+            fib_next: N::one(),
+            delay,
             requests: 0,
             responses: 0,
-            delay,
         }
     }
 
     /// This is an overly elaborate fibonacci calculator Future
     /// It is generic over all Ints
     /// It also takes a param to delay some amount between iterations
-    pub fn calculate<N: PrimInt + Send>(
-        &mut self,
-        iters: N,
-    ) -> impl Future<Output = Result<N, String>> {
-        let mut x = N::zero();
-        let mut y = N::one();
-        let mut z = N::one();
+    pub fn calculate(&mut self, iters: N) -> impl Future<Output = Result<N, String>> {
         let delay = self.delay;
         let n = iters.to_usize().unwrap();
+        let mut res = self.fib_prev + self.fib_next;
         println!("calculating...");
+        for _ in 0..n {
+            self.fib_prev = self.fib_next;
+            self.fib_next = res;
+            res = self.fib_prev + self.fib_next;
+        }
         async move {
-            for _ in 0..n {
-                x = y;
-                y = z;
-                z = x + y;
-                time::sleep(delay).await;
-            }
-            Ok(x)
+            time::sleep(delay).await;
+            Ok(res)
         }
     }
 }
@@ -69,19 +64,19 @@ impl SlowFibCalculator {
 /// Implementing the [Service] trait for `SlowFibCalculator`
 /// Since the `calculate` method's argument and return type is generic,
 /// this impl must be as well.
-impl<I> Service<I> for SlowFibCalculator
+impl<N> Service<N> for SlowFibCalculator<N>
 where
-    I: PrimInt + Send + 'static,
+    N: PrimInt + Send + 'static,
 {
-    type Response = I;
+    type Response = N;
     type Error = String;
-    type Future = Pin<Box<Future<Output = Result<I, Self::Error>> + Send>>;
+    type Future = Pin<Box<dyn Future<Output = Result<N, Self::Error>> + Send>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: I) -> Self::Future {
+    fn call(&mut self, req: N) -> Self::Future {
         self.requests = self.requests + 1;
         let res = self.calculate(req);
         self.responses = self.responses + 1;
@@ -89,7 +84,7 @@ where
     }
 }
 
-#[tokio::main]
+#[tokio::main(worker_threads = 4)]
 async fn main() {
     tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::default()).unwrap();
 
@@ -108,30 +103,43 @@ async fn main() {
     // common utility Services that are built into Tower
     let stack = ServiceBuilder::new()
         .layer(BufferLayer::new(10))
-        .layer(ConcurrencyLimitLayer::new(2))
-        .service(SlowFibCalculator::new(Duration::from_millis(5)));
+        .layer(ConcurrencyLimitLayer::new(1))
+        .service(SlowFibCalculator::new(Duration::from_millis(20)));
 
     // Let's spin up 20 tasks and call our stack. Since these are potentially executing in separate threads
-    // Note that the Tokio Runtime, specified by `tokio::main` defaults to a multi-threaded runtime.
-    // So these tasks are going to be spawned from multiple threads. Note that we haven't had to do
-    // anything special in order to clone `stack` and use it from multiple threads simultaneously.
-    let futs = (10..30_u64)
+    // Note that in the tokio::main macro, we are specifying 4 threads, so these tasks may get
+    // spawned in any of 4 different threads, all competing to call our service first.
+    let futs: FuturesUnordered<task::JoinHandle<_>> = (1..20u64)
         .map(|i| {
             let mut stack = stack.clone();
             tokio::spawn(async move {
-                println!("Task {} - Polling for ready", i);
+                println!(
+                    "ThreadId: {:?} - Task {} - Polling for ready",
+                    std::thread::current().id(),
+                    i
+                );
                 let svc = stack.ready().await.unwrap();
-                println!("Task {} - Svc is ready, calling", i);
-                svc.call(i).await
+                println!(
+                    "ThreadId: {:?} - Task {} - Svc is ready, calling",
+                    std::thread::current().id(),
+                    i
+                );
+                let res = svc.call(1u64).await;
+                (i, res.unwrap())
             })
         })
-        .collect::<Vec<task::JoinHandle<_>>>();
-
-    // After invoking all of the tasks, we wait on their results
-    let results = future::join_all(futs).await;
+        .collect::<FuturesUnordered<_>>();
 
     println!("\n############\nGot results: ");
-    results
-        .iter()
-        .for_each(|r| println!("{}", r.as_ref().unwrap().as_ref().unwrap()));
+    // Note the interesting behavior of buffering. Approximately the first 10 requests reported
+    // that they were "ready" fairly immediately. After that, the remaining tasks all polled for
+    // ready but didn't get an immediate response.
+    // Also note that the tasks might execute out of order, but the fib results *should* be
+    // returned in the correct order.
+    // See if you can effect the fib order by tweaking the concurrency limit
+    futs.for_each(|result| async move {
+        let res = result.unwrap();
+        println!("Task: {} - Result: {}", res.0, res.1);
+    })
+    .await;
 }
