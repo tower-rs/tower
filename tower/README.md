@@ -110,6 +110,10 @@ The following is an incomplete list of such libraries:
   [here][warp-service] for details on using [`warp`] with Tower.
 * [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
   Server Protocol][lsp] based on Tower.
+* [`kube`]: Kubernetes client and futures controller runtime. [`kube::Client`]
+  makes use of the Tower ecosystem: [`tower`], [`tower-http`], and
+  [`tower-test`]. See [here][kube-example-minimal] and
+  [here][kube-example-trace] for examples of using [`kube`] with Tower.
 
 [`hyper`]: https://crates.io/crates/hyper
 [`tonic`]: https://crates.io/crates/tonic
@@ -120,6 +124,11 @@ The following is an incomplete list of such libraries:
 [`tower-lsp`]: https://crates.io/crates/tower-lsp
 [`lspower`]: https://crates.io/crates/lspower
 [lsp]: https://microsoft.github.io/language-server-protocol/
+[`kube`]: https://crates.io/crates/kube
+[`kube::Client`]: https://docs.rs/kube/latest/kube/struct.Client.html
+[kube-example-minimal]: https://github.com/clux/kube-rs/blob/master/examples/custom_client.rs
+[kube-example-trace]: https://github.com/clux/kube-rs/blob/master/examples/custom_client_trace.rs
+[`tower-http`]: https://crates.io/crates/tower-http
 
 If you're the maintainer of a crate that supports Tower, we'd love to add
 your crate to this list! Please [open a PR] adding a brief description of
