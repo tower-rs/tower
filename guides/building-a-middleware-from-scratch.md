@@ -14,10 +14,10 @@ even contribute back to the Tower ecosystem!
 ## Getting started
 
 The middleware we're going to build is [`tower::timeout::Timeout`]. It will set
-a limit on the maximum duration its inner `Service` is allowed to take. If it
-doesn't produce a response within some amount of time, an error is returned.
-This allows the client to retry that request or report an error to the user,
-rather than waiting forever.
+a limit on the maximum duration its inner `Service`'s response future is allowed
+to take. If it doesn't produce a response within some amount of time, an error
+is returned. This allows the client to retry that request or report an error to
+the user, rather than waiting forever.
 
 Lets start by writing a `Timeout` struct that holds the `Service` its wrapping
 and the duration of the timeout:
@@ -35,7 +35,7 @@ As we learned in ["Inventing the `Service` trait"][invent] its important for
 services to implement `Clone` such that you can convert the `&mut self` given to
 `Service::call` into an owned `self` that can be moved into the response future,
 if necessary. We should therefore add `#[derive(Clone)]` to our struct. We
-should also drive `Debug` while we're at it:
+should also derive `Debug` while we're at it:
 
 ```rust
 #[derive(Debug, Clone)]
@@ -55,10 +55,8 @@ impl<S> Timeout<S> {
 }
 ```
 
-Note that we don't have to add any trait bounds on `S` even though we expect `S`
-to implement `Service`. In Rust is common practice to only add trait bounds
-where they're required and since `new` doesn't require anything from `S` we
-don't add any trait bounds.
+Note that we omit bounds on S even though we expect it to implement Service, as
+the [Rust API guidelines recommend][rust-guidelines].
 
 Now the interesting bit. How to implement `Service` for `Timeout<S>`? Lets start
 with an implementation that just forwards everything to the inner service:
@@ -121,7 +119,7 @@ One possible return type is `Pin<Box<dyn Future<...>>>`. However we want our
 to avoid allocating a `Box`. Imagine we have a large stack, with dozens of
 nested `Service`s, where each layer allocates a new `Box` for every request
 that passes through it. That would result in a lot of allocations which might
-impact performance.
+impact performance[^1].
 
 ## The response future
 
@@ -235,35 +233,17 @@ Unfortunately the error we get from Rust isn't very good. It tells us to add a
 Future<Output = Result<Response, E>>`.
 
 The real issue has to do with [`Pin`]. The full details of pinning is outside
-the scope of this guide. If you're brand new to `Pin` we recommend ["The Why,
-What, and How of Pinning in Rust"][pin] by Jon Gjengset.
+the scope of this guide. If you're new to `Pin` we recommend ["The Why, What,
+and How of Pinning in Rust"][pin] by Jon Gjengset.
 
 What Rust is trying to tell us is that we need a `Pin<&mut F>` to be able to
 call `poll`. Accessing `F` through `self.response_future` when `self` is a
 `Pin<&mut Self>` doesn't work.
 
-One solution is to make `ResponseFuture<F>` implement [`Unpin`]. If a type
-implements `Unpin` it means we can ignore `Pin` and treat a `Pin<&mut Self>` as
-just a `&mut self`, as if the `Pin` wasn't there. As `Unpin` is an auto trait
-the compiler will automatically implement it if all types contained are also
-`Unpin`, similarly to `Send` and `Sync`.
-
-So to make `ResponseFuture<F>` implement `Unpin` we need `F` and `Sleep` to
-implement `Unpin`. However `tokio::time::Sleep` is not `Unpin`. So even if we
-made `F` somehow implement `Unpin`, `ResponseFuture<F>` still wouldn't be
-`Unpin`.
-
-Its possible to make any type `Unpin` using `Box::pin`. But that requires
-allocating which is what we're trying to avoid. The proper solution is to use
-"pin projection".
-
-Pin projection sounds a lot fancier than it really is. It basically means to
-go from a `Pin<&mut ResponseFuture<F>>` to a `Pin<&mut F>`. Its a bit like doing
-`self.response_future` while maintaining the `Pin`.
-
-Pin projection is possible to implement manually but it usually requires writing
-`unsafe`. I don't trust myself enough to write `unsafe` code but luckily there
-is a library called [pin-project] that can handle all the dirty details for us.
+What we need is called "pin projection" which means going from a `Pin<&mut
+Struct>` to a `Pin<&mut Field>`. Normally pin projection would require writing
+`unsafe` code but the excellent [pin-project] crate is able to handle all the
+`unsafe` details for us.
 
 Using pin-project we can annotate a struct with `#[pin_project]` and add
 `#[pin]` to each field that we want to be able to access through a pinned
@@ -307,12 +287,6 @@ where
     }
 }
 ```
-
-The key here is that we're able to go from a `Pin<&mut Struct>` to a `Pin<&mut
-Field>` without having to write _any_ `unsafe` code. pin-project takes care of
-maintaining all the invariants. As long as we stick to pin-project (and don't
-write any `unsafe` code ourselves) we are guaranteed to not have any undefined
-behavior.
 
 Pinning in Rust is a complex topic that is hard to understand but thanks to
 pin-project we're able to ignore most of that complexity. Crucially, it means we
@@ -439,7 +413,9 @@ implements `std::error::Error` such that we can convert it into a `Box<dyn
 std::error::Error + Send + Sync>`. We also have to require that the inner
 service's error type implements `Into<Box<dyn std::error::Error + Send +
 Sync>>`. Luckily most errors automatically satisfies that so it wont require
-users to write any additional code.
+users to write any additional code. We're using `Into` for the trait bound
+rather than `From` as recommend by the [standard
+library](https://doc.rust-lang.org/stable/std/convert/trait.From.html).
 
 The code for our error type looks like this:
 
@@ -676,6 +652,10 @@ middleware. If you want more practice here are some exercises to play with:
 If you have questions you're welcome to post in `#tower` in the [Tokio Discord
 server][discord].
 
+[^1]: The Rust compiler teams plans to add a feature called ["`impl Trait` in
+type aliases"](https://github.com/rust-lang/rust/issues/63063) which would
+allow us to return `impl Future` from `call` but for now it isn't possible.
+
 [invent]: https://tokio.rs/blog/2021-05-14-inventing-the-service-trait
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
 [`tower::timeout::Timeout`]: https://docs.rs/tower/latest/tower/timeout/struct.Timeout.html
@@ -691,3 +671,4 @@ server][discord].
 [`PollSemaphore`]: https://docs.rs/tokio-util/latest/tokio_util/sync/struct.PollSemaphore.html
 [discord]: https://discord.gg/tokio
 [`Unpin`]: https://doc.rust-lang.org/stable/std/marker/trait.Unpin.html
+[rust-guidelines]: https://rust-lang.github.io/api-guidelines/future-proofing.html#c-struct-bounds
