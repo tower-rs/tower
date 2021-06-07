@@ -228,7 +228,7 @@ help: the following traits define an item `poll`, perhaps you need to restrict t
 error: aborting due to previous error
 ```
 
-Unfortunately the error we get from Rust isn't very good. It tells us to add a
+Unfortunately the error we get from Rust isn't very good. It tells us to add an
 `F: Future` bound even though we've already done that with `where F:
 Future<Output = Result<Response, E>>`.
 
