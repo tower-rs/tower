@@ -87,6 +87,7 @@ tokio-test = "0.4"
 tower-test = { version = "0.4", path = "../tower-test" }
 tracing-subscriber = "0.2.14"
 http = "0.2"
+num-traits = "0.2.14"
 # env_logger = { version = "0.5.3", default-features = false }
 # log = "0.4.1"
 
@@ -100,4 +101,9 @@ features = ["full"]
 [[example]]
 name = "tower-balance"
 path = "examples/tower-balance.rs"
+required-features = ["full"]
+
+[[example]]
+name = "tower-buffer"
+path = "examples/tower-buffer.rs"
 required-features = ["full"]
