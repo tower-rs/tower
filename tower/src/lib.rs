@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.4.7")]
+#![doc(html_root_url = "https://docs.rs/tower/0.4.8")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
