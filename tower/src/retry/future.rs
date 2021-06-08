@@ -65,9 +65,9 @@ where
         loop {
             match this.state.as_mut().project() {
                 StateProj::Called(future) => {
-                    let result = ready!(future.poll(cx));
-                    if let Some(ref req) = this.request {
-                        match this.retry.policy.retry(req, result.as_ref()) {
+                    let mut result = ready!(future.poll(cx));
+                    if let Some(ref mut req) = this.request {
+                        match this.retry.policy.retry(req, &mut result) {
                             Some(checking) => {
                                 this.state.set(State::Checking(checking));
                             }

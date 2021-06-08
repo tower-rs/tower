@@ -16,7 +16,7 @@ use std::future::Future;
 /// impl<E> Policy<Req, Res, E> for Attempts {
 ///     type Future = future::Ready<Self>;
 ///
-///     fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future> {
+///     fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
 ///         match result {
 ///             Ok(_) => {
 ///                 // Treat all `Response`s as success,
@@ -58,7 +58,7 @@ pub trait Policy<Req, Res, E>: Sized {
     ///
     /// [`Service::Response`]: crate::Service::Response
     /// [`Service::Error`]: crate::Service::Error
-    fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future>;
+    fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future>;
 
     /// Tries to clone a request before being passed to the inner service.
     ///
