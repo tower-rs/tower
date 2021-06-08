@@ -169,6 +169,9 @@ pub mod discover;
 #[cfg(feature = "filter")]
 #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
 pub mod filter;
+#[cfg(feature = "handle-error")]
+#[cfg_attr(docsrs, doc(cfg(feature = "handle-error")))]
+pub mod handle_error;
 #[cfg(feature = "hedge")]
 #[cfg_attr(docsrs, doc(cfg(feature = "hedge")))]
 pub mod hedge;
