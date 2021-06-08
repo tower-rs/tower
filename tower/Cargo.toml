@@ -30,6 +30,7 @@ full = [
   "buffer",
   "discover",
   "filter",
+  "handle-error",
   "hedge",
   "limit",
   "load",
@@ -43,15 +44,16 @@ full = [
   "timeout",
   "util",
 ]
-log = ["tracing/log"]
 balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio-stream"]
 buffer = ["tokio/sync", "tokio/rt", "tokio-util", "tracing"]
 discover = []
 filter = ["futures-util"]
+handle-error = []
 hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time", "tracing"]
 limit = ["tokio/time", "tokio/sync", "tokio-util", "tracing"]
 load = ["tokio/time", "tracing"]
 load-shed = []
+log = ["tracing/log"]
 make = ["tokio/io-std", "futures-util"]
 ready-cache = ["futures-util", "indexmap", "tokio/sync", "tracing"]
 reconnect = ["make", "tokio/io-std", "tracing"]
