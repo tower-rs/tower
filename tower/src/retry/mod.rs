@@ -4,9 +4,11 @@ pub mod budget;
 pub mod future;
 mod layer;
 mod policy;
+mod policyv2;
 
 pub use self::layer::RetryLayer;
 pub use self::policy::Policy;
+pub use self::policyv2::PolicyV2;
 
 use self::future::ResponseFuture;
 use pin_project::pin_project;
@@ -50,7 +52,7 @@ impl<P, S> Retry<P, S> {
 
 impl<P, S, Request> Service<Request> for Retry<P, S>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: PolicyV2<Request, S::Response, S::Error> + Clone,
     S: Service<Request> + Clone,
 {
     type Response = S::Response;
