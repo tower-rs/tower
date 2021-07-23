@@ -43,9 +43,15 @@ opaque_future! {
 #[derive(Debug)]
 enum State<F, G> {
     /// Waiting for the predicate future
-    Check(#[pin] F),
+    Check {
+        #[pin]
+        check: F
+    },
     /// Waiting for the response future
-    WaitResponse(#[pin] G),
+    WaitResponse {
+        #[pin]
+        response: G
+    },
 }
 
 impl<P, S, Request> AsyncResponseFuture<P, S, Request>
@@ -56,7 +62,7 @@ where
 {
     pub(crate) fn new(check: P::Future, service: S) -> Self {
         Self {
-            state: State::Check(check),
+            state: State::Check { check },
             service,
         }
     }
@@ -75,12 +81,12 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Check(mut check) => {
+                StateProj::Check {mut check} => {
                     let request = ready!(check.as_mut().poll(cx))?;
                     let response = this.service.call(request);
-                    this.state.set(State::WaitResponse(response));
+                    this.state.set(State::WaitResponse { response });
                 }
-                StateProj::WaitResponse(response) => {
+                StateProj::WaitResponse { response } => {
                     return response.poll(cx).map_err(Into::into);
                 }
             }
