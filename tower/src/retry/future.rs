@@ -2,42 +2,45 @@
 
 use super::{Policy, Retry};
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// The [`Future`] returned by a [`Retry`] service.
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<P, S, Request>
-where
-    P: Policy<Request, S::Response, S::Error>,
-    S: Service<Request>,
-{
-    request: Option<Request>,
-    #[pin]
-    retry: Retry<P, S>,
-    #[pin]
-    state: State<S::Future, P::Future>,
+pin_project! {
+    /// The [`Future`] returned by a [`Retry`] service.
+    #[derive(Debug)]
+    pub struct ResponseFuture<P, S, Request>
+    where
+        P: Policy<Request, S::Response, S::Error>,
+        S: Service<Request>,
+    {
+        request: Option<Request>,
+        #[pin]
+        retry: Retry<P, S>,
+        #[pin]
+        state: State<S::Future, P::Future>,
+    }
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<F, P> {
-    // Polling the future from [`Service::call`]
-    Called {
-        #[pin]
-        future: F
-    },
-    // Polling the future from [`Policy::retry`]
-    Checking {
-        #[pin]
-        checking: P
-    },
-    // Polling [`Service::poll_ready`] after [`Checking`] was OK.
-    Retrying,
+pin_project! {
+    #[project = StateProj]
+    #[derive(Debug)]
+    enum State<F, P> {
+        // Polling the future from [`Service::call`]
+        Called {
+            #[pin]
+            future: F
+        },
+        // Polling the future from [`Policy::retry`]
+        Checking {
+            #[pin]
+            checking: P
+        },
+        // Polling [`Service::poll_ready`] after [`Checking`] was OK.
+        Retrying,
+    }
 }
 
 impl<P, S, Request> ResponseFuture<P, S, Request>
