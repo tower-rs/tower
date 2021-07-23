@@ -6,11 +6,12 @@
 ))]
 macro_rules! opaque_future {
     ($(#[$m:meta])* pub type $name:ident<$($param:ident),+> = $actual:ty;) => {
-        #[pin_project::pin_project]
-        $(#[$m])*
-        pub struct $name<$($param),+> {
-            #[pin]
-            inner: $actual
+        pin_project_lite::pin_project! {
+            $(#[$m])*
+            pub struct $name<$($param),+> {
+                #[pin]
+                inner: $actual
+            }
         }
 
         impl<$($param),+> $name<$($param),+> {
