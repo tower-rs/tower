@@ -51,7 +51,7 @@ fn ordered() {
         admit: admit.clone(),
     };
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let ca = srv.call_all(support::IntoStream(rx));
+    let ca = srv.call_all(support::IntoStream::new(rx));
     pin_mut!(ca);
 
     assert_pending!(mock.enter(|cx, _| ca.as_mut().poll_next(cx)));

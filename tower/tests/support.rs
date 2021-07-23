@@ -17,15 +17,25 @@ pub(crate) fn trace_init() -> tracing::subscriber::DefaultGuard {
     tracing::subscriber::set_default(subscriber)
 }
 
-#[pin_project::pin_project]
-#[derive(Clone, Debug)]
-pub struct IntoStream<S>(#[pin] pub S);
+pin_project_lite::pin_project! {
+    #[derive(Clone, Debug)]
+    pub struct IntoStream<S> {
+        #[pin]
+        inner: S
+    }
+}
+
+impl<S> IntoStream<S> {
+    pub fn new(inner: S) -> Self {
+        Self { inner }
+    }
+}
 
 impl<I> Stream for IntoStream<mpsc::Receiver<I>> {
     type Item = I;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().0.poll_recv(cx)
+        self.project().inner.poll_recv(cx)
     }
 }
 
@@ -33,7 +43,7 @@ impl<I> Stream for IntoStream<mpsc::UnboundedReceiver<I>> {
     type Item = I;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().0.poll_recv(cx)
+        self.project().inner.poll_recv(cx)
     }
 }
 

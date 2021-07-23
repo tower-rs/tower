@@ -27,7 +27,6 @@ pub struct PendingRequests<S, C = CompleteOnResponse> {
 #[derive(Clone, Debug, Default)]
 struct RefCount(Arc<()>);
 
-
 pin_project! {
     /// Wraps a `D`-typed stream of discovered services with [`PendingRequests`].
     #[derive(Debug)]
