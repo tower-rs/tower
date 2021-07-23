@@ -5,7 +5,7 @@ use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
 #[cfg(feature = "discover")]
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
 use std::pin::Pin;
 
@@ -48,18 +48,21 @@ pub struct PeakEwma<S, C = CompleteOnResponse> {
     completion: C,
 }
 
-/// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
-#[pin_project]
-#[derive(Debug)]
-#[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
-pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
-    #[pin]
-    discover: D,
-    decay_ns: f64,
-    default_rtt: Duration,
-    completion: C,
+
+pin_project! {
+    /// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
+    #[derive(Debug)]
+    #[cfg(feature = "discover")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
+    pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
+        #[pin]
+        discover: D,
+        decay_ns: f64,
+        default_rtt: Duration,
+        completion: C,
+    }
 }
+
 
 /// Represents the relative cost of communicating with a service.
 ///
