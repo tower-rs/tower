@@ -3,7 +3,7 @@
 use super::AsyncPredicate;
 use crate::BoxError;
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -11,22 +11,24 @@ use std::{
 };
 use tower_service::Service;
 
-/// Filtered response future from [`AsyncFilter`] services.
-///
-/// [`AsyncFilter`]: crate::filter::AsyncFilter
-#[pin_project]
-#[derive(Debug)]
-pub struct AsyncResponseFuture<P, S, Request>
-where
-    P: AsyncPredicate<Request>,
-    S: Service<P::Request>,
-{
-    #[pin]
-    state: State<P::Future, S::Future>,
+pin_project! {
+    /// Filtered response future from [`AsyncFilter`] services.
+    ///
+    /// [`AsyncFilter`]: crate::filter::AsyncFilter
+    #[derive(Debug)]
+    pub struct AsyncResponseFuture<P, S, Request>
+    where
+        P: AsyncPredicate<Request>,
+        S: Service<P::Request>,
+    {
+        #[pin]
+        state: State<P::Future, S::Future>,
 
-    /// Inner service
-    service: S,
+        // Inner service
+        service: S,
+    }
 }
+
 
 opaque_future! {
     /// Filtered response future from [`Filter`] services.
@@ -39,20 +41,23 @@ opaque_future! {
         >;
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<F, G> {
-    /// Waiting for the predicate future
-    Check {
-        #[pin]
-        check: F
-    },
-    /// Waiting for the response future
-    WaitResponse {
-        #[pin]
-        response: G
-    },
+pin_project! {
+    #[project = StateProj]
+    #[derive(Debug)]
+    enum State<F, G> {
+        /// Waiting for the predicate future
+        Check {
+            #[pin]
+            check: F
+        },
+        /// Waiting for the response future
+        WaitResponse {
+            #[pin]
+            response: G
+        },
+    }
 }
+
 
 impl<P, S, Request> AsyncResponseFuture<P, S, Request>
 where
