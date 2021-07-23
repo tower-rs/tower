@@ -378,11 +378,11 @@ mod tests {
 
         time::advance(Duration::from_millis(100)).await;
         let () = assert_ready_ok!(rsp0.poll());
-        assert_eq!(svc.load(), Cost(404_000_000.0));
+        assert_eq!(svc.load(), Cost(400_000_000.0));
 
         time::advance(Duration::from_millis(100)).await;
         let () = assert_ready_ok!(rsp1.poll());
-        assert_eq!(svc.load(), Cost(202_000_000.0));
+        assert_eq!(svc.load(), Cost(200_000_000.0));
 
         // Check that values decay as time elapses
         time::advance(Duration::from_secs(1)).await;
