@@ -8,19 +8,21 @@ use futures_core::{ready, Stream};
 use std::pin::Pin;
 
 use super::Load;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// Wraps a type so that it implements [`Load`] and returns a constant load metric.
-///
-/// This load estimator is primarily useful for testing.
-#[pin_project]
-#[derive(Debug)]
-pub struct Constant<T, M> {
-    inner: T,
-    load: M,
+pin_project! {
+    #[derive(Debug)]
+    /// Wraps a type so that it implements [`Load`] and returns a constant load metric.
+    ///
+    /// This load estimator is primarily useful for testing.
+    pub struct Constant<T, M> {
+        inner: T,
+        load: M,
+    }
 }
+
 
 // ===== impl Constant =====
 
