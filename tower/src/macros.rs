@@ -8,7 +8,18 @@ macro_rules! opaque_future {
     ($(#[$m:meta])* pub type $name:ident<$($param:ident),+> = $actual:ty;) => {
         #[pin_project::pin_project]
         $(#[$m])*
-        pub struct $name<$($param),+>(#[pin] pub(crate) $actual);
+        pub struct $name<$($param),+> {
+            #[pin]
+            inner: $actual
+        }
+
+        impl<$($param),+> $name<$($param),+> {
+            pub(crate) fn new(inner: $actual) -> Self {
+                Self {
+                    inner
+                }
+            }
+        }
 
         impl<$($param),+> std::fmt::Debug for $name<$($param),+> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -23,7 +34,7 @@ macro_rules! opaque_future {
             type Output = <$actual as std::future::Future>::Output;
             #[inline]
             fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
-                self.project().0.poll(cx)
+                self.project().inner.poll(cx)
             }
         }
     }
