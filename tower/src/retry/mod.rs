@@ -9,20 +9,22 @@ pub use self::layer::RetryLayer;
 pub use self::policy::Policy;
 
 use self::future::ResponseFuture;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// Configure retrying requests of "failed" responses.
-///
-/// A [`Policy`] classifies what is a "failed" response.
-#[pin_project]
-#[derive(Clone, Debug)]
-pub struct Retry<P, S> {
-    #[pin]
-    policy: P,
-    service: S,
+pin_project! {
+    /// Configure retrying requests of "failed" responses.
+    ///
+    /// A [`Policy`] classifies what is a "failed" response.
+    #[derive(Clone, Debug)]
+    pub struct Retry<P, S> {
+        #[pin]
+        policy: P,
+        service: S,
+    }
 }
+
 
 // ===== impl Retry =====
 
