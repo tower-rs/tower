@@ -29,7 +29,6 @@ pin_project! {
     }
 }
 
-
 opaque_future! {
     /// Filtered response future from [`Filter`] services.
     ///
@@ -58,7 +57,6 @@ pin_project! {
     }
 }
 
-
 impl<P, S, Request> AsyncResponseFuture<P, S, Request>
 where
     P: AsyncPredicate<Request>,
@@ -86,7 +84,7 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Check {mut check} => {
+                StateProj::Check { mut check } => {
                     let request = ready!(check.as_mut().poll(cx))?;
                     let response = this.service.call(request);
                     this.state.set(State::WaitResponse { response });

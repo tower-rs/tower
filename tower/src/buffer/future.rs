@@ -20,7 +20,6 @@ pin_project! {
     }
 }
 
-
 pin_project! {
     #[project = ResponseStateProj]
     #[derive(Debug)]

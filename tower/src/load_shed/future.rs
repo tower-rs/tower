@@ -54,7 +54,9 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().state.project() {
-            ResponseStateProj::Called { fut } => Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into)),
+            ResponseStateProj::Called { fut } => {
+                Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into))
+            }
             ResponseStateProj::Overloaded => Poll::Ready(Err(Overloaded::new().into())),
         }
     }

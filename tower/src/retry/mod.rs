@@ -25,7 +25,6 @@ pin_project! {
     }
 }
 
-
 // ===== impl Retry =====
 
 impl<P, S> Retry<P, S> {

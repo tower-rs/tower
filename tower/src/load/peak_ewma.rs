@@ -48,7 +48,6 @@ pub struct PeakEwma<S, C = CompleteOnResponse> {
     completion: C,
 }
 
-
 pin_project! {
     /// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
     #[derive(Debug)]
@@ -62,7 +61,6 @@ pin_project! {
         completion: C,
     }
 }
-
 
 /// Represents the relative cost of communicating with a service.
 ///

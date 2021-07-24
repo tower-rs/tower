@@ -23,7 +23,6 @@ pin_project! {
     }
 }
 
-
 // ===== impl Constant =====
 
 impl<T, M: Copy> Constant<T, M> {
