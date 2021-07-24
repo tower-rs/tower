@@ -1,28 +1,31 @@
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
-/// Future that resolves to the response or failure to connect.
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<F, E> {
-    #[pin]
-    inner: Inner<F, E>,
+pin_project! {
+    /// Future that resolves to the response or failure to connect.
+    #[derive(Debug)]
+    pub struct ResponseFuture<F, E> {
+        #[pin]
+        inner: Inner<F, E>,
+    }
 }
 
-#[pin_project(project = InnerProj)]
-#[derive(Debug)]
-enum Inner<F, E> {
-    Future {
-        #[pin]
-        fut: F
-    },
-    Error {
-        error: Option<E>
-    },
+pin_project! {
+    #[project = InnerProj]
+    #[derive(Debug)]
+    enum Inner<F, E> {
+        Future {
+            #[pin]
+            fut: F,
+        },
+        Error {
+            error: Option<E>,
+        },
+    }
 }
 
 impl<F, E> Inner<F, E> {
@@ -61,7 +64,7 @@ where
         let me = self.project();
         match me.inner.project() {
             InnerProj::Future { fut } => fut.poll(cx).map_err(Into::into),
-            InnerProj::Error {error } => {
+            InnerProj::Error { error } => {
                 let e = error.take().expect("Polled after ready.").into();
                 Poll::Ready(Err(e))
             }
