@@ -3,7 +3,7 @@
 use futures_core::{Stream, TryStream};
 use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
 use hdrhistogram::Histogram;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use rand::{self, Rng};
 use std::hash::Hash;
 use std::time::Duration;
@@ -78,8 +78,17 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 
 type Key = usize;
 
-#[pin_project]
-struct Disco<S>(Vec<(Key, S)>);
+pin_project! {
+    struct Disco<S> {
+        services: Vec<(Key, S)>
+    }
+}
+
+impl<S> Disco<S> {
+    fn new(services: Vec<(Key, S)>) -> Self {
+        Self { services }
+    }
+}
 
 impl<S> Stream for Disco<S>
 where
@@ -88,7 +97,7 @@ where
     type Item = Result<Change<Key, S>, Error>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.project().0.pop() {
+        match self.project().services.pop() {
             Some((k, service)) => Poll::Ready(Some(Ok(Change::Insert(k, service)))),
             None => {
                 // there may be more later
@@ -105,7 +114,7 @@ fn gen_disco() -> impl Discover<
         impl Service<Req, Response = Rsp, Error = Error, Future = impl Send> + Send,
     >,
 > + Send {
-    Disco(
+    Disco::new(
         MAX_ENDPOINT_LATENCIES
             .iter()
             .enumerate()
