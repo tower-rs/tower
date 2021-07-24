@@ -16,20 +16,35 @@ pub struct ResponseFuture<F, E> {
 #[pin_project(project = InnerProj)]
 #[derive(Debug)]
 enum Inner<F, E> {
-    Future(#[pin] F),
-    Error(Option<E>),
+    Future {
+        #[pin]
+        fut: F
+    },
+    Error {
+        error: Option<E>
+    },
+}
+
+impl<F, E> Inner<F, E> {
+    fn future(fut: F) -> Self {
+        Self::Future { fut }
+    }
+
+    fn error(error: Option<E>) -> Self {
+        Self::Error { error }
+    }
 }
 
 impl<F, E> ResponseFuture<F, E> {
     pub(crate) fn new(inner: F) -> Self {
         ResponseFuture {
-            inner: Inner::Future(inner),
+            inner: Inner::future(inner),
         }
     }
 
     pub(crate) fn error(error: E) -> Self {
         ResponseFuture {
-            inner: Inner::Error(Some(error)),
+            inner: Inner::error(Some(error)),
         }
     }
 }
@@ -45,9 +60,9 @@ where
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = self.project();
         match me.inner.project() {
-            InnerProj::Future(fut) => fut.poll(cx).map_err(Into::into),
-            InnerProj::Error(e) => {
-                let e = e.take().expect("Polled after ready.").into();
+            InnerProj::Future { fut } => fut.poll(cx).map_err(Into::into),
+            InnerProj::Error {error } => {
+                let e = error.take().expect("Polled after ready.").into();
                 Poll::Ready(Err(e))
             }
         }
