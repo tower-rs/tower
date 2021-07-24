@@ -28,13 +28,14 @@ where
     }
 }
 
-/// Response future from [`AndThen`] services.
-///
-/// [`AndThen`]: crate::util::AndThen
-#[pin_project::pin_project]
-pub struct AndThenFuture<F1, F2: TryFuture, N> {
-    #[pin]
-    inner: future::AndThen<future::ErrInto<F1, F2::Error>, F2, N>,
+pin_project_lite::pin_project! {
+    /// Response future from [`AndThen`] services.
+    ///
+    /// [`AndThen`]: crate::util::AndThen
+    pub struct AndThenFuture<F1, F2: TryFuture, N> {
+        #[pin]
+        inner: future::AndThen<future::ErrInto<F1, F2::Error>, F2, N>,
+    }
 }
 
 impl<F1, F2: TryFuture, N> AndThenFuture<F1, F2, N> {
