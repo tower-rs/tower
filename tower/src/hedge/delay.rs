@@ -1,5 +1,5 @@
 use futures_util::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::time::Duration;
 use std::{
     future::Future,
@@ -23,29 +23,32 @@ pub struct Delay<P, S> {
     service: S,
 }
 
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<Request, S>
-where
-    S: Service<Request>,
-{
-    service: Option<S>,
-    #[pin]
-    state: State<Request, Oneshot<S, Request>>,
+pin_project! {
+    #[derive(Debug)]
+    pub struct ResponseFuture<Request, S>
+    where
+        S: Service<Request>,
+    {
+        service: Option<S>,
+        #[pin]
+        state: State<Request, Oneshot<S, Request>>,
+    }
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<Request, F> {
-    Delaying {
-        #[pin]
-        delay: tokio::time::Sleep,
-        req: Option<Request>,
-    },
-    Called {
-        #[pin]
-        fut: F,
-    },
+pin_project! {
+    #[project = StateProj]
+    #[derive(Debug)]
+    enum State<Request, F> {
+        Delaying {
+            #[pin]
+            delay: tokio::time::Sleep,
+            req: Option<Request>,
+        },
+        Called {
+            #[pin]
+            fut: F,
+        },
+    }
 }
 
 impl<Request, F> State<Request, F> {
