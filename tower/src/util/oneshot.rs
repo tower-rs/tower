@@ -1,5 +1,5 @@
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     fmt,
     future::Future,
@@ -8,27 +8,30 @@ use std::{
 };
 use tower_service::Service;
 
-/// A [`Future`] consuming a [`Service`] and request, waiting until the [`Service`]
-/// is ready, and then calling [`Service::call`] with the request, and
-/// waiting for that [`Future`].
-#[pin_project]
-#[derive(Debug)]
-pub struct Oneshot<S: Service<Req>, Req> {
-    #[pin]
-    state: State<S, Req>,
+pin_project! {
+    /// A [`Future`] consuming a [`Service`] and request, waiting until the [`Service`]
+    /// is ready, and then calling [`Service::call`] with the request, and
+    /// waiting for that [`Future`].
+    #[derive(Debug)]
+    pub struct Oneshot<S: Service<Req>, Req> {
+        #[pin]
+        state: State<S, Req>,
+    }
 }
 
-#[pin_project(project = StateProj)]
-enum State<S: Service<Req>, Req> {
-    NotReady {
-        svc: S,
-        req: Option<Req>,
-    },
-    Called {
-        #[pin]
-        fut: S::Future,
-    },
-    Done,
+pin_project! {
+    #[project = StateProj]
+    enum State<S: Service<Req>, Req> {
+        NotReady {
+            svc: S,
+            req: Option<Req>,
+        },
+        Called {
+            #[pin]
+            fut: S::Future,
+        },
+        Done,
+    }
 }
 
 impl<S: Service<Req>, Req> State<S, Req> {
