@@ -19,7 +19,7 @@ use crate::discover::Change;
 use crate::load::Load;
 use crate::make::MakeService;
 use futures_core::{ready, Stream};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use slab::Slab;
 use std::{
     fmt,
@@ -42,23 +42,24 @@ enum Level {
     High,
 }
 
-/// A wrapper around `MakeService` that discovers a new service when load is high, and removes a
-/// service when load is low. See [`Pool`].
-#[pin_project]
-pub struct PoolDiscoverer<MS, Target, Request>
-where
-    MS: MakeService<Target, Request>,
-{
-    maker: MS,
-    #[pin]
-    making: Option<MS::Future>,
-    target: Target,
-    load: Level,
-    services: Slab<()>,
-    died_tx: tokio::sync::mpsc::UnboundedSender<usize>,
-    #[pin]
-    died_rx: tokio::sync::mpsc::UnboundedReceiver<usize>,
-    limit: Option<usize>,
+pin_project! {
+    /// A wrapper around `MakeService` that discovers a new service when load is high, and removes a
+    /// service when load is low. See [`Pool`].
+    pub struct PoolDiscoverer<MS, Target, Request>
+    where
+        MS: MakeService<Target, Request>,
+    {
+        maker: MS,
+        #[pin]
+        making: Option<MS::Future>,
+        target: Target,
+        load: Level,
+        services: Slab<()>,
+        died_tx: tokio::sync::mpsc::UnboundedSender<usize>,
+        #[pin]
+        died_rx: tokio::sync::mpsc::UnboundedReceiver<usize>,
+        limit: Option<usize>,
+    }
 }
 
 impl<MS, Target, Request> fmt::Debug for PoolDiscoverer<MS, Target, Request>
