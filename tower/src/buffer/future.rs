@@ -4,35 +4,39 @@
 
 use super::{error::Closed, message};
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
-/// Future that completes when the buffered service eventually services the submitted request.
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<T> {
-    #[pin]
-    state: ResponseState<T>,
+pin_project! {
+    /// Future that completes when the buffered service eventually services the submitted request.
+    #[derive(Debug)]
+    pub struct ResponseFuture<T> {
+        #[pin]
+        state: ResponseState<T>,
+    }
 }
 
-#[pin_project(project = ResponseStateProj)]
-#[derive(Debug)]
-enum ResponseState<T> {
-    Failed {
-        error: Option<crate::BoxError>,
-    },
-    Rx {
-        #[pin]
-        rx: message::Rx<T>,
-    },
-    Poll {
-        #[pin]
-        fut: T,
-    },
+
+pin_project! {
+    #[project = ResponseStateProj]
+    #[derive(Debug)]
+    enum ResponseState<T> {
+        Failed {
+            error: Option<crate::BoxError>,
+        },
+        Rx {
+            #[pin]
+            rx: message::Rx<T>,
+        },
+        Poll {
+            #[pin]
+            fut: T,
+        },
+    }
 }
 
 impl<T> ResponseFuture<T> {
