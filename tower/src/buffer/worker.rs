@@ -42,7 +42,6 @@ pin_project_lite::pin_project! {
     }
 }
 
-
 /// Get the error out
 #[derive(Debug)]
 pub(crate) struct Handle {
@@ -63,7 +62,6 @@ where
             tracing::trace!("buffer already closed");
         }
     }
-
 }
 
 impl<T, Request> Worker<T, Request>
