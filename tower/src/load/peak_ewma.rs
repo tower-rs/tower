@@ -48,11 +48,11 @@ pub struct PeakEwma<S, C = CompleteOnResponse> {
     completion: C,
 }
 
+#[cfg(feature = "discover")]
+#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 pin_project! {
     /// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
     #[derive(Debug)]
-    #[cfg(feature = "discover")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
     pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
         #[pin]
         discover: D,
