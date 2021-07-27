@@ -5,7 +5,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 //! Definition of the core `Service` trait to Tower
 //!

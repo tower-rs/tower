@@ -6,7 +6,7 @@
     unreachable_pub
 )]
 #![allow(elided_lifetimes_in_paths)]
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 //! Mock `Service` that can be used in tests.
 
