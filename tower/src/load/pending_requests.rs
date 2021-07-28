@@ -5,7 +5,7 @@ use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
 #[cfg(feature = "discover")]
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
 use std::pin::Pin;
 
@@ -27,15 +27,16 @@ pub struct PendingRequests<S, C = CompleteOnResponse> {
 #[derive(Clone, Debug, Default)]
 struct RefCount(Arc<()>);
 
-/// Wraps a `D`-typed stream of discovered services with [`PendingRequests`].
-#[pin_project]
-#[derive(Debug)]
 #[cfg(feature = "discover")]
 #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
-pub struct PendingRequestsDiscover<D, C = CompleteOnResponse> {
-    #[pin]
-    discover: D,
-    completion: C,
+pin_project! {
+    /// Wraps a `D`-typed stream of discovered services with [`PendingRequests`].
+    #[derive(Debug)]
+    pub struct PendingRequestsDiscover<D, C = CompleteOnResponse> {
+        #[pin]
+        discover: D,
+        completion: C,
+    }
 }
 
 /// Represents the number of currently-pending requests to a given service.

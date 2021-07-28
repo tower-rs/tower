@@ -133,7 +133,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #

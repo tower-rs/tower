@@ -1,7 +1,7 @@
 use super::Balance;
 use crate::discover::Discover;
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
@@ -29,15 +29,16 @@ pub struct MakeBalance<S, Req> {
     _marker: PhantomData<fn(Req)>,
 }
 
-/// A [`Balance`] in the making.
-///
-/// [`Balance`]: crate::balance::p2c::Balance
-#[pin_project]
-#[derive(Debug)]
-pub struct MakeFuture<F, Req> {
-    #[pin]
-    inner: F,
-    _marker: PhantomData<fn(Req)>,
+pin_project! {
+    /// A [`Balance`] in the making.
+    ///
+    /// [`Balance`]: crate::balance::p2c::Balance
+    #[derive(Debug)]
+    pub struct MakeFuture<F, Req> {
+        #[pin]
+        inner: F,
+        _marker: PhantomData<fn(Req)>,
+    }
 }
 
 impl<S, Req> MakeBalance<S, Req> {

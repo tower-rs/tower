@@ -4,7 +4,7 @@ use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
 use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -59,18 +59,19 @@ where
     }
 }
 
-/// A Future that becomes satisfied when an `S`-typed service is ready.
-///
-/// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
-#[pin_project]
-#[derive(Debug)]
-struct UnreadyService<K, S, Req> {
-    key: Option<K>,
-    #[pin]
-    cancel: oneshot::Receiver<()>,
-    service: Option<S>,
+pin_project! {
+    /// A Future that becomes satisfied when an `S`-typed service is ready.
+    ///
+    /// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
+    #[derive(Debug)]
+    struct UnreadyService<K, S, Req> {
+        key: Option<K>,
+        #[pin]
+        cancel: oneshot::Receiver<()>,
+        service: Option<S>,
 
-    _req: PhantomData<Req>,
+        _req: PhantomData<Req>,
+    }
 }
 
 enum Error<E> {

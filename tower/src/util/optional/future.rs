@@ -1,20 +1,21 @@
 use super::error;
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
-/// Response future returned by [`Optional`].
-///
-/// [`Optional`]: crate::util::Optional
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<T> {
-    #[pin]
-    inner: Option<T>,
+pin_project! {
+    /// Response future returned by [`Optional`].
+    ///
+    /// [`Optional`]: crate::util::Optional
+    #[derive(Debug)]
+    pub struct ResponseFuture<T> {
+        #[pin]
+        inner: Option<T>,
+    }
 }
 
 impl<T> ResponseFuture<T> {

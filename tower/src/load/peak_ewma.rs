@@ -5,7 +5,7 @@ use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
 #[cfg(feature = "discover")]
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
 use std::pin::Pin;
 
@@ -48,17 +48,18 @@ pub struct PeakEwma<S, C = CompleteOnResponse> {
     completion: C,
 }
 
-/// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
-#[pin_project]
-#[derive(Debug)]
 #[cfg(feature = "discover")]
 #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
-pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
-    #[pin]
-    discover: D,
-    decay_ns: f64,
-    default_rtt: Duration,
-    completion: C,
+pin_project! {
+    /// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
+    #[derive(Debug)]
+    pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
+        #[pin]
+        discover: D,
+        decay_ns: f64,
+        default_rtt: Duration,
+        completion: C,
+    }
 }
 
 /// Represents the relative cost of communicating with a service.
@@ -378,11 +379,11 @@ mod tests {
 
         time::advance(Duration::from_millis(100)).await;
         let () = assert_ready_ok!(rsp0.poll());
-        assert_eq!(svc.load(), Cost(404_000_000.0));
+        assert_eq!(svc.load(), Cost(400_000_000.0));
 
         time::advance(Duration::from_millis(100)).await;
         let () = assert_ready_ok!(rsp1.poll());
-        assert_eq!(svc.load(), Cost(202_000_000.0));
+        assert_eq!(svc.load(), Cost(200_000_000.0));
 
         // Check that values decay as time elapses
         time::advance(Duration::from_secs(1)).await;

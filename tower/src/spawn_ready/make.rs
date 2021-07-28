@@ -1,6 +1,6 @@
 use super::SpawnReady;
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -21,12 +21,13 @@ impl<S> MakeSpawnReady<S> {
     }
 }
 
-/// Builds a [`SpawnReady`] with the result of an inner [`Future`].
-#[pin_project]
-#[derive(Debug)]
-pub struct MakeFuture<F> {
-    #[pin]
-    inner: F,
+pin_project! {
+    /// Builds a [`SpawnReady`] with the result of an inner [`Future`].
+    #[derive(Debug)]
+    pub struct MakeFuture<F> {
+        #[pin]
+        inner: F,
+    }
 }
 
 impl<S, Target> Service<Target> for MakeSpawnReady<S>

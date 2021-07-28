@@ -6,7 +6,7 @@
 use super::common;
 use futures_core::Stream;
 use futures_util::stream::FuturesUnordered;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -14,21 +14,22 @@ use std::{
 };
 use tower_service::Service;
 
-/// A stream of responses received from the inner service in received order.
-///
-/// Similar to [`CallAll`] except, instead of yielding responses in request order,
-/// responses are returned as they are available.
-///
-/// [`CallAll`]: crate::util::CallAll
-#[pin_project]
-#[derive(Debug)]
-pub struct CallAllUnordered<Svc, S>
-where
-    Svc: Service<S::Item>,
-    S: Stream,
-{
-    #[pin]
-    inner: common::CallAll<Svc, S, FuturesUnordered<Svc::Future>>,
+pin_project! {
+    /// A stream of responses received from the inner service in received order.
+    ///
+    /// Similar to [`CallAll`] except, instead of yielding responses in request order,
+    /// responses are returned as they are available.
+    ///
+    /// [`CallAll`]: crate::util::CallAll
+    #[derive(Debug)]
+    pub struct CallAllUnordered<Svc, S>
+    where
+        Svc: Service<S::Item>,
+        S: Stream,
+    {
+        #[pin]
+        inner: common::CallAll<Svc, S, FuturesUnordered<Svc::Future>>,
+    }
 }
 
 impl<Svc, S> CallAllUnordered<Svc, S>

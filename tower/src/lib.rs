@@ -5,7 +5,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
