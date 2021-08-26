@@ -1,3 +1,4 @@
+use crate::ServiceExt;
 use tower_layer::{layer_fn, LayerFn};
 use tower_service::Service;
 
@@ -25,11 +26,6 @@ pub struct BoxService<T, U, E> {
 /// across threads.
 type BoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
-#[derive(Debug)]
-struct Boxed<S> {
-    inner: S,
-}
-
 impl<T, U, E> BoxService<T, U, E> {
     #[allow(missing_docs)]
     pub fn new<S>(inner: S) -> Self
@@ -37,7 +33,7 @@ impl<T, U, E> BoxService<T, U, E> {
         S: Service<T, Response = U, Error = E> + Send + 'static,
         S::Future: Send + 'static,
     {
-        let inner = Box::new(Boxed { inner });
+        let inner = Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
         BoxService { inner }
     }
 
@@ -76,23 +72,5 @@ where
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BoxService").finish()
-    }
-}
-
-impl<S, Request> Service<Request> for Boxed<S>
-where
-    S: Service<Request> + 'static,
-    S::Future: Send + 'static,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<S::Response, S::Error>> + Send>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, request: Request) -> Self::Future {
-        Box::pin(self.inner.call(request))
     }
 }
