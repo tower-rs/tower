@@ -673,3 +673,14 @@ impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {
         f.debug_tuple("ServiceBuilder").field(&self.layer).finish()
     }
 }
+
+impl<S, L> Layer<S> for ServiceBuilder<L>
+where
+    L: Layer<S>,
+{
+    type Service = L::Service;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        self.layer.layer(inner)
+    }
+}
