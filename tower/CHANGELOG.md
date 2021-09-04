@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Unreleased
 
 - **builder**: Implement `Layer` for `ServiceBuilder`.
+- **builder**: Add `ServiceBuilder::and_then` analogous to
+  `ServiceExt::and_then`
 
 # 0.4.8 (May 28, 2021)
 
