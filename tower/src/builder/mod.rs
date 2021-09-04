@@ -453,6 +453,28 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::ThenLayer::new(f))
     }
 
+    /// Executes a new future after this service's future resolves. This does
+    /// not alter the behaviour of the [`poll_ready`] method.
+    ///
+    /// This method can be used to change the [`Response`] type of the service
+    /// into a different type. You can use this method to chain along a computation once the
+    /// service's response has been resolved.
+    ///
+    /// This wraps the inner service with an instance of the [`AndThen`]
+    /// middleware.
+    ///
+    /// See the documentation for the [`and_then` combinator] for details.
+    ///
+    /// [`Response`]: crate::Service::Response
+    /// [`poll_ready`]: crate::Service::poll_ready
+    /// [`and_then` combinator]: crate::util::ServiceExt::and_then
+    /// [`AndThen`]: crate::util::AndThen
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn and_then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::AndThenLayer<F>, L>> {
+        self.layer(crate::util::AndThenLayer::new(f))
+    }
+
     /// Maps this service's result type (`Result<Self::Response, Self::Error>`)
     /// to a different value, regardless of whether the future succeeds or
     /// fails.
