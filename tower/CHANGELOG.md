@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- **builder**: Implement `Layer` for `ServiceBuilder`.
+- None.
+
+# 0.4.9 (October 13, 2021)
+
+- Migrate to pin-project-lite ([#595])
+- **builder**: Implement `Layer` for `ServiceBuilder` ([#600])
 - **builder**: Add `ServiceBuilder::and_then` analogous to
-  `ServiceExt::and_then`
+  `ServiceExt::and_then` ([#601])
+
+[#600]: https://github.com/tower-rs/tower/pull/600
+[#601]: https://github.com/tower-rs/tower/pull/601
+[#595]: https://github.com/tower-rs/tower/pull/595
+[pin-project-lite]: https://crates.io/crates/pin-project-lite
 
 # 0.4.8 (May 28, 2021)
 
