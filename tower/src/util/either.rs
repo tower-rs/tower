@@ -3,7 +3,6 @@
 //! See [`Either`] documentation for more details.
 
 use futures_core::ready;
-use pin_project::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -17,13 +16,29 @@ use tower_service::Service;
 /// Both services must be of the same request, response, and error types.
 /// [`Either`] is useful for handling conditional branching in service middleware
 /// to different inner service types.
-#[pin_project(project = EitherProj)]
 #[derive(Clone, Debug)]
 pub enum Either<A, B> {
     /// One type of backing [`Service`].
-    A(#[pin] A),
+    A(A),
     /// The other type of backing [`Service`].
-    B(#[pin] B),
+    B(B),
+}
+
+impl<A, B> Either<A, B> {
+    #[allow(unsafe_code)] // pin-project-lite doesn't support tuple variants in enums
+    fn project(self: Pin<&mut Self>) -> EitherProj<'_, A, B> {
+        unsafe {
+            match self.get_unchecked_mut() {
+                Self::A(a) => EitherProj::A(Pin::new_unchecked(a)),
+                Self::B(b) => EitherProj::B(Pin::new_unchecked(b)),
+            }
+        }
+    }
+}
+
+enum EitherProj<'p, A, B> {
+    A(Pin<&'p mut A>),
+    B(Pin<&'p mut B>),
 }
 
 impl<A, B, Request> Service<Request> for Either<A, B>
