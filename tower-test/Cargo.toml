@@ -1,7 +1,6 @@
 [package]
 name = "tower-test"
 # When releasing to crates.io:
-# - Remove path dependencies
 # - Update doc url
 #   - Cargo.toml
 #   - README.md
