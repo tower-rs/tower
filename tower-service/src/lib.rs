@@ -53,7 +53,7 @@ use std::task::{Context, Poll};
 ///
 /// impl Service<Request<Vec<u8>>> for HelloWorld {
 ///     type Response = Response<Vec<u8>>;
-///     type Error = Box<dyn std::error::Error + Send + Sync>;
+///     type Error = http::Error;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
 ///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
