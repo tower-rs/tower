@@ -47,13 +47,30 @@ use std::task::{Context, Poll};
 /// # use std::task::{Poll, Context};
 /// # use std::future::Future;
 /// # use tower_service::Service;
-/// use http::{Request, Response, StatusCode};
+/// # // we cannot use the `http` crate since its MSRV is higher than tower's
+/// # // so we stub the APIs we need
+/// # struct Request<T>(T);
+/// # struct Response<T>(T);
+/// # impl Response<()> {
+/// #     fn builder() -> Builder {
+/// #         Builder
+/// #     }
+/// # }
+/// # struct Builder;
+/// # impl Builder {
+/// #     fn status<T>(self, _: T) -> Self { self }
+/// #     fn body<T>(self, body: T) -> Option<Response<T>> { Some(Response(body)) }
+/// # }
+/// # struct StatusCode;
+/// # impl StatusCode {
+/// #     const OK: () = ();
+/// # }
 ///
 /// struct HelloWorld;
 ///
 /// impl Service<Request<Vec<u8>>> for HelloWorld {
 ///     type Response = Response<Vec<u8>>;
-///     type Error = http::Error;
+///     type Error = Box<dyn std::error::Error + Send + Sync>;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
 ///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
