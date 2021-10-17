@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- None.
+### Fixed
+
+- **balance**: Remove redundant `Clone` bounds from `Clone` impls
+  for `MakeBalance`, and `MakeBalanceLayer` ([#606])
+
+[#606]: https://github.com/tower-rs/tower/pull/606
 
 # 0.4.9 (October 13, 2021)
 
-- Migrate to pin-project-lite ([#595])
+- Migrate to [pin-project-lite] ([#595])
 - **builder**: Implement `Layer` for `ServiceBuilder` ([#600])
 - **builder**: Add `ServiceBuilder::and_then` analogous to
   `ServiceExt::and_then` ([#601])

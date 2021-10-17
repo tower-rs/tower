@@ -23,7 +23,7 @@ use tower_service::Service;
 /// [`MakeService`]: crate::MakeService
 /// [`Discover`]: crate::discover::Discover
 /// [`Balance`]: crate::balance::p2c::Balance
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct MakeBalance<S, Req> {
     inner: S,
     _marker: PhantomData<fn(Req)>,
@@ -46,6 +46,18 @@ impl<S, Req> MakeBalance<S, Req> {
     pub fn new(make_discover: S) -> Self {
         Self {
             inner: make_discover,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<S, Req> Clone for MakeBalance<S, Req>
+where
+    S: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
             _marker: PhantomData,
         }
     }
