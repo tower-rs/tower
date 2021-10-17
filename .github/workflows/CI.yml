@@ -32,7 +32,6 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-        override: true
         profile: minimal
     - name: cargo doc
       working-directory: ${{ matrix.subcrate }}
@@ -61,13 +60,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, beta, nightly, 1.40.0]
+        rust: [stable, beta, nightly, 1.46.0]
     steps:
     - uses: actions/checkout@master
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         profile: minimal
+        override: true
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
