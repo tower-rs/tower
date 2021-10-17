@@ -8,7 +8,6 @@ on:
 
 jobs:
   check:
-    # Run `cargo check` first to ensure that the pushed code at least compiles.
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -76,7 +75,6 @@ jobs:
         args: --all --all-features
 
   style:
-    # Check style.
     needs: check
     runs-on: ubuntu-latest
     steps:
@@ -91,22 +89,6 @@ jobs:
       with:
         command: fmt
         args: --all -- --check
-  
-  # warnings:
-  #   # Check for any warnings. This is informational and thus is allowed to fail.
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - uses: actions-rs/toolchain@v1
-  #     with:
-  #       toolchain: stable
-  #       components: clippy
-  #       profile: minimal
-  #   - name: Clippy
-  #     uses: actions-rs/clippy-check@v1
-  #     with:
-  #       token: ${{ secrets.GITHUB_TOKEN }}
-  #       args: --all --all-targets --all-features -- -D warnings
 
   deny-check:
     name: cargo-deny check
