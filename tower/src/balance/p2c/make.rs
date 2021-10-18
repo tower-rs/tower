@@ -5,6 +5,7 @@ use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -23,7 +24,6 @@ use tower_service::Service;
 /// [`MakeService`]: crate::MakeService
 /// [`Discover`]: crate::discover::Discover
 /// [`Balance`]: crate::balance::p2c::Balance
-#[derive(Debug)]
 pub struct MakeBalance<S, Req> {
     inner: S,
     _marker: PhantomData<fn(Req)>,
@@ -33,7 +33,6 @@ pin_project! {
     /// A [`Balance`] in the making.
     ///
     /// [`Balance`]: crate::balance::p2c::Balance
-    #[derive(Debug)]
     pub struct MakeFuture<F, Req> {
         #[pin]
         inner: F,
@@ -87,6 +86,16 @@ where
     }
 }
 
+impl<S, Req> fmt::Debug for MakeBalance<S, Req>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self { inner, _marker } = self;
+        f.debug_struct("MakeBalance").field("inner", inner).finish()
+    }
+}
+
 impl<F, T, E, Req> Future for MakeFuture<F, Req>
 where
     F: Future<Output = Result<T, E>>,
@@ -102,5 +111,15 @@ where
         let inner = ready!(this.inner.poll(cx))?;
         let svc = Balance::new(inner);
         Poll::Ready(Ok(svc))
+    }
+}
+
+impl<F, Req> fmt::Debug for MakeFuture<F, Req>
+where
+    F: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self { inner, _marker } = self;
+        f.debug_struct("MakeFuture").field("inner", inner).finish()
     }
 }

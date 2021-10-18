@@ -49,7 +49,6 @@ where
     D: fmt::Debug,
     D::Key: Hash + fmt::Debug,
     D::Service: fmt::Debug,
-    Req: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Balance")
@@ -63,7 +62,6 @@ pin_project! {
     /// A Future that becomes satisfied when an `S`-typed service is ready.
     ///
     /// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
-    #[derive(Debug)]
     struct UnreadyService<K, S, Req> {
         key: Option<K>,
         #[pin]
@@ -313,5 +311,25 @@ impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
             Ok(()) => Poll::Ready(Ok((key, svc))),
             Err(e) => Poll::Ready(Err((key, Error::Inner(e)))),
         }
+    }
+}
+
+impl<K, S, Req> fmt::Debug for UnreadyService<K, S, Req>
+where
+    K: fmt::Debug,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            key,
+            cancel,
+            service,
+            _req,
+        } = self;
+        f.debug_struct("UnreadyService")
+            .field("key", key)
+            .field("cancel", cancel)
+            .field("service", service)
+            .finish()
     }
 }
