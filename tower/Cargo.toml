@@ -88,8 +88,6 @@ tokio-test = "0.4"
 tower-test = { version = "0.4", path = "../tower-test" }
 tracing-subscriber = "0.2.14"
 http = "0.2"
-# env_logger = { version = "0.5.3", default-features = false }
-# log = "0.4.1"
 
 [package.metadata.docs.rs]
 all-features = true
