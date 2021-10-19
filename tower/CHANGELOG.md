@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix accidental breaking change when using the
   `rustdoc::broken_intra_doc_links` lint ([#605])
-- Clarity that tower's minimum supported rust version is 1.46 ([#605])
+- Clarify that tower's minimum supported rust version is 1.46 ([#605])
 
 [#605]: https://github.com/tower-rs/tower/pull/605
 
