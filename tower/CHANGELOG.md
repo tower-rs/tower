@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - None.
 
+# 0.4.10 (October 19, 2021)
+
+- Fix accidental breaking change when using the
+  `rustdoc::broken_intra_doc_links` lint ([#605])
+- Clarity that tower's minimum supported rust version is 1.46 ([#605])
+
+[#605]: https://github.com/tower-rs/tower/pull/605
+
 # 0.4.9 (October 13, 2021)
 
 - Migrate to pin-project-lite ([#595])
