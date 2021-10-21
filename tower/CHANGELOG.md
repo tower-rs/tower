@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for `ReadyCache` ([#607])
 - **steer**: Remove redundant `Req: Debug` bound from `Debug` impl
   for `Steer` ([#607])
+- **util**: Remove redundant `F: Clone` bound
+  from `ServiceExt::map_request` ([#607])
 
 [#607]: https://github.com/tower-rs/tower/pull/607
 
