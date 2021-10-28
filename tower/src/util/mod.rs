@@ -604,7 +604,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn map_request<F, NewRequest>(self, f: F) -> MapRequest<Self, F>
     where
         Self: Sized,
-        F: FnMut(NewRequest) -> Request + Clone,
+        F: FnMut(NewRequest) -> Request,
     {
         MapRequest::new(self, f)
     }

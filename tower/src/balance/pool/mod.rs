@@ -318,7 +318,6 @@ where
     MS::Error: Into<crate::BoxError>,
     Target: Clone + fmt::Debug,
     MS::Service: fmt::Debug,
-    Request: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Pool")

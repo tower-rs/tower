@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- None.
+### Fixed
+
+- **balance**: Remove redundant `Req: Clone` bound from `Clone` impls
+  for `MakeBalance`, and `MakeBalanceLayer` ([#607])
+- **balance**: Remove redundant `Req: Debug` bound from `Debug` impls
+  for `MakeBalance`, `MakeFuture`, `Balance`, and `Pool` ([#607])
+- **ready-cache**: Remove redundant `Req: Debug` bound from `Debug` impl
+  for `ReadyCache` ([#607])
+- **steer**: Remove redundant `Req: Debug` bound from `Debug` impl
+  for `Steer` ([#607])
+- **util**: Remove redundant `F: Clone` bound
+  from `ServiceExt::map_request` ([#607])
+
+[#607]: https://github.com/tower-rs/tower/pull/607
 
 # 0.4.10 (October 19, 2021)
 
@@ -19,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # 0.4.9 (October 13, 2021)
 
-- Migrate to pin-project-lite ([#595])
+- Migrate to [pin-project-lite] ([#595])
 - **builder**: Implement `Layer` for `ServiceBuilder` ([#600])
 - **builder**: Add `ServiceBuilder::and_then` analogous to
   `ServiceExt::and_then` ([#601])

@@ -67,7 +67,7 @@ impl<Request> Clone for BufferLayer<Request> {
     fn clone(&self) -> Self {
         Self {
             bound: self.bound,
-            _p: self._p,
+            _p: PhantomData,
         }
     }
 }
