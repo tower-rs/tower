@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- **util**: Add `CloneService` which is a `Clone + Send` boxed `Service`.
+- **util**: Add `CloneBoxService` which is a `Clone + Send` boxed `Service`.
 
 ### Fixed
 

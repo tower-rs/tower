@@ -7,10 +7,13 @@ use std::{
 use tower_layer::{layer_fn, LayerFn};
 use tower_service::Service;
 
-/// A `Clone + Send` boxed `Service`.
+/// A [`Clone`] + [`Send`] boxed [`Service`].
 ///
 /// [`CloneBoxService`] turns a service into a trait object, allowing the
 /// response future type to be dynamic, and allowing the service to be cloned.
+///
+/// This is similar to [`BoxService`](super::BoxService) except the resulting
+/// service implements [`Clone`].
 ///
 /// # Example
 ///
@@ -42,7 +45,7 @@ use tower_service::Service;
 ///     });
 /// # let service = assert_service(service);
 ///
-/// // `CloneService` will erase the type so its nameable
+/// // `CloneBoxService` will erase the type so it's nameable
 /// let service: CloneBoxService<Request, Response, BoxError> = CloneBoxService::new(service);
 /// # let service = assert_service(service);
 ///
