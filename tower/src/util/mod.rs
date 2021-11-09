@@ -3,6 +3,7 @@
 mod and_then;
 mod boxed;
 mod call_all;
+mod clone_boxed;
 mod either;
 
 mod future_service;
@@ -22,6 +23,7 @@ mod then;
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
+    clone_boxed::CloneBoxService,
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
