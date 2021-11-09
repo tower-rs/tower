@@ -19,8 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for `Steer` ([#607])
 - **util**: Remove redundant `F: Clone` bound
   from `ServiceExt::map_request` ([#607])
+- **docs**: Fix `doc(cfg(...))` attributes
+  of `PeakEwmaDiscover`, and `PendingRequestsDiscover` ([#610])
 
 [#607]: https://github.com/tower-rs/tower/pull/607
+[#610]: https://github.com/tower-rs/tower/pull/610
 
 # 0.4.10 (October 19, 2021)
 
