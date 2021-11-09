@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+- **util**: Add `CloneBoxService` which is a `Clone + Send` boxed `Service`.
+
 ### Fixed
 
 - **balance**: Remove redundant `Req: Clone` bound from `Clone` impls
