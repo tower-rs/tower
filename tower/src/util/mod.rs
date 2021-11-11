@@ -987,6 +987,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # fn assert_service<S, R>(svc: S) -> S
     /// # where S: Service<R> { svc }
     /// ```
+    ///
+    /// [`Service`]: crate::Service
     fn boxed(self) -> BoxService<Request, Self::Response, Self::Error>
     where
         Self: Sized + Send + 'static,
@@ -1031,6 +1033,8 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # fn assert_service<S, R>(svc: S) -> S
     /// # where S: Service<R> { svc }
     /// ```
+    ///
+    /// [`Service`]: crate::Service
     fn clone_boxed(self) -> CloneBoxService<Request, Self::Response, Self::Error>
     where
         Self: Clone + Sized + Send + 'static,
