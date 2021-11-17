@@ -689,9 +689,8 @@ impl<L> ServiceBuilder<L> {
         self
     }
 
-    /// Convert the resulting service into a [`Service`] + [`Send`] trait object.
-    ///
     /// This wraps the inner service with the [`Layer`] returned by [`BoxService::layer()`].
+    ///
     /// See that method for more details.
     ///
     /// # Example
@@ -746,10 +745,12 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::BoxService::layer())
     }
 
-    /// Convert the resulting service into a [`Service`] + [`Clone`] + [`Send`] trait object.
-    ///
     /// This wraps the inner service with the [`Layer`] returned by [`CloneBoxService::layer()`].
-    /// See that method for more details.
+    ///
+    /// This is similar to the [`boxed`] method, but it requires that `Self` implement
+    /// [`Clone`], and the returned boxed service implements [`Clone`].
+    ///
+    /// See [`CloneBoxService`] for more details.
     ///
     /// # Example
     ///
