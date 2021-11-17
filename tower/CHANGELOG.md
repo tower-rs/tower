@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **util**: Add `CloneBoxService` which is a `Clone + Send` boxed `Service`.
 - **util:** Add `ServiceExt::boxed` and `ServiceExt::clone_boxed` for applying the
-   `BoxService` and `CloneBoxService` middleware.
-- **builder:** Add `ServiceBuilder::boxed` and `ServiceBuilder::clone_boxed` for applying `BoxService` and `CloneBoxService` layers.
+  `BoxService` and `CloneBoxService` middleware.
+- **builder:** Add `ServiceBuilder::boxed` and `ServiceBuilder::clone_boxed` for
+  applying `BoxService` and `CloneBoxService` layers.
+- **util**: Remove unnecessary `Debug` bounds from `impl Debug for BoxService`.
+- **util**: Remove unnecessary `Debug` bounds from `impl Debug for UnsyncBoxService`.
 
 ### Fixed
 
