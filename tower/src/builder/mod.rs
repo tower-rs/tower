@@ -691,7 +691,7 @@ impl<L> ServiceBuilder<L> {
 
     /// Convert the resulting service into a [`Service`] + [`Send`] trait object.
     ///
-    /// This wraps the inner service with the [`Layer`] returned by [`BoxService::layer()`]. 
+    /// This wraps the inner service with the [`Layer`] returned by [`BoxService::layer()`].
     /// See that method for more details.
     ///
     /// # Example
@@ -748,7 +748,7 @@ impl<L> ServiceBuilder<L> {
 
     /// Convert the resulting service into a [`Service`] + [`Clone`] + [`Send`] trait object.
     ///
-    /// This wraps the inner service with the [`Layer`] returned by [`CloneBoxService::layer()`]. 
+    /// This wraps the inner service with the [`Layer`] returned by [`CloneBoxService::layer()`].
     /// See that method for more details.
     ///
     /// # Example
