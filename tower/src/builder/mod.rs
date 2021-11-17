@@ -691,7 +691,8 @@ impl<L> ServiceBuilder<L> {
 
     /// Convert the resulting service into a [`Service`] + [`Send`] trait object.
     ///
-    /// This applies the [`BoxService:layer()`] layer. See that method for more details.
+    /// This wraps the inner service with the [`Layer`] returned by [`BoxService::layer()`]. 
+    /// See that method for more details.
     ///
     /// # Example
     ///
@@ -718,7 +719,7 @@ impl<L> ServiceBuilder<L> {
     /// # where S: Service<R> { svc }
     /// ```
     ///
-    /// [`BoxService:layer()`]: crate::util::BoxService::layer()
+    /// [`BoxService::layer()`]: crate::util::BoxService::layer()
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn boxed<S, R>(
@@ -747,7 +748,8 @@ impl<L> ServiceBuilder<L> {
 
     /// Convert the resulting service into a [`Service`] + [`Clone`] + [`Send`] trait object.
     ///
-    /// This applies the [`CloneBoxService:layer()`] layer. See that method for more details.
+    /// This wraps the inner service with the [`Layer`] returned by [`CloneBoxService::layer()`]. 
+    /// See that method for more details.
     ///
     /// # Example
     ///
@@ -777,7 +779,7 @@ impl<L> ServiceBuilder<L> {
     /// # where S: Service<R> { svc }
     /// ```
     ///
-    /// [`CloneBoxService:layer()`]: crate::util::CloneBoxService::layer()
+    /// [`CloneBoxService::layer()`]: crate::util::CloneBoxService::layer()
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn clone_boxed<S, R>(
