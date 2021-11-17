@@ -8,10 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Unreleased
 
 - **util**: Add `CloneBoxService` which is a `Clone + Send` boxed `Service`.
-- **util:** Add `ServiceExt::boxed` for applying a `BoxService` middleware.
-- **util:** Add `ServiceExt::clone_boxed` for applying a `CloneBoxService` middleware.
-- **builder:** Add `ServiceExtBuilder::boxed` for applying a `BoxService` layer.
-- **builder:** Add `ServiceExtBuilder::clone_boxed` for applying a `CloneBoxService` layer.
+- **util:** Add `ServiceExt::boxed` and `ServiceExt::clone_boxed` for applying the
+   `BoxService` and `CloneBoxService` middleware.
+- **builder:** Add `ServiceBuilder::boxed` and `ServiceBuilder::clone_boxed` for applying 
+   `BoxService` and `CloneBoxService` layers.
 
 ### Fixed
 
