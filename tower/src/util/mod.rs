@@ -958,7 +958,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// See [`BoxService`] for more details.
     ///
-    /// If `Self` implements the [`Clone`] trait, the [`boxed_clone`] method
+    /// If `Self` implements the [`Clone`] trait, the [`clone_boxed`] method
     /// can be used instead, to produce a boxed service which will also
     /// implement [`Clone`].
     ///
@@ -993,6 +993,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// ```
     ///
     /// [`Service`]: crate::Service
+    /// [`clone_boxed`]: Self::clone_boxed
     fn boxed(self) -> BoxService<Request, Self::Response, Self::Error>
     where
         Self: Sized + Send + 'static,
@@ -1041,6 +1042,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// ```
     ///
     /// [`Service`]: crate::Service
+    /// [`boxed`]: Self::boxed
     fn clone_boxed(self) -> CloneBoxService<Request, Self::Response, Self::Error>
     where
         Self: Clone + Sized + Send + 'static,
