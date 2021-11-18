@@ -37,9 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#607]: https://github.com/tower-rs/tower/pull/607
 [#610]: https://github.com/tower-rs/tower/pull/610
+[#615]: https://github.com/tower-rs/tower/pull/615
 [#616]: https://github.com/tower-rs/tower/pull/616
 [#617]: https://github.com/tower-rs/tower/pull/617
-[#615]: https://github.com/tower-rs/tower/pull/615
 
 # 0.4.10 (October 19, 2021)
 
