@@ -16,7 +16,7 @@ use std::{
 /// response future to be [`Send`].
 ///
 /// If you need a boxed [`Service`] that implements [`Clone`] consider using
-/// [`CloneBoxService`](crate::util::CloneBoxService).
+/// [`BoxCloneService`](crate::util::BoxCloneService).
 ///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
