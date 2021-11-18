@@ -781,6 +781,8 @@ impl<L> ServiceBuilder<L> {
     /// ```
     ///
     /// [`CloneBoxService::layer()`]: crate::util::CloneBoxService::layer()
+    /// [`CloneBoxService`]: crate::util::CloneBoxService
+    /// [`boxed`]: Self::boxed
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn clone_boxed<S, R>(
