@@ -2,8 +2,8 @@
 
 mod and_then;
 mod boxed;
-mod call_all;
 mod boxed_clone;
+mod call_all;
 mod either;
 
 mod future_service;
