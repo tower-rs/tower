@@ -9,7 +9,7 @@ use tower_service::Service;
 
 /// A [`Clone`] + [`Send`] boxed [`Service`].
 ///
-/// [`CloneBoxService`] turns a service into a trait object, allowing the
+/// [`BoxCloneService`] turns a service into a trait object, allowing the
 /// response future type to be dynamic, and allowing the service to be cloned.
 ///
 /// This is similar to [`BoxService`](super::BoxService) except the resulting
@@ -18,7 +18,7 @@ use tower_service::Service;
 /// # Example
 ///
 /// ```
-/// use tower::{Service, ServiceBuilder, BoxError, util::CloneBoxService};
+/// use tower::{Service, ServiceBuilder, BoxError, util::BoxCloneService};
 /// use std::time::Duration;
 /// #
 /// # struct Request;
@@ -45,8 +45,8 @@ use tower_service::Service;
 ///     });
 /// # let service = assert_service(service);
 ///
-/// // `CloneBoxService` will erase the type so it's nameable
-/// let service: CloneBoxService<Request, Response, BoxError> = CloneBoxService::new(service);
+/// // `BoxCloneService` will erase the type so it's nameable
+/// let service: BoxCloneService<Request, Response, BoxError> = BoxCloneService::new(service);
 /// # let service = assert_service(service);
 ///
 /// // And we can still clone the service
@@ -55,25 +55,25 @@ use tower_service::Service;
 /// # fn assert_service<S, R>(svc: S) -> S
 /// # where S: Service<R> { svc }
 /// ```
-pub struct CloneBoxService<T, U, E>(
+pub struct BoxCloneService<T, U, E>(
     Box<
         dyn CloneService<T, Response = U, Error = E, Future = BoxFuture<'static, Result<U, E>>>
             + Send,
     >,
 );
 
-impl<T, U, E> CloneBoxService<T, U, E> {
-    /// Create a new `CloneBoxService`.
+impl<T, U, E> BoxCloneService<T, U, E> {
+    /// Create a new `BoxCloneService`.
     pub fn new<S>(inner: S) -> Self
     where
         S: Service<T, Response = U, Error = E> + Clone + Send + 'static,
         S::Future: Send + 'static,
     {
         let inner = inner.map_future(|f| Box::pin(f) as _);
-        CloneBoxService(Box::new(inner))
+        BoxCloneService(Box::new(inner))
     }
 
-    /// Returns a [`Layer`] for wrapping a [`Service`] in a [`CloneBoxService`]
+    /// Returns a [`Layer`] for wrapping a [`Service`] in a [`BoxCloneService`]
     /// middleware.
     ///
     /// [`Layer`]: crate::Layer
@@ -86,7 +86,7 @@ impl<T, U, E> CloneBoxService<T, U, E> {
     }
 }
 
-impl<T, U, E> Service<T> for CloneBoxService<T, U, E> {
+impl<T, U, E> Service<T> for BoxCloneService<T, U, E> {
     type Response = U;
     type Error = E;
     type Future = BoxFuture<'static, Result<U, E>>;
@@ -102,7 +102,7 @@ impl<T, U, E> Service<T> for CloneBoxService<T, U, E> {
     }
 }
 
-impl<T, U, E> Clone for CloneBoxService<T, U, E> {
+impl<T, U, E> Clone for BoxCloneService<T, U, E> {
     fn clone(&self) -> Self {
         Self(self.0.clone_box())
     }
@@ -129,8 +129,8 @@ where
     }
 }
 
-impl<T, U, E> fmt::Debug for CloneBoxService<T, U, E> {
+impl<T, U, E> fmt::Debug for BoxCloneService<T, U, E> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("CloneBoxService").finish()
+        fmt.debug_struct("BoxCloneService").finish()
     }
 }

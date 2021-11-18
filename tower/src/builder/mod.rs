@@ -745,17 +745,17 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::util::BoxService::layer())
     }
 
-    /// This wraps the inner service with the [`Layer`] returned by [`CloneBoxService::layer()`].
+    /// This wraps the inner service with the [`Layer`] returned by [`BoxCloneService::layer()`].
     ///
     /// This is similar to the [`boxed`] method, but it requires that `Self` implement
     /// [`Clone`], and the returned boxed service implements [`Clone`].
     ///
-    /// See [`CloneBoxService`] for more details.
+    /// See [`BoxCloneService`] for more details.
     ///
     /// # Example
     ///
     /// ```
-    /// use tower::{Service, ServiceBuilder, BoxError, util::CloneBoxService};
+    /// use tower::{Service, ServiceBuilder, BoxError, util::BoxCloneService};
     /// use std::time::Duration;
     /// #
     /// # struct Request;
@@ -764,8 +764,8 @@ impl<L> ServiceBuilder<L> {
     /// #     fn new() -> Self { Self }
     /// # }
     ///
-    /// let service: CloneBoxService<Request, Response, BoxError> = ServiceBuilder::new()
-    ///     .clone_boxed()
+    /// let service: BoxCloneService<Request, Response, BoxError> = ServiceBuilder::new()
+    ///     .boxed_clone()
     ///     .load_shed()
     ///     .concurrency_limit(64)
     ///     .timeout(Duration::from_secs(10))
@@ -780,19 +780,19 @@ impl<L> ServiceBuilder<L> {
     /// # where S: Service<R> { svc }
     /// ```
     ///
-    /// [`CloneBoxService::layer()`]: crate::util::CloneBoxService::layer()
-    /// [`CloneBoxService`]: crate::util::CloneBoxService
+    /// [`BoxCloneService::layer()`]: crate::util::BoxCloneService::layer()
+    /// [`BoxCloneService`]: crate::util::BoxCloneService
     /// [`boxed`]: Self::boxed
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
-    pub fn clone_boxed<S, R>(
+    pub fn boxed_clone<S, R>(
         self,
     ) -> ServiceBuilder<
         Stack<
             tower_layer::LayerFn<
                 fn(
                     L::Service,
-                ) -> crate::util::CloneBoxService<
+                ) -> crate::util::BoxCloneService<
                     R,
                     <L::Service as Service<R>>::Response,
                     <L::Service as Service<R>>::Error,
@@ -806,7 +806,7 @@ impl<L> ServiceBuilder<L> {
         L::Service: Service<R> + Clone + Send + 'static,
         <L::Service as Service<R>>::Future: Send + 'static,
     {
-        self.layer(crate::util::CloneBoxService::layer())
+        self.layer(crate::util::BoxCloneService::layer())
     }
 }
 
