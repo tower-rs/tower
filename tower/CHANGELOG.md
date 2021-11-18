@@ -7,16 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- **util**: Add `CloneBoxService` which is a `Clone + Send` boxed `Service`.
-- **util:** Add `ServiceExt::boxed` and `ServiceExt::clone_boxed` for applying the
-  `BoxService` and `CloneBoxService` middleware.
-- **builder:** Add `ServiceBuilder::boxed` and `ServiceBuilder::clone_boxed` for
-  applying `BoxService` and `CloneBoxService` layers.
-- **util**: Remove unnecessary `Debug` bounds from `impl Debug for BoxService`.
-- **util**: Remove unnecessary `Debug` bounds from `impl Debug for UnsyncBoxService`.
+- None.
+
+# 0.4.11 (November 18, 2021)
+
+### Added
+
+- **util**: Add `CloneBoxService` which is a `Clone + Send` boxed `Service` ([#615])
+- **util**: Add `ServiceExt::boxed` and `ServiceExt::clone_boxed` for applying the
+  `BoxService` and `CloneBoxService` middleware ([#616])
+- **builder**: Add `ServiceBuilder::boxed` and `ServiceBuilder::clone_boxed` for
+  applying `BoxService` and `CloneBoxService` layers ([#616])
 
 ### Fixed
 
+- **util**: Remove redundant `F: Clone` bound from `ServiceExt::map_request` ([#607])
+- **util**: Remove unnecessary `Debug` bounds from `impl Debug for BoxService` ([#617])
+- **util**: Remove unnecessary `Debug` bounds from `impl Debug for UnsyncBoxService` ([#617])
 - **balance**: Remove redundant `Req: Clone` bound from `Clone` impls
   for `MakeBalance`, and `MakeBalanceLayer` ([#607])
 - **balance**: Remove redundant `Req: Debug` bound from `Debug` impls
@@ -25,13 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for `ReadyCache` ([#607])
 - **steer**: Remove redundant `Req: Debug` bound from `Debug` impl
   for `Steer` ([#607])
-- **util**: Remove redundant `F: Clone` bound
-  from `ServiceExt::map_request` ([#607])
 - **docs**: Fix `doc(cfg(...))` attributes
   of `PeakEwmaDiscover`, and `PendingRequestsDiscover` ([#610])
 
 [#607]: https://github.com/tower-rs/tower/pull/607
 [#610]: https://github.com/tower-rs/tower/pull/610
+[#616]: https://github.com/tower-rs/tower/pull/616
+[#617]: https://github.com/tower-rs/tower/pull/617
+[#615]: https://github.com/tower-rs/tower/pull/615
 
 # 0.4.10 (October 19, 2021)
 
