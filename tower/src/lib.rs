@@ -1,10 +1,11 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.4.10")]
+#![doc(html_root_url = "https://docs.rs/tower/0.4.11")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
     rust_2018_idioms,
     unreachable_pub
 )]
+#![forbid(unsafe_code)]
 #![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
 #![cfg_attr(docsrs, feature(doc_cfg))]

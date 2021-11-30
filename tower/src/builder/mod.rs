@@ -688,6 +688,126 @@ impl<L> ServiceBuilder<L> {
     {
         self
     }
+
+    /// This wraps the inner service with the [`Layer`] returned by [`BoxService::layer()`].
+    ///
+    /// See that method for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceBuilder, BoxError, util::BoxService};
+    /// use std::time::Duration;
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service: BoxService<Request, Response, BoxError> = ServiceBuilder::new()
+    ///     .boxed()
+    ///     .load_shed()
+    ///     .concurrency_limit(64)
+    ///     .timeout(Duration::from_secs(10))
+    ///     .service_fn(|req: Request| async {
+    ///         Ok::<_, BoxError>(Response::new())
+    ///     });
+    /// # let service = assert_service(service);
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`BoxService::layer()`]: crate::util::BoxService::layer()
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn boxed<S, R>(
+        self,
+    ) -> ServiceBuilder<
+        Stack<
+            tower_layer::LayerFn<
+                fn(
+                    L::Service,
+                ) -> crate::util::BoxService<
+                    R,
+                    <L::Service as Service<R>>::Response,
+                    <L::Service as Service<R>>::Error,
+                >,
+            >,
+            L,
+        >,
+    >
+    where
+        L: Layer<S>,
+        L::Service: Service<R> + Send + 'static,
+        <L::Service as Service<R>>::Future: Send + 'static,
+    {
+        self.layer(crate::util::BoxService::layer())
+    }
+
+    /// This wraps the inner service with the [`Layer`] returned by [`BoxCloneService::layer()`].
+    ///
+    /// This is similar to the [`boxed`] method, but it requires that `Self` implement
+    /// [`Clone`], and the returned boxed service implements [`Clone`].
+    ///
+    /// See [`BoxCloneService`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceBuilder, BoxError, util::BoxCloneService};
+    /// use std::time::Duration;
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service: BoxCloneService<Request, Response, BoxError> = ServiceBuilder::new()
+    ///     .boxed_clone()
+    ///     .load_shed()
+    ///     .concurrency_limit(64)
+    ///     .timeout(Duration::from_secs(10))
+    ///     .service_fn(|req: Request| async {
+    ///         Ok::<_, BoxError>(Response::new())
+    ///     });
+    /// # let service = assert_service(service);
+    ///
+    /// // The boxed service can still be cloned.
+    /// service.clone();
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`BoxCloneService::layer()`]: crate::util::BoxCloneService::layer()
+    /// [`BoxCloneService`]: crate::util::BoxCloneService
+    /// [`boxed`]: Self::boxed
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn boxed_clone<S, R>(
+        self,
+    ) -> ServiceBuilder<
+        Stack<
+            tower_layer::LayerFn<
+                fn(
+                    L::Service,
+                ) -> crate::util::BoxCloneService<
+                    R,
+                    <L::Service as Service<R>>::Response,
+                    <L::Service as Service<R>>::Error,
+                >,
+            >,
+            L,
+        >,
+    >
+    where
+        L: Layer<S>,
+        L::Service: Service<R> + Clone + Send + 'static,
+        <L::Service as Service<R>>::Future: Send + 'static,
+    {
+        self.layer(crate::util::BoxCloneService::layer())
+    }
 }
 
 impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {

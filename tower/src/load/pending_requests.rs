@@ -28,9 +28,9 @@ pub struct PendingRequests<S, C = CompleteOnResponse> {
 struct RefCount(Arc<()>);
 
 #[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 pin_project! {
     /// Wraps a `D`-typed stream of discovered services with [`PendingRequests`].
+    #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
     #[derive(Debug)]
     pub struct PendingRequestsDiscover<D, C = CompleteOnResponse> {
         #[pin]
