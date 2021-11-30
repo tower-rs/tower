@@ -1,31 +1,31 @@
 //! A retry "budget" for allowing only a certain amount of retries over time.
-//! 
+//!
 //! # Why budgets and not max retries?
-//! 
+//!
 //! The most common way of configuring retries is to specify a maximum
-//! number of retry attempts to perform before giving up. This is a familiar idea to anyone 
-//! who’s used a web browser: you try to load a webpage, and if it doesn’t load, you try again. 
-//! If it still doesn’t load, you try a third time. Finally you give up. 
-//! 
+//! number of retry attempts to perform before giving up. This is a familiar idea to anyone
+//! who’s used a web browser: you try to load a webpage, and if it doesn’t load, you try again.
+//! If it still doesn’t load, you try a third time. Finally you give up.
+//!
 //! Unfortunately, there are at least two problems with configuring retries this way:
-//! 
+//!
 //! **Choosing the maximum number of retry attempts is a guessing game.**
-//! You need to pick a number that’s high enough to make a difference when things are somewhat failing, 
-//! but not so high that it generates extra load on the system when it’s really failing. In practice, 
+//! You need to pick a number that’s high enough to make a difference when things are somewhat failing,
+//! but not so high that it generates extra load on the system when it’s really failing. In practice,
 //! you usually pick a maximum retry attempts number out of a hat (e.g. 3) and hope for the best.
-//! 
+//!
 //! **Systems configured this way are vulnerable to retry storms.**
 //! A retry storm begins when one service starts to experience a larger than normal failure rate.
 //! This causes its clients to retry those failed requests. The extra load from the retries causes the
-//! service to slow down further and fail more requests, triggering more retries. If each client is 
-//! configured to retry up to 3 times, this can quadruple the number of requests being sent! To make 
+//! service to slow down further and fail more requests, triggering more retries. If each client is
+//! configured to retry up to 3 times, this can quadruple the number of requests being sent! To make
 //! matters even worse, if any of the clients’ clients are configured with retries, the number of retries
 //! compounds multiplicatively and can turn a small number of errors into a self-inflicted denial of service attack.
-//! 
+//!
 //! It's generally dangerous to implement retries without some limiting factor. [`Budget`]s are that limit.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ```rust
 //! use std::sync::Arc;
 //!
@@ -85,9 +85,9 @@ use tokio::time::Instant;
 ///
 /// This is useful for limiting the amount of retries a service can perform
 /// over a period of time, or per a certain number of requests attempted.
-/// 
+///
 /// For more info about [`Budget`], please see the [module-level documentation].
-/// 
+///
 /// [module-level documentation]: self
 pub struct Budget {
     bucket: Bucket,
