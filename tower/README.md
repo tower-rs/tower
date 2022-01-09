@@ -78,7 +78,7 @@ Depending on your particular use case, you might use Tower in several ways:
 
 * **Implementing application logic** for a networked program. You might
   use the [`Service`] trait to model your application's behavior, and use
-  the middleware [provided by this crate][modules] and by other libraries
+  the middleware [provided by this crate][all_layers] and by other libraries
   to add functionality to clients and servers provided by one or more
   protocol implementations.
 * **Implementing middleware** to add custom behavior to network clients and
@@ -154,11 +154,12 @@ only the [`retry`] and [`timeout`][timeouts] middleware, write:
 tower = { version = "0.4", features = ["retry", "timeout"] }
 ```
 
-See [here](modules) for a complete list of all middleware provided by
+See [here][all_layers] for a complete list of all middleware provided by
 Tower.
 
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
 [`Layer`]: https://docs.rs/tower/latest/tower/trait.Layer.html
+[all_layers]: https://docs.rs/tower/latest/tower/#modules
 [timeouts]: https://docs.rs/tower/latest/tower/timeout/
 [rate limiting]: https://docs.rs/tower/latest/tower/limit/rate
 [load balancing]: https://docs.rs/tower/latest/tower/balance/
