@@ -169,7 +169,7 @@ impl<L> ServiceBuilder<L> {
         self.layer(crate::layer::layer_fn(f))
     }
 
-    /// Buffer requests when when the next layer is not ready.
+    /// Buffer requests when the next layer is not ready.
     ///
     /// This wraps the inner service with an instance of the [`Buffer`]
     /// middleware.
