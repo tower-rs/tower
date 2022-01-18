@@ -1,8 +1,6 @@
 [package]
 name = "tower"
 # When releasing to crates.io:
-# - Remove path dependencies
-# - Update html_root_url.
 # - Update doc url
 #   - Cargo.toml
 #   - README.md
@@ -25,6 +23,10 @@ edition = "2018"
 
 [features]
 default = ["log"]
+
+# Internal
+__common = ["futures-core", "pin-project-lite"]
+
 full = [
   "balance",
   "buffer",
@@ -43,30 +45,30 @@ full = [
   "timeout",
   "util",
 ]
+# FIXME: Use weak dependency once available (https://github.com/rust-lang/cargo/issues/8832)
 log = ["tracing/log"]
-balance = ["discover", "load", "ready-cache", "make", "rand", "slab", "tokio-stream"]
-buffer = ["tokio/sync", "tokio/rt", "tokio-util", "tracing"]
-discover = []
-filter = ["futures-util"]
+balance = ["discover", "load", "ready-cache", "make", "rand", "slab"]
+buffer = ["__common", "tokio/sync", "tokio/rt", "tokio-util", "tracing"]
+discover = ["__common"]
+filter = ["__common", "futures-util"]
 hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time", "tracing"]
-limit = ["tokio/time", "tokio/sync", "tokio-util", "tracing"]
-load = ["tokio/time", "tracing"]
-load-shed = []
-make = ["tokio/io-std", "futures-util"]
-ready-cache = ["futures-util", "indexmap", "tokio/sync", "tracing"]
+limit = ["__common", "tokio/time", "tokio/sync", "tokio-util", "tracing"]
+load = ["__common", "tokio/time", "tracing"]
+load-shed = ["__common"]
+make = ["futures-util", "pin-project-lite", "tokio/io-std"]
+ready-cache = ["futures-core", "futures-util", "indexmap", "tokio/sync", "tracing"]
 reconnect = ["make", "tokio/io-std", "tracing"]
-retry = ["tokio/time"]
-spawn-ready = ["futures-util", "tokio/sync", "tokio/rt", "util", "tracing"]
-steer = ["futures-util"]
-timeout = ["tokio/time"]
-util = ["futures-util"]
+retry = ["__common", "tokio/time"]
+spawn-ready = ["__common", "futures-util", "tokio/sync", "tokio/rt", "util", "tracing"]
+steer = []
+timeout = ["pin-project-lite", "tokio/time"]
+util = ["__common", "futures-util", "pin-project"]
 
 [dependencies]
-futures-core = "0.3"
-pin-project = "1"
 tower-layer = { version = "0.3.1", path = "../tower-layer" }
 tower-service = { version = "0.3.1", path = "../tower-service" }
 
+futures-core = { version = "0.3", optional = true }
 futures-util = { version = "0.3", default-features = false, features = ["alloc"], optional = true }
 hdrhistogram = { version = "7.0", optional = true }
 indexmap = { version = "1.0.2", optional = true }
@@ -76,11 +78,13 @@ tokio = { version = "1", optional = true, features = ["sync"] }
 tokio-stream = { version = "0.1.0", optional = true }
 tokio-util = { version = "0.6.3", default-features = false, optional = true }
 tracing = { version = "0.1.2", default-features = false, features = ["std"], optional = true }
-pin-project-lite = "0.2.7"
+pin-project = { version = "1", optional = true }
+pin-project-lite = { version = "0.2.7", optional = true }
 
 [dev-dependencies]
 futures = "0.3"
 hdrhistogram = "7.0"
+pin-project-lite = "0.2.7"
 tokio = { version = "1", features = ["macros", "sync", "test-util", "rt-multi-thread"] }
 tokio-stream = "0.1"
 tokio-test = "0.4"

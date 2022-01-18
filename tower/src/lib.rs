@@ -1,4 +1,3 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.4.11")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
