@@ -1,5 +1,5 @@
 use crate::util::BoxService;
-use std::{fmt, sync::Arc};
+use std::{any::Any, fmt, sync::Arc};
 use tower_layer::{layer_fn, Layer};
 use tower_service::Service;
 
@@ -61,6 +61,7 @@ impl<In, T, U, E> BoxLayer<In, T, U, E> {
     where
         L: Layer<In> + Send + Sync + 'static,
         L::Service: Service<T, Response = U, Error = E> + Send + 'static,
+        <L::Service as Service<T>>::Token: Any + Send + 'static,
         <L::Service as Service<T>>::Future: Send + 'static,
     {
         let layer = layer_fn(move |inner: In| {

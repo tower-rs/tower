@@ -47,14 +47,15 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
-        self.inner.call(req)
+    fn call(&mut self, token: Self::Token, req: Request) -> Self::Future {
+        self.inner.call(token, req)
     }
 }
 

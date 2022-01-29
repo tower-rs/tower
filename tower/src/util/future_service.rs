@@ -147,9 +147,10 @@ where
 {
     type Response = S::Response;
     type Error = E;
+    type Token = S::Token;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         loop {
             self.state = match &mut self.state {
                 State::Future(fut) => {
@@ -162,9 +163,9 @@ where
         }
     }
 
-    fn call(&mut self, req: R) -> Self::Future {
+    fn call(&mut self, token: Self::Token, req: R) -> Self::Future {
         if let State::Service(svc) = &mut self.state {
-            svc.call(req)
+            svc.call(token, req)
         } else {
             panic!("FutureService::call was called before FutureService::poll_ready")
         }
@@ -202,13 +203,14 @@ mod tests {
     impl Service<()> for DebugService {
         type Response = ();
         type Error = Infallible;
+        type Token = ();
         type Future = Ready<Result<Self::Response, Self::Error>>;
 
-        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
             Ok(()).into()
         }
 
-        fn call(&mut self, _req: ()) -> Self::Future {
+        fn call(&mut self, _token: (), _req: ()) -> Self::Future {
             ready(Ok(()))
         }
     }

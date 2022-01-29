@@ -32,10 +32,6 @@ where
     // own bounded MPSC on top of the unbounded channel, using a semaphore to
     // limit how many items are in the channel.
     semaphore: PollSemaphore,
-    // The current semaphore permit, if one has been acquired.
-    //
-    // This is acquired in `poll_ready` and taken in `call`.
-    permit: Option<OwnedSemaphorePermit>,
     handle: Handle,
 }
 
@@ -95,7 +91,6 @@ where
             tx,
             handle,
             semaphore: PollSemaphore::new(semaphore),
-            permit: None,
         };
         (buffer, worker)
     }
@@ -105,6 +100,9 @@ where
     }
 }
 
+#[derive(Debug)]
+pub struct Token(OwnedSemaphorePermit);
+
 impl<T, Request> Service<Request> for Buffer<T, Request>
 where
     T: Service<Request>,
@@ -112,19 +110,14 @@ where
 {
     type Response = T::Response;
     type Error = crate::BoxError;
+    type Token = Token;
     type Future = ResponseFuture<T::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         // First, check if the worker is still alive.
         if self.tx.is_closed() {
             // If the inner service has errored, then we error here.
             return Poll::Ready(Err(self.get_worker_error()));
-        }
-
-        // Then, check if we've already acquired a permit.
-        if self.permit.is_some() {
-            // We've already reserved capacity to send a request. We're ready!
-            return Poll::Ready(Ok(()));
         }
 
         // Finally, if we haven't already acquired a permit, poll the semaphore
@@ -133,17 +126,12 @@ where
         // capacity.
         let permit =
             ready!(self.semaphore.poll_acquire(cx)).ok_or_else(|| self.get_worker_error())?;
-        self.permit = Some(permit);
 
-        Poll::Ready(Ok(()))
+        Poll::Ready(Ok(Token(permit)))
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         tracing::trace!("sending request to buffer worker");
-        let _permit = self
-            .permit
-            .take()
-            .expect("buffer full; poll_ready must be called first");
 
         // get the current Span so that we can explicitly propagate it to the worker
         // if we didn't do this, events on the worker related to this span wouldn't be counted
@@ -158,7 +146,7 @@ where
             request,
             span,
             tx,
-            _permit,
+            _permit: token.0,
         }) {
             Err(_) => ResponseFuture::failed(self.get_worker_error()),
             Ok(_) => ResponseFuture::new(rx),
@@ -175,9 +163,6 @@ where
             tx: self.tx.clone(),
             handle: self.handle.clone(),
             semaphore: self.semaphore.clone(),
-            // The new clone hasn't acquired a permit yet. It will when it's
-            // next polled ready.
-            permit: None,
         }
     }
 }

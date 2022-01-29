@@ -23,7 +23,7 @@ impl Service<&'static str> for Srv {
     type Error = Error;
     type Future = Ready<Result<Self::Response, Error>>;
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         if !self.admit.get() {
             return Poll::Pending;
         }
@@ -32,7 +32,7 @@ impl Service<&'static str> for Srv {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: &'static str) -> Self::Future {
+    fn call(&mut self, token: Self::Token, req: &'static str) -> Self::Future {
         self.count.set(self.count.get() + 1);
         ready(Ok(req))
     }

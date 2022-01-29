@@ -25,7 +25,8 @@ use rotating_histogram::RotatingHistogram;
 use select::Select;
 
 type Histo = Arc<Mutex<RotatingHistogram>>;
-type Service<S, P> = select::Select<
+type Service<R, S, P> = select::Select<
+    R,
     SelectPolicy<P>,
     Latency<Histo, S>,
     Delay<DelayPolicy, AsyncFilter<Latency<Histo, S>, PolicyPredicate<P>>>,
@@ -35,7 +36,11 @@ type Service<S, P> = select::Select<
 /// for longer than a given latency percentile.  If either of the original
 /// future or the retry future completes, that value is used.
 #[derive(Debug)]
-pub struct Hedge<S, P>(Service<S, P>);
+pub struct Hedge<R, S, P>(Service<R, S, P>)
+where
+    S: tower_service::Service<R> + Clone,
+    S::Error: Into<crate::BoxError>,
+    P: Policy<R> + Clone;
 
 pin_project! {
     /// The [`Future`] returned by the [`Hedge`] service.
@@ -82,39 +87,34 @@ pub struct SelectPolicy<P> {
     min_data_points: u64,
 }
 
-impl<S, P> Hedge<S, P> {
+impl<R, S, P> Hedge<R, S, P>
+where
+    S: tower_service::Service<R> + Clone,
+    S::Error: Into<crate::BoxError>,
+    P: Policy<R> + Clone,
+{
     /// Create a new hedge middleware.
-    pub fn new<Request>(
+    pub fn new(
         service: S,
         policy: P,
         min_data_points: u64,
         latency_percentile: f32,
         period: Duration,
-    ) -> Hedge<S, P>
-    where
-        S: tower_service::Service<Request> + Clone,
-        S::Error: Into<crate::BoxError>,
-        P: Policy<Request> + Clone,
-    {
+    ) -> Self {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
         Self::new_with_histo(service, policy, min_data_points, latency_percentile, histo)
     }
 
     /// A hedge middleware with a prepopulated latency histogram.  This is usedful
     /// for integration tests.
-    pub fn new_with_mock_latencies<Request>(
+    pub fn new_with_mock_latencies(
         service: S,
         policy: P,
         min_data_points: u64,
         latency_percentile: f32,
         period: Duration,
         latencies_ms: &[u64],
-    ) -> Hedge<S, P>
-    where
-        S: tower_service::Service<Request> + Clone,
-        S::Error: Into<crate::BoxError>,
-        P: Policy<Request> + Clone,
-    {
+    ) -> Self {
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
         {
             let mut locked = histo.lock().unwrap();
@@ -125,18 +125,13 @@ impl<S, P> Hedge<S, P> {
         Self::new_with_histo(service, policy, min_data_points, latency_percentile, histo)
     }
 
-    fn new_with_histo<Request>(
+    fn new_with_histo(
         service: S,
         policy: P,
         min_data_points: u64,
         latency_percentile: f32,
         histo: Histo,
-    ) -> Hedge<S, P>
-    where
-        S: tower_service::Service<Request> + Clone,
-        S::Error: Into<crate::BoxError>,
-        P: Policy<Request> + Clone,
-    {
+    ) -> Self {
         // Clone the underlying service and wrap both copies in a middleware that
         // records the latencies in a rotating histogram.
         let recorded_a = Latency::new(histo.clone(), service.clone());
@@ -164,7 +159,7 @@ impl<S, P> Hedge<S, P> {
     }
 }
 
-impl<S, P, Request> tower_service::Service<Request> for Hedge<S, P>
+impl<S, P, Request> tower_service::Service<Request> for Hedge<Request, S, P>
 where
     S: tower_service::Service<Request> + Clone,
     S::Error: Into<crate::BoxError>,
@@ -172,15 +167,16 @@ where
 {
     type Response = S::Response;
     type Error = crate::BoxError;
-    type Future = Future<Service<S, P>, Request>;
+    type Token = S::Token;
+    type Future = Future<Service<Request, S, P>, Request>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.0.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         Future {
-            inner: self.0.call(request),
+            inner: self.0.call(token, request),
         }
     }
 }

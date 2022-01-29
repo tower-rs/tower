@@ -104,28 +104,35 @@ where
 /// requests) will prevent head-of-line blocking in [`Steer`].
 ///
 /// [`Buffer`]: crate::buffer::Buffer
-pub struct Steer<S, F, Req> {
+pub struct Steer<S: Service<Req>, F, Req> {
     router: F,
     services: Vec<S>,
-    not_ready: VecDeque<usize>,
+    tokens: Vec<Option<S::Token>>,
     _phantom: PhantomData<Req>,
 }
 
-impl<S, F, Req> Steer<S, F, Req> {
+impl<S, F, Req> Steer<S, F, Req>
+where
+    S: Service<Req>,
+{
     /// Make a new [`Steer`] with a list of [`Service`]'s and a [`Picker`].
     ///
     /// Note: the order of the [`Service`]'s is significant for [`Picker::pick`]'s return value.
     pub fn new(services: impl IntoIterator<Item = S>, router: F) -> Self {
         let services: Vec<_> = services.into_iter().collect();
         let not_ready: VecDeque<_> = services.iter().enumerate().map(|(i, _)| i).collect();
+        let tokens: Vec<_> = services.iter().map(|_| None).collect();
         Self {
             router,
             services,
-            not_ready,
+            tokens,
             _phantom: PhantomData,
         }
     }
 }
+
+#[derive(Debug)]
+pub struct Token<T>(Vec<T>);
 
 impl<S, Req, F> Service<Req> for Steer<S, F, Req>
 where
@@ -134,47 +141,54 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = Token<S::Token>;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        loop {
-            // must wait for *all* services to be ready.
-            // this will cause head-of-line blocking unless the underlying services are always ready.
-            if self.not_ready.is_empty() {
-                return Poll::Ready(Ok(()));
-            } else {
-                if let Poll::Pending = self.services[self.not_ready[0]].poll_ready(cx)? {
-                    return Poll::Pending;
-                }
-
-                self.not_ready.pop_front();
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
+        // must wait for *all* services to be ready.
+        // this will cause head-of-line blocking unless the underlying services are always ready.
+        let mut all = true;
+        for (token, service) in self.tokens.iter_mut().zip(&mut self.services) {
+            if token.is_some() {
+                continue;
             }
+            match service.poll_ready(cx)? {
+                Poll::Ready(t) => *token = Some(t),
+                Poll::Pending => all = false,
+            }
+        }
+        if all {
+            Poll::Ready(Ok(Token(
+                self.tokens
+                    .iter_mut()
+                    .map(|token| token.take().unwrap())
+                    .collect(),
+            )))
+        } else {
+            Poll::Pending
         }
     }
 
-    fn call(&mut self, req: Req) -> Self::Future {
-        assert!(
-            self.not_ready.is_empty(),
-            "Steer must wait for all services to be ready. Did you forget to call poll_ready()?"
-        );
-
+    fn call(&mut self, token: Self::Token, req: Req) -> Self::Future {
         let idx = self.router.pick(&req, &self.services[..]);
         let cl = &mut self.services[idx];
-        self.not_ready.push_back(idx);
-        cl.call(req)
+        let token = token.0[idx];
+        cl.call(token, req)
     }
 }
 
 impl<S, F, Req> Clone for Steer<S, F, Req>
 where
-    S: Clone,
+    S: Service<Req> + Clone,
     F: Clone,
 {
     fn clone(&self) -> Self {
+        let mut tokens = Vec::new();
+        tokens.resize_with(self.tokens.len(), Default::default);
         Self {
             router: self.router.clone(),
             services: self.services.clone(),
-            not_ready: self.not_ready.clone(),
+            tokens,
             _phantom: PhantomData,
         }
     }
@@ -182,20 +196,20 @@ where
 
 impl<S, F, Req> fmt::Debug for Steer<S, F, Req>
 where
-    S: fmt::Debug,
+    S: Service<Req> + fmt::Debug,
     F: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let Self {
             router,
             services,
-            not_ready,
+            tokens,
             _phantom,
         } = self;
         f.debug_struct("Steer")
             .field("router", router)
             .field("services", services)
-            .field("not_ready", not_ready)
+            .field("tokens", tokens.iter())
             .finish()
     }
 }

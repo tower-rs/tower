@@ -31,6 +31,8 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// Errors produced while building a service.
     type MakeError;
 
+    type Token;
+
     /// The future of the [`Service`] instance.
     type Future: Future<Output = Result<Self::Service, Self::MakeError>>;
 
@@ -42,10 +44,10 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     ///
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`Poll::Pending`]: std::task::Poll::Pending
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::MakeError>>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::MakeError>>;
 
     /// Create and return a new service value asynchronously.
-    fn make_service(&mut self, target: Target) -> Self::Future;
+    fn make_service(&mut self, token: Self::Token, target: Target) -> Self::Future;
 
     /// Consume this [`MakeService`] and convert it into a [`Service`].
     ///
@@ -145,14 +147,15 @@ where
     type Error = S::Error;
     type Service = S;
     type MakeError = M::Error;
+    type Token = M::Token;
     type Future = M::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::MakeError>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::MakeError>> {
         Service::poll_ready(self, cx)
     }
 
-    fn make_service(&mut self, target: Target) -> Self::Future {
-        Service::call(self, target)
+    fn make_service(&mut self, token: Self::Token, target: Target) -> Self::Future {
+        Service::call(self, token, target)
     }
 }
 
@@ -196,16 +199,17 @@ where
 {
     type Response = M::Response;
     type Error = M::Error;
+    type Token = M::Token;
     type Future = M::Future;
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.make.poll_ready(cx)
     }
 
     #[inline]
-    fn call(&mut self, target: Target) -> Self::Future {
-        self.make.make_service(target)
+    fn call(&mut self, token: Self::Token, target: Target) -> Self::Future {
+        self.make.make_service(token, target)
     }
 }
 
@@ -237,15 +241,16 @@ where
 {
     type Response = M::Response;
     type Error = M::Error;
+    type Token = M::Token;
     type Future = M::Future;
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.make.poll_ready(cx)
     }
 
     #[inline]
-    fn call(&mut self, target: Target) -> Self::Future {
-        self.make.make_service(target)
+    fn call(&mut self, token: Self::Token, target: Target) -> Self::Future {
+        self.make.make_service(token, target)
     }
 }

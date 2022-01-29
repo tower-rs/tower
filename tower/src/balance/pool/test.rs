@@ -19,10 +19,10 @@ async fn basic() {
     pin_mut!(svc1);
 
     assert_request_eq!(handle, ()).send_response(load::Constant::new(svc1_m, 0));
-    assert_ready_ok!(pool.poll_ready());
+    let token = assert_ready_ok!(pool.poll_ready());
 
     // send a request to the one backing service
-    let mut fut = task::spawn(pool.call(()));
+    let mut fut = task::spawn(pool.call(token, ()));
 
     assert_pending!(fut.poll());
     assert_request_eq!(svc1, ()).send_response("foobar");
@@ -49,10 +49,10 @@ async fn high_load() {
 
     svc1.allow(1);
     assert_request_eq!(handle, ()).send_response(load::Constant::new(svc1_m, 0));
-    assert_ready_ok!(pool.poll_ready());
+    let token = assert_ready_ok!(pool.poll_ready());
 
     // make the one backing service not ready
-    let mut fut1 = task::spawn(pool.call(()));
+    let mut fut1 = task::spawn(pool.call(token, ()));
 
     // if we poll_ready again, pool should notice that load is increasing
     // since urgency == 1.0, it should immediately enter high load
@@ -65,8 +65,8 @@ async fn high_load() {
     assert_request_eq!(handle, ()).send_response(load::Constant::new(svc2_m, 0));
 
     // the pool should now be ready again for one more request
-    assert_ready_ok!(pool.poll_ready());
-    let mut fut2 = task::spawn(pool.call(()));
+    let token = assert_ready_ok!(pool.poll_ready());
+    let mut fut2 = task::spawn(pool.call(token, ()));
 
     assert_pending!(pool.poll_ready());
 
@@ -101,10 +101,10 @@ async fn low_load() {
 
     svc1.allow(1);
     assert_request_eq!(handle, ()).send_response(load::Constant::new(svc1_m, 0));
-    assert_ready_ok!(pool.poll_ready());
+    let token = assert_ready_ok!(pool.poll_ready());
 
     // cycling a request should now work
-    let mut fut = task::spawn(pool.call(()));
+    let mut fut = task::spawn(pool.call(token, ()));
 
     assert_request_eq!(svc1, ()).send_response("foo");
     assert_eq!(assert_ready_ok!(fut.poll()), "foo");
@@ -120,20 +120,20 @@ async fn low_load() {
     // pool is now ready
     // which (because of urgency == 1.0) should immediately cause it to drop a service
     // it'll drop svc1, so it'll still be ready
-    assert_ready_ok!(pool.poll_ready());
+    let _ = assert_ready_ok!(pool.poll_ready());
     // and even with another ready, it won't drop svc2 since its now the only service
-    assert_ready_ok!(pool.poll_ready());
+    let token = assert_ready_ok!(pool.poll_ready());
 
     // cycling a request should now work on svc2
-    let mut fut = task::spawn(pool.call(()));
+    let mut fut = task::spawn(pool.call(token, ()));
 
     assert_request_eq!(svc2, ()).send_response("foo");
     assert_eq!(assert_ready_ok!(fut.poll()), "foo");
 
     // and again (still svc2)
     svc2.allow(1);
-    assert_ready_ok!(pool.poll_ready());
-    let mut fut = task::spawn(pool.call(()));
+    let token = assert_ready_ok!(pool.poll_ready());
+    let mut fut = task::spawn(pool.call(token, ()));
 
     assert_request_eq!(svc2, ()).send_response("foo");
     assert_eq!(assert_ready_ok!(fut.poll()), "foo");
@@ -160,10 +160,10 @@ async fn failing_service() {
 
     svc1.allow(1);
     assert_request_eq!(handle, ()).send_response(load::Constant::new(svc1_m, 0));
-    assert_ready_ok!(pool.poll_ready());
+    let token = assert_ready_ok!(pool.poll_ready());
 
     // one request-response cycle
-    let mut fut = task::spawn(pool.call(()));
+    let mut fut = task::spawn(pool.call(token, ()));
 
     assert_request_eq!(svc1, ()).send_response("foo");
     assert_eq!(assert_ready_ok!(fut.poll()), "foo");
@@ -181,9 +181,9 @@ async fn failing_service() {
     assert_request_eq!(handle, ()).send_response(load::Constant::new(svc2_m, 0));
 
     // the pool should now be ready again
-    assert_ready_ok!(pool.poll_ready());
+    let token = assert_ready_ok!(pool.poll_ready());
     // and a cycle should work (and go through svc2)
-    let mut fut = task::spawn(pool.call(()));
+    let mut fut = task::spawn(pool.call(token, ()));
 
     assert_request_eq!(svc2, ()).send_response("bar");
     assert_eq!(assert_ready_ok!(fut.poll()), "bar");

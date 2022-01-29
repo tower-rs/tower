@@ -2,6 +2,7 @@ use crate::ServiceExt;
 use tower_layer::{layer_fn, LayerFn};
 use tower_service::Service;
 
+use std::any::Any;
 use std::fmt;
 use std::{
     future::Future,
@@ -20,7 +21,9 @@ use std::{
 ///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
-    inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>,
+    inner: Box<
+        dyn Service<T, Response = U, Error = E, Token = BoxToken, Future = BoxFuture<U, E>> + Send,
+    >,
 }
 
 /// A boxed `Future + Send` trait object.
@@ -28,15 +31,24 @@ pub struct BoxService<T, U, E> {
 /// This type alias represents a boxed future that is [`Send`] and can be moved
 /// across threads.
 type BoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
+type BoxToken = Box<dyn Any + Send>;
 
 impl<T, U, E> BoxService<T, U, E> {
     #[allow(missing_docs)]
     pub fn new<S>(inner: S) -> Self
     where
         S: Service<T, Response = U, Error = E> + Send + 'static,
+        S::Token: Any + Send + 'static,
         S::Future: Send + 'static,
     {
-        let inner = Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
+        let inner = Box::new(
+            inner
+                .map_token(
+                    |t| Box::new(t) as Box<dyn Any + Send>,
+                    |t| *t.downcast().expect("Invalid token passed to BoxService"),
+                )
+                .map_future(|f: S::Future| Box::pin(f) as _),
+        );
         BoxService { inner }
     }
 
@@ -47,6 +59,7 @@ impl<T, U, E> BoxService<T, U, E> {
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
         S: Service<T, Response = U, Error = E> + Send + 'static,
+        S::Token: Any + Send + 'static,
         S::Future: Send + 'static,
     {
         layer_fn(Self::new)
@@ -56,14 +69,15 @@ impl<T, U, E> BoxService<T, U, E> {
 impl<T, U, E> Service<T> for BoxService<T, U, E> {
     type Response = U;
     type Error = E;
+    type Token = BoxToken;
     type Future = BoxFuture<U, E>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), E>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, E>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, request: T) -> BoxFuture<U, E> {
-        self.inner.call(request)
+    fn call(&mut self, token: Self::Token, request: T) -> BoxFuture<U, E> {
+        self.inner.call(token, request)
     }
 }
 

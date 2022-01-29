@@ -105,15 +105,16 @@ where
 {
     type Response = T::Response;
     type Error = BoxError;
+    type Token = T::Token;
     type Future = ResponseFuture<T::Response, T::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         ResponseFuture::new(match self.predicate.check(request) {
-            Ok(request) => Either::Right(self.inner.call(request).err_into()),
+            Ok(request) => Either::Right(self.inner.call(token, request).err_into()),
             Err(e) => Either::Left(futures_util::future::ready(Err(e.into()))),
         })
     }
@@ -167,13 +168,14 @@ where
 {
     type Response = T::Response;
     type Error = BoxError;
+    type Token = T::Token;
     type Future = AsyncResponseFuture<U, T, Request>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         use std::mem;
 
         let inner = self.inner.clone();
@@ -186,6 +188,6 @@ where
         // Check the request
         let check = self.predicate.check(request);
 
-        AsyncResponseFuture::new(check, inner)
+        AsyncResponseFuture::new(check, inner, token)
     }
 }

@@ -80,17 +80,18 @@ where
 {
     type Response = C::Output;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = TrackCompletionFuture<S::Future, C, Handle>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, req: Request) -> Self::Future {
         TrackCompletionFuture::new(
             self.completion.clone(),
             self.handle(),
-            self.service.call(req),
+            self.service.call(token, req),
         )
     }
 }
@@ -154,13 +155,14 @@ mod tests {
     impl Service<()> for Svc {
         type Response = ();
         type Error = ();
+        type Token = ();
         type Future = future::Ready<Result<(), ()>>;
 
         fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
             Poll::Ready(Ok(()))
         }
 
-        fn call(&mut self, (): ()) -> Self::Future {
+        fn call(&mut self, (): (), (): ()) -> Self::Future {
             future::ok(())
         }
     }
@@ -170,10 +172,10 @@ mod tests {
         let mut svc = PendingRequests::new(Svc, CompleteOnResponse);
         assert_eq!(svc.load(), Count(0));
 
-        let rsp0 = svc.call(());
+        let rsp0 = svc.call((), ());
         assert_eq!(svc.load(), Count(1));
 
-        let rsp1 = svc.call(());
+        let rsp1 = svc.call((), ());
         assert_eq!(svc.load(), Count(2));
 
         let () = tokio_test::block_on(rsp0).unwrap();
@@ -197,12 +199,12 @@ mod tests {
         let mut svc = PendingRequests::new(Svc, IntoHandle);
         assert_eq!(svc.load(), Count(0));
 
-        let rsp = svc.call(());
+        let rsp = svc.call((), ());
         assert_eq!(svc.load(), Count(1));
         let i0 = tokio_test::block_on(rsp).unwrap();
         assert_eq!(svc.load(), Count(1));
 
-        let rsp = svc.call(());
+        let rsp = svc.call((), ());
         assert_eq!(svc.load(), Count(2));
         let i1 = tokio_test::block_on(rsp).unwrap();
         assert_eq!(svc.load(), Count(2));

@@ -193,9 +193,9 @@ where
                         message = "worker received request; waiting for service readiness"
                     );
                     match self.service.poll_ready(cx) {
-                        Poll::Ready(Ok(())) => {
+                        Poll::Ready(Ok(token)) => {
                             tracing::debug!(service.ready = true, message = "processing request");
-                            let response = self.service.call(msg.request);
+                            let response = self.service.call(token, msg.request);
 
                             // Send the response future back to the sender.
                             //

@@ -63,16 +63,17 @@ where
 {
     type Response = Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = MapResponseFuture<S::Future, F>;
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     #[inline]
-    fn call(&mut self, request: Request) -> Self::Future {
-        MapResponseFuture::new(self.inner.call(request).map_ok(self.f.clone()))
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
+        MapResponseFuture::new(self.inner.call(token, request).map_ok(self.f.clone()))
     }
 }
 

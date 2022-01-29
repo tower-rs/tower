@@ -89,8 +89,8 @@ where
         loop {
             match this.state.as_mut().project() {
                 StateProj::NotReady { svc, req } => {
-                    let _ = ready!(svc.poll_ready(cx))?;
-                    let f = svc.call(req.take().expect("already called"));
+                    let token = ready!(svc.poll_ready(cx))?;
+                    let f = svc.call(token, req.take().expect("already called"));
                     this.state.set(State::called(f));
                 }
                 StateProj::Called { fut } => {

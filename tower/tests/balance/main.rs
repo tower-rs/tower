@@ -17,11 +17,11 @@ impl Service<Req> for Mock {
     type Response = <mock::Mock<Req, Req> as Service<Req>>::Response;
     type Error = <mock::Mock<Req, Req> as Service<Req>>::Error;
     type Future = <mock::Mock<Req, Req> as Service<Req>>::Future;
-    fn poll_ready(&mut self, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context) -> Poll<Result<Self::Token, Self::Error>> {
         self.0.poll_ready(cx)
     }
-    fn call(&mut self, req: Req) -> Self::Future {
-        self.0.call(req)
+    fn call(&mut self, token: Self::Token, req: Req) -> Self::Future {
+        self.0.call(token, req)
     }
 }
 

@@ -34,11 +34,11 @@ use tower_service::Service;
 ///     type Error = Infallible;
 ///     type Future = Ready<Result<Response, Infallible>>;
 ///
-///     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
 ///         Poll::Ready(Ok(()))
 ///     }
 ///
-///     fn call(&mut self, req: Request) -> Self::Future {
+///     fn call(&mut self, token: Self::Token, req: Request) -> Self::Future {
 ///         ready(Ok(Response {}))
 ///     }
 /// }
@@ -86,13 +86,14 @@ where
 {
     type Response = S;
     type Error = Infallible;
+    type Token = ();
     type Future = SharedFuture<S>;
 
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, _target: T) -> Self::Future {
+    fn call(&mut self, _token: (), _target: T) -> Self::Future {
         SharedFuture::new(futures_util::future::ready(Ok(self.service.clone())))
     }
 }
@@ -117,13 +118,13 @@ mod tests {
     async fn as_make_service() {
         let mut shared = Shared::new(service_fn(echo::<&'static str>));
 
-        poll_fn(|cx| MakeService::<(), _>::poll_ready(&mut shared, cx))
+        let token = poll_fn(|cx| MakeService::<(), _>::poll_ready(&mut shared, cx))
             .await
             .unwrap();
-        let mut svc = shared.make_service(()).await.unwrap();
+        let mut svc = shared.make_service(token, ()).await.unwrap();
 
-        poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
-        let res = svc.call("foo").await.unwrap();
+        let token = poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
+        let res = svc.call(token, "foo").await.unwrap();
 
         assert_eq!(res, "foo");
     }
@@ -133,13 +134,13 @@ mod tests {
         let shared = Shared::new(service_fn(echo::<&'static str>));
         let mut shared = MakeService::<(), _>::into_service(shared);
 
-        poll_fn(|cx| Service::<()>::poll_ready(&mut shared, cx))
+        let token = poll_fn(|cx| Service::<()>::poll_ready(&mut shared, cx))
             .await
             .unwrap();
-        let mut svc = shared.call(()).await.unwrap();
+        let mut svc = shared.call(token, ()).await.unwrap();
 
-        poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
-        let res = svc.call("foo").await.unwrap();
+        let token = poll_fn(|cx| svc.poll_ready(cx)).await.unwrap();
+        let res = svc.call(token, "foo").await.unwrap();
 
         assert_eq!(res, "foo");
     }

@@ -35,23 +35,29 @@ where
 {
     type Response = A::Response;
     type Error = crate::BoxError;
+    type Token = Either<A::Token, B::Token>;
     type Future = Either<A::Future, B::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         use self::Either::*;
 
         match self {
-            A(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx)).map_err(Into::into)?)),
-            B(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx)).map_err(Into::into)?)),
+            A(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx))
+                .map(Either::A)
+                .map_err(Into::into)?)),
+            B(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx))
+                .map(Either::B)
+                .map_err(Into::into)?)),
         }
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         use self::Either::*;
 
-        match self {
-            A(service) => A(service.call(request)),
-            B(service) => B(service.call(request)),
+        match (self, token) {
+            (A(service), A(token)) => A(service.call(token, request)),
+            (B(service), B(token)) => B(service.call(token, request)),
+            _ => panic!("Invalid token used for Either service."),
         }
     }
 }

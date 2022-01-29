@@ -11,6 +11,7 @@ mod map_err;
 mod map_request;
 mod map_response;
 mod map_result;
+mod map_token;
 
 mod map_future;
 mod oneshot;
@@ -31,6 +32,7 @@ pub use self::{
     map_request::{MapRequest, MapRequestLayer},
     map_response::{MapResponse, MapResponseLayer},
     map_result::{MapResult, MapResultLayer},
+    map_token::{MapToken, MapTokenLayer},
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyAnd, ReadyOneshot},
@@ -39,7 +41,7 @@ pub use self::{
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
-use std::future::Future;
+use std::{any::Any, future::Future};
 
 use crate::layer::util::Identity;
 
@@ -149,11 +151,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = u8;
     /// #   type Future = futures_util::future::Ready<Result<Record, u8>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
     /// #   }
     /// # }
@@ -218,11 +220,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = u8;
     /// #   type Future = futures_util::future::Ready<Result<Record, u8>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
     /// #   }
     /// # }
@@ -285,11 +287,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = Error;
     /// #   type Future = futures_util::future::Ready<Result<String, Error>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
@@ -380,11 +382,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<Vec<Record>, DbError>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(vec![Record { name: "Jack".into(), age: 32 }]))
     /// #   }
     /// # }
@@ -440,11 +442,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
     /// #   }
     /// # }
@@ -504,11 +506,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = u8;
     /// #   type Future = futures_util::future::Ready<Result<String, u8>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
@@ -575,11 +577,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = u8;
     /// #   type Future = futures_util::future::Ready<Result<String, u8>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: String) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: String) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
@@ -643,11 +645,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<String, DbError>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
@@ -717,11 +719,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<String, DbError>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(String::new()))
     /// #   }
     /// # }
@@ -820,11 +822,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(()))
     /// #   }
     /// # }
@@ -906,11 +908,11 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #   type Error = DbError;
     /// #   type Future = futures_util::future::Ready<Result<Record, DbError>>;
     /// #
-    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     /// #       Poll::Ready(Ok(()))
     /// #   }
     /// #
-    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #   fn call(&mut self, token: Self::Token, request: u32) -> Self::Future {
     /// #       futures_util::future::ready(Ok(()))
     /// #   }
     /// # }
@@ -997,6 +999,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn boxed(self) -> BoxService<Request, Self::Response, Self::Error>
     where
         Self: Sized + Send + 'static,
+        Self::Token: Any + Send + 'static,
         Self::Future: Send + 'static,
     {
         BoxService::new(self)
@@ -1043,12 +1046,21 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// [`Service`]: crate::Service
     /// [`boxed`]: Self::boxed
-    fn boxed_clone(self) -> BoxCloneService<Request, Self::Response, Self::Error>
+    fn boxed_clone(self) -> BoxCloneService<Request, Self::Response, Self::Error, Self::Token>
     where
         Self: Clone + Sized + Send + 'static,
         Self::Future: Send + 'static,
     {
         BoxCloneService::new(self)
+    }
+
+    fn map_token<F, G, NewToken>(self, f: F, g: G) -> MapToken<Self, F, G>
+    where
+        Self: Sized,
+        F: FnMut(Self::Token) -> NewToken,
+        G: FnMut(NewToken) -> Self::Token,
+    {
+        MapToken::new(self, f, g)
     }
 }
 

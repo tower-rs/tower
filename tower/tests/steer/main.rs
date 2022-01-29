@@ -16,7 +16,7 @@ impl Service<String> for MyService {
     type Error = StdError;
     type Future = Ready<Result<u8, Self::Error>>;
 
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         if !self.1 {
             Poll::Pending
         } else {

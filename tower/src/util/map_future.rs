@@ -55,14 +55,15 @@ where
 {
     type Response = T;
     type Error = E;
+    type Token = S::Token;
     type Future = Fut;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx).map_err(From::from)
     }
 
-    fn call(&mut self, req: R) -> Self::Future {
-        (self.f)(self.inner.call(req))
+    fn call(&mut self, token: Self::Token, req: R) -> Self::Future {
+        (self.f)(self.inner.call(token, req))
     }
 }
 

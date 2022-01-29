@@ -100,10 +100,10 @@ where
         }
 
         if this.services.is_empty() && this.making.is_none() {
-            let _ = ready!(this.maker.poll_ready(cx))?;
+            let token = ready!(this.maker.poll_ready(cx))?;
             tracing::trace!("construct initial pool connection");
             this.making
-                .set(Some(this.maker.make_service(this.target.clone())));
+                .set(Some(this.maker.make_service(token, this.target.clone())));
         }
 
         if let Level::High = this.load {
@@ -120,11 +120,11 @@ where
                     pool.services = this.services.len(),
                     message = "decided to add service to loaded pool"
                 );
-                ready!(this.maker.poll_ready(cx))?;
+                let token = ready!(this.maker.poll_ready(cx))?;
                 tracing::trace!("making new service");
                 // TODO: it'd be great if we could avoid the clone here and use, say, &Target
                 this.making
-                    .set(Some(this.maker.make_service(this.target.clone())));
+                    .set(Some(this.maker.make_service(token, this.target.clone())));
             }
         }
 
@@ -361,9 +361,10 @@ where
 {
     type Response = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Response;
     type Error = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Error;
+    type Token = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Token;
     type Future = <PinBalance<PoolDiscoverer<MS, Target, Req>, Req> as Service<Req>>::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         if let Poll::Ready(()) = self.balance.poll_ready(cx)? {
             // services was ready -- there are enough services
             // update ewma with a 0 sample
@@ -418,8 +419,8 @@ where
         Poll::Pending
     }
 
-    fn call(&mut self, req: Req) -> Self::Future {
-        self.balance.call(req)
+    fn call(&mut self, token: Self::Token, req: Req) -> Self::Future {
+        self.balance.call(token, req)
     }
 }
 
@@ -447,13 +448,14 @@ impl<Svc: Load> Load for DropNotifyService<Svc> {
 impl<Request, Svc: Service<Request>> Service<Request> for DropNotifyService<Svc> {
     type Response = Svc::Response;
     type Future = Svc::Future;
+    type Token = Svc::Token;
     type Error = Svc::Error;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.svc.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
-        self.svc.call(req)
+    fn call(&mut self, token: Self::Token, req: Request) -> Self::Future {
+        self.svc.call(token, req)
     }
 }

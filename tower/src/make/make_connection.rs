@@ -16,14 +16,16 @@ pub trait MakeConnection<Target>: Sealed<(Target,)> {
     /// Errors produced by the connecting service
     type Error;
 
+    type Token;
+
     /// The future that eventually produces the transport
     type Future: Future<Output = Result<Self::Connection, Self::Error>>;
 
     /// Returns `Poll::Ready(Ok(()))` when it is able to make more connections.
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>>;
 
     /// Connect and return a transport asynchronously
-    fn make_connection(&mut self, target: Target) -> Self::Future;
+    fn make_connection(&mut self, token: Self::Token, target: Target) -> Self::Future;
 }
 
 impl<S, Target> Sealed<(Target,)> for S where S: Service<Target> {}
@@ -35,13 +37,14 @@ where
 {
     type Connection = C::Response;
     type Error = C::Error;
+    type Token = C::Token;
     type Future = C::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         Service::poll_ready(self, cx)
     }
 
-    fn make_connection(&mut self, target: Target) -> Self::Future {
-        Service::call(self, target)
+    fn make_connection(&mut self, token: Self::Token, target: Target) -> Self::Future {
+        Service::call(self, token, target)
     }
 }

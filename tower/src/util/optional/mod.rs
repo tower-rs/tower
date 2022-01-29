@@ -39,21 +39,27 @@ where
 {
     type Response = T::Response;
     type Error = crate::BoxError;
+    type Token = Option<T::Token>;
     type Future = ResponseFuture<T::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         match self.inner {
             Some(ref mut inner) => match inner.poll_ready(cx) {
-                Poll::Ready(r) => Poll::Ready(r.map_err(Into::into)),
+                Poll::Ready(r) => Poll::Ready(r.map(Some).map_err(Into::into)),
                 Poll::Pending => Poll::Pending,
             },
             // None services are always ready
-            None => Poll::Ready(Ok(())),
+            None => Poll::Ready(Ok(None)),
         }
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        let inner = self.inner.as_mut().map(|i| i.call(request));
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
+        let inner = self.inner.as_mut().map(|i| {
+            i.call(
+                token.expect("Invalid token used for Optional service."),
+                request,
+            )
+        });
         ResponseFuture::new(inner)
     }
 }

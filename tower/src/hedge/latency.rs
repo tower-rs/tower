@@ -55,17 +55,18 @@ where
 {
     type Response = S::Response;
     type Error = crate::BoxError;
+    type Token = S::Token;
     type Future = ResponseFuture<R, S::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.service.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         ResponseFuture {
             start: Instant::now(),
             rec: self.rec.clone(),
-            inner: self.service.call(request),
+            inner: self.service.call(token, request),
         }
     }
 }

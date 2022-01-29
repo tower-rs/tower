@@ -57,6 +57,7 @@ use tracing::{debug, trace};
 pub struct ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
+    S: Service<Req>,
 {
     /// A stream of services that are not yet ready.
     pending: FuturesUnordered<Pending<K, S, Req>>,
@@ -69,11 +70,11 @@ where
     /// The cancelation oneshot is preserved (though unused) while the service is
     /// ready so that it need not be reallocated each time a request is
     /// dispatched.
-    ready: IndexMap<K, (S, CancelPair)>,
+    ready: IndexMap<K, (S, S::Token, CancelPair)>,
 }
 
 // Safety: This is safe because we do not use `Pin::new_unchecked`.
-impl<S, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
+impl<S: Service<Req>, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
 
 type CancelRx = oneshot::Receiver<()>;
 type CancelTx = oneshot::Sender<()>;
@@ -114,7 +115,7 @@ where
 impl<K, S, Req> fmt::Debug for ReadyCache<K, S, Req>
 where
     K: fmt::Debug + Eq + Hash,
-    S: fmt::Debug,
+    S: fmt::Debug + Service<Req>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let Self {
@@ -133,6 +134,7 @@ where
 impl<K, S, Req> ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
+    S: Service<Req>,
 {
     /// Returns the total number of services in the cache.
     pub fn len(&self) -> usize {
@@ -381,12 +383,12 @@ where
     ///
     /// If the specified index is out of range.
     pub fn call_ready_index(&mut self, index: usize, req: Req) -> S::Future {
-        let (key, (mut svc, cancel)) = self
+        let (key, (mut svc, token, cancel)) = self
             .ready
             .swap_remove_index(index)
             .expect("check_ready_index was not called");
 
-        let fut = svc.call(req);
+        let fut = svc.call(token, req);
 
         // If a new version of this service has been added to the
         // unready set, don't overwrite it.
@@ -407,7 +409,7 @@ impl<K, S, Req> Future for Pending<K, S, Req>
 where
     S: Service<Req>,
 {
-    type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
+    type Output = Result<(K, S, S::Token, CancelRx), PendingError<K, S::Error>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut fut = self.cancel.as_mut().expect("polled after complete");
@@ -424,10 +426,16 @@ where
             .poll_ready(cx)
         {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Ok(())) => {
+            Poll::Ready(Ok(token)) => {
                 let key = self.key.take().expect("polled after complete");
                 let cancel = self.cancel.take().expect("polled after complete");
-                Ok((key, self.ready.take().expect("polled after ready"), cancel)).into()
+                Ok((
+                    key,
+                    self.ready.take().expect("polled after ready"),
+                    token,
+                    cancel,
+                ))
+                .into()
             }
             Poll::Ready(Err(e)) => {
                 let key = self.key.take().expect("polled after compete");

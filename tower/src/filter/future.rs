@@ -22,7 +22,7 @@ pin_project! {
         S: Service<P::Request>,
     {
         #[pin]
-        state: State<P::Future, S::Future>,
+        state: State<P::Future, S::Token, S::Future>,
 
         // Inner service
         service: S,
@@ -43,11 +43,12 @@ opaque_future! {
 pin_project! {
     #[project = StateProj]
     #[derive(Debug)]
-    enum State<F, G> {
+    enum State<F, T, G> {
         /// Waiting for the predicate future
         Check {
             #[pin]
-            check: F
+            check: F,
+            token: Option<T>,
         },
         /// Waiting for the response future
         WaitResponse {
@@ -63,9 +64,12 @@ where
     S: Service<P::Request>,
     S::Error: Into<BoxError>,
 {
-    pub(crate) fn new(check: P::Future, service: S) -> Self {
+    pub(crate) fn new(check: P::Future, service: S, token: S::Token) -> Self {
         Self {
-            state: State::Check { check },
+            state: State::Check {
+                check,
+                token: Some(token),
+            },
             service,
         }
     }
@@ -84,9 +88,9 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Check { mut check } => {
+                StateProj::Check { mut check, token } => {
                     let request = ready!(check.as_mut().poll(cx))?;
-                    let response = this.service.call(request);
+                    let response = this.service.call(token.take().unwrap(), request);
                     this.state.set(State::WaitResponse { response });
                 }
                 StateProj::WaitResponse { response } => {

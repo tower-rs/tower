@@ -52,17 +52,18 @@ where
 {
     type Response = S::Response;
     type Error = crate::BoxError;
+    type Token = S::Token;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         match self.inner.poll_ready(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(r) => Poll::Ready(r.map_err(Into::into)),
         }
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        let response = self.inner.call(request);
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
+        let response = self.inner.call(token, request);
         let sleep = tokio::time::sleep(self.timeout);
 
         ResponseFuture::new(response, sleep)

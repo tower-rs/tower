@@ -107,14 +107,14 @@ where
                     // we need to make that assumption to avoid adding an Unpin bound to the Policy
                     // in Ready to make it Unpin so that we can get &mut Ready as needed to call
                     // poll_ready on it.
-                    ready!(this.retry.as_mut().project().service.poll_ready(cx))?;
+                    let token = ready!(this.retry.as_mut().project().service.poll_ready(cx))?;
                     let req = this
                         .request
                         .take()
                         .expect("retrying requires cloned request");
                     *this.request = this.retry.policy.clone_request(&req);
                     this.state.set(State::Called {
-                        future: this.retry.as_mut().project().service.call(req),
+                        future: this.retry.as_mut().project().service.call(token, req),
                     });
                 }
             }
