@@ -97,14 +97,15 @@ where
 {
     type Response = Fut::Ok;
     type Error = Fut::Error;
+    type Token = S::Token;
     type Future = AndThenFuture<S::Future, Fut, F>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        AndThenFuture::new(self.inner.call(request).err_into().and_then(self.f.clone()))
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
+        AndThenFuture::new(self.inner.call(token, request).err_into().and_then(self.f.clone()))
     }
 }
 

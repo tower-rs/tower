@@ -116,17 +116,18 @@ where
 {
     type Response = C::Output;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = TrackCompletionFuture<S::Future, C, Handle>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, req: Request) -> Self::Future {
         TrackCompletionFuture::new(
             self.completion.clone(),
             self.handle(),
-            self.service.call(req),
+            self.service.call(token, req),
         )
     }
 }
@@ -321,13 +322,14 @@ mod tests {
     impl Service<()> for Svc {
         type Response = ();
         type Error = ();
+        type Token = ();
         type Future = future::Ready<Result<(), ()>>;
 
         fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
             Poll::Ready(Ok(()))
         }
 
-        fn call(&mut self, (): ()) -> Self::Future {
+        fn call(&mut self, (): (), (): ()) -> Self::Future {
             future::ok(())
         }
     }
@@ -371,11 +373,11 @@ mod tests {
         assert_eq!(svc.load(), Cost(20.0 * NANOS_PER_MILLI));
 
         time::advance(Duration::from_millis(100)).await;
-        let mut rsp0 = task::spawn(svc.call(()));
+        let mut rsp0 = task::spawn(svc.call((), ()));
         assert!(svc.load() > Cost(20.0 * NANOS_PER_MILLI));
 
         time::advance(Duration::from_millis(100)).await;
-        let mut rsp1 = task::spawn(svc.call(()));
+        let mut rsp1 = task::spawn(svc.call((), ()));
         assert!(svc.load() > Cost(40.0 * NANOS_PER_MILLI));
 
         time::advance(Duration::from_millis(100)).await;

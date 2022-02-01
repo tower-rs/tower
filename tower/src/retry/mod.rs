@@ -56,18 +56,19 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = ResponseFuture<P, S, Request>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         // NOTE: the Future::poll impl for ResponseFuture assumes that Retry::poll_ready is
         // equivalent to Ready.service.poll_ready. If this ever changes, that code must be updated
         // as well.
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         let cloned = self.policy.clone_request(&request);
-        let future = self.service.call(request);
+        let future = self.service.call(token, request);
 
         ResponseFuture::new(cloned, self.clone(), future)
     }

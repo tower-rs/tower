@@ -67,9 +67,10 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         match self.state {
             State::Ready { .. } => return Poll::Ready(ready!(self.inner.poll_ready(cx))),
             State::Limited => {
@@ -88,7 +89,7 @@ where
         Poll::Ready(ready!(self.inner.poll_ready(cx)))
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         match self.state {
             State::Ready { mut until, mut rem } => {
                 let now = Instant::now();
@@ -111,7 +112,7 @@ where
                 }
 
                 // Call the inner future
-                self.inner.call(request)
+                self.inner.call(token, request)
             }
             State::Limited => panic!("service not ready; poll_ready must be called first"),
         }

@@ -70,13 +70,14 @@ where
 {
     type Response = R;
     type Error = E;
+    type Token = ();
     type Future = F;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), E>> {
         Ok(()).into()
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, _token: (), req: Request) -> Self::Future {
         (self.f)(req)
     }
 }

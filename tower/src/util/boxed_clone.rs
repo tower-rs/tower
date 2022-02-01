@@ -55,18 +55,23 @@ use tower_service::Service;
 /// # fn assert_service<S, R>(svc: S) -> S
 /// # where S: Service<R> { svc }
 /// ```
-pub struct BoxCloneService<T, U, E>(
+pub struct BoxCloneService<T, U, E, R>(
     Box<
-        dyn CloneService<T, Response = U, Error = E, Future = BoxFuture<'static, Result<U, E>>>
-            + Send,
+        dyn CloneService<
+                T,
+                Response = U,
+                Error = E,
+                Token = R,
+                Future = BoxFuture<'static, Result<U, E>>,
+            > + Send,
     >,
 );
 
-impl<T, U, E> BoxCloneService<T, U, E> {
+impl<T, U, E, R> BoxCloneService<T, U, E, R> {
     /// Create a new `BoxCloneService`.
     pub fn new<S>(inner: S) -> Self
     where
-        S: Service<T, Response = U, Error = E> + Clone + Send + 'static,
+        S: Service<T, Response = U, Error = E, Token = R> + Clone + Send + 'static,
         S::Future: Send + 'static,
     {
         let inner = inner.map_future(|f| Box::pin(f) as _);
@@ -79,30 +84,31 @@ impl<T, U, E> BoxCloneService<T, U, E> {
     /// [`Layer`]: crate::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
-        S: Service<T, Response = U, Error = E> + Clone + Send + 'static,
+        S: Service<T, Response = U, Error = E, Token = R> + Clone + Send + 'static,
         S::Future: Send + 'static,
     {
         layer_fn(Self::new)
     }
 }
 
-impl<T, U, E> Service<T> for BoxCloneService<T, U, E> {
+impl<T, U, E, R> Service<T> for BoxCloneService<T, U, E, R> {
     type Response = U;
     type Error = E;
+    type Token = R;
     type Future = BoxFuture<'static, Result<U, E>>;
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), E>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<R, E>> {
         self.0.poll_ready(cx)
     }
 
     #[inline]
-    fn call(&mut self, request: T) -> Self::Future {
-        self.0.call(request)
+    fn call(&mut self, token: Self::Token, request: T) -> Self::Future {
+        self.0.call(token, request)
     }
 }
 
-impl<T, U, E> Clone for BoxCloneService<T, U, E> {
+impl<T, U, E, R> Clone for BoxCloneService<T, U, E, R> {
     fn clone(&self) -> Self {
         Self(self.0.clone_box())
     }
@@ -112,8 +118,13 @@ trait CloneService<R>: Service<R> {
     fn clone_box(
         &self,
     ) -> Box<
-        dyn CloneService<R, Response = Self::Response, Error = Self::Error, Future = Self::Future>
-            + Send,
+        dyn CloneService<
+                R,
+                Response = Self::Response,
+                Error = Self::Error,
+                Token = Self::Token,
+                Future = Self::Future,
+            > + Send,
     >;
 }
 
@@ -123,13 +134,20 @@ where
 {
     fn clone_box(
         &self,
-    ) -> Box<dyn CloneService<R, Response = T::Response, Error = T::Error, Future = T::Future> + Send>
-    {
+    ) -> Box<
+        dyn CloneService<
+                R,
+                Response = T::Response,
+                Error = T::Error,
+                Token = T::Token,
+                Future = T::Future,
+            > + Send,
+    > {
         Box::new(self.clone())
     }
 }
 
-impl<T, U, E> fmt::Debug for BoxCloneService<T, U, E> {
+impl<T, U, E, R> fmt::Debug for BoxCloneService<T, U, E, R> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BoxCloneService").finish()
     }

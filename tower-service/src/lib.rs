@@ -13,6 +13,7 @@
 //! request / response clients and servers. It is simple but powerful and is
 //! used as the foundation for the rest of Tower.
 
+use std::any::Any;
 use std::future::Future;
 use std::task::{Context, Poll};
 
@@ -56,11 +57,11 @@ use std::task::{Context, Poll};
 ///     type Error = http::Error;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
-///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
 ///         Poll::Ready(Ok(()))
 ///     }
 ///
-///     fn call(&mut self, req: Request<Vec<u8>>) -> Self::Future {
+///     fn call(&mut self, token: Self::Token, req: Request<Vec<u8>>) -> Self::Future {
 ///         // create the body
 ///         let body: Vec<u8> = "hello, world!\n"
 ///             .as_bytes()
@@ -166,13 +167,13 @@ use std::task::{Context, Poll};
 ///     type Error = Box<dyn Error + Send + Sync>;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
-///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
 ///         // Our timeout service is ready if the inner service is ready.
 ///         // This is how backpressure can be propagated through a tree of nested services.
 ///        self.inner.poll_ready(cx).map_err(Into::into)
 ///     }
 ///
-///     fn call(&mut self, req: Request) -> Self::Future {
+///     fn call(&mut self, token: Self::Token, req: Request) -> Self::Future {
 ///         // Create a future that completes after `self.timeout`
 ///         let timeout = tokio::time::sleep(self.timeout);
 ///
@@ -259,11 +260,11 @@ use std::task::{Context, Poll};
 ///     type Error = S::Error;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
-///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
 ///         Poll::Ready(Ok(()))
 ///     }
 ///
-///     fn call(&mut self, req: R) -> Self::Future {
+///     fn call(&mut self, token: Self::Token, req: R) -> Self::Future {
 ///         let mut inner = self.inner.clone();
 ///         Box::pin(async move {
 ///             // `inner` might not be ready since its a clone
@@ -294,11 +295,11 @@ use std::task::{Context, Poll};
 ///     type Error = S::Error;
 ///     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 ///
-///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
 ///         Poll::Ready(Ok(()))
 ///     }
 ///
-///     fn call(&mut self, req: R) -> Self::Future {
+///     fn call(&mut self, token: Self::Token, req: R) -> Self::Future {
 ///         let clone = self.inner.clone();
 ///         // take the service that was ready
 ///         let mut inner = std::mem::replace(&mut self.inner, clone);
@@ -314,6 +315,9 @@ pub trait Service<Request> {
 
     /// Errors produced by the service.
     type Error;
+
+    /// A token that allows you to `call` once.
+    type Token;
 
     /// The future response value.
     type Future: Future<Output = Result<Self::Response, Self::Error>>;
@@ -331,7 +335,7 @@ pub trait Service<Request> {
     /// Once `poll_ready` returns `Poll::Ready(Ok(()))`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Poll::Ready(Ok(()))` or `Poll::Ready(Err(_))`.
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>>;
 
     /// Process the request and return the response asynchronously.
     ///
@@ -345,7 +349,7 @@ pub trait Service<Request> {
     ///
     /// Implementations are permitted to panic if `call` is invoked without
     /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
-    fn call(&mut self, req: Request) -> Self::Future;
+    fn call(&mut self, token: Self::Token, req: Request) -> Self::Future;
 }
 
 impl<'a, S, Request> Service<Request> for &'a mut S
@@ -354,14 +358,15 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, S::Error>> {
         (**self).poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
+    fn call(&mut self, token: Self::Token, request: Request) -> S::Future {
+        (**self).call(token, request)
     }
 }
 
@@ -371,13 +376,14 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, S::Error>> {
         (**self).poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
+    fn call(&mut self, token: Self::Token, request: Request) -> S::Future {
+        (**self).call(token, request)
     }
 }

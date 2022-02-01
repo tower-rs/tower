@@ -36,15 +36,16 @@ where
 {
     type Response = SpawnReady<S::Response>;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = MakeFuture<S::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, target: Target) -> Self::Future {
+    fn call(&mut self, token: Self::Token, target: Target) -> Self::Future {
         MakeFuture {
-            inner: self.inner.call(target),
+            inner: self.inner.call(token, target),
         }
     }
 }

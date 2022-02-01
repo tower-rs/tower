@@ -32,9 +32,9 @@ async fn single_endpoint() {
     );
 
     handle.allow(1);
-    assert_ready_ok!(svc.poll_ready());
+    let token = assert_ready_ok!(svc.poll_ready());
 
-    let mut fut = task::spawn(svc.call(()));
+    let mut fut = task::spawn(svc.call(token, ()));
 
     assert_request_eq!(handle, ()).send_response(1);
 

@@ -71,15 +71,16 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
+    type Token = S::Token;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         // Our middleware doesn't care about backpressure so its ready as long
         // as the inner service is ready.
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         self.inner.call(request)
     }
 }
@@ -102,7 +103,7 @@ Creating both futures is done like this:
 ```rust
 use tokio::time::sleep;
 
-fn call(&mut self, request: Request) -> Self::Future {
+fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
     let response_future = self.inner.call(request);
 
     // This variable has type `tokio::time::Sleep`.
@@ -151,11 +152,11 @@ where
     // Use our new `ResponseFuture` type.
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         let response_future = self.inner.call(request);
         let sleep = tokio::time::sleep(self.timeout);
 
@@ -502,12 +503,12 @@ where
     type Error = BoxError;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         // Have to map the error type here as well.
         self.inner.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         let response_future = self.inner.call(request);
         let sleep = tokio::time::sleep(self.timeout);
 
@@ -559,11 +560,11 @@ where
     type Error = BoxError;
     type Future = ResponseFuture<S::Future>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         self.inner.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         let response_future = self.inner.call(request);
         let sleep = tokio::time::sleep(self.timeout);
 

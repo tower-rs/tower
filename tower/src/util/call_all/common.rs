@@ -97,13 +97,13 @@ where
                 .service
                 .as_mut()
                 .expect("Using CallAll after extracing inner Service");
-            ready!(svc.poll_ready(cx)).map_err(Into::into)?;
+            let token = ready!(svc.poll_ready(cx)).map_err(Into::into)?;
 
             // If it is, gather the next request (if there is one)
             match this.stream.as_mut().poll_next(cx) {
                 Poll::Ready(r) => match r {
                     Some(req) => {
-                        this.queue.push(svc.call(req));
+                        this.queue.push(svc.call(token, req));
                     }
                     None => {
                         // We're all done once any outstanding requests have completed

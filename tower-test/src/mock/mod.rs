@@ -57,7 +57,6 @@ pub struct Mock<T, U> {
     id: u64,
     tx: Mutex<Tx<T, U>>,
     state: Arc<Mutex<State>>,
-    can_send: bool,
 }
 
 /// Handle to the `Mock`.
@@ -107,7 +106,6 @@ pub fn pair<T, U>() -> (Mock<T, U>, Handle<T, U>) {
         id: 0,
         tx,
         state: state.clone(),
-        can_send: false,
     };
 
     let handle = Handle { rx, state };
@@ -115,12 +113,25 @@ pub fn pair<T, U>() -> (Mock<T, U>, Handle<T, U>) {
     (mock, handle)
 }
 
+#[derive(Debug)]
+pub struct Token(Arc<Mutex<State>>);
+
+impl Drop for Token {
+    fn drop(&mut self) {
+        // TODO: Should probably avoid aborting if we're already panicking
+        let mut state = self.0.lock().unwrap();
+        // Give back a call, as this was dropped without calling call.
+        state.rem += 1;
+    }
+}
+
 impl<T, U> Service<T> for Mock<T, U> {
     type Response = U;
     type Error = Error;
+    type Token = Token;
     type Future = ResponseFuture<U>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Token, Self::Error>> {
         let mut state = self.state.lock().unwrap();
 
         if state.is_closed {
@@ -131,17 +142,10 @@ impl<T, U> Service<T> for Mock<T, U> {
             return Poll::Ready(Err(e));
         }
 
-        if self.can_send {
-            return Poll::Ready(Ok(()));
-        }
-
         if state.rem > 0 {
             assert!(!state.tasks.contains_key(&self.id));
-
-            // Returning `Ready` means the next call to `call` must succeed.
-            self.can_send = true;
-
-            Poll::Ready(Ok(()))
+            state.rem -= 1;
+            Poll::Ready(Ok(Token(self.state.clone())))
         } else {
             // Bit weird... but whatevz
             *state
@@ -153,24 +157,16 @@ impl<T, U> Service<T> for Mock<T, U> {
         }
     }
 
-    fn call(&mut self, request: T) -> Self::Future {
+    fn call(&mut self, token: Token, request: T) -> Self::Future {
         // Make sure that the service has capacity
-        let mut state = self.state.lock().unwrap();
+        let state = self.state.lock().unwrap();
 
         if state.is_closed {
             return ResponseFuture::closed();
         }
 
-        if !self.can_send {
-            panic!("service not ready; poll_ready must be called first");
-        }
-
-        self.can_send = false;
-
-        // Decrement the number of remaining requests that can be sent
-        if state.rem > 0 {
-            state.rem -= 1;
-        }
+        // "Use up" the token so that rem stays decremented.
+        std::mem::forget(token);
 
         let (tx, rx) = oneshot::channel();
         let send_response = SendResponse { tx };
@@ -204,7 +200,6 @@ impl<T, U> Clone for Mock<T, U> {
             id,
             tx,
             state: self.state.clone(),
-            can_send: false,
         }
     }
 }

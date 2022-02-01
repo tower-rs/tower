@@ -80,16 +80,17 @@ where
 {
     type Response = S::Response;
     type Error = crate::BoxError;
+    type Token = ();
     type Future = ResponseFuture<Request, S>;
 
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         // Calling self.service.poll_ready would reserve a slot for the delayed request,
         // potentially well in advance of actually making it.  Instead, signal readiness here and
         // treat the service as a Oneshot in the future.
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
         let delay = self.policy.delay(&request);
         ResponseFuture {
             service: Some(self.service.clone()),

@@ -34,7 +34,6 @@ where
     mk_service: M,
     state: State<M::Future, M::Response>,
     target: Target,
-    error: Option<M::Error>,
 }
 
 #[derive(Debug)]
@@ -54,7 +53,6 @@ where
             mk_service,
             state: State::Idle,
             target,
-            error: None,
         }
     }
 
@@ -64,10 +62,12 @@ where
             mk_service,
             state: State::Connected(init_conn),
             target,
-            error: None,
         }
     }
 }
+
+#[derive(Debug)]
+pub struct ReconnectToken<T, E>(Result<T, E>);
 
 impl<M, Target, S, Request> Service<Request> for Reconnect<M, Target>
 where
@@ -79,22 +79,23 @@ where
 {
     type Response = S::Response;
     type Error = crate::BoxError;
+    type Token = ReconnectToken<S::Token, M::Error>;
     type Future = ResponseFuture<S::Future, M::Error>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         loop {
             match &mut self.state {
                 State::Idle => {
                     trace!("poll_ready; idle");
-                    match self.mk_service.poll_ready(cx) {
+                    let token = match self.mk_service.poll_ready(cx) {
                         Poll::Ready(r) => r?,
                         Poll::Pending => {
                             trace!("poll_ready; MakeService not ready");
                             return Poll::Pending;
                         }
-                    }
+                    };
 
-                    let fut = self.mk_service.make_service(self.target.clone());
+                    let fut = self.mk_service.make_service(token, self.target.clone());
                     self.state = State::Connecting(fut);
                     continue;
                 }
@@ -111,17 +112,16 @@ where
                         Poll::Ready(Err(e)) => {
                             trace!("poll_ready; error");
                             self.state = State::Idle;
-                            self.error = Some(e);
-                            break;
+                            return Poll::Ready(Ok(ReconnectToken(Err(e))));
                         }
                     }
                 }
                 State::Connected(ref mut inner) => {
                     trace!("poll_ready; connected");
                     match inner.poll_ready(cx) {
-                        Poll::Ready(Ok(())) => {
+                        Poll::Ready(Ok(token)) => {
                             trace!("poll_ready; ready");
-                            return Poll::Ready(Ok(()));
+                            return Poll::Ready(Ok(ReconnectToken(Ok(token))));
                         }
                         Poll::Pending => {
                             trace!("poll_ready; not ready");
@@ -135,21 +135,20 @@ where
                 }
             }
         }
-
-        Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        if let Some(error) = self.error.take() {
-            return ResponseFuture::error(error);
-        }
+    fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
+        let token = match token.0 {
+            Ok(token) => token,
+            Err(error) => return ResponseFuture::error(error),
+        };
 
         let service = match self.state {
             State::Connected(ref mut service) => service,
             _ => panic!("service not ready; poll_ready must be called first"),
         };
 
-        let fut = service.call(request);
+        let fut = service.call(token, request);
         ResponseFuture::new(fut)
     }
 }

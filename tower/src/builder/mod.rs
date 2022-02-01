@@ -3,7 +3,7 @@
 use tower_layer::{Identity, Layer, Stack};
 use tower_service::Service;
 
-use std::fmt;
+use std::{any::Any, fmt};
 
 /// Declaratively construct [`Service`] values.
 ///
@@ -654,12 +654,12 @@ impl<L> ServiceBuilder<L> {
     ///   type Error = Error;
     ///   type Future = futures_util::future::Ready<Result<Response, Error>>;
     ///
-    ///   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    ///   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
     ///       // ...
     ///       # todo!()
     ///   }
     ///
-    ///   fn call(&mut self, request: Request) -> Self::Future {
+    ///   fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
     ///       // ...
     ///       # todo!()
     ///   }
@@ -740,6 +740,7 @@ impl<L> ServiceBuilder<L> {
     where
         L: Layer<S>,
         L::Service: Service<R> + Send + 'static,
+        <L::Service as Service<R>>::Token: Any + Send + 'static,
         <L::Service as Service<R>>::Future: Send + 'static,
     {
         self.layer(crate::util::BoxService::layer())
@@ -796,6 +797,7 @@ impl<L> ServiceBuilder<L> {
                     R,
                     <L::Service as Service<R>>::Response,
                     <L::Service as Service<R>>::Error,
+                    <L::Service as Service<R>>::Token,
                 >,
             >,
             L,

@@ -33,6 +33,7 @@ pub struct Balance<D, Req>
 where
     D: Discover,
     D::Key: Hash,
+    D::Service: Service<Req>,
 {
     discover: D,
 
@@ -48,7 +49,7 @@ impl<D: Discover, Req> fmt::Debug for Balance<D, Req>
 where
     D: fmt::Debug,
     D::Key: Hash + fmt::Debug,
-    D::Service: fmt::Debug,
+    D::Service: Service<Req> + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Balance")
@@ -235,7 +236,7 @@ where
         fn(<D::Service as Service<Req>>::Error) -> crate::BoxError,
     >;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
         // `ready_index` may have already been set by a prior invocation. These
         // updates cannot disturb the order of existing ready services.
         let _ = self.update_pending_from_discover(cx)?;
@@ -279,7 +280,7 @@ where
         }
     }
 
-    fn call(&mut self, request: Req) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Req) -> Self::Future {
         let index = self.ready_index.take().expect("called before ready");
         self.services
             .call_ready_index(index, request)

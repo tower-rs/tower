@@ -49,9 +49,10 @@ where
 {
     type Response = S::Response;
     type Error = BoxError;
+    type Token = S::Token;
     type Future = ResponseFuture<S::Future, S::Error>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), BoxError>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, BoxError>> {
         loop {
             self.inner = match self.inner {
                 Inner::Service(ref mut svc) => {
@@ -72,10 +73,10 @@ where
         }
     }
 
-    fn call(&mut self, request: Req) -> Self::Future {
+    fn call(&mut self, token: Self::Token, request: Req) -> Self::Future {
         match self.inner {
             Inner::Service(Some(ref mut svc)) => {
-                ResponseFuture::new(svc.call(request).map_err(Into::into))
+                ResponseFuture::new(svc.call(token, request).map_err(Into::into))
             }
             _ => unreachable!("poll_ready must be called"),
         }

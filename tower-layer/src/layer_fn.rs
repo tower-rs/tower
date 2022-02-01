@@ -33,11 +33,11 @@ use std::fmt;
 ///     type Error = S::Error;
 ///     type Future = S::Future;
 ///
-///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+///     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Token, Self::Error>> {
 ///         self.service.poll_ready(cx)
 ///     }
 ///
-///     fn call(&mut self, request: Request) -> Self::Future {
+///     fn call(&mut self, token: Self::Token, request: Request) -> Self::Future {
 ///         // Log the request
 ///         println!("request = {:?}, target = {:?}", request, self.target);
 ///
