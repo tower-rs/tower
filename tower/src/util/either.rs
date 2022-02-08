@@ -2,8 +2,7 @@
 //!
 //! See [`Either`] documentation for more details.
 
-use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -17,58 +16,73 @@ use tower_service::Service;
 /// Both services must be of the same request, response, and error types.
 /// [`Either`] is useful for handling conditional branching in service middleware
 /// to different inner service types.
-#[pin_project(project = EitherProj)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Either<A, B> {
-    /// One type of backing [`Service`].
-    A(#[pin] A),
-    /// The other type of backing [`Service`].
-    B(#[pin] B),
+    #[allow(missing_docs)]
+    A(A),
+    #[allow(missing_docs)]
+    B(B),
 }
 
 impl<A, B, Request> Service<Request> for Either<A, B>
 where
     A: Service<Request>,
-    A::Error: Into<crate::BoxError>,
-    B: Service<Request, Response = A::Response>,
-    B::Error: Into<crate::BoxError>,
+    B: Service<Request, Response = A::Response, Error = A::Error>,
 {
     type Response = A::Response;
-    type Error = crate::BoxError;
-    type Future = Either<A::Future, B::Future>;
+    type Error = A::Error;
+    type Future = EitherResponseFuture<A::Future, B::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        use self::Either::*;
-
         match self {
-            A(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx)).map_err(Into::into)?)),
-            B(service) => Poll::Ready(Ok(ready!(service.poll_ready(cx)).map_err(Into::into)?)),
+            Either::A(service) => service.poll_ready(cx),
+            Either::B(service) => service.poll_ready(cx),
         }
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        use self::Either::*;
-
         match self {
-            A(service) => A(service.call(request)),
-            B(service) => B(service.call(request)),
+            Either::A(service) => EitherResponseFuture {
+                kind: Kind::A {
+                    inner: service.call(request),
+                },
+            },
+            Either::B(service) => EitherResponseFuture {
+                kind: Kind::B {
+                    inner: service.call(request),
+                },
+            },
         }
     }
 }
 
-impl<A, B, T, AE, BE> Future for Either<A, B>
+pin_project! {
+    /// Response future for [`Either`].
+    pub struct EitherResponseFuture<A, B> {
+        #[pin]
+        kind: Kind<A, B>
+    }
+}
+
+pin_project! {
+    #[project = KindProj]
+    enum Kind<A, B> {
+        A { #[pin] inner: A },
+        B { #[pin] inner: B },
+    }
+}
+
+impl<A, B> Future for EitherResponseFuture<A, B>
 where
-    A: Future<Output = Result<T, AE>>,
-    AE: Into<crate::BoxError>,
-    B: Future<Output = Result<T, BE>>,
-    BE: Into<crate::BoxError>,
+    A: Future,
+    B: Future<Output = A::Output>,
 {
-    type Output = Result<T, crate::BoxError>;
+    type Output = A::Output;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.project() {
-            EitherProj::A(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
-            EitherProj::B(fut) => Poll::Ready(Ok(ready!(fut.poll(cx)).map_err(Into::into)?)),
+        match self.project().kind.project() {
+            KindProj::A { inner } => inner.poll(cx),
+            KindProj::B { inner } => inner.poll(cx),
         }
     }
 }

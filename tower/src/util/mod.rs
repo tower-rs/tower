@@ -53,6 +53,7 @@ pub mod future {
     //! Future types
 
     pub use super::and_then::AndThenFuture;
+    pub use super::either::EitherResponseFuture;
     pub use super::map_err::MapErrFuture;
     pub use super::map_response::MapResponseFuture;
     pub use super::map_result::MapResultFuture;
