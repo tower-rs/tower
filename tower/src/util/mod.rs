@@ -1077,8 +1077,8 @@ impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Servi
 /// [`Layer`]: crate::layer::Layer
 pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
     if let Some(layer) = layer {
-        Either::A(layer)
+        Either::Left(layer)
     } else {
-        Either::B(Identity::new())
+        Either::Right(Identity::new())
     }
 }

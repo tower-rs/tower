@@ -19,9 +19,9 @@ use tower_service::Service;
 #[derive(Clone, Copy, Debug)]
 pub enum Either<A, B> {
     #[allow(missing_docs)]
-    A(A),
+    Left(A),
     #[allow(missing_docs)]
-    B(B),
+    Right(B),
 }
 
 impl<A, B, Request> Service<Request> for Either<A, B>
@@ -35,20 +35,20 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self {
-            Either::A(service) => service.poll_ready(cx),
-            Either::B(service) => service.poll_ready(cx),
+            Either::Left(service) => service.poll_ready(cx),
+            Either::Right(service) => service.poll_ready(cx),
         }
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         match self {
-            Either::A(service) => EitherResponseFuture {
-                kind: Kind::A {
+            Either::Left(service) => EitherResponseFuture {
+                kind: Kind::Left {
                     inner: service.call(request),
                 },
             },
-            Either::B(service) => EitherResponseFuture {
-                kind: Kind::B {
+            Either::Right(service) => EitherResponseFuture {
+                kind: Kind::Right {
                     inner: service.call(request),
                 },
             },
@@ -67,8 +67,8 @@ pin_project! {
 pin_project! {
     #[project = KindProj]
     enum Kind<A, B> {
-        A { #[pin] inner: A },
-        B { #[pin] inner: B },
+        Left { #[pin] inner: A },
+        Right { #[pin] inner: B },
     }
 }
 
@@ -81,8 +81,8 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().kind.project() {
-            KindProj::A { inner } => inner.poll(cx),
-            KindProj::B { inner } => inner.poll(cx),
+            KindProj::Left { inner } => inner.poll(cx),
+            KindProj::Right { inner } => inner.poll(cx),
         }
     }
 }
@@ -96,8 +96,8 @@ where
 
     fn layer(&self, inner: S) -> Self::Service {
         match self {
-            Either::A(layer) => Either::A(layer.layer(inner)),
-            Either::B(layer) => Either::B(layer.layer(inner)),
+            Either::Left(layer) => Either::Left(layer.layer(inner)),
+            Either::Right(layer) => Either::Right(layer.layer(inner)),
         }
     }
 }
