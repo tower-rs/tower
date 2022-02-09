@@ -62,7 +62,9 @@ pin_project! {
         #[pin]
         kind: Kind<A, B>
     }
+}
 
+pin_project! {
     #[project = KindProj]
     enum Kind<A, B> {
         Left { #[pin] inner: A },
