@@ -25,6 +25,21 @@ where
     T: Service<Request>,
 {
     tx: mpsc::Sender<Message<Request, T::Future>>,
+    /// A future attempting to acquire a permit to send a message to the mpsc
+    /// channel.
+    ///
+    /// This is stored in each instance of the service, as it will be polled in
+    /// `poll_ready` until a permit for the current request is acquired.
+    ///
+    /// A `ReusableBoxFuture` is used to avoid creating a new allocation every
+    /// time a `Buffer` service has to acquire a permit. Instead, each clone of
+    /// the `Buffer` holds a single allocation that is used every time a
+    /// permit must be acquired.
+    ///
+    /// This future should only be polled when the `Buffer` is in the `Waiting`
+    /// state. If the service is in the `Ready` or `Called` states, the future
+    /// stored here will have already completed. When transitioning from
+    /// `State::Called` to `State::Waiting`, a new future will be created.
     reserve: ReusableBoxFuture<Result<Permit<Request, T::Future>, SendError<()>>>,
     /// This buffer service's current state.
     ///
