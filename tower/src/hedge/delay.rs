@@ -1,5 +1,5 @@
 use futures_util::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::time::Duration;
 use std::{
     future::Future,
@@ -23,22 +23,42 @@ pub struct Delay<P, S> {
     service: S,
 }
 
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<Request, S>
-where
-    S: Service<Request>,
-{
-    service: Option<S>,
-    #[pin]
-    state: State<Request, Oneshot<S, Request>>,
+pin_project! {
+    #[derive(Debug)]
+    pub struct ResponseFuture<Request, S>
+    where
+        S: Service<Request>,
+    {
+        service: Option<S>,
+        #[pin]
+        state: State<Request, Oneshot<S, Request>>,
+    }
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<Request, F> {
-    Delaying(#[pin] tokio::time::Sleep, Option<Request>),
-    Called(#[pin] F),
+pin_project! {
+    #[project = StateProj]
+    #[derive(Debug)]
+    enum State<Request, F> {
+        Delaying {
+            #[pin]
+            delay: tokio::time::Sleep,
+            req: Option<Request>,
+        },
+        Called {
+            #[pin]
+            fut: F,
+        },
+    }
+}
+
+impl<Request, F> State<Request, F> {
+    fn delaying(delay: tokio::time::Sleep, req: Option<Request>) -> Self {
+        Self::Delaying { delay, req }
+    }
+
+    fn called(fut: F) -> Self {
+        Self::Called { fut }
+    }
 }
 
 impl<P, S> Delay<P, S> {
@@ -73,7 +93,7 @@ where
         let delay = self.policy.delay(&request);
         ResponseFuture {
             service: Some(self.service.clone()),
-            state: State::Delaying(tokio::time::sleep(delay), Some(request)),
+            state: State::delaying(tokio::time::sleep(delay), Some(request)),
         }
     }
 }
@@ -90,14 +110,14 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Delaying(delay, req) => {
+                StateProj::Delaying { delay, req } => {
                     ready!(delay.poll(cx));
                     let req = req.take().expect("Missing request in delay");
                     let svc = this.service.take().expect("Missing service in delay");
                     let fut = Oneshot::new(svc, req);
-                    this.state.set(State::Called(fut));
+                    this.state.set(State::called(fut));
                 }
-                StateProj::Called(fut) => {
+                StateProj::Called { fut } => {
                     return fut.poll(cx).map_err(Into::into);
                 }
             };
