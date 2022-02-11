@@ -10,6 +10,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     strategy:
+      # Disable fail-fast. If the test run for a particular Rust version fails,
+      # don't cancel the other test runs, so that we can determine whether a
+      # failure only occurs on a particular version.
+      fail-fast: false
       matrix:
         rust: [stable, 1.46.0]
     steps:
@@ -59,6 +63,10 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     strategy:
+      # Disable fail-fast. If the test run for a particular Rust version fails,
+      # don't cancel the other test runs, so that we can determine whether a
+      # failure only occurs on a particular version.
+      fail-fast: false
       matrix:
         rust: [stable, beta, nightly, 1.46.0]
     steps:
