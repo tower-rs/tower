@@ -34,8 +34,13 @@ macro_rules! assert_request_eq {
             Some(r) => r,
             None => panic!("expected a request but none was received."),
         };
-
-        assert_eq!(actual, $expect, $($arg)*);
+        // In some cases, this may be used with `bool` as the `Request` type, in
+        // which case, clippy emits a warning. However, this can't be changed to
+        // `assert!`, because the request type may *not* be `bool`...
+        #[allow(clippy::bool_assert_comparison)]
+        {
+            assert_eq!(actual, $expect, $($arg)*);
+        }
         send_response
     }};
 }
