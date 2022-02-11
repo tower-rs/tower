@@ -4,16 +4,9 @@ use super::{
     worker::{Handle, Worker},
 };
 
-use futures_core::ready;
-use std::{
-    fmt, mem,
-    task::{Context, Poll},
-};
-use tokio::sync::{
-    mpsc::{self, error::SendError},
-    oneshot,
-};
-use tokio_util::sync::ReusableBoxFuture;
+use std::task::{Context, Poll};
+use tokio::sync::{mpsc, oneshot};
+use tokio_util::sync::PollSender;
 use tower_service::Service;
 
 /// Adds an mpsc buffer in front of an inner service.
@@ -24,52 +17,8 @@ pub struct Buffer<T, Request>
 where
     T: Service<Request>,
 {
-    tx: mpsc::Sender<Message<Request, T::Future>>,
-    /// A future attempting to acquire a permit to send a message to the mpsc
-    /// channel.
-    ///
-    /// This is stored in each instance of the service, as it will be polled in
-    /// `poll_ready` until a permit for the current request is acquired.
-    ///
-    /// A `ReusableBoxFuture` is used to avoid creating a new allocation every
-    /// time a `Buffer` service has to acquire a permit. Instead, each clone of
-    /// the `Buffer` holds a single allocation that is used every time a
-    /// permit must be acquired.
-    ///
-    /// This future should only be polled when the `Buffer` is in the `Waiting`
-    /// state. If the service is in the `Ready` or `Called` states, the future
-    /// stored here will have already completed. When transitioning from
-    /// `State::Called` to `State::Waiting`, a new future will be created.
-    reserve: ReusableBoxFuture<Result<Permit<Request, T::Future>, SendError<()>>>,
-    /// This buffer service's current state.
-    ///
-    /// The service either has acquired channel capacity and is ready for
-    /// `call`; is waiting to acquire a permit and should continue polling
-    /// `reserve`, or has consumed its permit in `call` and should reset
-    /// `reserve` with a new future.
-    state: State<Request, T::Future>,
+    tx: PollSender<Message<Request, T::Future>>,
     handle: Handle,
-}
-
-type Permit<R, F> = mpsc::OwnedPermit<Message<R, F>>;
-
-enum State<R, F> {
-    /// This service is waiting for channel capacity.
-    ///
-    /// The future in the `reserve` `ReusableBoxFuture` is able to be polled
-    /// while in this state.
-    Waiting,
-    /// This service has acquired a channel permit and can now return `Ready`.
-    ///
-    /// The future in the `reserve` `ReusableBoxFuture` has completed if the
-    /// service is in this state.
-    Ready(Permit<R, F>),
-    /// This service has consumed its channel permit and must now begin polling
-    /// again.
-    ///
-    /// The future in the `reserve` `ReusableBoxFuture` has completed if the
-    /// service is in this state.
-    Called,
 }
 
 impl<T, Request> Buffer<T, Request>
@@ -120,36 +69,19 @@ where
         T: Send + 'static,
         T::Error: Send + Sync,
         Request: Send + 'static,
+        T::Future: Send + 'static,
     {
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
-        let buffer = Self::with_worker(handle, tx);
+        let buffer = Self {
+            tx: PollSender::new(tx),
+            handle,
+        };
         (buffer, worker)
     }
 
     fn get_worker_error(&self) -> crate::BoxError {
         self.handle.get_error_on_closed()
-    }
-}
-
-impl<T, Request> Buffer<T, Request>
-where
-    T: Service<Request>,
-{
-    fn with_worker(handle: Handle, tx: mpsc::Sender<Message<Request, T::Future>>) -> Self {
-        // Create the `ReuseableBoxFuture` with a nop future, so that the new
-        // service isn't queued to reserve capacity until `poll_ready` is called
-        // for the first time.
-        let reserve = ReusableBoxFuture::new(async move {
-            unreachable!("because the service begins in the `Called` state, this future should never be polled")
-        });
-
-        Self {
-            tx,
-            reserve,
-            handle,
-            state: State::Called,
-        }
     }
 }
 
@@ -165,79 +97,51 @@ where
     type Future = ResponseFuture<T::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        use State::*;
-
         // First, check if the worker is still alive.
         if self.tx.is_closed() {
             // If the inner service has errored, then we error here.
             return Poll::Ready(Err(self.get_worker_error()));
         }
 
-        loop {
-            match self.state {
-                // If we've acquired capacity to send a request, we're ready!
-                Ready(_) => return Poll::Ready(Ok(())),
-
-                // If we haven't already acquired a permit, but have a `reserve`
-                // future, poll the future to acquire one.
-                Waiting => {
-                    let permit =
-                        ready!(self.reserve.poll(cx)).map_err(|_| self.get_worker_error())?;
-                    self.state = State::Ready(permit);
-                }
-
-                // If we've completed the current `reserve` future and have
-                // consumed the reserved permit, create a new `reserve` future.
-                Called => {
-                    self.reserve.set(self.tx.clone().reserve_owned());
-                    self.state = State::Waiting;
-                }
-            }
-        }
+        // Poll the sender to acquire a permit.
+        self.tx
+            .poll_reserve(cx)
+            .map_err(|_| self.get_worker_error())
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         tracing::trace!("sending request to buffer worker");
-        let permit = match mem::replace(&mut self.state, State::Called) {
-            State::Ready(permit) => permit,
-            state => panic!(
-                "buffer full; poll_ready must be called first (service was in the {:?} state)",
-                state
-            ),
-        };
 
         // get the current Span so that we can explicitly propagate it to the worker
         // if we didn't do this, events on the worker related to this span wouldn't be counted
         // towards that span since the worker would have no way of entering it.
         let span = tracing::Span::current();
 
-        // If we've made it here, then a semaphore permit has already been
+        // If we've made it here, then a channel permit has already been
         // acquired, so we can freely allocate a oneshot.
         let (tx, rx) = oneshot::channel();
 
-        permit.send(Message { request, span, tx });
-        ResponseFuture::new(rx)
+        match self.tx.send_item(Message { request, span, tx }) {
+            Ok(_) => ResponseFuture::new(rx),
+            // If the channel is closed, propagate the error from the worker.
+            Err(_) => {
+                tracing::trace!("buffer channel closed");
+                ResponseFuture::failed(self.get_worker_error())
+            }
+        }
     }
 }
 
 impl<T, Request> Clone for Buffer<T, Request>
 where
     T: Service<Request>,
+    Request: Send + 'static,
+    T::Future: Send + 'static,
 {
     fn clone(&self) -> Self {
-        Self::with_worker(self.handle.clone(), self.tx.clone())
-    }
-}
-
-// Custom `Debug` impl for `State` because the message and future types may not
-// implement `Debug`.
-impl<R, F> fmt::Debug for State<R, F> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use State::*;
-        match self {
-            Waiting => f.write_str("State::Waiting"),
-            Ready(_) => f.write_str("State::Ready(...)"),
-            Called => f.write_str("State::Called"),
+        Self {
+            handle: self.handle.clone(),
+            tx: self.tx.clone(),
         }
     }
 }

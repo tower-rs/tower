@@ -24,6 +24,9 @@ pin_project! {
     #[project = ResponseStateProj]
     #[derive(Debug)]
     enum ResponseState<T> {
+        Failed {
+            error: Option<crate::BoxError>,
+        },
         Rx {
             #[pin]
             rx: message::Rx<T>,
@@ -41,6 +44,12 @@ impl<T> ResponseFuture<T> {
             state: ResponseState::Rx { rx },
         }
     }
+
+    pub(crate) fn failed(err: crate::BoxError) -> Self {
+        ResponseFuture {
+            state: ResponseState::Failed { error: Some(err) },
+        }
+    }
 }
 
 impl<F, T, E> Future for ResponseFuture<F>
@@ -55,6 +64,9 @@ where
 
         loop {
             match this.state.as_mut().project() {
+                ResponseStateProj::Failed { error } => {
+                    return Poll::Ready(Err(error.take().expect("polled after error")));
+                }
                 ResponseStateProj::Rx { rx } => match ready!(rx.poll(cx)) {
                     Ok(Ok(fut)) => this.state.set(ResponseState::Poll { fut }),
                     Ok(Err(e)) => return Poll::Ready(Err(e.into())),
