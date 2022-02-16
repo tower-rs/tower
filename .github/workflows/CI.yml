@@ -68,7 +68,7 @@ jobs:
       # failure only occurs on a particular version.
       fail-fast: false
       matrix:
-        rust: [stable, beta, nightly, 1.46.0]
+        rust: [stable, beta, nightly, 1.49.0]
     steps:
     - uses: actions/checkout@master
     - uses: actions-rs/toolchain@v1

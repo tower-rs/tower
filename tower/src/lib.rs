@@ -140,6 +140,13 @@
 //! See [here](#modules) for a complete list of all middleware provided by
 //! Tower.
 //!
+//!
+//! #! Supported Rust Versions
+//!
+//! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
+//! least** 6 months. When increasing the MSRV, the new Rust version must have been
+//! released at least six months ago. The current MSRV is 1.49.0.
+//!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer
 //! [timeouts]: crate::timeout
