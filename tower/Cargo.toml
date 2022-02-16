@@ -20,6 +20,7 @@ clients and servers.
 categories = ["asynchronous", "network-programming"]
 keywords = ["io", "async", "non-blocking", "futures", "service"]
 edition = "2018"
+rust-version = "1.49.0"
 
 [features]
 default = ["log"]

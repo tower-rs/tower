@@ -3,8 +3,8 @@ name: create github release
 on:
   push:
     tags:
-      - tower-v[0-9]+.*
-      - tower-[a-z]+-v[0-9]+.*
+      - tower-[0-9]+.*
+      - tower-[a-z]+-[0-9]+.*
 
 jobs:
   create-release:
