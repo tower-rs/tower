@@ -1,4 +1,4 @@
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -23,13 +23,14 @@ pub struct Select<P, A, B> {
     b: B,
 }
 
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<AF, BF> {
-    #[pin]
-    a_fut: AF,
-    #[pin]
-    b_fut: Option<BF>,
+pin_project! {
+    #[derive(Debug)]
+    pub struct ResponseFuture<AF, BF> {
+        #[pin]
+        a_fut: AF,
+        #[pin]
+        b_fut: Option<BF>,
+    }
 }
 
 impl<P, A, B> Select<P, A, B> {

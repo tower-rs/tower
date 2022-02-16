@@ -5,6 +5,7 @@ use futures_core::Stream;
 use futures_util::stream::FuturesUnordered;
 pub use indexmap::Equivalent;
 use indexmap::IndexMap;
+use std::fmt;
 use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
@@ -53,7 +54,6 @@ use tracing::{debug, trace};
 /// service. In such a case, it should be noted that calls to
 /// [`ReadyCache::poll_pending`] and [`ReadyCache::evict`] may perturb the order of
 /// the ready set, so any cached indexes should be discarded after such a call.
-#[derive(Debug)]
 pub struct ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
@@ -88,7 +88,6 @@ enum PendingError<K, E> {
 /// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
 ///
 /// May fail due to cancelation, i.e. if the service is evicted from the balancer.
-#[derive(Debug)]
 struct Pending<K, S, Req> {
     key: Option<K>,
     cancel: Option<CancelRx>,
@@ -109,6 +108,25 @@ where
             pending: FuturesUnordered::new(),
             pending_cancel_txs: IndexMap::default(),
         }
+    }
+}
+
+impl<K, S, Req> fmt::Debug for ReadyCache<K, S, Req>
+where
+    K: fmt::Debug + Eq + Hash,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            pending,
+            pending_cancel_txs,
+            ready,
+        } = self;
+        f.debug_struct("ReadyCache")
+            .field("pending", pending)
+            .field("pending_cancel_txs", pending_cancel_txs)
+            .field("ready", ready)
+            .finish()
     }
 }
 
@@ -416,5 +434,25 @@ where
                 Err(PendingError::Inner(key, e)).into()
             }
         }
+    }
+}
+
+impl<K, S, Req> fmt::Debug for Pending<K, S, Req>
+where
+    K: fmt::Debug,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            key,
+            cancel,
+            ready,
+            _pd,
+        } = self;
+        f.debug_struct("Pending")
+            .field("key", key)
+            .field("cancel", cancel)
+            .field("ready", ready)
+            .finish()
     }
 }

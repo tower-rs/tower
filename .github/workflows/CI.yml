@@ -8,22 +8,40 @@ on:
 
 jobs:
   check:
-    # Run `cargo check` first to ensure that the pushed code at least compiles.
     runs-on: ubuntu-latest
     strategy:
+      # Disable fail-fast. If the test run for a particular Rust version fails,
+      # don't cancel the other test runs, so that we can determine whether a
+      # failure only occurs on a particular version.
+      fail-fast: false
       matrix:
-        rust: [stable, 1.40.0]
+        rust: [stable, 1.46.0]
     steps:
     - uses: actions/checkout@master
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         profile: minimal
+        override: true
     - name: Check
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --all --all-targets --all-features
+        args: --workspace --all-features --all-targets
+
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+    - name: cargo doc
+      working-directory: ${{ matrix.subcrate }}
+      env:
+        RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
+      run: cargo doc --all-features --no-deps
 
   cargo-hack:
     runs-on: ubuntu-latest
@@ -38,29 +56,33 @@ jobs:
         curl -LsSf https://github.com/taiki-e/cargo-hack/releases/latest/download/cargo-hack-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
     - name: cargo hack check
       working-directory: ${{ matrix.subcrate }}
-      run: cargo hack check --each-feature --no-dev-deps --all
+      run: cargo hack check --each-feature --no-dev-deps --workspace
 
   test-versions:
     # Test against the stable, beta, and nightly Rust toolchains on ubuntu-latest.
     needs: check
     runs-on: ubuntu-latest
     strategy:
+      # Disable fail-fast. If the test run for a particular Rust version fails,
+      # don't cancel the other test runs, so that we can determine whether a
+      # failure only occurs on a particular version.
+      fail-fast: false
       matrix:
-        rust: [stable, beta, nightly, 1.40.0]
+        rust: [stable, beta, nightly, 1.46.0]
     steps:
     - uses: actions/checkout@master
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         profile: minimal
+        override: true
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --all --all-features
+        args: --workspace --all-features
 
   style:
-    # Check style.
     needs: check
     runs-on: ubuntu-latest
     steps:
@@ -75,22 +97,6 @@ jobs:
       with:
         command: fmt
         args: --all -- --check
-  
-  # warnings:
-  #   # Check for any warnings. This is informational and thus is allowed to fail.
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - uses: actions-rs/toolchain@v1
-  #     with:
-  #       toolchain: stable
-  #       components: clippy
-  #       profile: minimal
-  #   - name: Clippy
-  #     uses: actions-rs/clippy-check@v1
-  #     with:
-  #       token: ${{ secrets.GITHUB_TOKEN }}
-  #       args: --all --all-targets --all-features -- -D warnings
 
   deny-check:
     name: cargo-deny check
@@ -98,3 +104,5 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: EmbarkStudios/cargo-deny-action@v1
+      with:
+        command: check

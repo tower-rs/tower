@@ -1,8 +1,6 @@
 [package]
 name = "tower-service"
 # When releasing to crates.io:
-# - Remove path dependencies
-# - Update html_root_url.
 # - Update doc url
 #   - Cargo.toml
 #   - README.md
@@ -26,5 +24,5 @@ edition = "2018"
 [dev-dependencies]
 http = "0.2"
 tower-layer = { version = "0.3", path = "../tower-layer" }
-tokio = { version = "1" }
+tokio = { version = "1", features = ["macros", "time"] }
 futures = "0.3"

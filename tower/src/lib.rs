@@ -1,14 +1,14 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.4.7")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
     rust_2018_idioms,
     unreachable_pub
 )]
-#![deny(broken_intra_doc_links)]
+#![forbid(unsafe_code)]
 #![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// `rustdoc::broken_intra_doc_links` is checked on CI
 
 //! `async fn(Request) -> Result<Response, Error>`
 //!

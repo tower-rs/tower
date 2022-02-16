@@ -2,6 +2,7 @@
 
 mod and_then;
 mod boxed;
+mod boxed_clone;
 mod call_all;
 mod either;
 
@@ -22,6 +23,7 @@ mod then;
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
+    boxed_clone::BoxCloneService,
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
@@ -133,7 +135,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #
@@ -604,7 +606,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn map_request<F, NewRequest>(self, f: F) -> MapRequest<Self, F>
     where
         Self: Sized,
-        F: FnMut(NewRequest) -> Request + Clone,
+        F: FnMut(NewRequest) -> Request,
     {
         MapRequest::new(self, f)
     }
@@ -950,6 +952,103 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Fut: Future<Output = Result<Response, Error>>,
     {
         MapFuture::new(self, f)
+    }
+
+    /// Convert the service into a [`Service`] + [`Send`] trait object.
+    ///
+    /// See [`BoxService`] for more details.
+    ///
+    /// If `Self` implements the [`Clone`] trait, the [`boxed_clone`] method
+    /// can be used instead, to produce a boxed service which will also
+    /// implement [`Clone`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceExt, BoxError, service_fn, util::BoxService};
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service = service_fn(|req: Request| async {
+    ///     Ok::<_, BoxError>(Response::new())
+    /// });
+    ///
+    /// let service: BoxService<Request, Response, BoxError> = service
+    ///     .map_request(|req| {
+    ///         println!("received request");
+    ///         req
+    ///     })
+    ///     .map_response(|res| {
+    ///         println!("response produced");
+    ///         res
+    ///     })
+    ///     .boxed();
+    /// # let service = assert_service(service);
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`Service`]: crate::Service
+    /// [`boxed_clone`]: Self::boxed_clone
+    fn boxed(self) -> BoxService<Request, Self::Response, Self::Error>
+    where
+        Self: Sized + Send + 'static,
+        Self::Future: Send + 'static,
+    {
+        BoxService::new(self)
+    }
+
+    /// Convert the service into a [`Service`] + [`Clone`] + [`Send`] trait object.
+    ///
+    /// This is similar to the [`boxed`] method, but it requires that `Self` implement
+    /// [`Clone`], and the returned boxed service implements [`Clone`].
+    /// See [`BoxCloneService`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceExt, BoxError, service_fn, util::BoxCloneService};
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service = service_fn(|req: Request| async {
+    ///     Ok::<_, BoxError>(Response::new())
+    /// });
+    ///
+    /// let service: BoxCloneService<Request, Response, BoxError> = service
+    ///     .map_request(|req| {
+    ///         println!("received request");
+    ///         req
+    ///     })
+    ///     .map_response(|res| {
+    ///         println!("response produced");
+    ///         res
+    ///     })
+    ///     .boxed_clone();
+    ///
+    /// // The boxed service can still be cloned.
+    /// service.clone();
+    /// # let service = assert_service(service);
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`Service`]: crate::Service
+    /// [`boxed`]: Self::boxed
+    fn boxed_clone(self) -> BoxCloneService<Request, Self::Response, Self::Error>
+    where
+        Self: Clone + Sized + Send + 'static,
+        Self::Future: Send + 'static,
+    {
+        BoxCloneService::new(self)
     }
 }
 

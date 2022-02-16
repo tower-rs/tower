@@ -1,7 +1,7 @@
 //! Application-specific request completion semantics.
 
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -44,14 +44,15 @@ pub trait TrackCompletion<H, V>: Clone {
 #[non_exhaustive]
 pub struct CompleteOnResponse;
 
-/// Attaches a `C`-typed completion tracker to the result of an `F`-typed [`Future`].
-#[pin_project]
-#[derive(Debug)]
-pub struct TrackCompletionFuture<F, C, H> {
-    #[pin]
-    future: F,
-    handle: Option<H>,
-    completion: C,
+pin_project! {
+    /// Attaches a `C`-typed completion tracker to the result of an `F`-typed [`Future`].
+    #[derive(Debug)]
+    pub struct TrackCompletionFuture<F, C, H> {
+        #[pin]
+        future: F,
+        handle: Option<H>,
+        completion: C,
+    }
 }
 
 // ===== impl InstrumentFuture =====

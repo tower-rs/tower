@@ -1,5 +1,5 @@
 use futures_core::{ready, Stream};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -7,15 +7,16 @@ use std::{
 };
 use tower_service::Service;
 
-/// The [`Future`] returned by the [`ServiceExt::call_all`] combinator.
-#[pin_project]
-#[derive(Debug)]
-pub(crate) struct CallAll<Svc, S, Q> {
-    service: Option<Svc>,
-    #[pin]
-    stream: S,
-    queue: Q,
-    eof: bool,
+pin_project! {
+    /// The [`Future`] returned by the [`ServiceExt::call_all`] combinator.
+    #[derive(Debug)]
+    pub(crate) struct CallAll<Svc, S, Q> {
+        service: Option<Svc>,
+        #[pin]
+        stream: S,
+        queue: Q,
+        eof: bool,
+    }
 }
 
 pub(crate) trait Drive<F: Future> {
