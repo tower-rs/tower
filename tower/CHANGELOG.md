@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated minimum supported Rust version (MSRV) to 1.49.0.
 - **hedge**: Updated `hdrhistogram` dependency to v7.0 ([#602])
 - Updated `tokio-util` dependency to v0.7 ([#638])
 
