@@ -141,7 +141,7 @@
 //! Tower.
 //!
 //!
-//! #! Supported Rust Versions
+//! ## Supported Rust Versions
 //!
 //! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 //! least** 6 months. When increasing the MSRV, the new Rust version must have been
