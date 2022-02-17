@@ -51,7 +51,7 @@ async fn main() {
     println!("ENDPOINT_CAPACITY={}", ENDPOINT_CAPACITY);
     print!("MAX_ENDPOINT_LATENCIES=[");
     for max in &MAX_ENDPOINT_LATENCIES {
-        let l = max.as_secs() * 1_000 + u64::from(max.subsec_nanos() / 1_000 / 1_000);
+        let l = max.as_secs() * 1_000 + u64::from(max.subsec_millis());
         print!("{}ms, ", l);
     }
     println!("]");
@@ -122,7 +122,7 @@ fn gen_disco() -> impl Discover<
                 let svc = tower::service_fn(move |_| {
                     let start = Instant::now();
 
-                    let maxms = u64::from(latency.subsec_nanos() / 1_000 / 1_000)
+                    let maxms = u64::from(latency.subsec_millis())
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
                     let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
 

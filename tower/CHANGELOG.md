@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - None.
 
+# 0.4.12 (February 16, 2022)
+
+### Fixed
+
+- **hedge**, **load**, **retry**: Fix use of `Instant` operations that can panic
+  on platforms where `Instant` is not monotonic ([#633])
+- Disable `attributes` feature on `tracing` dependency ([#623])
+- Remove unused dependencies and dependency features with some feature
+  combinations ([#603], [#602])
+- **docs**: Fix a typo in the RustDoc for `Buffer` ([#622])
+
+### Changed
+
+- Updated minimum supported Rust version (MSRV) to 1.49.0.
+- **hedge**: Updated `hdrhistogram` dependency to v7.0 ([#602])
+- Updated `tokio-util` dependency to v0.7 ([#638])
+
+[#633]: https://github.com/tower-rs/tower/pull/633
+[#623]: https://github.com/tower-rs/tower/pull/623
+[#603]: https://github.com/tower-rs/tower/pull/603
+[#602]: https://github.com/tower-rs/tower/pull/602
+[#622]: https://github.com/tower-rs/tower/pull/622
+[#638]: https://github.com/tower-rs/tower/pull/638
+
 # 0.4.11 (November 18, 2021)
 
 ### Added
