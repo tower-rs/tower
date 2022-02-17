@@ -69,7 +69,7 @@
 //! # }
 //! ```
 use std::task::{Context, Poll};
-use std::{collections::VecDeque, marker::PhantomData};
+use std::{collections::VecDeque, fmt, marker::PhantomData};
 use tower_service::Service;
 
 /// This is how callers of [`Steer`] tell it which `Service` a `Req` corresponds to.
@@ -104,7 +104,6 @@ where
 /// requests) will prevent head-of-line blocking in [`Steer`].
 ///
 /// [`Buffer`]: crate::buffer::Buffer
-#[derive(Debug)]
 pub struct Steer<S, F, Req> {
     router: F,
     services: Vec<S>,
@@ -144,7 +143,10 @@ where
             if self.not_ready.is_empty() {
                 return Poll::Ready(Ok(()));
             } else {
-                if let Poll::Pending = self.services[self.not_ready[0]].poll_ready(cx)? {
+                if self.services[self.not_ready[0]]
+                    .poll_ready(cx)?
+                    .is_pending()
+                {
                     return Poll::Pending;
                 }
 
@@ -178,5 +180,25 @@ where
             not_ready: self.not_ready.clone(),
             _phantom: PhantomData,
         }
+    }
+}
+
+impl<S, F, Req> fmt::Debug for Steer<S, F, Req>
+where
+    S: fmt::Debug,
+    F: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            router,
+            services,
+            not_ready,
+            _phantom,
+        } = self;
+        f.debug_struct("Steer")
+            .field("router", router)
+            .field("services", services)
+            .field("not_ready", not_ready)
+            .finish()
     }
 }

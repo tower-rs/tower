@@ -38,6 +38,14 @@ impl<S> SpawnReady<S> {
     }
 }
 
+impl<S> Drop for SpawnReady<S> {
+    fn drop(&mut self) {
+        if let Inner::Future(ref mut task) = self.inner {
+            task.abort();
+        }
+    }
+}
+
 impl<S, Req> Service<Req> for SpawnReady<S>
 where
     Req: 'static,
@@ -72,7 +80,7 @@ where
     fn call(&mut self, request: Req) -> Self::Future {
         match self.inner {
             Inner::Service(Some(ref mut svc)) => {
-                ResponseFuture(svc.call(request).map_err(Into::into))
+                ResponseFuture::new(svc.call(request).map_err(Into::into))
             }
             _ => unreachable!("poll_ready must be called"),
         }

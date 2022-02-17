@@ -1,0 +1,24 @@
+name: create github release
+
+on:
+  push:
+    tags:
+      - tower-[0-9]+.*
+      - tower-[a-z]+-[0-9]+.*
+
+jobs:
+  create-release:
+    name: Create GitHub release
+    # only publish from the origin repository
+    if: github.repository_owner == 'tower-rs'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: taiki-e/create-gh-release-action@v1.3.0
+        with:
+          prefix: "(tower)|(tower-[a-z]+)"
+          changelog: "$prefix/CHANGELOG.md"
+          title: "$prefix $version"
+          branch: master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

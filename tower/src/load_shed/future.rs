@@ -6,29 +6,35 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 
 use super::error::Overloaded;
 
-/// Future for the [`LoadShed`] service.
-///
-/// [`LoadShed`]: crate::load_shed::LoadShed
-#[pin_project]
-pub struct ResponseFuture<F> {
-    #[pin]
-    state: ResponseState<F>,
+pin_project! {
+    /// Future for the [`LoadShed`] service.
+    ///
+    /// [`LoadShed`]: crate::load_shed::LoadShed
+    pub struct ResponseFuture<F> {
+        #[pin]
+        state: ResponseState<F>,
+    }
 }
 
-#[pin_project(project = ResponseStateProj)]
-enum ResponseState<F> {
-    Called(#[pin] F),
-    Overloaded,
+pin_project! {
+    #[project = ResponseStateProj]
+    enum ResponseState<F> {
+        Called {
+            #[pin]
+            fut: F
+        },
+        Overloaded,
+    }
 }
 
 impl<F> ResponseFuture<F> {
     pub(crate) fn called(fut: F) -> Self {
         ResponseFuture {
-            state: ResponseState::Called(fut),
+            state: ResponseState::Called { fut },
         }
     }
 
@@ -48,7 +54,9 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().state.project() {
-            ResponseStateProj::Called(fut) => Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into)),
+            ResponseStateProj::Called { fut } => {
+                Poll::Ready(ready!(fut.poll(cx)).map_err(Into::into))
+            }
             ResponseStateProj::Overloaded => Poll::Ready(Err(Overloaded::new().into())),
         }
     }
