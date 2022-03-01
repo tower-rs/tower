@@ -1,10 +1,10 @@
-#![doc(html_root_url = "https://docs.rs/tower/0.4.10")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
     rust_2018_idioms,
     unreachable_pub
 )]
+#![forbid(unsafe_code)]
 #![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -139,6 +139,13 @@
 //!
 //! See [here](#modules) for a complete list of all middleware provided by
 //! Tower.
+//!
+//!
+//! ## Supported Rust Versions
+//!
+//! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
+//! least** 6 months. When increasing the MSRV, the new Rust version must have been
+//! released at least six months ago. The current MSRV is 1.49.0.
 //!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer

@@ -15,6 +15,9 @@ use std::{
 /// future type to be dynamic. This type requires both the service and the
 /// response future to be [`Send`].
 ///
+/// If you need a boxed [`Service`] that implements [`Clone`] consider using
+/// [`BoxCloneService`](crate::util::BoxCloneService).
+///
 /// See module level documentation for more details.
 pub struct BoxService<T, U, E> {
     inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>,
@@ -64,12 +67,7 @@ impl<T, U, E> Service<T> for BoxService<T, U, E> {
     }
 }
 
-impl<T, U, E> fmt::Debug for BoxService<T, U, E>
-where
-    T: fmt::Debug,
-    U: fmt::Debug,
-    E: fmt::Debug,
-{
+impl<T, U, E> fmt::Debug for BoxService<T, U, E> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BoxService").finish()
     }

@@ -1,10 +1,10 @@
-#![doc(html_root_url = "https://docs.rs/tower-layer/0.3.1")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
     rust_2018_idioms,
     unreachable_pub
 )]
+#![forbid(unsafe_code)]
 // `rustdoc::broken_intra_doc_links` is checked on CI
 
 //! Layer traits and extensions.
