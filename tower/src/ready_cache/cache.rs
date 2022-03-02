@@ -1,16 +1,20 @@
 //! A cache of services.
 
 use super::error;
-use futures_core::Stream;
-use futures_util::stream::FuturesUnordered;
+use crate::{BoxError, ServiceExt};
 pub use indexmap::Equivalent;
 use indexmap::IndexMap;
+use std::borrow::Borrow;
 use std::fmt;
 use std::future::Future;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::sync::oneshot;
+use tokio::task::{JoinError, JoinMap};
+use tokio_util::sync::ReusableBoxFuture;
+use tokio_util::sync::ReusableBoxFuture;
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -58,42 +62,25 @@ pub struct ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
 {
-    /// A stream of services that are not yet ready.
-    pending: FuturesUnordered<Pending<K, S, Req>>,
-    /// An index of cancelation handles for pending streams.
-    pending_cancel_txs: IndexMap<K, CancelTx>,
+    /// Tasks driving services that are not ready to readiness.
+    pending: JoinMap<K, ReadyResult<S>>,
 
     /// Services that have previously become ready. Readiness can become stale,
     /// so a given service should be polled immediately before use.
-    ///
-    /// The cancelation oneshot is preserved (though unused) while the service is
-    /// ready so that it need not be reallocated each time a request is
-    /// dispatched.
-    ready: IndexMap<K, (S, CancelPair)>,
+    ready: IndexMap<K, S>,
+
+    // XXX(eliza): bleh. it would be nice if `JoinMap` had a public
+    // `poll_join_one` API...
+    current_join_one: ReusableBoxFuture<'static, Option<(K, Result<ReadyResult<S>, JoinError>)>>,
+    has_join_one: bool,
+
+    _req: PhantomData<fn(Req)>,
 }
+
+type ReadyResult<S> = Result<S, BoxError>;
 
 // Safety: This is safe because we do not use `Pin::new_unchecked`.
 impl<S, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
-
-type CancelRx = oneshot::Receiver<()>;
-type CancelTx = oneshot::Sender<()>;
-type CancelPair = (CancelTx, CancelRx);
-
-#[derive(Debug)]
-enum PendingError<K, E> {
-    Canceled(K),
-    Inner(K, E),
-}
-
-/// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
-///
-/// May fail due to cancelation, i.e. if the service is evicted from the balancer.
-struct Pending<K, S, Req> {
-    key: Option<K>,
-    cancel: Option<CancelRx>,
-    ready: Option<S>,
-    _pd: std::marker::PhantomData<Req>,
-}
 
 // === ReadyCache ===
 
@@ -105,8 +92,12 @@ where
     fn default() -> Self {
         Self {
             ready: IndexMap::default(),
-            pending: FuturesUnordered::new(),
-            pending_cancel_txs: IndexMap::default(),
+            pending: JoinMap::new(),
+            current_join_one: ReusableBoxFuture::new(async {
+                unreachable!("this should never be polled")
+            }),
+            has_join_one: false,
+            _req: PhantomData,
         }
     }
 }
@@ -117,14 +108,9 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            pending,
-            pending_cancel_txs,
-            ready,
-        } = self;
+        let Self { pending, ready, .. } = self;
         f.debug_struct("ReadyCache")
             .field("pending", pending)
-            .field("pending_cancel_txs", pending_cancel_txs)
             .field("ready", ready)
             .finish()
     }
@@ -132,7 +118,8 @@ where
 
 impl<K, S, Req> ReadyCache<K, S, Req>
 where
-    K: Eq + Hash,
+    K: Clone + Eq + Hash + 'static,
+    S: 'static,
 {
     /// Returns the total number of services in the cache.
     pub fn len(&self) -> usize {
@@ -155,20 +142,29 @@ where
     }
 
     /// Returns true iff the given key is in the unready set.
-    pub fn pending_contains<Q: Hash + Equivalent<K>>(&self, key: &Q) -> bool {
-        self.pending_cancel_txs.contains_key(key)
+    pub fn pending_contains<Q>(&self, key: &Q) -> bool
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
+    {
+        self.pending.contains_task(key)
     }
 
     /// Obtains a reference to a service in the ready set by key.
-    pub fn get_ready<Q: Hash + Equivalent<K>>(&self, key: &Q) -> Option<(usize, &K, &S)> {
+    pub fn get_ready<Q>(&self, key: &Q) -> Option<(usize, &K, &S)>
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
+    {
         self.ready.get_full(key).map(|(i, k, v)| (i, k, &v.0))
     }
 
     /// Obtains a mutable reference to a service in the ready set by key.
-    pub fn get_ready_mut<Q: Hash + Equivalent<K>>(
-        &mut self,
-        key: &Q,
-    ) -> Option<(usize, &K, &mut S)> {
+    pub fn get_ready_mut<Q>(&mut self, key: &Q) -> Option<(usize, &K, &mut S)>
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
+    {
         self.ready
             .get_full_mut(key)
             .map(|(i, k, v)| (i, k, &mut v.0))
@@ -191,13 +187,12 @@ where
     /// Services are dropped from the ready set immediately. Services in the
     /// pending set are marked for cancellation, but [`ReadyCache::poll_pending`]
     /// must be called to cause the service to be dropped.
-    pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
-        let canceled = if let Some(c) = self.pending_cancel_txs.swap_remove(key) {
-            c.send(()).expect("cancel receiver lost");
-            true
-        } else {
-            false
-        };
+    pub fn evict<Q>(&mut self, key: &Q) -> bool
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
+    {
+        let canceled = self.pending.abort(key);
 
         self.ready
             .swap_remove_full(key)
@@ -208,8 +203,9 @@ where
 
 impl<K, S, Req> ReadyCache<K, S, Req>
 where
-    K: Clone + Eq + Hash,
-    S: Service<Req>,
+    K: Eq + Hash,
+    K: Clone + Send + Sync + 'static,
+    S: Service<Req> + Send + Sync + 'static,
     <S as Service<Req>>::Error: Into<crate::BoxError>,
     S::Error: Into<crate::BoxError>,
 {
@@ -224,21 +220,14 @@ where
     ///
     /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
     pub fn push(&mut self, key: K, svc: S) {
-        let cancel = oneshot::channel();
-        self.push_pending(key, svc, cancel);
+        self.push_pending(key, svc);
     }
 
-    fn push_pending(&mut self, key: K, svc: S, (cancel_tx, cancel_rx): CancelPair) {
-        if let Some(c) = self.pending_cancel_txs.insert(key.clone(), cancel_tx) {
-            // If there is already a service for this key, cancel it.
-            c.send(()).expect("cancel receiver lost");
-        }
-        self.pending.push(Pending {
-            key: Some(key),
-            cancel: Some(cancel_rx),
-            ready: Some(svc),
-            _pd: std::marker::PhantomData,
-        });
+    fn push_pending(&mut self, key: K, svc: S) {
+        self.pending.spawn(key, async move {
+            svc.ready().await;
+            Ok(svc)
+        })
     }
 
     /// Polls services pending readiness, adding ready services to the ready set.
@@ -256,51 +245,13 @@ where
     /// [`push`]: crate::ready_cache::cache::ReadyCache::push
     /// [`call_ready_index`]: crate::ready_cache::cache::ReadyCache::call_ready_index
     pub fn poll_pending(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), error::Failed<K>>> {
-        loop {
-            match Pin::new(&mut self.pending).poll_next(cx) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(None) => return Poll::Ready(Ok(())),
-                Poll::Ready(Some(Ok((key, svc, cancel_rx)))) => {
-                    trace!("endpoint ready");
-                    let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
-                    if let Some(cancel_tx) = cancel_tx {
-                        // Keep track of the cancelation so that it need not be
-                        // recreated after the service is used.
-                        self.ready.insert(key, (svc, (cancel_tx, cancel_rx)));
-                    } else {
-                        // This should not technically be possible. We must have decided to cancel
-                        // a Service (by sending on the CancelTx), yet that same service then
-                        // returns Ready. Since polling a Pending _first_ polls the CancelRx, that
-                        // _should_ always see our CancelTx send. Yet empirically, that isn't true:
-                        //
-                        //   https://github.com/tower-rs/tower/issues/415
-                        //
-                        // So, we instead detect the endpoint as canceled at this point. That
-                        // should be fine, since the oneshot is only really there to ensure that
-                        // the Pending is polled again anyway.
-                        //
-                        // We assert that this can't happen in debug mode so that hopefully one day
-                        // we can find a test that triggers this reliably.
-                        debug_assert!(cancel_tx.is_some());
-                        debug!("canceled endpoint removed when ready");
-                    }
-                }
-                Poll::Ready(Some(Err(PendingError::Canceled(_)))) => {
-                    debug!("endpoint canceled");
-                    // The cancellation for this service was removed in order to
-                    // cause this cancellation.
-                }
-                Poll::Ready(Some(Err(PendingError::Inner(key, e)))) => {
-                    let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
-                    if cancel_tx.is_some() {
-                        return Err(error::Failed(key, e.into())).into();
-                    } else {
-                        // See comment for the same clause under Ready(Some(Ok)).
-                        debug_assert!(cancel_tx.is_some());
-                        debug!("canceled endpoint removed on error");
-                    }
-                }
-            }
+        if !self.has_join_one {
+            self.current_join_one.set(self.pending.join_one());
+            self.has_join_one = true;
+        }
+
+        match Pin::new(&mut self.current_join_one).poll(cx) {
+            Poll::Pending => Poll::Pending,
         }
     }
 
@@ -395,64 +346,5 @@ where
         }
 
         fut
-    }
-}
-
-// === Pending ===
-
-// Safety: No use unsafe access therefore this is safe.
-impl<K, S, Req> Unpin for Pending<K, S, Req> {}
-
-impl<K, S, Req> Future for Pending<K, S, Req>
-where
-    S: Service<Req>,
-{
-    type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut fut = self.cancel.as_mut().expect("polled after complete");
-        if let Poll::Ready(r) = Pin::new(&mut fut).poll(cx) {
-            assert!(r.is_ok(), "cancel sender lost");
-            let key = self.key.take().expect("polled after complete");
-            return Err(PendingError::Canceled(key)).into();
-        }
-
-        match self
-            .ready
-            .as_mut()
-            .expect("polled after ready")
-            .poll_ready(cx)
-        {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Ok(())) => {
-                let key = self.key.take().expect("polled after complete");
-                let cancel = self.cancel.take().expect("polled after complete");
-                Ok((key, self.ready.take().expect("polled after ready"), cancel)).into()
-            }
-            Poll::Ready(Err(e)) => {
-                let key = self.key.take().expect("polled after compete");
-                Err(PendingError::Inner(key, e)).into()
-            }
-        }
-    }
-}
-
-impl<K, S, Req> fmt::Debug for Pending<K, S, Req>
-where
-    K: fmt::Debug,
-    S: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            key,
-            cancel,
-            ready,
-            _pd,
-        } = self;
-        f.debug_struct("Pending")
-            .field("key", key)
-            .field("cancel", cancel)
-            .field("ready", ready)
-            .finish()
     }
 }

@@ -19,7 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - uses: actions-rs/toolchain@v1
-      with:
+      with:git 
         toolchain: ${{ matrix.rust }}
         profile: minimal
         override: true

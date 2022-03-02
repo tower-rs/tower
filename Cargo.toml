@@ -6,3 +6,6 @@ members = [
   "tower-service",
   "tower-test",
 ]
+
+[patch.crates-io]
+tokio = { git = "https://github.com/tokio-rs/tokio", branch = "eliza/join-map" }
