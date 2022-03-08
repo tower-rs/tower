@@ -37,7 +37,7 @@ fn stress() {
     let _t = support::trace_init();
     let mut task = task::spawn(());
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
-    let mut cache = Balance::<_, Req>::new(support::IntoStream(rx));
+    let mut cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
 
     let mut nready = 0;
     let mut services = slab::Slab::<(mock::Handle<Req, Req>, bool)>::new();

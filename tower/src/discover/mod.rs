@@ -33,7 +33,6 @@
 //!
 //! [`TryStream`]: https://docs.rs/futures/latest/futures/stream/trait.TryStream.html
 
-mod error;
 mod list;
 
 pub use self::list::ServiceList;

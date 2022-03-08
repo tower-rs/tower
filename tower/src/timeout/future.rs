@@ -1,7 +1,7 @@
 //! Future types
 
 use super::error::Elapsed;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -9,16 +9,17 @@ use std::{
 };
 use tokio::time::Sleep;
 
-/// [`Timeout`] response future
-///
-/// [`Timeout`]: crate::timeout::Timeout
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<T> {
-    #[pin]
-    response: T,
-    #[pin]
-    sleep: Sleep,
+pin_project! {
+    /// [`Timeout`] response future
+    ///
+    /// [`Timeout`]: crate::timeout::Timeout
+    #[derive(Debug)]
+    pub struct ResponseFuture<T> {
+        #[pin]
+        response: T,
+        #[pin]
+        sleep: Sleep,
+    }
 }
 
 impl<T> ResponseFuture<T> {

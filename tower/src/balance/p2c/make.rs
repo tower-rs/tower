@@ -1,10 +1,11 @@
 use super::Balance;
 use crate::discover::Discover;
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -23,21 +24,20 @@ use tower_service::Service;
 /// [`MakeService`]: crate::MakeService
 /// [`Discover`]: crate::discover::Discover
 /// [`Balance`]: crate::balance::p2c::Balance
-#[derive(Clone, Debug)]
 pub struct MakeBalance<S, Req> {
     inner: S,
     _marker: PhantomData<fn(Req)>,
 }
 
-/// A [`Balance`] in the making.
-///
-/// [`Balance`]: crate::balance::p2c::Balance
-#[pin_project]
-#[derive(Debug)]
-pub struct MakeFuture<F, Req> {
-    #[pin]
-    inner: F,
-    _marker: PhantomData<fn(Req)>,
+pin_project! {
+    /// A [`Balance`] in the making.
+    ///
+    /// [`Balance`]: crate::balance::p2c::Balance
+    pub struct MakeFuture<F, Req> {
+        #[pin]
+        inner: F,
+        _marker: PhantomData<fn(Req)>,
+    }
 }
 
 impl<S, Req> MakeBalance<S, Req> {
@@ -45,6 +45,18 @@ impl<S, Req> MakeBalance<S, Req> {
     pub fn new(make_discover: S) -> Self {
         Self {
             inner: make_discover,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<S, Req> Clone for MakeBalance<S, Req>
+where
+    S: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
             _marker: PhantomData,
         }
     }
@@ -74,6 +86,16 @@ where
     }
 }
 
+impl<S, Req> fmt::Debug for MakeBalance<S, Req>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self { inner, _marker } = self;
+        f.debug_struct("MakeBalance").field("inner", inner).finish()
+    }
+}
+
 impl<F, T, E, Req> Future for MakeFuture<F, Req>
 where
     F: Future<Output = Result<T, E>>,
@@ -89,5 +111,15 @@ where
         let inner = ready!(this.inner.poll(cx))?;
         let svc = Balance::new(inner);
         Poll::Ready(Ok(svc))
+    }
+}
+
+impl<F, Req> fmt::Debug for MakeFuture<F, Req>
+where
+    F: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self { inner, _marker } = self;
+        f.debug_struct("MakeFuture").field("inner", inner).finish()
     }
 }

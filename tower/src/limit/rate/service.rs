@@ -73,7 +73,7 @@ where
         match self.state {
             State::Ready { .. } => return Poll::Ready(ready!(self.inner.poll_ready(cx))),
             State::Limited => {
-                if let Poll::Pending = Pin::new(&mut self.sleep).poll(cx) {
+                if Pin::new(&mut self.sleep).poll(cx).is_pending() {
                     tracing::trace!("rate limit exceeded; sleeping.");
                     return Poll::Pending;
                 }

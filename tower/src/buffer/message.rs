@@ -1,5 +1,5 @@
 use super::error::ServiceError;
-use tokio::sync::{oneshot, OwnedSemaphorePermit};
+use tokio::sync::oneshot;
 
 /// Message sent over buffer
 #[derive(Debug)]
@@ -7,7 +7,6 @@ pub(crate) struct Message<Request, Fut> {
     pub(crate) request: Request,
     pub(crate) tx: Tx<Fut>,
     pub(crate) span: tracing::Span,
-    pub(super) _permit: OwnedSemaphorePermit,
 }
 
 /// Response sender

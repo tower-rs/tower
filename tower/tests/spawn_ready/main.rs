@@ -81,5 +81,6 @@ async fn abort_on_drop() {
     // End the task and ensure that the inner service has been dropped.
     assert!(drop_tx.send(()).is_ok());
     tokio_test::assert_ready!(task.poll());
+    tokio::task::yield_now().await;
     assert!(tokio_test::assert_ready!(handle.poll_request()).is_none());
 }

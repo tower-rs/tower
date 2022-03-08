@@ -2,7 +2,7 @@
 //!
 //! [`Future`]: std::future::Future
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -10,16 +10,17 @@ use std::{
 };
 use tokio::sync::OwnedSemaphorePermit;
 
-/// Future for the [`ConcurrencyLimit`] service.
-///
-/// [`ConcurrencyLimit`]: crate::limit::ConcurrencyLimit
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<T> {
-    #[pin]
-    inner: T,
-    // Keep this around so that it is dropped when the future completes
-    _permit: OwnedSemaphorePermit,
+pin_project! {
+    /// Future for the [`ConcurrencyLimit`] service.
+    ///
+    /// [`ConcurrencyLimit`]: crate::limit::ConcurrencyLimit
+    #[derive(Debug)]
+    pub struct ResponseFuture<T> {
+        #[pin]
+        inner: T,
+        // Keep this around so that it is dropped when the future completes
+        _permit: OwnedSemaphorePermit,
+    }
 }
 
 impl<T> ResponseFuture<T> {

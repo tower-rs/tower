@@ -28,13 +28,21 @@ where
     }
 }
 
-/// Response future from [`AndThen`] services.
-///
-/// [`AndThen`]: crate::util::AndThen
-#[pin_project::pin_project]
-pub struct AndThenFuture<F1, F2: TryFuture, N>(
-    #[pin] pub(crate) future::AndThen<future::ErrInto<F1, F2::Error>, F2, N>,
-);
+pin_project_lite::pin_project! {
+    /// Response future from [`AndThen`] services.
+    ///
+    /// [`AndThen`]: crate::util::AndThen
+    pub struct AndThenFuture<F1, F2: TryFuture, N> {
+        #[pin]
+        inner: future::AndThen<future::ErrInto<F1, F2::Error>, F2, N>,
+    }
+}
+
+impl<F1, F2: TryFuture, N> AndThenFuture<F1, F2, N> {
+    pub(crate) fn new(inner: future::AndThen<future::ErrInto<F1, F2::Error>, F2, N>) -> Self {
+        Self { inner }
+    }
+}
 
 impl<F1, F2: TryFuture, N> std::fmt::Debug for AndThenFuture<F1, F2, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -52,7 +60,7 @@ where
 
     #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.project().0.poll(cx)
+        self.project().inner.poll(cx)
     }
 }
 
@@ -96,7 +104,7 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        AndThenFuture(self.inner.call(request).err_into().and_then(self.f.clone()))
+        AndThenFuture::new(self.inner.call(request).err_into().and_then(self.f.clone()))
     }
 }
 
