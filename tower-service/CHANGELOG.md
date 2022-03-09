@@ -1,6 +1,8 @@
 # Unreleased
 
 - Clarify subtlety around cloning and readiness in the `Service` docs.
+- Remove `S: Sized` bound from the `Service` implementation for `&mut S`.
+- Improve `poll_ready` examples in the `Service` docs.
 
 # 0.3.1 (November 29, 2019)
 
