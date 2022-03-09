@@ -66,11 +66,10 @@ where
 impl<Svc, S, Q> Stream for CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
     Q: Drive<Svc::Future>,
 {
-    type Item = Result<Svc::Response, crate::BoxError>;
+    type Item = Result<Svc::Response, Svc::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -78,7 +77,7 @@ where
         loop {
             // First, see if we have any responses to yield
             if let Poll::Ready(r) = this.queue.poll(cx) {
-                if let Some(rsp) = r.transpose().map_err(Into::into)? {
+                if let Some(rsp) = r.transpose()? {
                     return Poll::Ready(Some(Ok(rsp)));
                 }
             }
@@ -97,7 +96,7 @@ where
                 .service
                 .as_mut()
                 .expect("Using CallAll after extracing inner Service");
-            ready!(svc.poll_ready(cx)).map_err(Into::into)?;
+            ready!(svc.poll_ready(cx))?;
 
             // If it is, gather the next request (if there is one)
             match this.stream.as_mut().poll_next(cx) {
