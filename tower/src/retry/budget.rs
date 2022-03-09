@@ -250,7 +250,7 @@ impl Bucket {
         let mut gen = self.generation.lock().expect("generation lock");
 
         let now = Instant::now();
-        let diff = now - gen.time;
+        let diff = now.saturating_duration_since(gen.time);
         if diff < self.window {
             // not expired yet
             return;

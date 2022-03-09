@@ -82,7 +82,7 @@ where
         let this = self.project();
 
         let rsp = ready!(this.inner.poll(cx)).map_err(Into::into)?;
-        let duration = Instant::now() - *this.start;
+        let duration = Instant::now().saturating_duration_since(*this.start);
         this.rec.record(duration);
         Poll::Ready(Ok(rsp))
     }

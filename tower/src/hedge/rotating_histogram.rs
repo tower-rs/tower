@@ -39,7 +39,7 @@ impl RotatingHistogram {
     }
 
     fn maybe_rotate(&mut self) {
-        let delta = Instant::now() - self.last_rotation;
+        let delta = Instant::now().saturating_duration_since(self.last_rotation);
         // TODO: replace with delta.duration_div when it becomes stable.
         let rotations = (nanos(delta) / nanos(self.period)) as u32;
         if rotations >= 2 {
