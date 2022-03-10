@@ -30,7 +30,6 @@ pub(crate) trait Drive<F: Future> {
 impl<Svc, S, Q> CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
     Q: Drive<Svc::Future>,
 {
