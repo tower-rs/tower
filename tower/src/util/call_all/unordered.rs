@@ -35,7 +35,6 @@ pin_project! {
 impl<Svc, S> CallAllUnordered<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
     /// Create new [`CallAllUnordered`] combinator.

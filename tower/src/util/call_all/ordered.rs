@@ -98,7 +98,6 @@ pin_project! {
 impl<Svc, S> CallAll<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
     /// Create new [`CallAll`] combinator.
