@@ -437,15 +437,15 @@ async fn doesnt_leak_permits() {
     assert_ready_ok!(ready3.poll());
 }
 
-type Mock = mock::Mock<&'static str, &'static str>;
 type Handle = mock::Handle<&'static str, &'static str>;
+type MockBuffer = Buffer<&'static str, mock::future::ResponseFuture<&'static str>>;
 
-fn new_service() -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
+fn new_service() -> (mock::Spawn<MockBuffer>, Handle) {
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
     new_service_with_bound(10)
 }
 
-fn new_service_with_bound(bound: usize) -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
+fn new_service_with_bound(bound: usize) -> (mock::Spawn<MockBuffer>, Handle) {
     mock::spawn_with(|s| {
         let (svc, worker) = Buffer::pair(s, bound);
 

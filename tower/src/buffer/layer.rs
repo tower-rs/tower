@@ -48,7 +48,7 @@ where
     S::Error: Into<crate::BoxError> + Send + Sync,
     Request: Send + 'static,
 {
-    type Service = Buffer<S, Request>;
+    type Service = Buffer<Request, S::Future>;
 
     fn layer(&self, service: S) -> Self::Service {
         Buffer::new(service, self.bound)
