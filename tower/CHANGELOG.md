@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
-- None.
+### Changed
+
+- **util**: Removed deprecated `ServiceExt::ready_and` method and `ReadyAnd`
+  future ([#652])
+
+
+[#652]: https://github.com/tower-rs/tower/pull/652
 
 # 0.4.12 (February 16, 2022)
 
