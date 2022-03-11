@@ -16,12 +16,12 @@ use tower_service::Service;
 ///
 /// See the module documentation for more details.
 #[derive(Debug)]
-pub struct Buffer<Request, F> {
-    tx: PollSender<Message<Request, F>>,
+pub struct Buffer<Req, F> {
+    tx: PollSender<Message<Req, F>>,
     handle: Handle,
 }
 
-impl<Request, F> Buffer<Request, F>
+impl<Req, F> Buffer<Req, F>
 where
     F: 'static,
 {
@@ -46,12 +46,12 @@ where
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
-    pub fn new<T>(service: T, bound: usize) -> Self
+    pub fn new<S>(service: S, bound: usize) -> Self
     where
-        T: Service<Request, Future = F> + Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
         F: Send,
-        T::Error: Into<crate::BoxError> + Send + Sync,
-        Request: Send + 'static,
+        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
     {
         let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
@@ -63,12 +63,12 @@ where
     /// This is useful if you do not want to spawn directly onto the tokio runtime
     /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
-    pub fn pair<T>(service: T, bound: usize) -> (Self, Worker<T, Request>)
+    pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
     where
-        T: Service<Request, Future = F> + Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
         F: Send,
-        T::Error: Into<crate::BoxError> + Send + Sync,
-        Request: Send + 'static,
+        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
     {
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
@@ -84,13 +84,13 @@ where
     }
 }
 
-impl<Request, F, Resp, Error> Service<Request> for Buffer<Request, F>
+impl<Req, Rsp, F, E> Service<Req> for Buffer<Req, F>
 where
-    F: Future<Output = Result<Resp, Error>> + Send + 'static,
-    Error: Into<crate::BoxError>,
-    Request: Send + 'static,
+    F: Future<Output = Result<Rsp, E>> + Send + 'static,
+    E: Into<crate::BoxError>,
+    Req: Send + 'static,
 {
-    type Response = Resp;
+    type Response = Rsp;
     type Error = crate::BoxError;
     type Future = ResponseFuture<F>;
 
@@ -107,7 +107,7 @@ where
             .map_err(|_| self.get_worker_error())
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: Req) -> Self::Future {
         tracing::trace!("sending request to buffer worker");
 
         // get the current Span so that we can explicitly propagate it to the worker
@@ -130,9 +130,9 @@ where
     }
 }
 
-impl<Request, F> Clone for Buffer<Request, F>
+impl<Req, F> Clone for Buffer<Req, F>
 where
-    Request: Send + 'static,
+    Req: Send + 'static,
     F: Send + 'static,
 {
     fn clone(&self) -> Self {
