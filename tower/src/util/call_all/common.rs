@@ -111,6 +111,7 @@ where
                 Poll::Pending => {
                     // TODO: We probably want to "release" the slot we reserved in Svc here.
                     // It may be a while until we get around to actually using it.
+                    return Poll::Pending;
                 }
             }
         }
