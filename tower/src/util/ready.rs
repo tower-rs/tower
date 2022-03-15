@@ -69,14 +69,6 @@ where
 /// [`ServiceExt::ready`]: crate::util::ServiceExt::ready
 pub struct Ready<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
 
-/// A future that yields a mutable reference to the service when it is ready to accept a request.
-///
-/// [`ReadyAnd`] values are produced by [`ServiceExt::ready_and`].
-///
-/// [`ServiceExt::ready_and`]: crate::util::ServiceExt::ready_and
-#[deprecated(since = "0.4.6", note = "Please use the Ready future instead")]
-pub type ReadyAnd<'a, T, Request> = Ready<'a, T, Request>;
-
 // Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
 impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
 
