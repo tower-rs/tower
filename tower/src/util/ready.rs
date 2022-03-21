@@ -67,7 +67,10 @@ where
 /// [`Ready`] values are produced by [`ServiceExt::ready`].
 ///
 /// [`ServiceExt::ready`]: crate::util::ServiceExt::ready
-pub struct Ready<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
+pub struct Ready<'a, T, Request> {
+    inner: Option<&'a mut T>,
+    _p: PhantomData<fn() -> Request>,
+}
 
 // Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
 impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
@@ -78,7 +81,10 @@ where
 {
     #[allow(missing_docs)]
     pub fn new(service: &'a mut T) -> Self {
-        Self(ReadyOneshot::new(service))
+        Self {
+            inner: Some(service),
+            _p: PhantomData,
+        }
     }
 }
 
@@ -89,7 +95,13 @@ where
     type Output = Result<&'a mut T, T::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Pin::new(&mut self.0).poll(cx)
+        ready!(self
+            .inner
+            .as_mut()
+            .expect("poll after Poll::Ready")
+            .poll_ready(cx))?;
+
+        Poll::Ready(Ok(self.inner.take().expect("poll after Poll::Ready")))
     }
 }
 
@@ -98,6 +110,6 @@ where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Ready").field(&self.0).finish()
+        f.debug_tuple("Ready").field(&self.inner).finish()
     }
 }

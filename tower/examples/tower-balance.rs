@@ -119,7 +119,7 @@ fn gen_disco() -> impl Discover<
             .iter()
             .enumerate()
             .map(|(instance, latency)| {
-                let svc = tower::service_fn(move |_| {
+                let svc = move |_| {
                     let start = Instant::now();
 
                     let maxms = u64::from(latency.subsec_millis())
@@ -131,7 +131,7 @@ fn gen_disco() -> impl Discover<
                         let latency = start.elapsed();
                         Ok(Rsp { latency, instance })
                     }
-                });
+                };
 
                 (instance, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
             })

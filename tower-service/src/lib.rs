@@ -348,36 +348,22 @@ pub trait Service<Request> {
     fn call(&mut self, req: Request) -> Self::Future;
 }
 
-impl<'a, S, Request> Service<Request> for &'a mut S
+impl<Request, F, Fut, T, E> Service<Request> for F
 where
-    S: Service<Request> + 'a,
+    F: FnMut(Request) -> Fut,
+    Fut: Future<Output = Result<T, E>>,
 {
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
+    type Response = T;
+    type Error = E;
+    type Future = Fut;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
-        (**self).poll_ready(cx)
+    #[inline]
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
-    }
-}
-
-impl<S, Request> Service<Request> for Box<S>
-where
-    S: Service<Request> + ?Sized,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
-        (**self).poll_ready(cx)
-    }
-
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
+    #[inline]
+    fn call(&mut self, req: Request) -> Self::Future {
+        self(req)
     }
 }
