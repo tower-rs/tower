@@ -12,6 +12,7 @@ mod map_request;
 mod map_response;
 mod map_result;
 
+mod by_ref;
 mod map_future;
 mod oneshot;
 mod optional;
@@ -22,6 +23,7 @@ pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
     boxed_clone::BoxCloneService,
+    by_ref::ByRef,
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
@@ -1033,6 +1035,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Self::Future: Send + 'static,
     {
         BoxCloneService::new(self)
+    }
+
+    /// TODO
+    fn by_ref(&mut self) -> ByRef<'_, Self>
+    where
+        Self: Sized,
+    {
+        ByRef::new(self)
     }
 }
 
