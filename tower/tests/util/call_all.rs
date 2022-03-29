@@ -143,3 +143,24 @@ async fn unordered() {
         .unwrap();
     assert!(v.is_none());
 }
+
+#[tokio::test]
+async fn pending() {
+    let _t = support::trace_init();
+
+    let (mock, mut handle) = mock::pair::<_, &'static str>();
+
+    let mut task = task::spawn(());
+
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let ca = mock.call_all(support::IntoStream::new(rx));
+    pin_mut!(ca);
+
+    assert_pending!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    tx.send("req").unwrap();
+    assert_pending!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    assert_request_eq!(handle, "req").send_response("res");
+    let res = assert_ready!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    assert_eq!(res.transpose().unwrap(), Some("res"));
+    assert_pending!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+}
