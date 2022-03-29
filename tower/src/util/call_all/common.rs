@@ -99,20 +99,18 @@ where
                 .expect("Using CallAll after extracing inner Service");
             ready!(svc.poll_ready(cx)).map_err(Into::into)?;
 
-            // If it is, gather the next request (if there is one)
-            match this.stream.as_mut().poll_next(cx) {
-                Poll::Ready(r) => match r {
-                    Some(req) => {
-                        this.queue.push(svc.call(req));
-                    }
-                    None => {
-                        // We're all done once any outstanding requests have completed
-                        *this.eof = true;
-                    }
-                },
-                Poll::Pending => {
-                    // TODO: We probably want to "release" the slot we reserved in Svc here.
-                    // It may be a while until we get around to actually using it.
+            // If it is, gather the next request (if there is one), or return `Pending` if the
+            // stream is not ready.
+            // TODO: We probably want to "release" the slot we reserved in Svc if the
+            // stream returns `Pending`. It may be a while until we get around to actually
+            // using it.
+            match ready!(this.stream.as_mut().poll_next(cx)) {
+                Some(req) => {
+                    this.queue.push(svc.call(req));
+                }
+                None => {
+                    // We're all done once any outstanding requests have completed
+                    *this.eof = true;
                 }
             }
         }
