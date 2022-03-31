@@ -213,10 +213,6 @@ where
         let (_, svc) = self.services.get_ready_index(index).expect("invalid index");
         svc.load()
     }
-
-    pub(crate) fn discover_mut(&mut self) -> &mut D {
-        &mut self.discover
-    }
 }
 
 impl<D, Req> Service<Req> for Balance<D, Req>
