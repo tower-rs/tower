@@ -3,37 +3,35 @@ use super::{
     message::Message,
 };
 use futures_core::ready;
-use pin_project::pin_project;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::mpsc;
 use tower_service::Service;
 
-/// Task that handles processing the buffer. This type should not be used
-/// directly, instead `Buffer` requires an `Executor` that can accept this task.
-///
-/// The struct is `pub` in the private module and the type is *not* re-exported
-/// as part of the public API. This is the "sealed" pattern to include "private"
-/// types in public traits that are not meant for consumers of the library to
-/// implement (only call).
-#[pin_project(PinnedDrop)]
-#[derive(Debug)]
-pub struct Worker<T, Request>
-where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
-{
-    current_message: Option<Message<Request, T::Future>>,
-    rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
-    service: T,
-    finish: bool,
-    failed: Option<ServiceError>,
-    handle: Handle,
-    close: Option<Weak<Semaphore>>,
+pin_project_lite::pin_project! {
+    /// Task that handles processing the buffer. This type should not be used
+    /// directly, instead `Buffer` requires an `Executor` that can accept this task.
+    ///
+    /// The struct is `pub` in the private module and the type is *not* re-exported
+    /// as part of the public API. This is the "sealed" pattern to include "private"
+    /// types in public traits that are not meant for consumers of the library to
+    /// implement (only call).
+    #[derive(Debug)]
+    pub struct Worker<T, Request>
+    where
+        T: Service<Request>,
+    {
+        current_message: Option<Message<Request, T::Future>>,
+        rx: mpsc::Receiver<Message<Request, T::Future>>,
+        service: T,
+        finish: bool,
+        failed: Option<ServiceError>,
+        handle: Handle,
+    }
 }
 
 /// Get the error out
@@ -49,14 +47,12 @@ where
 {
     pub(crate) fn new(
         service: T,
-        rx: mpsc::UnboundedReceiver<Message<Request, T::Future>>,
-        semaphore: &Arc<Semaphore>,
+        rx: mpsc::Receiver<Message<Request, T::Future>>,
     ) -> (Handle, Worker<T, Request>) {
         let handle = Handle {
             inner: Arc::new(Mutex::new(None)),
         };
 
-        let semaphore = Arc::downgrade(semaphore);
         let worker = Worker {
             current_message: None,
             finish: false,
@@ -64,7 +60,6 @@ where
             rx,
             service,
             handle: handle.clone(),
-            close: Some(semaphore),
         };
 
         (handle, worker)
@@ -141,17 +136,6 @@ where
         // requests that we receive before we've exhausted the receiver receive the error:
         self.failed = Some(error);
     }
-
-    /// Closes the buffer's semaphore if it is still open, waking any pending
-    /// tasks.
-    fn close_semaphore(&mut self) {
-        if let Some(close) = self.close.take().as_ref().and_then(Weak::upgrade) {
-            tracing::debug!("buffer closing; waking pending tasks");
-            close.close();
-        } else {
-            tracing::trace!("buffer already closed");
-        }
-    }
 }
 
 impl<T, Request> Future for Worker<T, Request>
@@ -210,8 +194,6 @@ where
                                 .as_ref()
                                 .expect("Worker::failed did not set self.failed?")
                                 .clone()));
-                            // Wake any tasks waiting on channel capacity.
-                            self.close_semaphore();
                         }
                     }
                 }
@@ -222,17 +204,6 @@ where
                 }
             }
         }
-    }
-}
-
-#[pin_project::pinned_drop]
-impl<T, Request> PinnedDrop for Worker<T, Request>
-where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
-{
-    fn drop(mut self: Pin<&mut Self>) {
-        self.as_mut().close_semaphore();
     }
 }
 

@@ -1,6 +1,7 @@
-use super::{error::Never, Change};
+use super::Change;
 use futures_core::Stream;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
+use std::convert::Infallible;
 use std::iter::{Enumerate, IntoIterator};
 use std::{
     pin::Pin,
@@ -8,17 +9,18 @@ use std::{
 };
 use tower_service::Service;
 
-/// Static service discovery based on a predetermined list of services.
-///
-/// [`ServiceList`] is created with an initial list of services. The discovery
-/// process will yield this list once and do nothing after.
-#[pin_project]
-#[derive(Debug)]
-pub struct ServiceList<T>
-where
-    T: IntoIterator,
-{
-    inner: Enumerate<T::IntoIter>,
+pin_project! {
+    /// Static service discovery based on a predetermined list of services.
+    ///
+    /// [`ServiceList`] is created with an initial list of services. The discovery
+    /// process will yield this list once and do nothing after.
+    #[derive(Debug)]
+    pub struct ServiceList<T>
+    where
+        T: IntoIterator,
+    {
+        inner: Enumerate<T::IntoIter>,
+    }
 }
 
 impl<T, U> ServiceList<T>
@@ -40,7 +42,7 @@ impl<T, U> Stream for ServiceList<T>
 where
     T: IntoIterator<Item = U>,
 {
-    type Item = Result<Change<usize, U>, Never>;
+    type Item = Result<Change<usize, U>, Infallible>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.project().inner.next() {

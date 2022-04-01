@@ -4,7 +4,7 @@ use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
 use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -49,7 +49,6 @@ where
     D: fmt::Debug,
     D::Key: Hash + fmt::Debug,
     D::Service: fmt::Debug,
-    Req: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Balance")
@@ -59,18 +58,18 @@ where
     }
 }
 
-/// A Future that becomes satisfied when an `S`-typed service is ready.
-///
-/// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
-#[pin_project]
-#[derive(Debug)]
-struct UnreadyService<K, S, Req> {
-    key: Option<K>,
-    #[pin]
-    cancel: oneshot::Receiver<()>,
-    service: Option<S>,
+pin_project! {
+    /// A Future that becomes satisfied when an `S`-typed service is ready.
+    ///
+    /// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
+    struct UnreadyService<K, S, Req> {
+        key: Option<K>,
+        #[pin]
+        cancel: oneshot::Receiver<()>,
+        service: Option<S>,
 
-    _req: PhantomData<Req>,
+        _req: PhantomData<Req>,
+    }
 }
 
 enum Error<E> {
@@ -214,10 +213,6 @@ where
         let (_, svc) = self.services.get_ready_index(index).expect("invalid index");
         svc.load()
     }
-
-    pub(crate) fn discover_mut(&mut self) -> &mut D {
-        &mut self.discover
-    }
 }
 
 impl<D, Req> Service<Req> for Balance<D, Req>
@@ -312,5 +307,25 @@ impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
             Ok(()) => Poll::Ready(Ok((key, svc))),
             Err(e) => Poll::Ready(Err((key, Error::Inner(e)))),
         }
+    }
+}
+
+impl<K, S, Req> fmt::Debug for UnreadyService<K, S, Req>
+where
+    K: fmt::Debug,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            key,
+            cancel,
+            service,
+            _req,
+        } = self;
+        f.debug_struct("UnreadyService")
+            .field("key", key)
+            .field("cancel", cancel)
+            .field("service", service)
+            .finish()
     }
 }

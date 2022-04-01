@@ -94,8 +94,6 @@ async fn success_with_cannot_clone() {
 async fn retry_mutating_policy() {
     let _t = support::trace_init();
 
-    // Even though the request couldn't be cloned, if the first request succeeds,
-    // it should succeed overall.
     let (mut service, mut handle) = new_service(MutatingPolicy { remaining: 2 });
 
     assert_ready_ok!(service.poll_ready());
@@ -103,8 +101,7 @@ async fn retry_mutating_policy() {
 
     assert_request_eq!(handle, "hello").send_response("world");
     assert_pending!(fut.poll());
-    // the policy alters the request. in real life, this might be setting
-    // a header
+    // the policy alters the request. in real life, this might be setting a header
     assert_request_eq!(handle, "retrying").send_response("world");
 
     assert_pending!(fut.poll());
@@ -191,6 +188,8 @@ impl Policy<Req, Res, Error> for CannotClone {
     }
 }
 
+/// Test policy that changes the request to `retrying` during retries and the result to `"out of retries"`
+/// when retries are exhausted.
 #[derive(Clone)]
 struct MutatingPolicy {
     remaining: usize,

@@ -4,4 +4,7 @@ pub mod future;
 mod layer;
 mod service;
 
-pub use self::{layer::ConcurrencyLimitLayer, service::ConcurrencyLimit};
+pub use self::{
+    layer::{ConcurrencyLimitLayer, GlobalConcurrencyLimitLayer},
+    service::ConcurrencyLimit,
+};

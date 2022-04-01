@@ -2,6 +2,7 @@
 
 mod and_then;
 mod boxed;
+mod boxed_clone;
 mod call_all;
 mod either;
 
@@ -18,10 +19,10 @@ mod ready;
 mod service_fn;
 mod then;
 
-#[allow(deprecated)]
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
+    boxed_clone::BoxCloneService,
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
@@ -31,7 +32,7 @@ pub use self::{
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
-    ready::{Ready, ReadyAnd, ReadyOneshot},
+    ready::{Ready, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
@@ -51,6 +52,7 @@ pub mod future {
     //! Future types
 
     pub use super::and_then::AndThenFuture;
+    pub use super::either::EitherResponseFuture;
     pub use super::map_err::MapErrFuture;
     pub use super::map_response::MapResponseFuture;
     pub use super::map_result::MapResultFuture;
@@ -67,19 +69,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Self: Sized,
     {
         Ready::new(self)
-    }
-
-    /// Yields a mutable reference to the service when it is ready to accept a request.
-    #[deprecated(
-        since = "0.4.6",
-        note = "please use the `ServiceExt::ready` method instead"
-    )]
-    #[allow(deprecated)]
-    fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
-    where
-        Self: Sized,
-    {
-        ReadyAnd::new(self)
     }
 
     /// Yields the service when it is ready to accept a request.
@@ -109,7 +98,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
     where
         Self: Sized,
-        Self::Error: Into<crate::BoxError>,
         S: futures_core::Stream<Item = Request>,
     {
         CallAll::new(self, reqs)
@@ -133,7 +121,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # struct DatabaseService;
     /// # impl DatabaseService {
     /// #   fn new(address: &str) -> Self {
-    /// #       DatabaseService  
+    /// #       DatabaseService
     /// #   }
     /// # }
     /// #
@@ -604,7 +592,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn map_request<F, NewRequest>(self, f: F) -> MapRequest<Self, F>
     where
         Self: Sized,
-        F: FnMut(NewRequest) -> Request + Clone,
+        F: FnMut(NewRequest) -> Request,
     {
         MapRequest::new(self, f)
     }
@@ -951,6 +939,103 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     {
         MapFuture::new(self, f)
     }
+
+    /// Convert the service into a [`Service`] + [`Send`] trait object.
+    ///
+    /// See [`BoxService`] for more details.
+    ///
+    /// If `Self` implements the [`Clone`] trait, the [`boxed_clone`] method
+    /// can be used instead, to produce a boxed service which will also
+    /// implement [`Clone`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceExt, BoxError, service_fn, util::BoxService};
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service = service_fn(|req: Request| async {
+    ///     Ok::<_, BoxError>(Response::new())
+    /// });
+    ///
+    /// let service: BoxService<Request, Response, BoxError> = service
+    ///     .map_request(|req| {
+    ///         println!("received request");
+    ///         req
+    ///     })
+    ///     .map_response(|res| {
+    ///         println!("response produced");
+    ///         res
+    ///     })
+    ///     .boxed();
+    /// # let service = assert_service(service);
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`Service`]: crate::Service
+    /// [`boxed_clone`]: Self::boxed_clone
+    fn boxed(self) -> BoxService<Request, Self::Response, Self::Error>
+    where
+        Self: Sized + Send + 'static,
+        Self::Future: Send + 'static,
+    {
+        BoxService::new(self)
+    }
+
+    /// Convert the service into a [`Service`] + [`Clone`] + [`Send`] trait object.
+    ///
+    /// This is similar to the [`boxed`] method, but it requires that `Self` implement
+    /// [`Clone`], and the returned boxed service implements [`Clone`].
+    /// See [`BoxCloneService`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceExt, BoxError, service_fn, util::BoxCloneService};
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service = service_fn(|req: Request| async {
+    ///     Ok::<_, BoxError>(Response::new())
+    /// });
+    ///
+    /// let service: BoxCloneService<Request, Response, BoxError> = service
+    ///     .map_request(|req| {
+    ///         println!("received request");
+    ///         req
+    ///     })
+    ///     .map_response(|res| {
+    ///         println!("response produced");
+    ///         res
+    ///     })
+    ///     .boxed_clone();
+    ///
+    /// // The boxed service can still be cloned.
+    /// service.clone();
+    /// # let service = assert_service(service);
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`Service`]: crate::Service
+    /// [`boxed`]: Self::boxed
+    fn boxed_clone(self) -> BoxCloneService<Request, Self::Response, Self::Error>
+    where
+        Self: Clone + Sized + Send + 'static,
+        Self::Future: Send + 'static,
+    {
+        BoxCloneService::new(self)
+    }
 }
 
 impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Service<Request> {}
@@ -977,8 +1062,8 @@ impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Servi
 /// [`Layer`]: crate::layer::Layer
 pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
     if let Some(layer) = layer {
-        Either::A(layer)
+        Either::Left(layer)
     } else {
-        Either::B(Identity::new())
+        Either::Right(Identity::new())
     }
 }

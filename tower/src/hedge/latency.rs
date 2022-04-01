@@ -1,5 +1,5 @@
 use futures_util::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::time::Duration;
 use std::{
     future::Future,
@@ -24,13 +24,14 @@ pub struct Latency<R, S> {
     service: S,
 }
 
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<R, F> {
-    start: Instant,
-    rec: R,
-    #[pin]
-    inner: F,
+pin_project! {
+    #[derive(Debug)]
+    pub struct ResponseFuture<R, F> {
+        start: Instant,
+        rec: R,
+        #[pin]
+        inner: F,
+    }
 }
 
 impl<S, R> Latency<R, S>
@@ -81,7 +82,7 @@ where
         let this = self.project();
 
         let rsp = ready!(this.inner.poll(cx)).map_err(Into::into)?;
-        let duration = Instant::now() - *this.start;
+        let duration = Instant::now().saturating_duration_since(*this.start);
         this.rec.record(duration);
         Poll::Ready(Ok(rsp))
     }
