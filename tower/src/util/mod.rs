@@ -18,6 +18,7 @@ mod optional;
 mod ready;
 mod service_fn;
 mod then;
+mod join;
 
 pub use self::{
     and_then::{AndThen, AndThenLayer},
