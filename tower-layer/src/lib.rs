@@ -14,7 +14,7 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 //!
-//! [`Service`]: https://docs.rs/tower/trait.Service.html
+//! [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
 
 mod identity;
 mod layer_fn;
@@ -90,7 +90,7 @@ pub use self::{
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
 ///
-/// [`Service`]: https://docs.rs/tower/trait.Service.html
+/// [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
 pub trait Layer<S> {
     /// The wrapped service
     type Service;
