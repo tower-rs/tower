@@ -58,18 +58,22 @@ pub trait Policy<Req, Res, E>: Sized {
     ///
     /// ## Mutating Requests
     ///
-    /// The policy MAY chose to mutate the `req`: if the request is mutated, the mutated request
-    /// will be sent to the inner service in the next retry. This can be helpful for use cases like
-    /// tracking the retry count in a header.
+    /// The policy MAY chose to mutate the `req`: if the request is mutated, the
+    /// mutated request will be sent to the inner service in the next retry.
+    /// This can be helpful for use cases like tracking the retry count in a
+    /// header.
     ///
     /// ## Mutating Results
     ///
-    /// The policy MAY chose to mutate the result. This can enable the retry policy to convert a failure
-    /// into a success and vice versa. For example, if the policy is used to poll while waiting for a state
-    /// change, you can switch the result to failure such that running out of retries returns a specific failure.
+    /// The policy MAY chose to mutate the result. This enables the retry
+    /// policy to convert a failure into a success and vice versa. For example,
+    /// if the policy is used to poll while waiting for a state change, the
+    /// policy can switch the result to emit a specific error when retries are
+    /// exhausted.
     ///
-    /// You can also record metadata on the request to include information about the number of retries required
-    /// or to record that a failure failed after exhausting all retries.
+    /// The policy can also record metadata on the request to include
+    /// information about the number of retries required or to record that a
+    /// failure failed after exhausting all retries.
     ///
     /// [`Service::Response`]: crate::Service::Response
     /// [`Service::Error`]: crate::Service::Error
