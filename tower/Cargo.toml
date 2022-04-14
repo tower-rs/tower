@@ -23,7 +23,6 @@ edition = "2018"
 rust-version = "1.49.0"
 
 [features]
-default = ["log"]
 
 # Internal
 __common = ["futures-core", "pin-project-lite"]
