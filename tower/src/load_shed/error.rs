@@ -12,7 +12,8 @@ pub struct Overloaded {
 }
 
 impl Overloaded {
-    pub(crate) fn new() -> Self {
+    /// Construct a new overloaded error
+    pub fn new() -> Self {
         Overloaded { _p: () }
     }
 }
