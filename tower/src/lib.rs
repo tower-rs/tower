@@ -167,9 +167,9 @@ pub(crate) mod macros;
 // #[cfg(feature = "balance")]
 // #[cfg_attr(docsrs, doc(cfg(feature = "balance")))]
 // pub mod balance;
-// #[cfg(feature = "buffer")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "buffer")))]
-// pub mod buffer;
+#[cfg(feature = "buffer")]
+#[cfg_attr(docsrs, doc(cfg(feature = "buffer")))]
+pub mod buffer;
 // #[cfg(feature = "discover")]
 // #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 // pub mod discover;

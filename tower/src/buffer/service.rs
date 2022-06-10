@@ -4,20 +4,29 @@ use super::{
     worker::{Handle, Worker},
 };
 
-use std::{
-    future::Future,
-    task::{Context, Poll},
-};
+use futures_util::ready;
+use std::future::Future;
+use std::task::{Context, Poll};
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::sync::PollSender;
-use tower_service::Service;
+use tokio_util::sync::ReusableBoxFuture;
+use tower_service::{Call, Service};
 
 /// Adds an mpsc buffer in front of an inner service.
 ///
 /// See the module documentation for more details.
 #[derive(Debug)]
-pub struct Buffer<Req, F> {
-    tx: PollSender<Message<Req, F>>,
+pub struct Buffer<Request, F> {
+    tx: mpsc::Sender<Message<Request, F>>,
+    needs_reserve: bool,
+    reserve: ReusableBoxFuture<
+        'static,
+        Result<mpsc::OwnedPermit<Message<Request, F>>, mpsc::error::SendError<()>>,
+    >,
+    handle: Handle,
+}
+
+pub struct CallBuffer<Request, F> {
+    permit: mpsc::OwnedPermit<Message<Request, F>>,
     handle: Handle,
 }
 
@@ -46,11 +55,14 @@ where
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
-    pub fn new<S>(service: S, bound: usize) -> Self
+    pub fn new<S, E>(service: S, bound: usize) -> Self
     where
-        S: Service<Req, Future = F> + Send + 'static,
+        S: for<'a> Service<'a, Req, Future = F, Error = E>,
+        S: Send + 'static,
         F: Send,
-        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
+        F: Send,
+        E: Into<crate::BoxError> + Send + Sync,
     {
         let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
@@ -62,18 +74,24 @@ where
     /// This is useful if you do not want to spawn directly onto the tokio runtime
     /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
-    pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
+    pub fn pair<S, E>(service: S, bound: usize) -> (Self, Worker<S, Req, F>)
     where
-        S: Service<Req, Future = F> + Send + 'static,
+        S: for<'a> Service<'a, Req, Future = F, Error = E>,
+        S: Send + 'static,
         F: Send,
-        S::Error: Into<crate::BoxError> + Send + Sync,
         Req: Send + 'static,
+        F: Send,
+        E: Into<crate::BoxError> + Send + Sync,
     {
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
-        let buffer = Self {
-            tx: PollSender::new(tx),
+        let buffer = Buffer {
+            tx,
             handle,
+            needs_reserve: true,
+            reserve: ReusableBoxFuture::new(async move {
+                unreachable!("initial reserve future is never called")
+            }),
         };
         (buffer, worker)
     }
@@ -83,28 +101,44 @@ where
     }
 }
 
-impl<Req, Rsp, F, E> Service<Req> for Buffer<Req, F>
+impl<'a, Req, Rsp, E, F> Service<'a, Req> for Buffer<Req, F>
 where
     F: Future<Output = Result<Rsp, E>> + Send + 'static,
     E: Into<crate::BoxError>,
     Req: Send + 'static,
 {
-    type Call = CallBuffer;
+    type Call = CallBuffer<Req, F>;
     type Response = Rsp;
     type Error = crate::BoxError;
     type Future = ResponseFuture<F>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         // First, check if the worker is still alive.
         if self.tx.is_closed() {
             // If the inner service has errored, then we error here.
             return Poll::Ready(Err(self.get_worker_error()));
         }
 
-        // Poll the sender to acquire a permit.
-        self.tx
-            .poll_reserve(cx)
-            .map_err(|_| self.get_worker_error())
+        // Then, check if we've already reserved a permit.
+        if self.needs_reserve {
+            self.reserve.set(self.tx.clone().reserve_owned());
+            self.needs_reserve = false;
+        }
+
+        // Finally, if we haven't already reserved a permit, poll the semaphore
+        // to reserve one. If we reserve a permit, then there's enough buffer
+        // capacity to send a new request. Otherwise, we need to wait for
+        // capacity.
+        let res = ready!(self.reserve.poll(cx));
+        self.needs_reserve = true;
+
+        match res {
+            Ok(permit) => Poll::Ready(Ok(CallBuffer {
+                permit,
+                handle: self.handle.clone(),
+            })),
+            Err(_) => Poll::Ready(Err(self.handle.get_error_on_closed())),
+        }
     }
 
     // fn call(&mut self, request: Req) -> Self::Future {
@@ -130,15 +164,42 @@ where
     // }
 }
 
-impl<Req, F> Clone for Buffer<Req, F>
+impl<Req, Rsp, Err, F> Call<Req> for CallBuffer<Req, F>
 where
-    Req: Send + 'static,
-    F: Send + 'static,
+    Err: Into<crate::BoxError>,
+    F: Future<Output = Result<Rsp, Err>>,
 {
+    type Response = Rsp;
+    type Error = crate::BoxError;
+    type Future = ResponseFuture<F>;
+
+    fn call(self, request: Req) -> Self::Future {
+        tracing::trace!("sending request to buffer worker");
+        if let Some(err) = self.handle.try_get_error() {
+            return ResponseFuture::failed(err);
+        }
+
+        // get the current Span so that we can explicitly propagate it to the worker
+        // if we didn't do this, events on the worker related to this span wouldn't be counted
+        // towards that span since the worker would have no way of entering it.
+        let span = tracing::Span::current();
+
+        // If we've made it here, then a semaphore permit has already been
+        // reserved, so we can freely allocate a oneshot.
+        let (tx, rx) = oneshot::channel();
+
+        self.permit.send(Message { request, span, tx });
+        ResponseFuture::new(rx)
+    }
+}
+
+impl<Request, F> Clone for Buffer<Request, F> {
     fn clone(&self) -> Self {
         Self {
-            handle: self.handle.clone(),
             tx: self.tx.clone(),
+            handle: self.handle.clone(),
+            reserve: ReusableBoxFuture::new(async { unreachable!() }),
+            needs_reserve: true,
         }
     }
 }

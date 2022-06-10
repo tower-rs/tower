@@ -63,7 +63,7 @@ impl<T> fmt::Debug for ServiceFn<T> {
     }
 }
 
-impl<T, F, Request, R, E> Call<Request> for ServiceFn<T>
+impl<'a, T, F, Request, R, E> Call<Request> for &'a mut ServiceFn<T>
 where
     T: FnMut(Request) -> F,
     F: Future<Output = Result<R, E>>,
@@ -72,7 +72,7 @@ where
     type Error = E;
     type Future = F;
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(self, req: Request) -> Self::Future {
         (self.f)(req)
     }
 }

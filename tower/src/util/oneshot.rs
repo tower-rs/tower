@@ -13,10 +13,7 @@ pin_project! {
     /// is ready, and then calling [`Service::call`] with the request, and
     /// waiting for that [`Future`].
     #[derive(Debug)]
-    pub struct Oneshot<S, Req, F>
-    where
-        S: for<'a> Service<'a, Req, Future = F>,
-    {
+    pub struct Oneshot<S, Req, F> {
         svc: S,
         #[pin]
         state: State<Req, F>,
@@ -26,21 +23,26 @@ pin_project! {
 pin_project! {
     #[project = StateProj]
     enum State<Req, F> {
-        NotReady(Option<Req>),
-        Called(#[pin] F),
+        NotReady {
+            req: Option<Req>,
+        },
+        Called {
+            #[pin]
+            fut: F,
+        },
         Done,
     }
 }
 
-impl<S: Service<Req>, Req> State<S, Req> {
-    fn not_ready(svc: S, req: Option<Req>) -> Self {
-        Self::NotReady { svc, req }
+impl<Req, F> State<Req, F> {
+    fn not_ready(req: Req) -> Self {
+        Self::NotReady { req: Some(req) }
     }
 
-    fn called(fut: S::Future) -> Self {
+    fn called(fut: F) -> Self {
         Self::Called { fut }
     }
-
+}
 
 impl<Req, F> fmt::Debug for State<Req, F>
 where
@@ -48,8 +50,12 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            State::NotReady(req) => f.debug_tuple("State::NotReady").field(req).finish(),
-            State::Called(_) => f.debug_tuple("State::Called").field(&"S::Future").finish(),
+            State::NotReady { req: Some(req) } => {
+                f.debug_tuple("State::NotReady").field(req).finish()
+            }
+
+            State::NotReady { req: None, .. } => unreachable!(),
+            State::Called { .. } => f.debug_tuple("State::Called").field(&"S::Future").finish(),
             State::Done => f.debug_tuple("State::Done").finish(),
         }
     }
@@ -63,7 +69,7 @@ where
     pub fn new(svc: S, req: Req) -> Self {
         Oneshot {
             svc,
-            state: State::NotReady(Some(req)),
+            state: State::not_ready(req),
         }
     }
 }
@@ -79,10 +85,10 @@ where
         let mut this = self.project();
         loop {
             match this.state.as_mut().project() {
-                StateProj::NotReady(req) => {
+                StateProj::NotReady { req } => {
                     let mut call = ready!(this.svc.poll_ready(cx))?;
                     let f = call.call(req.take().expect("already called"));
-                    this.state.set(State::Called(f));
+                    this.state.set(State::called(f));
                 }
                 StateProj::Called { fut } => {
                     let res = ready!(fut.poll(cx))?;

@@ -1038,34 +1038,7 @@ pub trait ServiceExt<Request, Rsp, Fut, Err>:
     // {
     //     BoxCloneService::new(self)
     // }
-}
 
-/// Convert an `Option<Layer>` into a [`Layer`].
-///
-/// ```
-/// # use std::time::Duration;
-/// # use tower::Service;
-/// # use tower::builder::ServiceBuilder;
-/// use tower::util::option_layer;
-/// # use tower::timeout::TimeoutLayer;
-/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
-/// # let timeout = Some(Duration::new(10, 0));
-/// // Layer to apply a timeout if configured
-/// let maybe_timeout = option_layer(timeout.map(TimeoutLayer::new));
-///
-/// ServiceBuilder::new()
-///     .layer(maybe_timeout)
-///     .service(svc);
-/// # }
-/// ```
-///
-/// [`Layer`]: crate::layer::Layer
-pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
-    if let Some(layer) = layer {
-        Either::Left(layer)
-    } else {
-        Either::Right(Identity::new())
-    }
     //     /// Composes a function that transforms futures produced by the service.
     //     ///
     //     /// This takes a function or closure returning a future computed from the future returned by
@@ -1168,8 +1141,7 @@ impl<T: ?Sized, Request, Rsp, Fut, Err> ServiceExt<Request, Rsp, Fut, Err> for T
 // /// [`Layer`]: crate::layer::Layer
 // pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
 //     if let Some(layer) = layer {
-//         Either::A(layer)
+//         Either::Left(layer)
 //     } else {
-//         Either::B(Identity::new())
+//         Either::Right(Identity::new())
 //     }
-// }

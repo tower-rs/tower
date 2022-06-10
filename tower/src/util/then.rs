@@ -72,7 +72,7 @@ where
 
     #[inline]
     fn call(self, request: Request) -> Self::Future {
-        ThenFuture(self.inner.call(request).then(self.f.clone()))
+        ThenFuture::new(self.inner.call(request).then(self.f))
     }
 }
 
