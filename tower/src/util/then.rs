@@ -71,8 +71,8 @@ where
     type Future = ThenFuture<S::Future, Fut, F>;
 
     #[inline]
-    fn call(&mut self, request: Request) -> Self::Future {
-        ThenFuture::new(self.inner.call(request).then(self.f.clone()))
+    fn call(self, request: Request) -> Self::Future {
+        ThenFuture(self.inner.call(request).then(self.f.clone()))
     }
 }
 

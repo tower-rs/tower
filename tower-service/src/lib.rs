@@ -330,7 +330,7 @@ pub trait Call<Request> {
     ///
     /// Implementations are permitted to panic if `call` is invoked without
     /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
-    fn call(&mut self, req: Request) -> Self::Future;
+    fn call(self, req: Request) -> Self::Future;
 }
 
 pub trait Service<'a, Request> {
@@ -369,32 +369,6 @@ pub trait Service<'a, Request> {
 //     Self: Call<Request, Error = <Self as Ready<Request>>::Error>,
 // {
 // }
-
-impl<'a, S, Request> Call<Request> for &'a mut S
-where
-    S: Call<Request> + 'a,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
-    }
-}
-
-impl<S, Request> Call<Request> for Box<S>
-where
-    S: Call<Request> + ?Sized,
-{
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&mut self, request: Request) -> S::Future {
-        (**self).call(request)
-    }
-}
 
 impl<'a, S, Request> Service<'a, Request> for &'a mut S
 where

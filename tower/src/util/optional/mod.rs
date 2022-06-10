@@ -62,8 +62,8 @@ where
     type Response = T::Response;
     type Error = crate::BoxError;
     type Future = ResponseFuture<T::Future>;
-    fn call(&mut self, request: Request) -> Self::Future {
-        let inner = self.inner.as_mut().map(|i| i.call(request));
+    fn call(mut self, request: Request) -> Self::Future {
+        let inner = self.inner.take().map(|i| i.call(request));
         ResponseFuture::new(inner)
     }
 }

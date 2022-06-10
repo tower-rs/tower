@@ -51,7 +51,6 @@ where
         S: Service<Req, Future = F> + Send + 'static,
         F: Send,
         S::Error: Into<crate::BoxError> + Send + Sync,
-        Req: Send + 'static,
     {
         let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
@@ -90,6 +89,7 @@ where
     E: Into<crate::BoxError>,
     Req: Send + 'static,
 {
+    type Call = CallBuffer;
     type Response = Rsp;
     type Error = crate::BoxError;
     type Future = ResponseFuture<F>;
@@ -107,27 +107,27 @@ where
             .map_err(|_| self.get_worker_error())
     }
 
-    fn call(&mut self, request: Req) -> Self::Future {
-        tracing::trace!("sending request to buffer worker");
+    // fn call(&mut self, request: Req) -> Self::Future {
+    //     tracing::trace!("sending request to buffer worker");
 
-        // get the current Span so that we can explicitly propagate it to the worker
-        // if we didn't do this, events on the worker related to this span wouldn't be counted
-        // towards that span since the worker would have no way of entering it.
-        let span = tracing::Span::current();
+    //     // get the current Span so that we can explicitly propagate it to the worker
+    //     // if we didn't do this, events on the worker related to this span wouldn't be counted
+    //     // towards that span since the worker would have no way of entering it.
+    //     let span = tracing::Span::current();
 
-        // If we've made it here, then a channel permit has already been
-        // acquired, so we can freely allocate a oneshot.
-        let (tx, rx) = oneshot::channel();
+    //     // If we've made it here, then a channel permit has already been
+    //     // acquired, so we can freely allocate a oneshot.
+    //     let (tx, rx) = oneshot::channel();
 
-        match self.tx.send_item(Message { request, span, tx }) {
-            Ok(_) => ResponseFuture::new(rx),
-            // If the channel is closed, propagate the error from the worker.
-            Err(_) => {
-                tracing::trace!("buffer channel closed");
-                ResponseFuture::failed(self.get_worker_error())
-            }
-        }
-    }
+    //     match self.tx.send_item(Message { request, span, tx }) {
+    //         Ok(_) => ResponseFuture::new(rx),
+    //         // If the channel is closed, propagate the error from the worker.
+    //         Err(_) => {
+    //             tracing::trace!("buffer channel closed");
+    //             ResponseFuture::failed(self.get_worker_error())
+    //         }
+    //     }
+    // }
 }
 
 impl<Req, F> Clone for Buffer<Req, F>
