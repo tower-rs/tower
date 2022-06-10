@@ -13,47 +13,55 @@ pin_project! {
     /// is ready, and then calling [`Service::call`] with the request, and
     /// waiting for that [`Future`].
     #[derive(Debug)]
-    pub struct Oneshot<S, Req, F> {
-        svc: S,
+    pub struct Oneshot<S: Service<Req>, Req> {
         #[pin]
-        state: State<Req, F>,
+        state: State<S, Req>,
     }
 }
 
 pin_project! {
     #[project = StateProj]
-    enum State<Req, F> {
+    enum State<S: Service<Req>, Req> {
         NotReady {
+            svc: S,
             req: Option<Req>,
         },
         Called {
             #[pin]
-            fut: F,
+            fut: S::Future,
         },
         Done,
     }
 }
 
-impl<Req, F> State<Req, F> {
-    fn not_ready(req: Req) -> Self {
-        Self::NotReady { req: Some(req) }
+impl<S: Service<Req>, Req> State<S, Req> {
+    fn not_ready(svc: S, req: Req) -> Self {
+        Self::NotReady {
+            svc,
+            req: Some(req),
+        }
     }
 
-    fn called(fut: F) -> Self {
+    fn called(fut: S::Future) -> Self {
         Self::Called { fut }
     }
 }
 
-impl<Req, F> fmt::Debug for State<Req, F>
+impl<S, Req> fmt::Debug for State<S, Req>
 where
+    S: Service<Req> + fmt::Debug,
     Req: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            State::NotReady { req: Some(req) } => {
-                f.debug_tuple("State::NotReady").field(req).finish()
-            }
-
+            State::NotReady {
+                svc,
+                req: Some(req),
+            } => f
+                .debug_tuple("State::NotReady")
+                .field(svc)
+                .field(req)
+                .finish(),
             State::NotReady { req: None, .. } => unreachable!(),
             State::Called { .. } => f.debug_tuple("State::Called").field(&"S::Future").finish(),
             State::Done => f.debug_tuple("State::Done").finish(),
@@ -61,32 +69,30 @@ where
     }
 }
 
-impl<S, Req, F> Oneshot<S, Req, F>
+impl<S, Req> Oneshot<S, Req>
 where
-    S: for<'a> Service<'a, Req, Future = F>,
+    S: Service<Req>,
 {
     #[allow(missing_docs)]
     pub fn new(svc: S, req: Req) -> Self {
         Oneshot {
-            svc,
-            state: State::not_ready(req),
+            state: State::not_ready(svc, req),
         }
     }
 }
 
-impl<S, Req, Rsp, Err, F> Future for Oneshot<S, Req, F>
+impl<S, Req> Future for Oneshot<S, Req>
 where
-    S: for<'a> Service<'a, Req, Error = Err, Response = Rsp, Future = F>,
-    F: Future<Output = Result<Rsp, Err>>,
+    S: Service<Req>,
 {
-    type Output = Result<Rsp, Err>;
+    type Output = Result<S::Response, S::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
         loop {
             match this.state.as_mut().project() {
-                StateProj::NotReady { req } => {
-                    let mut call = ready!(this.svc.poll_ready(cx))?;
+                StateProj::NotReady { svc, req } => {
+                    let call = ready!(svc.poll_ready(cx))?;
                     let f = call.call(req.take().expect("already called"));
                     this.state.set(State::called(f));
                 }

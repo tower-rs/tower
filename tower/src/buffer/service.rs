@@ -32,7 +32,7 @@ pub struct CallBuffer<Request, F> {
 
 impl<Req, F> Buffer<Req, F>
 where
-    F: 'static,
+    F: Send + 'static,
 {
     /// Creates a new [`Buffer`] wrapping `service`.
     ///
@@ -55,14 +55,11 @@ where
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
-    pub fn new<S, E>(service: S, bound: usize) -> Self
+    pub fn new<S>(service: S, bound: usize) -> Self
     where
-        S: for<'a> Service<'a, Req, Future = F, Error = E>,
-        S: Send + 'static,
-        F: Send,
+        S: Service<Req, Future = F> + Send + 'static,
+        S::Error: Into<crate::BoxError> + Send + Sync,
         Req: Send + 'static,
-        F: Send,
-        E: Into<crate::BoxError> + Send + Sync,
     {
         let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
@@ -74,14 +71,12 @@ where
     /// This is useful if you do not want to spawn directly onto the tokio runtime
     /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
-    pub fn pair<S, E>(service: S, bound: usize) -> (Self, Worker<S, Req, F>)
+    pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
     where
-        S: for<'a> Service<'a, Req, Future = F, Error = E>,
-        S: Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
         F: Send,
+        S::Error: Into<crate::BoxError> + Send + Sync,
         Req: Send + 'static,
-        F: Send,
-        E: Into<crate::BoxError> + Send + Sync,
     {
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
@@ -101,7 +96,7 @@ where
     }
 }
 
-impl<'a, Req, Rsp, E, F> Service<'a, Req> for Buffer<Req, F>
+impl<Req, Rsp, E, F> Service<Req> for Buffer<Req, F>
 where
     F: Future<Output = Result<Rsp, E>> + Send + 'static,
     E: Into<crate::BoxError>,

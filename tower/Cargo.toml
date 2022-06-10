@@ -88,6 +88,7 @@ tokio = { version = "1.6", features = ["macros", "sync", "test-util", "rt-multi-
 tokio-stream = "0.1"
 tokio-test = "0.4"
 tower-test = { version = "0.5", path = "../tower-test" }
+tracing = { version = "0.1.2", default-features = false, features = ["std"] }
 tracing-subscriber = "0.2.14"
 http = "0.2"
 

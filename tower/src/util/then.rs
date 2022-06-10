@@ -76,9 +76,9 @@ where
     }
 }
 
-impl<'a, S, F, Request, Response, Fut, Error> Service<'a, Request> for Then<S, F>
+impl<S, F, Request, Response, Fut, Error> Service<Request> for Then<S, F>
 where
-    S: Service<'a, Request>,
+    S: Service<Request>,
     S::Error: Into<Error>,
     F: FnOnce(Result<S::Response, S::Error>) -> Fut + Clone,
     Fut: Future<Output = Result<Response, Error>>,
@@ -88,12 +88,14 @@ where
     type Error = Error;
     type Future = ThenFuture<S::Future, Fut, F>;
 
-    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
-        let f = self.f.clone();
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         self.inner
             .poll_ready(cx)
             .map_err(Into::into)
-            .map_ok(|inner| Then { inner, f })
+            .map_ok(|inner| Then {
+                inner,
+                f: self.f.clone(),
+            })
     }
 }
 

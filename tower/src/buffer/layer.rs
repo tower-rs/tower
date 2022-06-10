@@ -41,14 +41,14 @@ impl<Request> BufferLayer<Request> {
     }
 }
 
-impl<S, Request, F, Error> Layer<S> for BufferLayer<Request>
+impl<S, Request> Layer<S> for BufferLayer<Request>
 where
-    S: for<'a> Service<'a, Request, Future = F, Error = Error> + Send + 'static,
-    F: Send + 'static,
-    Error: Into<crate::BoxError> + Send + Sync,
+    S: Service<Request> + Send + 'static,
+    S::Future: Send + 'static,
+    S::Error: Into<crate::BoxError> + Send + Sync,
     Request: Send + 'static,
 {
-    type Service = Buffer<Request, F>;
+    type Service = Buffer<Request, S::Future>;
 
     fn layer(&self, service: S) -> Self::Service {
         Buffer::new(service, self.bound)

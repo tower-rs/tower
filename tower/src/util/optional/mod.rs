@@ -23,18 +23,18 @@ pub struct Optional<T> {
 
 impl<T> Optional<T> {
     /// Create a new [`Optional`].
-    pub fn new<'a, Request>(inner: Option<T>) -> Optional<T>
+    pub fn new<Request>(inner: Option<T>) -> Optional<T>
     where
-        T: Service<'a, Request>,
+        T: Service<Request>,
         T::Error: Into<crate::BoxError>,
     {
         Optional { inner }
     }
 }
 
-impl<'a, T, Request> Service<'a, Request> for Optional<T>
+impl<T, Request> Service<Request> for Optional<T>
 where
-    T: Service<'a, Request>,
+    T: Service<Request>,
     T::Error: Into<crate::BoxError>,
 {
     type Call = Optional<T::Call>;
@@ -42,7 +42,7 @@ where
     type Error = crate::BoxError;
     type Future = ResponseFuture<T::Future>;
 
-    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         match self.inner {
             Some(ref mut inner) => match inner.poll_ready(cx) {
                 Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),

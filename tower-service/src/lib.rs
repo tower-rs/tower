@@ -333,7 +333,7 @@ pub trait Call<Request> {
     fn call(self, req: Request) -> Self::Future;
 }
 
-pub trait Service<'a, Request> {
+pub trait Service<Request> {
     type Call: Call<Request, Response = Self::Response, Error = Self::Error, Future = Self::Future>;
     type Error;
     type Response;
@@ -360,7 +360,7 @@ pub trait Service<'a, Request> {
     /// will always be invoked and to ensure that such resources are released if the service is
     /// dropped before `call` is invoked or the future returned by `call` is dropped before it
     /// is polled.
-    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>>;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>>;
 }
 
 // pub trait Service<Request>
@@ -370,30 +370,30 @@ pub trait Service<'a, Request> {
 // {
 // }
 
-impl<'a, S, Request> Service<'a, Request> for &'a mut S
+impl<'a, S, Request> Service<Request> for &'a mut S
 where
-    S: Service<'a, Request> + 'a,
+    S: Service<Request>,
 {
     type Call = S::Call;
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         (**self).poll_ready(cx)
     }
 }
 
-impl<'a, S, Request> Service<'a, Request> for Box<S>
+impl<S, Request> Service<Request> for Box<S>
 where
-    S: Service<'a, Request> + ?Sized,
+    S: Service<Request> + ?Sized,
 {
     type Call = S::Call;
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         (**self).poll_ready(cx)
     }
 }

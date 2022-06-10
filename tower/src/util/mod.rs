@@ -33,7 +33,7 @@ pub use self::{
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyOneshot},
-    service_fn::{service_fn, ServiceFn},
+    // service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
 
@@ -62,9 +62,7 @@ pub mod future {
 
 /// An extension trait for `Service`s that provides a variety of convenient
 /// adapters
-pub trait ServiceExt<Request, Rsp, Fut, Err>:
-    for<'a> tower_service::Service<'a, Request, Response = Rsp, Future = Fut, Error = Err>
-{
+pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// Yields a mutable reference to the service when it is ready to accept a request.
     fn ready(&mut self) -> Ready<'_, Self, Request>
     where
@@ -82,7 +80,7 @@ pub trait ServiceExt<Request, Rsp, Fut, Err>:
     }
 
     /// Consume this `Service`, calling with the providing request once it is ready.
-    fn oneshot(self, req: Request) -> Oneshot<Self, Request, Fut>
+    fn oneshot(self, req: Request) -> Oneshot<Self, Request>
     where
         Self: Sized,
     {
@@ -1114,10 +1112,7 @@ pub trait ServiceExt<Request, Rsp, Fut, Err>:
     //     }
 }
 
-impl<T: ?Sized, Request, Rsp, Fut, Err> ServiceExt<Request, Rsp, Fut, Err> for T where
-    T: for<'a> tower_service::Service<'a, Request, Response = Rsp, Future = Fut, Error = Err>
-{
-}
+impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Service<Request> {}
 
 // /// Convert an `Option<Layer>` into a [`Layer`].
 // ///

@@ -9,20 +9,21 @@ async fn service_driven_to_readiness() {
     // the service is ready.
     let _t = super::support::trace_init();
 
+    #[derive(Clone)]
     struct PollMeTwice {
         ready: bool,
     }
-    impl<'a> Service<'a, ()> for PollMeTwice {
-        type Call = &'a mut Self;
+    impl Service<()> for PollMeTwice {
+        type Call = Self;
         type Error = ();
         type Response = ();
         type Future = Pin<
             Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + Sync + 'static>,
         >;
 
-        fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
             if self.ready {
-                Poll::Ready(Ok(self))
+                Poll::Ready(Ok(self.clone()))
             } else {
                 self.ready = true;
                 cx.waker().wake_by_ref();
@@ -38,7 +39,7 @@ async fn service_driven_to_readiness() {
             Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + Sync + 'static>,
         >;
 
-        fn call(&mut self, _: ()) -> Self::Future {
+        fn call(self, _: ()) -> Self::Future {
             assert!(self.ready, "service not driven to readiness!");
             Box::pin(async { Ok(()) })
         }

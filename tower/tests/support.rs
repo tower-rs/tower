@@ -91,15 +91,15 @@ impl AssertSpanSvc {
     }
 }
 
-impl<'a> Service<'a, ()> for AssertSpanSvc {
-    type Call = &'a mut AssertSpanSvc;
+impl Service<()> for AssertSpanSvc {
+    type Call = AssertSpanSvc;
     type Response = ();
     type Error = AssertSpanError;
     type Future = future::Ready<Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         if self.polled {
-            return Poll::Ready(self.check("poll_ready").map(|_| self));
+            return Poll::Ready(self.check("poll_ready").map(|_| self.clone()));
         }
 
         cx.waker().wake_by_ref();
@@ -113,7 +113,7 @@ impl Call<()> for AssertSpanSvc {
     type Error = AssertSpanError;
     type Future = future::Ready<Result<Self::Response, Self::Error>>;
 
-    fn call(&mut self, _: ()) -> Self::Future {
+    fn call(self, _: ()) -> Self::Future {
         future::ready(self.check("call"))
     }
 }
