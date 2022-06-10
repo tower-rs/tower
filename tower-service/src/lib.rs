@@ -308,7 +308,7 @@ use std::task::{Context, Poll};
 ///     }
 /// }
 /// ```
-pub trait Service<Request> {
+pub trait Call<Request> {
     /// Responses given by the service.
     type Response;
 
@@ -317,6 +317,25 @@ pub trait Service<Request> {
 
     /// The future response value.
     type Future: Future<Output = Result<Self::Response, Self::Error>>;
+
+    /// Process the request and return the response asynchronously.
+    ///
+    /// This function is expected to be callable off task. As such,
+    /// implementations should take care to not call `poll_ready`.
+    ///
+    /// Before dispatching a request, `poll_ready` must be called and return
+    /// `Poll::Ready(Ok(()))`.
+    ///
+    /// # Panics
+    ///
+    /// Implementations are permitted to panic if `call` is invoked without
+    /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
+    fn call(&mut self, req: Request) -> Self::Future;
+}
+
+pub trait Ready<Request> {
+    type Call: Call<Request, Error = Self::Error>;
+    type Error;
 
     /// Returns `Poll::Ready(Ok(()))` when the service is able to process requests.
     ///
@@ -337,53 +356,62 @@ pub trait Service<Request> {
     /// will always be invoked and to ensure that such resources are released if the service is
     /// dropped before `call` is invoked or the future returned by `call` is dropped before it
     /// is polled.
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
-
-    /// Process the request and return the response asynchronously.
-    ///
-    /// This function is expected to be callable off task. As such,
-    /// implementations should take care to not call `poll_ready`.
-    ///
-    /// Before dispatching a request, `poll_ready` must be called and return
-    /// `Poll::Ready(Ok(()))`.
-    ///
-    /// # Panics
-    ///
-    /// Implementations are permitted to panic if `call` is invoked without
-    /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
-    fn call(&mut self, req: Request) -> Self::Future;
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>>;
 }
 
-impl<'a, S, Request> Service<Request> for &'a mut S
+// pub trait Service<Request>
+// where
+//     Self: Ready<Request, Call = Self>,
+//     Self: Call<Request, Error = <Self as Ready<Request>>::Error>,
+// {
+// }
+
+impl<'a, S, Request> Call<Request> for &'a mut S
 where
-    S: Service<Request> + 'a,
+    S: Call<Request> + 'a,
 {
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
-        (**self).poll_ready(cx)
-    }
 
     fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
     }
 }
 
-impl<S, Request> Service<Request> for Box<S>
+impl<S, Request> Call<Request> for Box<S>
 where
-    S: Service<Request> + ?Sized,
+    S: Call<Request> + ?Sized,
 {
     type Response = S::Response;
     type Error = S::Error;
     type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
-        (**self).poll_ready(cx)
-    }
-
     fn call(&mut self, request: Request) -> S::Future {
         (**self).call(request)
+    }
+}
+
+impl<'a, S, Request> Ready<Request> for &'a mut S
+where
+    S: Ready<Request> + 'a,
+{
+    type Call = S::Call;
+    type Error = S::Error;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        (**self).poll_ready(cx)
+    }
+}
+
+impl<S, Request> Ready<Request> for Box<S>
+where
+    S: Ready<Request> + ?Sized,
+{
+    type Call = S::Call;
+    type Error = S::Error;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        (**self).poll_ready(cx)
     }
 }
