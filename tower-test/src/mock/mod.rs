@@ -11,12 +11,15 @@ use core::task::Waker;
 
 use tokio::sync::{mpsc, oneshot};
 use tower_layer::Layer;
-use tower_service::Service;
+use tower_service::{Call, Service};
 
 use std::{
     collections::HashMap,
     future::Future,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     task::{Context, Poll},
     u64,
 };
@@ -55,11 +58,20 @@ where
 #[derive(Debug)]
 pub struct Mock<T, U> {
     id: u64,
-    tx: Mutex<Tx<T, U>>,
-    state: Arc<Mutex<State>>,
-    can_send: bool,
+    inner: Arc<MockInner<T, U>>,
 }
 
+#[derive(Debug)]
+pub struct CallMock<T, U> {
+    inner: Arc<MockInner<T, U>>,
+}
+
+#[derive(Debug)]
+struct MockInner<T, U> {
+    tx: Mutex<Tx<T, U>>,
+    can_send: AtomicBool,
+    state: Arc<Mutex<State>>,
+}
 /// Handle to the `Mock`.
 #[derive(Debug)]
 pub struct Handle<T, U> {
@@ -100,14 +112,15 @@ type Rx<T, U> = mpsc::UnboundedReceiver<Request<T, U>>;
 pub fn pair<T, U>() -> (Mock<T, U>, Handle<T, U>) {
     let (tx, rx) = mpsc::unbounded_channel();
     let tx = Mutex::new(tx);
-
     let state = Arc::new(Mutex::new(State::new()));
 
     let mock = Mock {
         id: 0,
-        tx,
-        state: state.clone(),
-        can_send: false,
+        inner: Arc::new(MockInner {
+            tx,
+            state: state.clone(),
+            can_send: AtomicBool::new(false),
+        }),
     };
 
     let handle = Handle { rx, state };
@@ -116,12 +129,13 @@ pub fn pair<T, U>() -> (Mock<T, U>, Handle<T, U>) {
 }
 
 impl<T, U> Service<T> for Mock<T, U> {
+    type Call = CallMock<T, U>;
     type Response = U;
     type Error = Error;
     type Future = ResponseFuture<U>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let mut state = self.state.lock().unwrap();
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        let mut state = self.inner.state.lock().unwrap();
 
         if state.is_closed {
             return Poll::Ready(Err(error::Closed::new().into()));
@@ -131,17 +145,22 @@ impl<T, U> Service<T> for Mock<T, U> {
             return Poll::Ready(Err(e));
         }
 
-        if self.can_send {
-            return Poll::Ready(Ok(()));
+        if self.inner.can_send.load(Ordering::SeqCst) {
+            drop(state);
+            return Poll::Ready(Ok(CallMock {
+                inner: self.inner.clone(),
+            }));
         }
 
         if state.rem > 0 {
             assert!(!state.tasks.contains_key(&self.id));
 
             // Returning `Ready` means the next call to `call` must succeed.
-            self.can_send = true;
-
-            Poll::Ready(Ok(()))
+            self.inner.can_send.store(true, Ordering::SeqCst);
+            drop(state);
+            return Poll::Ready(Ok(CallMock {
+                inner: self.inner.clone(),
+            }));
         } else {
             // Bit weird... but whatevz
             *state
@@ -152,20 +171,28 @@ impl<T, U> Service<T> for Mock<T, U> {
             Poll::Pending
         }
     }
+}
 
-    fn call(&mut self, request: T) -> Self::Future {
+impl<'a, T, U> Call<T> for CallMock<T, U> {
+    type Response = U;
+    type Error = Error;
+    type Future = ResponseFuture<U>;
+    fn call(self, request: T) -> Self::Future {
         // Make sure that the service has capacity
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.inner.state.lock().unwrap();
 
         if state.is_closed {
             return ResponseFuture::closed();
         }
 
-        if !self.can_send {
+        if self
+            .inner
+            .can_send
+            .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
             panic!("service not ready; poll_ready must be called first");
         }
-
-        self.can_send = false;
 
         // Decrement the number of remaining requests that can be sent
         if state.rem > 0 {
@@ -175,7 +202,7 @@ impl<T, U> Service<T> for Mock<T, U> {
         let (tx, rx) = oneshot::channel();
         let send_response = SendResponse { tx };
 
-        match self.tx.lock().unwrap().send((request, send_response)) {
+        match self.inner.tx.lock().unwrap().send((request, send_response)) {
             Ok(_) => {}
             Err(_) => {
                 // TODO: Can this be reached
@@ -190,7 +217,7 @@ impl<T, U> Service<T> for Mock<T, U> {
 impl<T, U> Clone for Mock<T, U> {
     fn clone(&self) -> Self {
         let id = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.inner.state.lock().unwrap();
             let id = state.next_clone_id;
 
             state.next_clone_id += 1;
@@ -198,20 +225,22 @@ impl<T, U> Clone for Mock<T, U> {
             id
         };
 
-        let tx = Mutex::new(self.tx.lock().unwrap().clone());
+        let tx = Mutex::new(self.inner.tx.lock().unwrap().clone());
 
         Mock {
             id,
-            tx,
-            state: self.state.clone(),
-            can_send: false,
+            inner: Arc::new(MockInner {
+                tx,
+                state: self.inner.state.clone(),
+                can_send: AtomicBool::new(false),
+            }),
         }
     }
 }
 
 impl<T, U> Drop for Mock<T, U> {
     fn drop(&mut self) {
-        let mut state = match self.state.lock() {
+        let mut state = match self.inner.state.lock() {
             Ok(v) => v,
             Err(e) => {
                 if ::std::thread::panicking() {

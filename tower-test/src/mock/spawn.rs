@@ -31,7 +31,7 @@ impl<T> Spawn<T> {
     }
 
     /// Poll this service ready.
-    pub fn poll_ready<Request>(&mut self) -> Poll<Result<(), T::Error>>
+    pub fn poll_ready<Request>(&mut self) -> Poll<Result<T::Call, T::Error>>
     where
         T: Service<Request>,
     {
@@ -39,14 +39,6 @@ impl<T> Spawn<T> {
         let inner = &mut self.inner;
 
         task.enter(|cx, _| inner.poll_ready(cx))
-    }
-
-    /// Call the inner Service.
-    pub fn call<Request>(&mut self, req: Request) -> T::Future
-    where
-        T: Service<Request>,
-    {
-        self.inner.call(req)
     }
 
     /// Get the inner service.
