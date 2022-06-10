@@ -9,7 +9,7 @@ pub mod future;
 
 use self::future::ResponseFuture;
 use std::task::{Context, Poll};
-use tower_service::Service;
+use tower_service::{Call, Service};
 
 /// Optionally forwards requests to an inner service.
 ///
@@ -23,35 +23,45 @@ pub struct Optional<T> {
 
 impl<T> Optional<T> {
     /// Create a new [`Optional`].
-    pub fn new<Request>(inner: Option<T>) -> Optional<T>
+    pub fn new<'a, Request>(inner: Option<T>) -> Optional<T>
     where
-        T: Service<Request>,
+        T: Service<'a, Request>,
         T::Error: Into<crate::BoxError>,
     {
         Optional { inner }
     }
 }
 
-impl<T, Request> Service<Request> for Optional<T>
+impl<'a, T, Request> Service<'a, Request> for Optional<T>
 where
-    T: Service<Request>,
+    T: Service<'a, Request>,
+    T::Error: Into<crate::BoxError>,
+{
+    type Call = Optional<T::Call>;
+    type Response = T::Response;
+    type Error = crate::BoxError;
+    type Future = ResponseFuture<T::Future>;
+
+    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        match self.inner {
+            Some(ref mut inner) => match inner.poll_ready(cx) {
+                Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+                Poll::Ready(Ok(inner)) => Poll::Ready(Ok(Optional { inner: Some(inner) })),
+                Poll::Pending => Poll::Pending,
+            },
+            // None services are always ready
+            None => Poll::Ready(Ok(Optional { inner: None })),
+        }
+    }
+}
+impl<T, Request> Call<Request> for Optional<T>
+where
+    T: Call<Request>,
     T::Error: Into<crate::BoxError>,
 {
     type Response = T::Response;
     type Error = crate::BoxError;
     type Future = ResponseFuture<T::Future>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        match self.inner {
-            Some(ref mut inner) => match inner.poll_ready(cx) {
-                Poll::Ready(r) => Poll::Ready(r.map_err(Into::into)),
-                Poll::Pending => Poll::Pending,
-            },
-            // None services are always ready
-            None => Poll::Ready(Ok(())),
-        }
-    }
-
     fn call(&mut self, request: Request) -> Self::Future {
         let inner = self.inner.as_mut().map(|i| i.call(request));
         ResponseFuture::new(inner)

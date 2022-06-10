@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
-use tower::Service;
+use tower::{Call, Service};
 
 pub(crate) fn trace_init() -> tracing::subscriber::DefaultGuard {
     let subscriber = tracing_subscriber::fmt()
@@ -91,20 +91,27 @@ impl AssertSpanSvc {
     }
 }
 
-impl Service<()> for AssertSpanSvc {
+impl<'a> Service<'a, ()> for AssertSpanSvc {
+    type Call = &'a mut AssertSpanSvc;
     type Response = ();
     type Error = AssertSpanError;
     type Future = future::Ready<Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         if self.polled {
-            return Poll::Ready(self.check("poll_ready"));
+            return Poll::Ready(self.check("poll_ready").map(|_| self));
         }
 
         cx.waker().wake_by_ref();
         self.polled = true;
         Poll::Pending
     }
+}
+
+impl Call<()> for AssertSpanSvc {
+    type Response = ();
+    type Error = AssertSpanError;
+    type Future = future::Ready<Result<Self::Response, Self::Error>>;
 
     fn call(&mut self, _: ()) -> Self::Future {
         future::ready(self.check("call"))

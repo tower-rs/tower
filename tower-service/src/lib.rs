@@ -333,9 +333,13 @@ pub trait Call<Request> {
     fn call(&mut self, req: Request) -> Self::Future;
 }
 
-pub trait Ready<Request> {
-    type Call: Call<Request, Error = Self::Error>;
+pub trait Service<'a, Request> {
+    type Call: Call<Request, Response = Self::Response, Error = Self::Error, Future = Self::Future>;
     type Error;
+    type Response;
+
+    /// The future response value.
+    type Future: Future<Output = Result<Self::Response, Self::Error>>;
 
     /// Returns `Poll::Ready(Ok(()))` when the service is able to process requests.
     ///
@@ -356,7 +360,7 @@ pub trait Ready<Request> {
     /// will always be invoked and to ensure that such resources are released if the service is
     /// dropped before `call` is invoked or the future returned by `call` is dropped before it
     /// is polled.
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>>;
+    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>>;
 }
 
 // pub trait Service<Request>
@@ -392,26 +396,30 @@ where
     }
 }
 
-impl<'a, S, Request> Ready<Request> for &'a mut S
+impl<'a, S, Request> Service<'a, Request> for &'a mut S
 where
-    S: Ready<Request> + 'a,
+    S: Service<'a, Request> + 'a,
 {
     type Call = S::Call;
+    type Response = S::Response;
     type Error = S::Error;
+    type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         (**self).poll_ready(cx)
     }
 }
 
-impl<S, Request> Ready<Request> for Box<S>
+impl<'a, S, Request> Service<'a, Request> for Box<S>
 where
-    S: Ready<Request> + ?Sized,
+    S: Service<'a, Request> + ?Sized,
 {
     type Call = S::Call;
+    type Response = S::Response;
     type Error = S::Error;
+    type Future = S::Future;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
         (**self).poll_ready(cx)
     }
 }

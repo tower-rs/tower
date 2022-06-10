@@ -5,7 +5,7 @@ use std::{
     task::{Context, Poll},
 };
 use tower_layer::Layer;
-use tower_service::Service;
+use tower_service::{Call, Service};
 
 /// [`Service`] returned by the [`then`] combinator.
 ///
@@ -59,9 +59,9 @@ opaque_future! {
     pub type ThenFuture<F1, F2, N> = future::Then<F1, F2, N>;
 }
 
-impl<S, F, Request, Response, Error, Fut> Service<Request> for Then<S, F>
+impl<S, F, Request, Response, Error, Fut> Call<Request> for Then<S, F>
 where
-    S: Service<Request>,
+    S: Call<Request>,
     S::Error: Into<Error>,
     F: FnOnce(Result<S::Response, S::Error>) -> Fut + Clone,
     Fut: Future<Output = Result<Response, Error>>,
@@ -71,13 +71,29 @@ where
     type Future = ThenFuture<S::Future, Fut, F>;
 
     #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(Into::into)
-    }
-
-    #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
         ThenFuture::new(self.inner.call(request).then(self.f.clone()))
+    }
+}
+
+impl<'a, S, F, Request, Response, Fut, Error> Service<'a, Request> for Then<S, F>
+where
+    S: Service<'a, Request>,
+    S::Error: Into<Error>,
+    F: FnOnce(Result<S::Response, S::Error>) -> Fut + Clone,
+    Fut: Future<Output = Result<Response, Error>>,
+{
+    type Call = Then<S::Call, F>;
+    type Response = Response;
+    type Error = Error;
+    type Future = ThenFuture<S::Future, Fut, F>;
+
+    fn poll_ready(&'a mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        let f = self.f.clone();
+        self.inner
+            .poll_ready(cx)
+            .map_err(Into::into)
+            .map_ok(|inner| Then { inner, f })
     }
 }
 

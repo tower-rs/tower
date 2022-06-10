@@ -1,6 +1,5 @@
 use std::{fmt, marker::PhantomData};
 
-use futures_core::ready;
 use std::{
     future::Future,
     pin::Pin,
@@ -21,9 +20,9 @@ pub struct ReadyOneshot<T, Request> {
 // Safety: This is safe because `Services`'s are always `Unpin`.
 impl<T, Request> Unpin for ReadyOneshot<T, Request> {}
 
-impl<T, Request> ReadyOneshot<T, Request>
+impl<'a, T, Request> ReadyOneshot<T, Request>
 where
-    T: Service<Request>,
+    T: Service<'a, Request>,
 {
     #[allow(missing_docs)]
     pub fn new(service: T) -> Self {
@@ -34,20 +33,17 @@ where
     }
 }
 
-impl<T, Request> Future for ReadyOneshot<T, Request>
+impl<T, Call, Request, Error> Future for ReadyOneshot<T, Request>
 where
-    T: Service<Request>,
+    T: for<'a> Service<'a, Request, Call = Call, Error = Error>,
 {
-    type Output = Result<T, T::Error>;
+    type Output = Result<Call, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        ready!(self
-            .inner
+        self.inner
             .as_mut()
             .expect("poll after Poll::Ready")
-            .poll_ready(cx))?;
-
-        Poll::Ready(Ok(self.inner.take().expect("poll after Poll::Ready")))
+            .poll_ready(cx)
     }
 }
 
@@ -74,7 +70,7 @@ impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
 
 impl<'a, T, Request> Ready<'a, T, Request>
 where
-    T: Service<Request>,
+    T: Service<'a, Request>,
 {
     #[allow(missing_docs)]
     pub fn new(service: &'a mut T) -> Self {
@@ -82,11 +78,12 @@ where
     }
 }
 
-impl<'a, T, Request> Future for Ready<'a, T, Request>
+impl<'a, T, Request, Call, Error> Future for Ready<'a, T, Request>
 where
-    T: Service<Request>,
+    T: Service<'a, Request>,
+    ReadyOneshot<&'a mut T, Request>: Future<Output = Result<Call, Error>>,
 {
-    type Output = Result<&'a mut T, T::Error>;
+    type Output = Result<Call, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0).poll(cx)
