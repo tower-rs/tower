@@ -7,6 +7,7 @@ use std::fmt;
 /// called.
 ///
 /// [`LoadShed`]: crate::load_shed::LoadShed
+#[derive(Default)]
 pub struct Overloaded {
     _p: (),
 }
