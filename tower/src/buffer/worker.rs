@@ -134,9 +134,11 @@ where
 
         let mut inner = self.handle.inner.error.lock().unwrap();
 
-        if inner.is_none() {
+        if inner.is_some() {
+            // Future::poll was called after we've already errored out!
             return;
         }
+
         *inner = Some(error.clone());
         drop(inner);
 
