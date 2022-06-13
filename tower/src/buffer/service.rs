@@ -25,6 +25,7 @@ pub struct Buffer<Request, F> {
     handle: Handle,
 }
 
+#[derive(Debug)]
 pub struct CallBuffer<Request, F> {
     permit: mpsc::OwnedPermit<Message<Request, F>>,
     handle: Handle,
