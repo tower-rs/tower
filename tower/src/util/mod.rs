@@ -33,7 +33,7 @@ pub use self::{
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyOneshot},
-    // service_fn::{service_fn, ServiceFn},
+    service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
 
