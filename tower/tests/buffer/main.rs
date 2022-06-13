@@ -416,8 +416,6 @@ async fn doesnt_leak_permits() {
     // It should also be possible to drive the second clone of the service to
     // readiness --- it should only acquire one permit, as well.
     let _call2 = assert_ready_ok!(task::spawn(service2.ready()).poll());
-    assert_pending!(task::spawn(service2.ready()).poll());
-    assert_pending!(task::spawn(service1.ready()).poll());
 
     // The third clone *doesn't* poll ready, because the first two clones have
     // each acquired one permit.
