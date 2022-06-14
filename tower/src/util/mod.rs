@@ -1,6 +1,6 @@
 //! Various utility types and functions that are generally used with Tower.
 
-// mod and_then;
+mod and_then;
 // mod boxed;
 // mod boxed_clone;
 // mod call_all;
@@ -8,11 +8,10 @@
 
 // mod future_service;
 // mod map_err;
-// mod map_request;
+mod map_request;
 // mod map_response;
 // mod map_result;
-
-// mod map_future;
+mod map_future;
 mod oneshot;
 mod optional;
 mod ready;
@@ -20,14 +19,14 @@ mod service_fn;
 mod then;
 
 pub use self::{
-    // and_then::{AndThen, AndThenLayer},
+    and_then::{AndThen, AndThenLayer},
     // boxed::{BoxLayer, BoxService, UnsyncBoxService},
     // boxed_clone::BoxCloneService,
     // either::Either,
     // future_service::{future_service, FutureService},
     // map_err::{MapErr, MapErrLayer},
-    // map_future::{MapFuture, MapFutureLayer},
-    // map_request::{MapRequest, MapRequestLayer},
+    map_future::{MapFuture, MapFutureLayer},
+    map_request::{MapRequest, MapRequestLayer},
     // map_response::{MapResponse, MapResponseLayer},
     // map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
@@ -51,7 +50,7 @@ pub mod error {
 pub mod future {
     //! Future types
 
-    // pub use super::and_then::AndThenFuture;
+    pub use super::and_then::AndThenFuture;
     // pub use super::either::EitherResponseFuture;
     // pub use super::map_err::MapErrFuture;
     // pub use super::map_response::MapResponseFuture;
@@ -103,73 +102,73 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     //     CallAll::new(self, reqs)
     // }
 
-    // /// Executes a new future after this service's future resolves. This does
-    // /// not alter the behaviour of the [`poll_ready`] method.
-    // ///
-    // /// This method can be used to change the [`Response`] type of the service
-    // /// into a different type. You can use this method to chain along a computation once the
-    // /// service's response has been resolved.
-    // ///
-    // /// [`Response`]: crate::Service::Response
-    // /// [`poll_ready`]: crate::Service::poll_ready
-    // ///
-    // /// # Example
-    // /// ```
-    // /// # use std::task::{Poll, Context};
-    // /// # use tower::{Service, ServiceExt};
-    // /// #
-    // /// # struct DatabaseService;
-    // /// # impl DatabaseService {
-    // /// #   fn new(address: &str) -> Self {
-    // /// #       DatabaseService
-    // /// #   }
-    // /// # }
-    // /// #
-    // /// # struct Record {
-    // /// #   pub name: String,
-    // /// #   pub age: u16
-    // /// # }
-    // /// #
-    // /// # impl Service<u32> for DatabaseService {
-    // /// #   type Response = Record;
-    // /// #   type Error = u8;
-    // /// #   type Future = futures_util::future::Ready<Result<Record, u8>>;
-    // /// #
-    // /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-    // /// #       Poll::Ready(Ok(()))
-    // /// #   }
-    // /// #
-    // /// #   fn call(&mut self, request: u32) -> Self::Future {
-    // /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
-    // /// #   }
-    // /// # }
-    // /// #
-    // /// # async fn avatar_lookup(name: String) -> Result<Vec<u8>, u8> { Ok(vec![]) }
-    // /// #
-    // /// # fn main() {
-    // /// #    async {
-    // /// // A service returning Result<Record, _>
-    // /// let service = DatabaseService::new("127.0.0.1:8080");
-    // ///
-    // /// // Map the response into a new response
-    // /// let mut new_service = service.and_then(|record: Record| async move {
-    // ///     let name = record.name;
-    // ///     avatar_lookup(name).await
-    // /// });
-    // ///
-    // /// // Call the new service
-    // /// let id = 13;
-    // /// let avatar = new_service.call(id).await.unwrap();
-    // /// #    };
-    // /// # }
-    // /// ```
-    // fn and_then<F>(self, f: F) -> AndThen<Self, F>
-    // where
-    //     Self: Sized,
-    //     F: Clone,
-    // {
-    //     AndThen::new(self, f)
-    // }
+    /// Executes a new future after this service's future resolves. This does
+    /// not alter the behaviour of the [`poll_ready`] method.
+    ///
+    /// This method can be used to change the [`Response`] type of the service
+    /// into a different type. You can use this method to chain along a computation once the
+    /// service's response has been resolved.
+    ///
+    /// [`Response`]: crate::Service::Response
+    /// [`poll_ready`]: crate::Service::poll_ready
+    ///
+    /// # Example
+    /// ```
+    /// # use std::task::{Poll, Context};
+    /// # use tower::{Service, ServiceExt};
+    /// #
+    /// # struct DatabaseService;
+    /// # impl DatabaseService {
+    /// #   fn new(address: &str) -> Self {
+    /// #       DatabaseService
+    /// #   }
+    /// # }
+    /// #
+    /// # struct Record {
+    /// #   pub name: String,
+    /// #   pub age: u16
+    /// # }
+    /// #
+    /// # impl Service<u32> for DatabaseService {
+    /// #   type Response = Record;
+    /// #   type Error = u8;
+    /// #   type Future = futures_util::future::Ready<Result<Record, u8>>;
+    /// #
+    /// #   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    /// #       Poll::Ready(Ok(()))
+    /// #   }
+    /// #
+    /// #   fn call(&mut self, request: u32) -> Self::Future {
+    /// #       futures_util::future::ready(Ok(Record { name: "Jack".into(), age: 32 }))
+    /// #   }
+    /// # }
+    /// #
+    /// # async fn avatar_lookup(name: String) -> Result<Vec<u8>, u8> { Ok(vec![]) }
+    /// #
+    /// # fn main() {
+    /// #    async {
+    /// // A service returning Result<Record, _>
+    /// let service = DatabaseService::new("127.0.0.1:8080");
+    ///
+    /// // Map the response into a new response
+    /// let mut new_service = service.and_then(|record: Record| async move {
+    ///     let name = record.name;
+    ///     avatar_lookup(name).await
+    /// });
+    ///
+    /// // Call the new service
+    /// let id = 13;
+    /// let avatar = new_service.call(id).await.unwrap();
+    /// #    };
+    /// # }
+    /// ```
+    fn and_then<F>(self, f: F) -> AndThen<Self, F>
+    where
+        Self: Sized,
+        F: Clone,
+    {
+        AndThen::new(self, f)
+    }
 
     //     /// Maps this service's response value to a different value. This does not
     //     /// alter the behaviour of the [`poll_ready`] method.

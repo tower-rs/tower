@@ -5,7 +5,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
-use tower_service::Service;
+use tower_service::{Call, Service};
 
 /// Service returned by the [`and_then`] combinator.
 ///
@@ -95,16 +95,36 @@ where
     F: FnOnce(S::Response) -> Fut + Clone,
     Fut: TryFuture,
 {
+    type Call = AndThen<S::Call, F>;
     type Response = Fut::Ok;
     type Error = Fut::Error;
     type Future = AndThenFuture<S::Future, Fut, F>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(Into::into)
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        self.inner
+            .poll_ready(cx)
+            .map_ok(|inner| AndThen {
+                inner,
+                f: self.f.clone(),
+            })
+            .map_err(Into::into)
     }
+}
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        AndThenFuture::new(self.inner.call(request).err_into().and_then(self.f.clone()))
+impl<C, F, Request, Fut> Call<Request> for AndThen<C, F>
+where
+    C: Call<Request>,
+    C::Error: Into<Fut::Error>,
+    F: FnOnce(C::Response) -> Fut + Clone,
+    Fut: TryFuture,
+{
+    type Response = Fut::Ok;
+    type Error = Fut::Error;
+    type Future = AndThenFuture<C::Future, Fut, F>;
+
+    fn call(self, request: Request) -> Self::Future {
+        let Self { f, inner } = self;
+        AndThenFuture::new(inner.call(request).err_into().and_then(f))
     }
 }
 

@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 use tower_layer::Layer;
-use tower_service::Service;
+use tower_service::{Call, Service};
 
 /// [`Service`] returned by the [`map_future`] combinator.
 ///
@@ -49,6 +49,29 @@ impl<S, F> MapFuture<S, F> {
 impl<R, S, F, T, E, Fut> Service<R> for MapFuture<S, F>
 where
     S: Service<R>,
+    F: FnMut(S::Future) -> Fut + Clone,
+    E: From<S::Error>,
+    Fut: Future<Output = Result<T, E>>,
+{
+    type Call = MapFuture<S::Call, F>;
+    type Response = T;
+    type Error = E;
+    type Future = Fut;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<Self::Call, Self::Error>> {
+        self.inner
+            .poll_ready(cx)
+            .map_err(From::from)
+            .map_ok(|inner| MapFuture {
+                inner,
+                f: self.f.clone(),
+            })
+    }
+}
+
+impl<R, S, F, T, E, Fut> Call<R> for MapFuture<S, F>
+where
+    S: Call<R>,
     F: FnMut(S::Future) -> Fut,
     E: From<S::Error>,
     Fut: Future<Output = Result<T, E>>,
@@ -57,11 +80,7 @@ where
     type Error = E;
     type Future = Fut;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(From::from)
-    }
-
-    fn call(&mut self, req: R) -> Self::Future {
+    fn call(mut self, req: R) -> Self::Future {
         (self.f)(self.inner.call(req))
     }
 }
