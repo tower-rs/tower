@@ -209,6 +209,9 @@ async fn many_unready() {
         ));
     }
 
+    // *** OR fix this by disabling cooperative scheduling on the balancer task ***
+    // tokio::task::unconstrained(cache.ready()).await.unwrap();
     cache.ready().await.unwrap();
+
     drop(tasks);
 }
