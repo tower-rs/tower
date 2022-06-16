@@ -11,6 +11,8 @@ use tower_service::Service;
 use tower_test::mock;
 
 type Req = &'static str;
+
+#[derive(Debug)]
 struct Mock(mock::Mock<Req, Req>);
 
 impl Service<Req> for Mock {
@@ -167,4 +169,44 @@ fn stress() {
             }
         }
     }
+}
+
+/// Reproduces https://github.com/tower-rs/tower/issues/415
+#[tokio::test]
+async fn many_unready() {
+    use tower::util::ServiceExt;
+
+    let _t = support::trace_init();
+
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
+    let cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
+
+    let mut handles = Vec::new();
+    for i in 0..256 {
+        let (svc, mut handle) = mock::pair::<Req, Req>();
+        if i == 255 {
+            handle.send_error("bang");
+        } else {
+            handle.allow(0);
+            handles.push(handle);
+        }
+        let svc = Mock(svc);
+        tx.send(Ok(Change::Insert(i, svc))).unwrap();
+    }
+    let task = tokio::spawn(async move {
+        let mut cache = cache;
+        cache.ready().await.unwrap();
+    });
+
+    tokio::task::yield_now().await;
+
+    for (idx, handle) in handles.iter_mut().enumerate() {
+        tx.send(Ok(Change::Remove(idx))).unwrap();
+
+        handle.allow(1);
+    }
+
+    tokio::task::yield_now().await;
+
+    task.await.unwrap();
 }
