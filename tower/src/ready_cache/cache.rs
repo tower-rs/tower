@@ -400,12 +400,9 @@ where
 
 // === Pending ===
 
-// Safety: No use unsafe access therefore this is safe.
-impl<K, S, Req> Unpin for Pending<K, S, Req> {}
-
 impl<K, S, Req> Future for Pending<K, S, Req>
 where
-    S: Service<Req>,
+    S: Service<Req> + Unpin,
 {
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
