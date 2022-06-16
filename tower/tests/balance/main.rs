@@ -186,12 +186,8 @@ async fn many_unready() {
     let mut handles = Vec::new();
     for i in 0..BIG_NUMBER {
         let (svc, mut handle) = mock::pair::<Req, Req>();
-        if i == (BIG_NUMBER - 1) {
-            handle.send_error("bang");
-        } else {
-            handle.allow(0);
-            handles.push(handle);
-        }
+        handle.allow(0);
+        handles.push(handle);
         let svc = Mock(svc);
         tx.send(Ok(Change::Insert(i, svc))).unwrap();
     }
