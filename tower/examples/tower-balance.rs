@@ -143,7 +143,7 @@ async fn run<D>(name: &'static str, lb: lb::p2c::Balance<D, Req>)
 where
     D: Discover + Unpin + Send + 'static,
     D::Error: Into<Error>,
-    D::Key: Clone + Send + Hash,
+    D::Key: Clone + Send + Hash + std::fmt::Debug,
     D::Service: Service<Req, Response = Rsp> + load::Load + Send,
     <D::Service as Service<Req>>::Error: Into<Error>,
     <D::Service as Service<Req>>::Future: Send,

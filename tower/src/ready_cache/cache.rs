@@ -158,30 +158,51 @@ where
     pub fn pending_contains<Q: Hash + Equivalent<K>>(&self, key: &Q) -> bool {
         self.pending_cancel_txs.contains_key(key)
     }
+}
 
+impl<K, S, Req> ReadyCache<K, S, Req>
+where
+    K: fmt::Debug + Eq + Hash,
+{
     /// Obtains a reference to a service in the ready set by key.
-    pub fn get_ready<Q: Hash + Equivalent<K>>(&self, key: &Q) -> Option<(usize, &K, &S)> {
-        self.ready.get_full(key).map(|(i, k, v)| (i, k, &v.0))
+    pub fn get_ready<Q: Hash + Equivalent<K> + fmt::Debug>(&self, key: &Q) -> Option<(usize, &K, &S)> {
+        let res = self.ready.get_full(key).map(|(i, k, v)| {
+            tracing::trace!(query = ?key, index = i, key = ?k, "get_ready");
+            (i, k, &v.0)
+        });
+        if res.is_none() {
+            tracing::trace!(query = ?key, "get_ready: None");
+        }
+        res
     }
 
     /// Obtains a mutable reference to a service in the ready set by key.
-    pub fn get_ready_mut<Q: Hash + Equivalent<K>>(
+    pub fn get_ready_mut<Q: Hash + Equivalent<K> + fmt::Debug>(
         &mut self,
         key: &Q,
     ) -> Option<(usize, &K, &mut S)> {
-        self.ready
-            .get_full_mut(key)
-            .map(|(i, k, v)| (i, k, &mut v.0))
+        let res = self.ready.get_full_mut(key).map(|(i, k, v)| {
+            tracing::trace!(query = ?key, index = i, key = ?k, "get_ready_mut");
+            (i, k, &mut v.0)
+        });
+        if res.is_none() {
+            tracing::trace!(query = ?key, "get_ready_mut: None");
+        }
+        res
     }
 
     /// Obtains a reference to a service in the ready set by index.
     pub fn get_ready_index(&self, idx: usize) -> Option<(&K, &S)> {
-        self.ready.get_index(idx).map(|(k, v)| (k, &v.0))
+        let res = self.ready.get_index(idx).map(|(k, v)| (k, &v.0));
+        tracing::trace!(index = idx, key = ?res.as_ref().map(|(k, _)| k), "get_ready_index");
+        res
     }
 
     /// Obtains a mutable reference to a service in the ready set by index.
     pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&mut K, &mut S)> {
-        self.ready.get_index_mut(idx).map(|(k, v)| (k, &mut v.0))
+        let res = self.ready.get_index_mut(idx).map(|(k, v)| (k, &mut v.0));
+        tracing::trace!(index = idx, key = ?res.as_ref().map(|(k, _)| k), "get_ready_index_mut");
+        res
     }
 
     /// Evicts an item from the cache.
@@ -230,6 +251,7 @@ where
     ///
     /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
     pub fn push(&mut self, key: K, svc: S) {
+        tracing::trace!(?key, "push new");
         let cancel = oneshot::channel();
         self.push_pending(key, svc, cancel);
     }
@@ -269,7 +291,7 @@ where
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Ready(Some(Ok((key, svc, cancel_rx)))) => {
-                    trace!("endpoint ready");
+                    trace!(?key, "endpoint ready");
                     let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
                     tracing::trace!(
                         ?key,
@@ -295,11 +317,11 @@ where
                         // We assert that this can't happen in debug mode so that hopefully one day
                         // we can find a test that triggers this reliably.
                         debug_assert!(cancel_tx.is_some());
-                        debug!("canceled endpoint removed when ready");
+                        debug!(?key, "canceled endpoint removed when ready");
                     }
                 }
-                Poll::Ready(Some(Err(PendingError::Canceled(_)))) => {
-                    debug!("endpoint canceled");
+                Poll::Ready(Some(Err(PendingError::Canceled(key)))) => {
+                    debug!(?key, "endpoint canceled");
                     // The cancellation for this service was removed in order to
                     // cause this cancellation.
                 }
@@ -315,7 +337,7 @@ where
                     } else {
                         // See comment for the same clause under Ready(Some(Ok)).
                         debug_assert!(cancel_tx.is_some());
-                        debug!("canceled endpoint removed on error");
+                        debug!(?key, "canceled endpoint removed on error");
                     }
                 }
             }
@@ -326,15 +348,18 @@ where
     ///
     /// Returns true if the endpoint is ready and false if it is not. An error is
     /// returned if the endpoint fails.
-    pub fn check_ready<Q: Hash + Equivalent<K>>(
+    pub fn check_ready<Q: Hash + Equivalent<K> + fmt::Debug>(
         &mut self,
         cx: &mut Context<'_>,
         key: &Q,
     ) -> Result<bool, error::Failed<K>> {
-        match self.ready.get_full_mut(key) {
+        let result = match self.ready.get_full_mut(key) {
             Some((index, _, _)) => self.check_ready_index(cx, index),
             None => Ok(false),
-        }
+        };
+        tracing::trace!(?key, ?result, "check_ready");
+        result
+
     }
 
     /// Checks whether the referenced endpoint is ready.
@@ -386,11 +411,12 @@ where
     /// # Panics
     ///
     /// If the specified key does not exist in the ready
-    pub fn call_ready<Q: Hash + Equivalent<K>>(&mut self, key: &Q, req: Req) -> S::Future {
+    pub fn call_ready<Q: Hash + Equivalent<K> + fmt::Debug>(&mut self, key: &Q, req: Req) -> S::Future {
         let (index, _, _) = self
             .ready
             .get_full_mut(key)
             .expect("check_ready was not called");
+        tracing::trace!(?key, index, "call_ready");
         self.call_ready_index(index, req)
     }
 
@@ -429,13 +455,16 @@ impl<K, S, Req> Unpin for Pending<K, S, Req> {}
 impl<K, S, Req> Future for Pending<K, S, Req>
 where
     S: Service<Req>,
+    K: fmt::Debug,
 {
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        tracing::trace!(key = ?self.key, "Pending::poll");
         let mut fut = self.cancel.as_mut().expect("polled after complete");
         if let Poll::Ready(r) = Pin::new(&mut fut).poll(cx) {
-            assert!(r.is_ok(), "cancel sender lost");
+            assert!(r.is_ok(), "cancel sender lost (key = {:?})", self.key);
+            tracing::trace!(key = ?self.key, "Pending::poll -> Canceled");
             let key = self.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key)).into();
         }
@@ -446,13 +475,18 @@ where
             .expect("polled after ready")
             .poll_ready(cx)
         {
-            Poll::Pending => Poll::Pending,
+            Poll::Pending => {
+                tracing::trace!(key = ?self.key, "Pending::poll -> Poll::Pending");
+                Poll::Pending
+            }
             Poll::Ready(Ok(())) => {
+                tracing::trace!(key = ?self.key, "Pending::poll -> Poll::Ready(Ok(()))");
                 let key = self.key.take().expect("polled after complete");
                 let cancel = self.cancel.take().expect("polled after complete");
                 Ok((key, self.ready.take().expect("polled after ready"), cancel)).into()
             }
             Poll::Ready(Err(e)) => {
+                tracing::trace!(key = ?self.key, "Pending::poll -> Poll::Ready(Err(_))");
                 let key = self.key.take().expect("polled after compete");
                 Err(PendingError::Inner(key, e)).into()
             }
