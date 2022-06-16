@@ -196,15 +196,11 @@ async fn many_unready() {
         cache.ready().await.unwrap();
     });
 
-    tokio::task::yield_now().await;
-
     for (idx, handle) in handles.iter_mut().enumerate() {
         tx.send(Ok(Change::Remove(idx))).unwrap();
 
         handle.allow(1);
     }
-
-    tokio::task::yield_now().await;
 
     task.await.unwrap();
 }
