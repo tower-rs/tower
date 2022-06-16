@@ -181,7 +181,7 @@ async fn many_unready() {
     let _t = support::trace_init();
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
-    let cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
+    let mut cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
 
     let mut handles = Vec::new();
     for i in 0..BIG_NUMBER {
@@ -191,10 +191,6 @@ async fn many_unready() {
         let svc = Mock(svc);
         tx.send(Ok(Change::Insert(i, svc))).unwrap();
     }
-    let task = tokio::spawn(async move {
-        let mut cache = cache;
-        cache.ready().await.unwrap();
-    });
 
     for (idx, handle) in handles.iter_mut().enumerate() {
         tx.send(Ok(Change::Remove(idx))).unwrap();
@@ -202,5 +198,5 @@ async fn many_unready() {
         handle.allow(1);
     }
 
-    task.await.unwrap();
+    cache.ready().await.unwrap();
 }
