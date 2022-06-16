@@ -175,8 +175,8 @@ fn stress() {
 /// Reproduces https://github.com/tower-rs/tower/issues/415
 #[tokio::test(flavor = "current_thread")]
 async fn many_unready() {
-    const SERVICES: usize = 3;
-    const ITERATIONS: usize = 100;
+    const SERVICES: usize = 100;
+    const ITERATIONS: usize = 128;
 
     use tower::util::ServiceExt;
 
@@ -185,31 +185,30 @@ async fn many_unready() {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
     let mut cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
 
+    let mut tasks = vec![];
     for s in 0..SERVICES {
         let tx = tx.clone();
-        tokio::spawn(
+        tasks.push(tokio::spawn(
             async move {
-                let mut handles = Vec::<mock::Handle<Req, Req>>::new();
+                let mut handles = vec![];
                 // Publish a new version of service and, if there was a prior
                 // version, make it ready at the same time.
                 for i in 0..ITERATIONS {
-                    let (svc, mut handle) = mock::pair::<Req, Req>();
-                    handle.allow(0);
+                    let (svc, mut h) = mock::pair::<Req, Req>();
+                    h.allow(1);
                     tracing::debug!(%i, "inserting");
                     tx.send(Ok(Change::Insert(s, Mock(svc))))
                         .expect("discovery stream must accept changes");
-                    if let Some(h) = handles.last_mut() {
-                        h.allow(1);
-                    }
-                    handles.push(handle);
+                    handles.push(h);
+                    // *** Uncomment this to fix the bug! ***
+                    // tokio::task::yield_now().await;
                 }
-                if let Some(h) = handles.last_mut() {
-                    h.allow(1)
-                }
+                handles
             }
             .instrument(tracing::info_span!("service", s)),
-        );
+        ));
     }
 
     cache.ready().await.unwrap();
+    drop(tasks);
 }
