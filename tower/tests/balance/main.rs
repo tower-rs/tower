@@ -9,6 +9,7 @@ use tower::balance::p2c::Balance;
 use tower::discover::Change;
 use tower_service::Service;
 use tower_test::mock;
+use tracing::Instrument;
 
 type Req = &'static str;
 
@@ -172,43 +173,43 @@ fn stress() {
 }
 
 /// Reproduces https://github.com/tower-rs/tower/issues/415
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn many_unready() {
-    const BIG_NUMBER: usize = 100;
+    const SERVICES: usize = 3;
+    const ITERATIONS: usize = 100;
 
     use tower::util::ServiceExt;
 
     let _t = support::trace_init();
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
-    let cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
+    let mut cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
 
-    let mut handles = Vec::new();
-    for i in 0..BIG_NUMBER {
-        let (svc, mut handle) = mock::pair::<Req, Req>();
-        if i == (BIG_NUMBER - 1) {
-            handle.send_error("bang");
-        } else {
-            handle.allow(0);
-            handles.push(handle);
-        }
-        let svc = Mock(svc);
-        tx.send(Ok(Change::Insert(i, svc))).unwrap();
+    for s in 0..SERVICES {
+        let tx = tx.clone();
+        tokio::spawn(
+            async move {
+                let mut handles = Vec::<mock::Handle<Req, Req>>::new();
+                // Publish a new version of service and, if there was a prior
+                // version, make it ready at the same time.
+                for i in 0..ITERATIONS {
+                    let (svc, mut handle) = mock::pair::<Req, Req>();
+                    handle.allow(0);
+                    tracing::debug!(%i, "inserting");
+                    tx.send(Ok(Change::Insert(s, Mock(svc))))
+                        .expect("discovery stream must accept changes");
+                    if let Some(h) = handles.last_mut() {
+                        h.allow(1);
+                    }
+                    handles.push(handle);
+                }
+                if let Some(h) = handles.last_mut() {
+                    h.allow(1)
+                }
+            }
+            .instrument(tracing::info_span!("service", s)),
+        );
     }
-    let task = tokio::spawn(async move {
-        let mut cache = cache;
-        cache.ready().await.unwrap();
-    });
 
-    tokio::task::yield_now().await;
-
-    for (idx, handle) in handles.iter_mut().enumerate() {
-        tx.send(Ok(Change::Remove(idx))).unwrap();
-
-        handle.allow(1);
-    }
-
-    tokio::task::yield_now().await;
-
-    task.await.unwrap();
+    cache.ready().await.unwrap();
 }
