@@ -175,8 +175,8 @@ fn stress() {
 /// Reproduces https://github.com/tower-rs/tower/issues/415
 #[tokio::test(flavor = "current_thread")]
 async fn many_unready() {
-    const SERVICES: usize = 100;
-    const ITERATIONS: usize = 128;
+    const SERVICES: usize = 1;
+    const ITERATIONS: usize = 65; // *** Change this to 64 to make the test pass. Hah! ***
 
     use tower::util::ServiceExt;
 
