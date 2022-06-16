@@ -174,6 +174,8 @@ fn stress() {
 /// Reproduces https://github.com/tower-rs/tower/issues/415
 #[tokio::test]
 async fn many_unready() {
+    const BIG_NUMBER: usize = 100;
+
     use tower::util::ServiceExt;
 
     let _t = support::trace_init();
@@ -182,9 +184,9 @@ async fn many_unready() {
     let cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
 
     let mut handles = Vec::new();
-    for i in 0..256 {
+    for i in 0..BIG_NUMBER {
         let (svc, mut handle) = mock::pair::<Req, Req>();
-        if i == 255 {
+        if i == (BIG_NUMBER - 1) {
             handle.send_error("bang");
         } else {
             handle.allow(0);
