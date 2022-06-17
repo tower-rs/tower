@@ -270,7 +270,7 @@ where
                     } else {
                         assert!(
                             cancel_tx.is_some(),
-                            "services that return an error must have a pending cancelation"
+                            "services that become ready must have a pending cancelation"
                         );
                     }
                 }
