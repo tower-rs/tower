@@ -9,8 +9,10 @@ use std::fmt;
 use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio::sync::oneshot;
+use tokio::sync::Notify;
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -75,8 +77,18 @@ where
 // Safety: This is safe because we do not use `Pin::new_unchecked`.
 impl<S, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
 
-type CancelRx = oneshot::Receiver<()>;
-type CancelTx = oneshot::Sender<()>;
+#[derive(Debug)]
+struct Cancel {
+    notify: Notify,
+    canceled: AtomicBool,
+}
+
+#[derive(Debug)]
+struct CancelRx(Arc<Cancel>);
+
+#[derive(Debug)]
+struct CancelTx(Arc<Cancel>);
+
 type CancelPair = (CancelTx, CancelRx);
 
 #[derive(Debug)]
@@ -193,7 +205,7 @@ where
     /// must be called to cause the service to be dropped.
     pub fn evict<Q: Hash + Equivalent<K>>(&mut self, key: &Q) -> bool {
         let canceled = if let Some(c) = self.pending_cancel_txs.swap_remove(key) {
-            c.send(()).expect("cancel receiver lost");
+            c.cancel();
             true
         } else {
             false
@@ -224,14 +236,14 @@ where
     ///
     /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
     pub fn push(&mut self, key: K, svc: S) {
-        let cancel = oneshot::channel();
+        let cancel = cancelable();
         self.push_pending(key, svc, cancel);
     }
 
     fn push_pending(&mut self, key: K, svc: S, (cancel_tx, cancel_rx): CancelPair) {
         if let Some(c) = self.pending_cancel_txs.insert(key.clone(), cancel_tx) {
             // If there is already a service for this key, cancel it.
-            c.send(()).expect("cancel receiver lost");
+            c.cancel();
         }
         self.pending.push(Pending {
             key: Some(key),
@@ -385,6 +397,28 @@ where
     }
 }
 
+// === impl Cancel ===
+
+/// Creates a cancelation sender and receiver.
+///
+/// A `tokio::sync::oneshot` is NOT used, as a `Receiver` is not guaranteed to
+/// observe results as soon as a `Sender` fires. Using an `AtomicBool` allows
+/// the state to be observed as soon as the cancelation is triggered.
+fn cancelable() -> CancelPair {
+    let cx = Arc::new(Cancel {
+        notify: Notify::new(),
+        canceled: AtomicBool::new(false),
+    });
+    (CancelTx(cx.clone()), CancelRx(cx))
+}
+
+impl CancelTx {
+    fn cancel(self) {
+        self.0.canceled.store(true, Ordering::SeqCst);
+        self.0.notify.notify_waiters();
+    }
+}
+
 // === Pending ===
 
 // Safety: No use unsafe access therefore this is safe.
@@ -397,25 +431,40 @@ where
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // This MUST return ready as soon as the sender has been notified so
-        // that we don't return a service that has been canceled, so we disable
-        // cooperative scheduling on the receiver. Otherwise, the receiver can
-        // sporadically return pending even though the sender has fired.
-        let mut cancel =
-            tokio::task::unconstrained(self.cancel.as_mut().expect("polled after complete"));
-        if let Poll::Ready(r) = Pin::new(&mut cancel).poll(cx) {
-            assert!(r.is_ok(), "cancel sender lost");
+        // Before checking whether a service ready, check to see whether
+        // readiness has been canceled.
+        let CancelRx(cancel) = self.cancel.as_mut().expect("polled after complete");
+        if cancel.canceled.load(Ordering::SeqCst) {
             let key = self.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key)).into();
         }
 
+        // If readiness hasn't been canceled, check to see whether the service
+        // is ready.
         match self
             .ready
             .as_mut()
             .expect("polled after ready")
             .poll_ready(cx)
         {
-            Poll::Pending => Poll::Pending,
+            Poll::Pending => {
+                // Before returning Pending, register interest in cancelation so
+                // that this future is polled again if the state changes.
+                let CancelRx(cancel) = self.cancel.as_mut().expect("polled after complete");
+                tokio::pin! {
+                    let cancel_notified = cancel.notify.notified();
+                }
+                let crx_ready = cancel_notified.poll(cx);
+                // Because both the cancel receiver and cancel sender are held
+                // by the `ReadyCache` (i.e., on a single task), then it must
+                // not be possible for the cancelation state to change while
+                // polling.
+                assert!(
+                    crx_ready.is_pending() && !cancel.canceled.load(Ordering::SeqCst),
+                    "cancelation cannot be notified while polling a pending service"
+                );
+                Poll::Pending
+            }
             Poll::Ready(Ok(())) => {
                 let key = self.key.take().expect("polled after complete");
                 let cancel = self.cancel.take().expect("polled after complete");
@@ -459,8 +508,8 @@ mod test {
         let mut cache = ReadyCache::default();
         let mut handles = vec![];
 
-        // NOTE This test passes at 129 items, but fails at 130 items (if the
-        // cancelation receiver is not marked `unconstrained`).
+        // NOTE This test passes at 129 items, but fails at 130 items (if coop
+        // schedulding interferes with cancelation).
         for _ in 0..130 {
             let (svc, mut handle) = tower_test::mock::pair::<(), ()>();
             handle.allow(1);
