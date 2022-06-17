@@ -5,6 +5,7 @@ use futures_core::Stream;
 use futures_util::stream::FuturesUnordered;
 pub use indexmap::Equivalent;
 use indexmap::IndexMap;
+use std::fmt;
 use std::future::Future;
 use std::hash::Hash;
 use std::pin::Pin;
@@ -53,7 +54,6 @@ use tracing::{debug, trace};
 /// service. In such a case, it should be noted that calls to
 /// [`ReadyCache::poll_pending`] and [`ReadyCache::evict`] may perturb the order of
 /// the ready set, so any cached indexes should be discarded after such a call.
-#[derive(Debug)]
 pub struct ReadyCache<K, S, Req>
 where
     K: Eq + Hash,
@@ -85,15 +85,16 @@ enum PendingError<K, E> {
     Inner(K, E),
 }
 
-/// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
-///
-/// May fail due to cancelation, i.e. if the service is evicted from the balancer.
-#[derive(Debug)]
-struct Pending<K, S, Req> {
-    key: Option<K>,
-    cancel: Option<CancelRx>,
-    ready: Option<S>,
-    _pd: std::marker::PhantomData<Req>,
+pin_project_lite::pin_project! {
+    /// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
+    ///
+    /// May fail due to cancelation, i.e. if the service is evicted from the balancer.
+    struct Pending<K, S, Req> {
+        key: Option<K>,
+        cancel: Option<CancelRx>,
+        ready: Option<S>,
+        _pd: std::marker::PhantomData<Req>,
+    }
 }
 
 // === ReadyCache ===
@@ -109,6 +110,25 @@ where
             pending: FuturesUnordered::new(),
             pending_cancel_txs: IndexMap::default(),
         }
+    }
+}
+
+impl<K, S, Req> fmt::Debug for ReadyCache<K, S, Req>
+where
+    K: fmt::Debug + Eq + Hash,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            pending,
+            pending_cancel_txs,
+            ready,
+        } = self;
+        f.debug_struct("ReadyCache")
+            .field("pending", pending)
+            .field("pending_cancel_txs", pending_cancel_txs)
+            .field("ready", ready)
+            .finish()
     }
 }
 
@@ -382,24 +402,22 @@ where
 
 // === Pending ===
 
-// Safety: No use unsafe access therefore this is safe.
-impl<K, S, Req> Unpin for Pending<K, S, Req> {}
-
 impl<K, S, Req> Future for Pending<K, S, Req>
 where
     S: Service<Req>,
 {
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut fut = self.cancel.as_mut().expect("polled after complete");
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let mut fut = this.cancel.as_mut().expect("polled after complete");
         if let Poll::Ready(r) = Pin::new(&mut fut).poll(cx) {
             assert!(r.is_ok(), "cancel sender lost");
-            let key = self.key.take().expect("polled after complete");
+            let key = this.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key)).into();
         }
 
-        match self
+        match this
             .ready
             .as_mut()
             .expect("polled after ready")
@@ -407,14 +425,34 @@ where
         {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Ok(())) => {
-                let key = self.key.take().expect("polled after complete");
-                let cancel = self.cancel.take().expect("polled after complete");
-                Ok((key, self.ready.take().expect("polled after ready"), cancel)).into()
+                let key = this.key.take().expect("polled after complete");
+                let cancel = this.cancel.take().expect("polled after complete");
+                Ok((key, this.ready.take().expect("polled after ready"), cancel)).into()
             }
             Poll::Ready(Err(e)) => {
-                let key = self.key.take().expect("polled after compete");
+                let key = this.key.take().expect("polled after compete");
                 Err(PendingError::Inner(key, e)).into()
             }
         }
+    }
+}
+
+impl<K, S, Req> fmt::Debug for Pending<K, S, Req>
+where
+    K: fmt::Debug,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            key,
+            cancel,
+            ready,
+            _pd,
+        } = self;
+        f.debug_struct("Pending")
+            .field("key", key)
+            .field("cancel", cancel)
+            .field("ready", ready)
+            .finish()
     }
 }

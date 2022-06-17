@@ -2,7 +2,7 @@
 
 use crate::mock::error::{self, Error};
 use futures_util::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::sync::oneshot;
 
 use std::{
@@ -11,12 +11,13 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Future of the `Mock` response.
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<T> {
-    #[pin]
-    rx: Option<Rx<T>>,
+pin_project! {
+    /// Future of the `Mock` response.
+    #[derive(Debug)]
+    pub struct ResponseFuture<T> {
+        #[pin]
+        rx: Option<Rx<T>>,
+    }
 }
 
 type Rx<T> = oneshot::Receiver<Result<T, Error>>;

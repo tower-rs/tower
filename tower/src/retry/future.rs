@@ -2,36 +2,45 @@
 
 use super::{Policy, Retry};
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
-/// The [`Future`] returned by a [`Retry`] service.
-#[pin_project]
-#[derive(Debug)]
-pub struct ResponseFuture<P, S, Request>
-where
-    P: Policy<Request, S::Response, S::Error>,
-    S: Service<Request>,
-{
-    request: Option<Request>,
-    #[pin]
-    retry: Retry<P, S>,
-    #[pin]
-    state: State<S::Future, P::Future>,
+pin_project! {
+    /// The [`Future`] returned by a [`Retry`] service.
+    #[derive(Debug)]
+    pub struct ResponseFuture<P, S, Request>
+    where
+        P: Policy<Request, S::Response, S::Error>,
+        S: Service<Request>,
+    {
+        request: Option<Request>,
+        #[pin]
+        retry: Retry<P, S>,
+        #[pin]
+        state: State<S::Future, P::Future>,
+    }
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<F, P> {
-    /// Polling the future from [`Service::call`]
-    Called(#[pin] F),
-    /// Polling the future from [`Policy::retry`]
-    Checking(#[pin] P),
-    /// Polling [`Service::poll_ready`] after [`Checking`] was OK.
-    Retrying,
+pin_project! {
+    #[project = StateProj]
+    #[derive(Debug)]
+    enum State<F, P> {
+        // Polling the future from [`Service::call`]
+        Called {
+            #[pin]
+            future: F
+        },
+        // Polling the future from [`Policy::retry`]
+        Checking {
+            #[pin]
+            checking: P
+        },
+        // Polling [`Service::poll_ready`] after [`Checking`] was OK.
+        Retrying,
+    }
 }
 
 impl<P, S, Request> ResponseFuture<P, S, Request>
@@ -47,7 +56,7 @@ where
         ResponseFuture {
             request,
             retry,
-            state: State::Called(future),
+            state: State::Called { future },
         }
     }
 }
@@ -64,12 +73,12 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Called(future) => {
+                StateProj::Called { future } => {
                     let result = ready!(future.poll(cx));
                     if let Some(ref req) = this.request {
                         match this.retry.policy.retry(req, result.as_ref()) {
                             Some(checking) => {
-                                this.state.set(State::Checking(checking));
+                                this.state.set(State::Checking { checking });
                             }
                             None => return Poll::Ready(result),
                         }
@@ -78,12 +87,12 @@ where
                         return Poll::Ready(result);
                     }
                 }
-                StateProj::Checking(future) => {
+                StateProj::Checking { checking } => {
                     this.retry
                         .as_mut()
                         .project()
                         .policy
-                        .set(ready!(future.poll(cx)));
+                        .set(ready!(checking.poll(cx)));
                     this.state.set(State::Retrying);
                 }
                 StateProj::Retrying => {
@@ -104,9 +113,9 @@ where
                         .take()
                         .expect("retrying requires cloned request");
                     *this.request = this.retry.policy.clone_request(&req);
-                    this.state.set(State::Called(
-                        this.retry.as_mut().project().service.call(req),
-                    ));
+                    this.state.set(State::Called {
+                        future: this.retry.as_mut().project().service.call(req),
+                    });
                 }
             }
         }

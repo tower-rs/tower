@@ -29,9 +29,11 @@ Tower aims to make it as easy as possible to build robust networking clients and
 servers. It is protocol agnostic, but is designed around a request / response
 pattern. If your protocol is entirely stream based, Tower may not be a good fit.
 
-## Status
+## Supported Rust Versions
 
-Currently, `tower 0.4` is released on crates.io.
+Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
+least** 6 months. When increasing the MSRV, the new Rust version must have been
+released at least six months ago. The current MSRV is 1.49.0.
 
 ## Getting Started
 

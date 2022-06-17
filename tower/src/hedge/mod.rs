@@ -5,7 +5,7 @@
 
 use crate::filter::AsyncFilter;
 use futures_util::future;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{
@@ -37,17 +37,18 @@ type Service<S, P> = select::Select<
 #[derive(Debug)]
 pub struct Hedge<S, P>(Service<S, P>);
 
-/// The [`Future`] returned by the [`Hedge`] service.
-///
-/// [`Future`]: std::future::Future
-#[pin_project]
-#[derive(Debug)]
-pub struct Future<S, Request>
-where
-    S: tower_service::Service<Request>,
-{
-    #[pin]
-    inner: S::Future,
+pin_project! {
+    /// The [`Future`] returned by the [`Hedge`] service.
+    ///
+    /// [`Future`]: std::future::Future
+    #[derive(Debug)]
+    pub struct Future<S, Request>
+    where
+        S: tower_service::Service<Request>,
+    {
+        #[pin]
+        inner: S::Future,
+    }
 }
 
 /// A policy which describes which requests can be cloned and then whether those

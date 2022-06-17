@@ -7,8 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+### Changed
+
+- **util**: Removed deprecated `ServiceExt::ready_and` method and `ReadyAnd`
+  future ([#652])
+
+
+[#652]: https://github.com/tower-rs/tower/pull/652
+
+# 0.4.12 (February 16, 2022)
+
+### Fixed
+
+- **hedge**, **load**, **retry**: Fix use of `Instant` operations that can panic
+  on platforms where `Instant` is not monotonic ([#633])
+- Disable `attributes` feature on `tracing` dependency ([#623])
+- Remove unused dependencies and dependency features with some feature
+  combinations ([#603], [#602])
+- **docs**: Fix a typo in the RustDoc for `Buffer` ([#622])
+
+### Changed
+
+- Updated minimum supported Rust version (MSRV) to 1.49.0.
+- **hedge**: Updated `hdrhistogram` dependency to v7.0 ([#602])
+- Updated `tokio-util` dependency to v0.7 ([#638])
+
+[#633]: https://github.com/tower-rs/tower/pull/633
+[#623]: https://github.com/tower-rs/tower/pull/623
+[#603]: https://github.com/tower-rs/tower/pull/603
+[#602]: https://github.com/tower-rs/tower/pull/602
+[#622]: https://github.com/tower-rs/tower/pull/622
+[#638]: https://github.com/tower-rs/tower/pull/638
+
+# 0.4.11 (November 18, 2021)
+
+### Added
+
+- **util**: Add `BoxCloneService` which is a `Clone + Send` boxed `Service` ([#615])
+- **util**: Add `ServiceExt::boxed` and `ServiceExt::boxed_clone` for applying the
+  `BoxService` and `BoxCloneService` middleware ([#616])
+- **builder**: Add `ServiceBuilder::boxed` and `ServiceBuilder::boxed_clone` for
+  applying `BoxService` and `BoxCloneService` layers ([#616])
+
+### Fixed
+
+- **util**: Remove redundant `F: Clone` bound from `ServiceExt::map_request` ([#607])
+- **util**: Remove unnecessary `Debug` bounds from `impl Debug for BoxService` ([#617])
+- **util**: Remove unnecessary `Debug` bounds from `impl Debug for UnsyncBoxService` ([#617])
+- **balance**: Remove redundant `Req: Clone` bound from `Clone` impls
+  for `MakeBalance`, and `MakeBalanceLayer` ([#607])
+- **balance**: Remove redundant `Req: Debug` bound from `Debug` impls
+  for `MakeBalance`, `MakeFuture`, `Balance`, and `Pool` ([#607])
+- **ready-cache**: Remove redundant `Req: Debug` bound from `Debug` impl
+  for `ReadyCache` ([#607])
+- **steer**: Remove redundant `Req: Debug` bound from `Debug` impl
+  for `Steer` ([#607])
+- **docs**: Fix `doc(cfg(...))` attributes
+  of `PeakEwmaDiscover`, and `PendingRequestsDiscover` ([#610])
+
+[#607]: https://github.com/tower-rs/tower/pull/607
+[#610]: https://github.com/tower-rs/tower/pull/610
+[#615]: https://github.com/tower-rs/tower/pull/615
+[#616]: https://github.com/tower-rs/tower/pull/616
+[#617]: https://github.com/tower-rs/tower/pull/617
+
+# 0.4.10 (October 19, 2021)
+
+- Fix accidental breaking change when using the
+  `rustdoc::broken_intra_doc_links` lint ([#605])
+- Clarify that tower's minimum supported rust version is 1.46 ([#605])
+
+[#605]: https://github.com/tower-rs/tower/pull/605
+
+# 0.4.9 (October 13, 2021)
+
+- Migrate to [pin-project-lite] ([#595])
+- **builder**: Implement `Layer` for `ServiceBuilder` ([#600])
+- **builder**: Add `ServiceBuilder::and_then` analogous to
+  `ServiceExt::and_then` ([#601])
+
+[#600]: https://github.com/tower-rs/tower/pull/600
+[#601]: https://github.com/tower-rs/tower/pull/601
+[#595]: https://github.com/tower-rs/tower/pull/595
+[pin-project-lite]: https://crates.io/crates/pin-project-lite
+
+# 0.4.8 (May 28, 2021)
+
 - **builder**: Add `ServiceBuilder::map_result` analogous to
-  `ServiceExt::map_result`.
+  `ServiceExt::map_result` ([#583]) 
+- **limit**: Add `GlobalConcurrencyLimitLayer` to allow reusing a concurrency
+  limit across multiple services ([#574])
+
+[#574]: https://github.com/tower-rs/tower/pull/574
+[#583]: https://github.com/tower-rs/tower/pull/583
 
 # 0.4.7 (April 27, 2021)
 

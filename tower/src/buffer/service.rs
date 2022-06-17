@@ -4,45 +4,26 @@ use super::{
     worker::{Handle, Worker},
 };
 
-use futures_core::ready;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit, Semaphore};
-use tokio_util::sync::PollSemaphore;
+use std::{
+    future::Future,
+    task::{Context, Poll},
+};
+use tokio::sync::{mpsc, oneshot};
+use tokio_util::sync::PollSender;
 use tower_service::Service;
 
 /// Adds an mpsc buffer in front of an inner service.
 ///
 /// See the module documentation for more details.
 #[derive(Debug)]
-pub struct Buffer<T, Request>
-where
-    T: Service<Request>,
-{
-    // Note: this actually _is_ bounded, but rather than using Tokio's bounded
-    // channel, we use Tokio's semaphore separately to implement the bound.
-    tx: mpsc::UnboundedSender<Message<Request, T::Future>>,
-    // When the buffer's channel is full, we want to exert backpressure in
-    // `poll_ready`, so that callers such as load balancers could choose to call
-    // another service rather than waiting for buffer capacity.
-    //
-    // Unfortunately, this can't be done easily using Tokio's bounded MPSC
-    // channel, because it doesn't expose a polling-based interface, only an
-    // `async fn ready`, which borrows the sender. Therefore, we implement our
-    // own bounded MPSC on top of the unbounded channel, using a semaphore to
-    // limit how many items are in the channel.
-    semaphore: PollSemaphore,
-    // The current semaphore permit, if one has been acquired.
-    //
-    // This is acquired in `poll_ready` and taken in `call`.
-    permit: Option<OwnedSemaphorePermit>,
+pub struct Buffer<Req, F> {
+    tx: PollSender<Message<Req, F>>,
     handle: Handle,
 }
 
-impl<T, Request> Buffer<T, Request>
+impl<Req, F> Buffer<Req, F>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    F: 'static,
 {
     /// Creates a new [`Buffer`] wrapping `service`.
     ///
@@ -65,12 +46,12 @@ where
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
-    pub fn new(service: T, bound: usize) -> Self
+    pub fn new<S>(service: S, bound: usize) -> Self
     where
-        T: Send + 'static,
-        T::Future: Send,
-        T::Error: Send + Sync,
-        Request: Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
+        F: Send,
+        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
     {
         let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
@@ -82,20 +63,18 @@ where
     /// This is useful if you do not want to spawn directly onto the tokio runtime
     /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
-    pub fn pair(service: T, bound: usize) -> (Buffer<T, Request>, Worker<T, Request>)
+    pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
     where
-        T: Send + 'static,
-        T::Error: Send + Sync,
-        Request: Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
+        F: Send,
+        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
     {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let semaphore = Arc::new(Semaphore::new(bound));
-        let (handle, worker) = Worker::new(service, rx, &semaphore);
-        let buffer = Buffer {
-            tx,
+        let (tx, rx) = mpsc::channel(bound);
+        let (handle, worker) = Worker::new(service, rx);
+        let buffer = Self {
+            tx: PollSender::new(tx),
             handle,
-            semaphore: PollSemaphore::new(semaphore),
-            permit: None,
         };
         (buffer, worker)
     }
@@ -105,14 +84,15 @@ where
     }
 }
 
-impl<T, Request> Service<Request> for Buffer<T, Request>
+impl<Req, Rsp, F, E> Service<Req> for Buffer<Req, F>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    F: Future<Output = Result<Rsp, E>> + Send + 'static,
+    E: Into<crate::BoxError>,
+    Req: Send + 'static,
 {
-    type Response = T::Response;
+    type Response = Rsp;
     type Error = crate::BoxError;
-    type Future = ResponseFuture<T::Future>;
+    type Future = ResponseFuture<F>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // First, check if the worker is still alive.
@@ -121,63 +101,44 @@ where
             return Poll::Ready(Err(self.get_worker_error()));
         }
 
-        // Then, check if we've already acquired a permit.
-        if self.permit.is_some() {
-            // We've already reserved capacity to send a request. We're ready!
-            return Poll::Ready(Ok(()));
-        }
-
-        // Finally, if we haven't already acquired a permit, poll the semaphore
-        // to acquire one. If we acquire a permit, then there's enough buffer
-        // capacity to send a new request. Otherwise, we need to wait for
-        // capacity.
-        let permit =
-            ready!(self.semaphore.poll_acquire(cx)).ok_or_else(|| self.get_worker_error())?;
-        self.permit = Some(permit);
-
-        Poll::Ready(Ok(()))
+        // Poll the sender to acquire a permit.
+        self.tx
+            .poll_reserve(cx)
+            .map_err(|_| self.get_worker_error())
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: Req) -> Self::Future {
         tracing::trace!("sending request to buffer worker");
-        let _permit = self
-            .permit
-            .take()
-            .expect("buffer full; poll_ready must be called first");
 
         // get the current Span so that we can explicitly propagate it to the worker
         // if we didn't do this, events on the worker related to this span wouldn't be counted
         // towards that span since the worker would have no way of entering it.
         let span = tracing::Span::current();
 
-        // If we've made it here, then a semaphore permit has already been
+        // If we've made it here, then a channel permit has already been
         // acquired, so we can freely allocate a oneshot.
         let (tx, rx) = oneshot::channel();
 
-        match self.tx.send(Message {
-            request,
-            span,
-            tx,
-            _permit,
-        }) {
-            Err(_) => ResponseFuture::failed(self.get_worker_error()),
+        match self.tx.send_item(Message { request, span, tx }) {
             Ok(_) => ResponseFuture::new(rx),
+            // If the channel is closed, propagate the error from the worker.
+            Err(_) => {
+                tracing::trace!("buffer channel closed");
+                ResponseFuture::failed(self.get_worker_error())
+            }
         }
     }
 }
 
-impl<T, Request> Clone for Buffer<T, Request>
+impl<Req, F> Clone for Buffer<Req, F>
 where
-    T: Service<Request>,
+    Req: Send + 'static,
+    F: Send + 'static,
 {
     fn clone(&self) -> Self {
         Self {
-            tx: self.tx.clone(),
             handle: self.handle.clone(),
-            semaphore: self.semaphore.clone(),
-            // The new clone hasn't acquired a permit yet. It will when it's
-            // next polled ready.
-            permit: None,
+            tx: self.tx.clone(),
         }
     }
 }

@@ -6,7 +6,7 @@
 use super::common;
 use futures_core::Stream;
 use futures_util::stream::FuturesUnordered;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -14,27 +14,27 @@ use std::{
 };
 use tower_service::Service;
 
-/// A stream of responses received from the inner service in received order.
-///
-/// Similar to [`CallAll`] except, instead of yielding responses in request order,
-/// responses are returned as they are available.
-///
-/// [`CallAll`]: crate::util::CallAll
-#[pin_project]
-#[derive(Debug)]
-pub struct CallAllUnordered<Svc, S>
-where
-    Svc: Service<S::Item>,
-    S: Stream,
-{
-    #[pin]
-    inner: common::CallAll<Svc, S, FuturesUnordered<Svc::Future>>,
+pin_project! {
+    /// A stream of responses received from the inner service in received order.
+    ///
+    /// Similar to [`CallAll`] except, instead of yielding responses in request order,
+    /// responses are returned as they are available.
+    ///
+    /// [`CallAll`]: crate::util::CallAll
+    #[derive(Debug)]
+    pub struct CallAllUnordered<Svc, S>
+    where
+        Svc: Service<S::Item>,
+        S: Stream,
+    {
+        #[pin]
+        inner: common::CallAll<Svc, S, FuturesUnordered<Svc::Future>>,
+    }
 }
 
 impl<Svc, S> CallAllUnordered<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
     /// Create new [`CallAllUnordered`] combinator.
@@ -74,10 +74,9 @@ where
 impl<Svc, S> Stream for CallAllUnordered<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
-    type Item = Result<Svc::Response, crate::BoxError>;
+    type Item = Result<Svc::Response, Svc::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().inner.poll_next(cx)

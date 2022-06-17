@@ -93,7 +93,7 @@ where
     }
 
     fn call(&mut self, _target: T) -> Self::Future {
-        SharedFuture(futures_util::future::ready(Ok(self.service.clone())))
+        SharedFuture::new(futures_util::future::ready(Ok(self.service.clone())))
     }
 }
 
