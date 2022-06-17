@@ -75,9 +75,7 @@ where
 // Safety: This is safe because we do not use `Pin::new_unchecked`.
 impl<S, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
 
-/// The cancelation receiver must not participate in task budgetting: we need it
-/// to return ready as soon as the sender notifies it.
-type CancelRx = tokio::task::Unconstrained<oneshot::Receiver<()>>;
+type CancelRx = oneshot::Receiver<()>;
 type CancelTx = oneshot::Sender<()>;
 type CancelPair = (CancelTx, CancelRx);
 
@@ -119,9 +117,15 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let Self {
+            pending,
+            pending_cancel_txs,
+            ready,
+        } = self;
         f.debug_struct("ReadyCache")
-            .field("pending", &self.pending)
-            .field("pending_cancel_txs", &self.pending_cancel_txs)
+            .field("pending", pending)
+            .field("pending_cancel_txs", pending_cancel_txs)
+            .field("ready", ready)
             .finish()
     }
 }
@@ -220,13 +224,8 @@ where
     ///
     /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
     pub fn push(&mut self, key: K, svc: S) {
-        let (tx, rx) = oneshot::channel();
-
-        // Cancelations MUST be observed as soon as the sender notifies it so
-        // that the pending service cannot drive a canceled service to ready.
-        let rx = tokio::task::unconstrained(rx);
-
-        self.push_pending(key, svc, (tx, rx));
+        let cancel = oneshot::channel();
+        self.push_pending(key, svc, cancel);
     }
 
     fn push_pending(&mut self, key: K, svc: S, (cancel_tx, cancel_rx): CancelPair) {
@@ -399,8 +398,11 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // This MUST return ready as soon as the sender has been notified so
-        // that we don't return a service that has been canceled.
-        let mut cancel = self.cancel.as_mut().expect("polled after complete");
+        // that we don't return a service that has been canceled, so we disable
+        // cooperative scheduling on the receiver. Otherwise, the receiver can
+        // sporadically return pending even though the sender has fired.
+        let mut cancel =
+            tokio::task::unconstrained(self.cancel.as_mut().expect("polled after complete"));
         if let Poll::Ready(r) = Pin::new(&mut cancel).poll(cx) {
             assert!(r.is_ok(), "cancel sender lost");
             let key = self.key.take().expect("polled after complete");
@@ -433,7 +435,17 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Pending").field("key", &self.key).finish()
+        let Self {
+            key,
+            cancel,
+            ready,
+            _pd,
+        } = self;
+        f.debug_struct("Pending")
+            .field("key", key)
+            .field("cancel", cancel)
+            .field("ready", ready)
+            .finish()
     }
 }
 
@@ -448,7 +460,7 @@ mod test {
         let mut handles = vec![];
 
         // NOTE This test passes at 129 items, but fails at 130 items (if the
-        // cancelation receiver is not marked `Unconstrained`).
+        // cancelation receiver is not marked `unconstrained`).
         for _ in 0..130 {
             let (svc, mut handle) = tower_test::mock::pair::<(), ()>();
             handle.allow(1);
