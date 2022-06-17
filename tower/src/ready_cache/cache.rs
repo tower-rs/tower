@@ -430,7 +430,7 @@ where
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Before checking whether a service ready, check to see whether
+        // Before checking whether a service is ready, check to see whether
         // readiness has been canceled.
         let CancelRx(cancel) = self.cancel.as_mut().expect("polled after complete");
         if cancel.canceled.load(Ordering::SeqCst) {
