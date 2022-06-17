@@ -60,11 +60,16 @@ jobs:
         command: update
         args: -Z minimal-versions
         toolchain: nightly
+    - name: cargo +nightly fetch
+      uses: actions-rs/cargo@v1
+      with:
+        command: fetch
+        toolchain: nightly
     - name: Check
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --all --all-targets --all-features --locked
+        args: --all --all-targets --all-features --frozen
         toolchain: ${{ env.MSRV }}
 
   cargo-hack:
@@ -126,6 +131,11 @@ jobs:
       with:
         command: update
         args: -Z minimal-versions
+        toolchain: nightly
+    - name: cargo +nightly fetch
+      uses: actions-rs/cargo@v1
+      with:
+        command: fetch
         toolchain: nightly
     - name: test
       uses: actions-rs/cargo@v1
