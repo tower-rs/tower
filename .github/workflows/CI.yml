@@ -49,12 +49,23 @@ jobs:
       with:
         toolchain: ${{ env.MSRV }}
         profile: minimal
-    - name: install cargo-hack
-      uses: taiki-e/install-action@cargo-hack
-    - name: install cargo-minimal-versions
-      uses: taiki-e/install-action@cargo-minimal-versions
+    - name: "install Rust nightly"
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+    - name: Select minimal versions
+      uses: actions-rs/cargo@v1
+      with:
+        command: update
+        args: -Z minimal-versions
+        toolchain: nightly
     - name: Check
-      run: cargo minimal-versions check --all --all-targets --all-features
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --all --all-targets --all-features --locked
+        toolchain: ${{ env.MSRV }}
 
   cargo-hack:
     runs-on: ubuntu-latest
@@ -105,12 +116,23 @@ jobs:
       with:
         toolchain: ${{ env.MSRV }}
         profile: minimal
-    - name: install cargo-hack
-      uses: taiki-e/install-action@cargo-hack
-    - name: install cargo-minimal-versions
-      uses: taiki-e/install-action@cargo-minimal-versions
-    - name: Run tests
-      run: cargo minimal-versions test --all --all-targets --all-features
+    - name: "install Rust nightly"
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        profile: minimal
+    - name: Select minimal versions
+      uses: actions-rs/cargo@v1
+      with:
+        command: update
+        args: -Z minimal-versions
+        toolchain: nightly
+    - name: test
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: --workspace --all-features --locked
+        toolchain: ${{ env.MSRV }}
 
   style:
     needs: check-stable
