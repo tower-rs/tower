@@ -497,37 +497,3 @@ where
             .finish()
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    // Tests https://github.com/tower-rs/tower/issues/415
-    #[tokio::test(flavor = "current_thread")]
-    async fn cancelation_observed() {
-        let mut cache = ReadyCache::default();
-        let mut handles = vec![];
-
-        // NOTE This test passes at 129 items, but fails at 130 items (if coop
-        // schedulding interferes with cancelation).
-        for _ in 0..130 {
-            let (svc, mut handle) = tower_test::mock::pair::<(), ()>();
-            handle.allow(1);
-            cache.push("ep0", svc);
-            handles.push(handle);
-        }
-
-        struct Ready(ReadyCache<&'static str, tower_test::mock::Mock<(), ()>, ()>);
-        impl Unpin for Ready {}
-        impl std::future::Future for Ready {
-            type Output = Result<(), error::Failed<&'static str>>;
-            fn poll(
-                self: Pin<&mut Self>,
-                cx: &mut std::task::Context<'_>,
-            ) -> std::task::Poll<Self::Output> {
-                self.get_mut().0.poll_pending(cx)
-            }
-        }
-        Ready(cache).await.unwrap();
-    }
-}
