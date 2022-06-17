@@ -72,7 +72,7 @@ jobs:
 
   test-versions:
     # Test against the stable, beta, and nightly Rust toolchains on ubuntu-latest.
-    needs: check
+    needs: check-stable
     runs-on: ubuntu-latest
     strategy:
       # Disable fail-fast. If the test run for a particular Rust version fails,
@@ -96,7 +96,7 @@ jobs:
         args: --workspace --all-features
 
   test-msrv:
-    needs: check
+    needs: check-msrv
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
@@ -113,7 +113,7 @@ jobs:
       run: cargo minimal-versions test --all --all-targets --all-features
 
   style:
-    needs: check
+    needs: check-stable
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
