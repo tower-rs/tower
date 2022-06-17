@@ -84,7 +84,7 @@ pin-project-lite = { version = "0.2.7", optional = true }
 futures = "0.3"
 hdrhistogram = { version = "7.0", default-features = false }
 pin-project-lite = "0.2.7"
-tokio = { version = "1.6", features = ["macros", "sync", "test-util", "rt-multi-thread"] }
+tokio = { version = "1.6.2", features = ["macros", "sync", "test-util", "rt-multi-thread"] }
 tokio-stream = "0.1"
 tokio-test = "0.4"
 tower-test = { version = "0.4", path = "../tower-test" }
