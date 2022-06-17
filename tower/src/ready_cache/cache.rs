@@ -96,14 +96,16 @@ enum PendingError<K, E> {
     Inner(K, E),
 }
 
-/// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
-///
-/// May fail due to cancelation, i.e. if the service is evicted from the balancer.
-struct Pending<K, S, Req> {
-    key: Option<K>,
-    cancel: Option<CancelRx>,
-    ready: Option<S>,
-    _pd: std::marker::PhantomData<Req>,
+pin_project_lite::pin_project! {
+    /// A [`Future`] that becomes satisfied when an `S`-typed service is ready.
+    ///
+    /// May fail due to cancelation, i.e. if the service is evicted from the balancer.
+    struct Pending<K, S, Req> {
+        key: Option<K>,
+        cancel: Option<CancelRx>,
+        ready: Option<S>,
+        _pd: std::marker::PhantomData<Req>,
+    }
 }
 
 // === ReadyCache ===
@@ -420,9 +422,6 @@ impl CancelTx {
 
 // === Pending ===
 
-// Safety: No use unsafe access therefore this is safe.
-impl<K, S, Req> Unpin for Pending<K, S, Req> {}
-
 impl<K, S, Req> Future for Pending<K, S, Req>
 where
     S: Service<Req>,
@@ -430,17 +429,16 @@ where
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
         // Before checking whether the service is ready, check to see whether
         // readiness has been canceled.
-        let CancelRx(cancel) = self.cancel.as_mut().expect("polled after complete");
+        let CancelRx(cancel) = this.cancel.as_mut().expect("polled after complete");
         if cancel.canceled.load(Ordering::SeqCst) {
-            let key = self.key.take().expect("polled after complete");
+            let key = this.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key)).into();
         }
 
-        // If readiness hasn't been canceled, check to see whether the service
-        // is ready.
-        match self
+        match this
             .ready
             .as_mut()
             .expect("polled after ready")
@@ -449,7 +447,7 @@ where
             Poll::Pending => {
                 // Before returning Pending, register interest in cancelation so
                 // that this future is polled again if the state changes.
-                let CancelRx(cancel) = self.cancel.as_mut().expect("polled after complete");
+                let CancelRx(cancel) = this.cancel.as_mut().expect("polled after complete");
                 cancel.waker.register(cx.waker());
                 // Because both the cancel receiver and cancel sender are held
                 // by the `ReadyCache` (i.e., on a single task), then it must
@@ -462,12 +460,12 @@ where
                 Poll::Pending
             }
             Poll::Ready(Ok(())) => {
-                let key = self.key.take().expect("polled after complete");
-                let cancel = self.cancel.take().expect("polled after complete");
-                Ok((key, self.ready.take().expect("polled after ready"), cancel)).into()
+                let key = this.key.take().expect("polled after complete");
+                let cancel = this.cancel.take().expect("polled after complete");
+                Ok((key, this.ready.take().expect("polled after ready"), cancel)).into()
             }
             Poll::Ready(Err(e)) => {
-                let key = self.key.take().expect("polled after compete");
+                let key = this.key.take().expect("polled after compete");
                 Err(PendingError::Inner(key, e)).into()
             }
         }

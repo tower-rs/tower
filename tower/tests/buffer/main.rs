@@ -159,7 +159,7 @@ async fn waits_for_channel_capacity() {
 
     let (service, mut handle) = mock::pair::<&'static str, &'static str>();
 
-    let (service, worker) = Buffer::pair(service, 3);
+    let (service, worker) = Buffer::pair(service, 2);
 
     let mut service = mock::Spawn::new(service);
     let mut worker = task::spawn(worker);
@@ -243,6 +243,14 @@ async fn wakes_pending_waiters_on_close() {
     assert_pending!(worker.poll());
     let mut response = task::spawn(service1.call("hello"));
 
+    assert!(worker.is_woken(), "worker task should be woken by request");
+    assert_pending!(worker.poll());
+
+    // fill the channel so all subsequent requests will wait for capacity
+    let service1 = assert_ready_ok!(task::spawn(service.ready()).poll());
+    assert_pending!(worker.poll());
+    let mut response2 = task::spawn(service1.call("world"));
+
     let mut service1 = service.clone();
     let mut ready1 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
@@ -257,6 +265,13 @@ async fn wakes_pending_waiters_on_close() {
     drop(worker);
 
     let err = assert_ready_err!(response.poll());
+    assert!(
+        err.is::<error::Closed>(),
+        "response should fail with a Closed, got: {:?}",
+        err
+    );
+
+    let err = assert_ready_err!(response2.poll());
     assert!(
         err.is::<error::Closed>(),
         "response should fail with a Closed, got: {:?}",
@@ -301,6 +316,14 @@ async fn wakes_pending_waiters_on_failure() {
     assert_pending!(worker.poll());
     let mut response = task::spawn(service1.call("hello"));
 
+    assert!(worker.is_woken(), "worker task should be woken by request");
+    assert_pending!(worker.poll());
+
+    // fill the channel so all subsequent requests will wait for capacity
+    let service1 = assert_ready_ok!(task::spawn(service.ready()).poll());
+    assert_pending!(worker.poll());
+    let mut response2 = task::spawn(service1.call("world"));
+
     let mut service1 = service.clone();
     let mut ready1 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
@@ -317,6 +340,12 @@ async fn wakes_pending_waiters_on_failure() {
     assert_ready!(worker.poll());
 
     let err = assert_ready_err!(response.poll());
+    assert!(
+        err.is::<error::ServiceError>(),
+        "response should fail with a ServiceError, got: {:?}",
+        err
+    );
+    let err = assert_ready_err!(response2.poll());
     assert!(
         err.is::<error::ServiceError>(),
         "response should fail with a ServiceError, got: {:?}",
@@ -408,15 +437,15 @@ async fn doesnt_leak_permits() {
     assert_ready_ok!(ready3.poll());
 }
 
-type Mock = mock::Mock<&'static str, &'static str>;
 type Handle = mock::Handle<&'static str, &'static str>;
+type MockBuffer = Buffer<&'static str, mock::future::ResponseFuture<&'static str>>;
 
-fn new_service() -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
+fn new_service() -> (mock::Spawn<MockBuffer>, Handle) {
     // bound is >0 here because clears_canceled_requests needs multiple outstanding requests
     new_service_with_bound(10)
 }
 
-fn new_service_with_bound(bound: usize) -> (mock::Spawn<Buffer<Mock, &'static str>>, Handle) {
+fn new_service_with_bound(bound: usize) -> (mock::Spawn<MockBuffer>, Handle) {
     mock::spawn_with(|s| {
         let (svc, worker) = Buffer::pair(s, bound);
 
