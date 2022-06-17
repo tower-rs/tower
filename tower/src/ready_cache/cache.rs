@@ -75,7 +75,9 @@ where
 // Safety: This is safe because we do not use `Pin::new_unchecked`.
 impl<S, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
 
-type CancelRx = oneshot::Receiver<()>;
+/// The cancelation receiver must not participate in task budgetting: we need it
+/// to return ready as soon as the sender notifies it.
+type CancelRx = tokio::task::Unconstrained<oneshot::Receiver<()>>;
 type CancelTx = oneshot::Sender<()>;
 type CancelPair = (CancelTx, CancelRx);
 
@@ -117,15 +119,9 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            pending,
-            pending_cancel_txs,
-            ready,
-        } = self;
         f.debug_struct("ReadyCache")
-            .field("pending", pending)
-            .field("pending_cancel_txs", pending_cancel_txs)
-            .field("ready", ready)
+            .field("pending", &self.pending)
+            .field("pending_cancel_txs", &self.pending_cancel_txs)
             .finish()
     }
 }
@@ -224,8 +220,13 @@ where
     ///
     /// [`poll_pending`]: crate::ready_cache::cache::ReadyCache::poll_pending
     pub fn push(&mut self, key: K, svc: S) {
-        let cancel = oneshot::channel();
-        self.push_pending(key, svc, cancel);
+        let (tx, rx) = oneshot::channel();
+
+        // Cancelations MUST be observed as soon as the sender notifies it so
+        // that the pending service cannot drive a canceled service to ready.
+        let rx = tokio::task::unconstrained(rx);
+
+        self.push_pending(key, svc, (tx, rx));
     }
 
     fn push_pending(&mut self, key: K, svc: S, (cancel_tx, cancel_rx): CancelPair) {
@@ -268,21 +269,10 @@ where
                         // recreated after the service is used.
                         self.ready.insert(key, (svc, (cancel_tx, cancel_rx)));
                     } else {
-                        // This should not technically be possible. We must have decided to cancel
-                        // a Service (by sending on the CancelTx), yet that same service then
-                        // returns Ready. Since polling a Pending _first_ polls the CancelRx, that
-                        // _should_ always see our CancelTx send. Yet empirically, that isn't true:
-                        //
-                        //   https://github.com/tower-rs/tower/issues/415
-                        //
-                        // So, we instead detect the endpoint as canceled at this point. That
-                        // should be fine, since the oneshot is only really there to ensure that
-                        // the Pending is polled again anyway.
-                        //
-                        // We assert that this can't happen in debug mode so that hopefully one day
-                        // we can find a test that triggers this reliably.
-                        debug_assert!(cancel_tx.is_some());
-                        debug!("canceled endpoint removed when ready");
+                        assert!(
+                            cancel_tx.is_some(),
+                            "services that return an error must have a pending cancelation"
+                        );
                     }
                 }
                 Poll::Ready(Some(Err(PendingError::Canceled(_)))) => {
@@ -292,13 +282,11 @@ where
                 }
                 Poll::Ready(Some(Err(PendingError::Inner(key, e)))) => {
                     let cancel_tx = self.pending_cancel_txs.swap_remove(&key);
-                    if cancel_tx.is_some() {
-                        return Err(error::Failed(key, e.into())).into();
-                    } else {
-                        // See comment for the same clause under Ready(Some(Ok)).
-                        debug_assert!(cancel_tx.is_some());
-                        debug!("canceled endpoint removed on error");
-                    }
+                    assert!(
+                        cancel_tx.is_some(),
+                        "services that return an error must have a pending cancelation"
+                    );
+                    return Err(error::Failed(key, e.into())).into();
                 }
             }
         }
@@ -410,8 +398,10 @@ where
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut fut = self.cancel.as_mut().expect("polled after complete");
-        if let Poll::Ready(r) = Pin::new(&mut fut).poll(cx) {
+        // This MUST return ready as soon as the sender has been notified so
+        // that we don't return a service that has been canceled.
+        let mut cancel = self.cancel.as_mut().expect("polled after complete");
+        if let Poll::Ready(r) = Pin::new(&mut cancel).poll(cx) {
             assert!(r.is_ok(), "cancel sender lost");
             let key = self.key.take().expect("polled after complete");
             return Err(PendingError::Canceled(key)).into();
@@ -443,16 +433,40 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            key,
-            cancel,
-            ready,
-            _pd,
-        } = self;
-        f.debug_struct("Pending")
-            .field("key", key)
-            .field("cancel", cancel)
-            .field("ready", ready)
-            .finish()
+        f.debug_struct("Pending").field("key", &self.key).finish()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // Tests https://github.com/tower-rs/tower/issues/415
+    #[tokio::test(flavor = "current_thread")]
+    async fn cancelation_observed() {
+        let mut cache = ReadyCache::default();
+        let mut handles = vec![];
+
+        // NOTE This test passes at 129 items, but fails at 130 items (if the
+        // cancelation receiver is not marked `Unconstrained`).
+        for _ in 0..130 {
+            let (svc, mut handle) = tower_test::mock::pair::<(), ()>();
+            handle.allow(1);
+            cache.push("ep0", svc);
+            handles.push(handle);
+        }
+
+        struct Ready(ReadyCache<&'static str, tower_test::mock::Mock<(), ()>, ()>);
+        impl Unpin for Ready {}
+        impl std::future::Future for Ready {
+            type Output = Result<(), error::Failed<&'static str>>;
+            fn poll(
+                self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                self.get_mut().0.poll_pending(cx)
+            }
+        }
+        Ready(cache).await.unwrap();
     }
 }
