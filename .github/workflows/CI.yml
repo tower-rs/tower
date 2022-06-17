@@ -6,24 +6,40 @@ on:
     - master
   pull_request: {}
 
+env:
+  MSRV: 1.40.0
+
 jobs:
-  check:
+  check-stable:
     # Run `cargo check` first to ensure that the pushed code at least compiles.
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [stable, 1.40.0]
     steps:
     - uses: actions/checkout@master
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: ${{ matrix.rust }}
+        toolchain: stable
         profile: minimal
     - name: Check
       uses: actions-rs/cargo@v1
       with:
         command: check
         args: --all --all-targets --all-features
+
+  check-msrv:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: "install Rust ${{ env.MSRV }}"
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ env.MSRV }}
+        profile: minimal
+    - name: install cargo-hack
+      uses: taiki-e/install-action@cargo-hack
+    - name: install cargo-minimal-versions
+      uses: taiki-e/install-action@cargo-minimal-versions
+    - name: Check
+      run: cargo minimal-versions check --all --all-targets --all-features
 
   cargo-hack:
     runs-on: ubuntu-latest
@@ -33,9 +49,8 @@ jobs:
       with:
         toolchain: stable
         profile: minimal
-    - name: Install cargo-hack
-      run: |
-        curl -LsSf https://github.com/taiki-e/cargo-hack/releases/latest/download/cargo-hack-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
+    - name: install cargo-hack
+      uses: taiki-e/install-action@cargo-hack
     - name: cargo hack check
       working-directory: ${{ matrix.subcrate }}
       run: cargo hack check --each-feature --no-dev-deps --all
@@ -46,10 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, beta, nightly, 1.40.0]
+        rust: [stable, beta, nightly]
     steps:
     - uses: actions/checkout@master
-    - uses: actions-rs/toolchain@v1
+    - name: "install Rust ${{ matrix.rust }}"
+      uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
         profile: minimal
@@ -58,6 +74,23 @@ jobs:
       with:
         command: test
         args: --all --all-features
+
+  test-msrv:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: "install Rust ${{ env.MSRV }}"
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ env.MSRV }}
+        profile: minimal
+    - name: install cargo-hack
+      uses: taiki-e/install-action@cargo-hack
+    - name: install cargo-minimal-versions
+      uses: taiki-e/install-action@cargo-minimal-versions
+    - name: Run tests
+      run: cargo minimal-versions test --all --all-targets --all-features
 
   style:
     # Check style.
@@ -75,7 +108,7 @@ jobs:
       with:
         command: fmt
         args: --all -- --check
-  
+
   # warnings:
   #   # Check for any warnings. This is informational and thus is allowed to fail.
   #   runs-on: ubuntu-latest
