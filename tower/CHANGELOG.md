@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - None.
 
+# 0.4.13 (June 17, 2022)
+
+### Added
+
+- **load_shed**: Public constructor for `Overloaded` error ([#661])
+
+### Fixed
+
+- **util**: Fix hang with `call_all` when the `Stream` of requests is pending
+  ([#656])
+- **ready_cache**: Ensure cancelation is observed by pending services ([#668],
+  fixes [#415])
+- **docs**: Fix a missing section header due to a typo ([#646])
+- **docs**: Fix broken links to `Service` trait ([#659])
+
+
+[#661]: https://github.com/tower-rs/tower/pull/661
+[#656]: https://github.com/tower-rs/tower/pull/656
+[#668]: https://github.com/tower-rs/tower/pull/668
+[#415]: https://github.com/tower-rs/tower/pull/415
+[#646]: https://github.com/tower-rs/tower/pull/646
+[#659]: https://github.com/tower-rs/tower/pull/659
+
 # 0.4.12 (February 16, 2022)
 
 ### Fixed
