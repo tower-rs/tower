@@ -428,7 +428,7 @@ where
 {
     type Output = Result<(K, S, CancelRx), PendingError<K, S::Error>>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         // Before checking whether the service is ready, check to see whether
         // readiness has been canceled.
