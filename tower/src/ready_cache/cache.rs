@@ -2,7 +2,7 @@
 
 use super::error;
 use futures_core::Stream;
-use futures_util::stream::FuturesUnordered;
+use futures_util::{stream::FuturesUnordered, task::AtomicWaker};
 pub use indexmap::Equivalent;
 use indexmap::IndexMap;
 use std::fmt;
@@ -12,7 +12,6 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio::sync::Notify;
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -79,7 +78,7 @@ impl<S, K: Eq + Hash, Req> Unpin for ReadyCache<K, S, Req> {}
 
 #[derive(Debug)]
 struct Cancel {
-    notify: Notify,
+    waker: AtomicWaker,
     canceled: AtomicBool,
 }
 
@@ -406,7 +405,7 @@ where
 /// the state to be observed as soon as the cancelation is triggered.
 fn cancelable() -> CancelPair {
     let cx = Arc::new(Cancel {
-        notify: Notify::new(),
+        waker: AtomicWaker::new(),
         canceled: AtomicBool::new(false),
     });
     (CancelTx(cx.clone()), CancelRx(cx))
@@ -415,7 +414,7 @@ fn cancelable() -> CancelPair {
 impl CancelTx {
     fn cancel(self) {
         self.0.canceled.store(true, Ordering::SeqCst);
-        self.0.notify.notify_waiters();
+        self.0.waker.wake();
     }
 }
 
@@ -451,16 +450,13 @@ where
                 // Before returning Pending, register interest in cancelation so
                 // that this future is polled again if the state changes.
                 let CancelRx(cancel) = self.cancel.as_mut().expect("polled after complete");
-                tokio::pin! {
-                    let cancel_notified = cancel.notify.notified();
-                }
-                let crx_ready = cancel_notified.poll(cx);
+                cancel.waker.register(cx.waker());
                 // Because both the cancel receiver and cancel sender are held
                 // by the `ReadyCache` (i.e., on a single task), then it must
                 // not be possible for the cancelation state to change while
-                // polling.
+                // polling a `Pending` service.
                 assert!(
-                    crx_ready.is_pending() && !cancel.canceled.load(Ordering::SeqCst),
+                    !cancel.canceled.load(Ordering::SeqCst),
                     "cancelation cannot be notified while polling a pending service"
                 );
                 Poll::Pending
