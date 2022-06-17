@@ -90,6 +90,7 @@ tokio-test = "0.4"
 tower-test = { version = "0.4", path = "../tower-test" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
 http = "0.2"
+lazy_static = "1.4.0"
 
 [package.metadata.docs.rs]
 all-features = true
