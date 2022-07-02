@@ -18,6 +18,7 @@ mod optional;
 mod ready;
 mod service_fn;
 mod then;
+mod wrap;
 
 pub use self::{
     and_then::{AndThen, AndThenLayer},
@@ -35,6 +36,7 @@ pub use self::{
     ready::{Ready, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
+    wrap::{Wrap, WrapLayer},
 };
 
 pub use self::call_all::{CallAll, CallAllUnordered};
@@ -58,6 +60,13 @@ pub mod future {
     pub use super::map_result::MapResultFuture;
     pub use super::optional::future as optional;
     pub use super::then::ThenFuture;
+    pub use super::wrap::WrapFuture;
+}
+
+pub mod helper {
+    //! Helper types
+
+    pub use super::wrap::{Post, PostFn, Pre, PreFn};
 }
 
 /// An extension trait for `Service`s that provides a variety of convenient
@@ -1035,6 +1044,51 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Self::Future: Send + 'static,
     {
         BoxCloneService::new(self)
+    }
+
+    /// Wraps this service with async pre/post functions.
+    ///
+    /// The `pre` function is any function that looks like
+    /// <code>async [FnMut]\(Request) -> [Result]<(SRequest, T), [Result]<Response, Err>></code>
+    /// where `Request` is the request given to the `Wrap` service.
+    ///
+    /// * If this function outputs <code>[Ok]\((SRequest, T))</code> the `SRequest` is passed to
+    ///   the inner service and the `T` is retained as shared state. When the inner service outputs
+    ///   a result, this result is passed to `post` along with the shared `T`.
+    /// * If this function returns <code>[Err]\(result)</code> the result is output by the `Wrap`
+    ///   service without calling the inner service or the `post` function.
+    ///
+    /// The `post` function is any function that looks like
+    /// <code>async [FnOnce]\(Res, T) -> [Result]<Response, Err></code> where `Res` is the result
+    /// returned by the inner service, `T` is the shared state provided by `pre`, and `Response`
+    /// and `Err` match the types used in `pre`. The returned [`Result`] is the overall result from
+    /// the wrapped service.
+    ///
+    /// See also [`wrap`](Self::wrap) for when you just need to share state across the inner
+    /// service and don't need asynchronous functions or short-circuiting.
+    fn decorate<Pre, Post>(self, pre: Pre, post: Post) -> Wrap<Self, Pre, Post>
+    where
+        Self: Sized,
+    {
+        Wrap::decorate(self, pre, post)
+    }
+
+    /// Wraps this service with a synchronous pre function that returns a post function.
+    ///
+    /// The given function is any function that looks like
+    /// <code>[FnMut]\(&Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the request
+    /// given to the `Wrap` service, `Response` is the response returned from the inner service,
+    /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
+    /// error the error is output directly without being given to the post function.
+    fn wrap<F, F2>(
+        self,
+        f: F,
+    ) -> Wrap<Self, wrap::Pre<Request, Self::Response, Self::Error, F>, wrap::Post<F2, Self::Error>>
+    where
+        Self: Sized,
+        F: FnMut(&Request) -> F2,
+    {
+        Wrap::new(self, f)
     }
 }
 
