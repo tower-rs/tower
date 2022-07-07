@@ -18,12 +18,12 @@ pin_project! {
         #[pin]
         response: T,
         #[pin]
-        sleep: Sleep,
+        sleep: Pin<Box<Sleep>>,
     }
 }
 
 impl<T> ResponseFuture<T> {
-    pub(crate) fn new(response: T, sleep: Sleep) -> Self {
+    pub(crate) fn new(response: T, sleep: Pin<Box<Sleep>>) -> Self {
         ResponseFuture { response, sleep }
     }
 }
