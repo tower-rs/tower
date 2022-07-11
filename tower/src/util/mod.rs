@@ -60,7 +60,7 @@ pub mod future {
     pub use super::map_result::MapResultFuture;
     pub use super::optional::future as optional;
     pub use super::then::ThenFuture;
-    pub use super::wrap::WrapFuture;
+    pub use super::wrap::{WrapFuture, WrapPreFuture, WrapPostFuture};
 }
 
 pub mod helper {

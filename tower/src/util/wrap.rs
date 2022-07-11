@@ -363,12 +363,18 @@ where
     type Value = Post;
     type Response = Res;
     type Error = E;
-    type Future = std::future::Ready<Result<(Req, Post), Result<Res, E>>>;
+    type Future = WrapPreFuture<Req, Post, Res, E>;
 
     fn call(&mut self, request: Req) -> Self::Future {
         let f2 = (self.f)(&request);
-        std::future::ready(Ok((request, f2)))
+        WrapPreFuture::new(futures_util::future::ready(Ok((request, f2))))
     }
+}
+
+opaque_future! {
+    /// Future returned by the [`PreFn`] impl for [`Pre`].
+    pub type WrapPreFuture<Req, Post, Res, E> =
+        futures_util::future::Ready<Result<(Req, Post), Result<Res, E>>>;
 }
 
 /// Helper type for use with [`Wrap::new`].
@@ -386,11 +392,16 @@ where
 {
     type Response = T;
     type Error = E;
-    type Future = std::future::Ready<Result<T, E>>;
+    type Future = WrapPostFuture<T, E>;
 
     fn call(self, result: Result<Res, E>, value: F) -> Self::Future {
-        std::future::ready(result.map(value))
+        WrapPostFuture::new(futures_util::future::ready(result.map(value)))
     }
+}
+
+opaque_future! {
+    /// Future returned by the [`PostFn`] impl for [`Post`].
+    pub type WrapPostFuture<T, E> = futures_util::future::Ready<Result<T, E>>;
 }
 
 impl<S: fmt::Debug, Pre, Post> fmt::Debug for Wrap<S, Pre, Post> {
