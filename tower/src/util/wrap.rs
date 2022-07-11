@@ -52,12 +52,13 @@ impl<S, F, F2> Wrap<S, F, F2> {
     /// given to the `Wrap` service, `Response` is the response returned from the inner service,
     /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
     /// error the error is output directly without being given to the post function.
-    pub fn new<Request>(
+    pub fn new<Request, T>(
         inner: S,
         f: F,
-    ) -> Wrap<S, Pre<Request, S::Response, S::Error, F>, Post<F2, S::Error>>
+    ) -> Wrap<S, Pre<Request, T, S::Error, F>, Post<F2, S::Error>>
     where
         F: FnMut(&Request) -> F2,
+        F2: FnOnce(S::Response) -> T,
         S: Service<Request>,
     {
         Wrap {
@@ -77,9 +78,10 @@ impl<F, F2> Wrap<(), F, F2> {
     /// Returns a new [`Layer`] that produces [`Wrap`] services.
     ///
     /// This is a convenience function that simply calls [`WrapLayer::new`].
-    pub fn layer<Req, Res, E>(f: F) -> WrapLayer<Pre<Req, Res, E, F>, Post<F2, E>>
+    pub fn layer<Request, Response, T, E>(f: F) -> WrapLayer<Pre<Request, T, E, F>, Post<F2, E>>
     where
-        F: FnMut(&Req) -> F2,
+        F: FnMut(&Request) -> F2,
+        F2: FnOnce(Response) -> T,
     {
         WrapLayer::new(f)
     }
@@ -125,9 +127,10 @@ impl<F, F2> WrapLayer<F, F2> {
     /// given to the `Wrap` service, `Response` is the response returned from the inner service,
     /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
     /// error the error is output directly without being given to the post function.
-    pub fn new<Request, Response, E>(f: F) -> WrapLayer<Pre<Request, Response, E, F>, Post<F2, E>>
+    pub fn new<Request, Response, T, E>(f: F) -> WrapLayer<Pre<Request, T, E, F>, Post<F2, E>>
     where
         F: FnMut(&Request) -> F2,
+        F2: FnOnce(Response) -> T,
     {
         WrapLayer {
             pre: Pre {

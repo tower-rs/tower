@@ -851,13 +851,13 @@ impl<L> ServiceBuilder<L> {
     /// error the error is output directly without being given to the post function.
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
-    pub fn wrap<F, F2, Request, Response, E>(
+    pub fn wrap<F, F2, Request, Response, T, E>(
         self,
         f: F,
     ) -> ServiceBuilder<
         Stack<
             crate::util::WrapLayer<
-                crate::util::helper::Pre<Request, Response, E, F>,
+                crate::util::helper::Pre<Request, T, E, F>,
                 crate::util::helper::Post<F2, E>,
             >,
             L,
@@ -866,6 +866,7 @@ impl<L> ServiceBuilder<L> {
     where
         Self: Sized,
         F: FnMut(&Request) -> F2,
+        F2: FnOnce(Response) -> T,
     {
         self.layer(crate::util::WrapLayer::new(f))
     }

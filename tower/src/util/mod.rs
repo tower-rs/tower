@@ -1080,13 +1080,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// given to the `Wrap` service, `Response` is the response returned from the inner service,
     /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
     /// error the error is output directly without being given to the post function.
-    fn wrap<F, F2>(
+    fn wrap<F, F2, T>(
         self,
         f: F,
-    ) -> Wrap<Self, wrap::Pre<Request, Self::Response, Self::Error, F>, wrap::Post<F2, Self::Error>>
+    ) -> Wrap<Self, wrap::Pre<Request, T, Self::Error, F>, wrap::Post<F2, Self::Error>>
     where
         Self: Sized,
         F: FnMut(&Request) -> F2,
+        F2: FnOnce(Self::Response) -> T,
     {
         Wrap::new(self, f)
     }
