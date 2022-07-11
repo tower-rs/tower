@@ -1076,17 +1076,17 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// Wraps this service with a synchronous pre function that returns a post function.
     ///
     /// The given function is any function that looks like
-    /// <code>[FnMut]\(&Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the request
-    /// given to the `Wrap` service, `Response` is the response returned from the inner service,
-    /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
-    /// error the error is output directly without being given to the post function.
+    /// <code>[FnMut]\(&mut Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the
+    /// request given to the `Wrap` service, `Response` is the response returned from the inner
+    /// service, and `T` is the response returned from the `Wrap` service. If the inner service
+    /// returns an error the error is output directly without being given to the post function.
     fn wrap<F, F2, T>(
         self,
         f: F,
     ) -> Wrap<Self, wrap::Pre<Request, T, Self::Error, F>, wrap::Post<F2, Self::Error>>
     where
         Self: Sized,
-        F: FnMut(&Request) -> F2,
+        F: FnMut(&mut Request) -> F2,
         F2: FnOnce(Self::Response) -> T,
     {
         Wrap::new(self, f)

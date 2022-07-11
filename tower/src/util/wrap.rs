@@ -48,16 +48,16 @@ impl<S, F, F2> Wrap<S, F, F2> {
     /// Creates a new `Wrap` service with a synchronous pre function that returns a post function.
     ///
     /// The given function is any function that looks like
-    /// <code>[FnMut]\(&Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the request
-    /// given to the `Wrap` service, `Response` is the response returned from the inner service,
-    /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
-    /// error the error is output directly without being given to the post function.
+    /// <code>[FnMut]\(&mut Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the
+    /// request given to the `Wrap` service, `Response` is the response returned from the inner
+    /// service, and `T` is the response returned from the `Wrap` service. If the inner service
+    /// returns an error the error is output directly without being given to the post function.
     pub fn new<Request, T>(
         inner: S,
         f: F,
     ) -> Wrap<S, Pre<Request, T, S::Error, F>, Post<F2, S::Error>>
     where
-        F: FnMut(&Request) -> F2,
+        F: FnMut(&mut Request) -> F2,
         F2: FnOnce(S::Response) -> T,
         S: Service<Request>,
     {
@@ -80,7 +80,7 @@ impl<F, F2> Wrap<(), F, F2> {
     /// This is a convenience function that simply calls [`WrapLayer::new`].
     pub fn layer<Request, Response, T, E>(f: F) -> WrapLayer<Pre<Request, T, E, F>, Post<F2, E>>
     where
-        F: FnMut(&Request) -> F2,
+        F: FnMut(&mut Request) -> F2,
         F2: FnOnce(Response) -> T,
     {
         WrapLayer::new(f)
@@ -123,13 +123,13 @@ impl<F, F2> WrapLayer<F, F2> {
     /// function.
     ///
     /// The given function is any function that looks like
-    /// <code>[FnMut]\(&Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the request
-    /// given to the `Wrap` service, `Response` is the response returned from the inner service,
-    /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
-    /// error the error is output directly without being given to the post function.
+    /// <code>[FnMut]\(&mut Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the
+    /// request given to the `Wrap` service, `Response` is the response returned from the inner
+    /// service, and `T` is the response returned from the `Wrap` service. If the inner service
+    /// returns an error the error is output directly without being given to the post function.
     pub fn new<Request, Response, T, E>(f: F) -> WrapLayer<Pre<Request, T, E, F>, Post<F2, E>>
     where
-        F: FnMut(&Request) -> F2,
+        F: FnMut(&mut Request) -> F2,
         F2: FnOnce(Response) -> T,
     {
         WrapLayer {
@@ -360,7 +360,7 @@ pub struct Pre<Req, Res, E, F> {
 
 impl<F, Req, Post, Res, E> PreFn<Req> for Pre<Req, Res, E, F>
 where
-    F: FnMut(&Req) -> Post,
+    F: FnMut(&mut Req) -> Post,
 {
     type Request = Req;
     type Value = Post;
@@ -368,8 +368,8 @@ where
     type Error = E;
     type Future = WrapPreFuture<Req, Post, Res, E>;
 
-    fn call(&mut self, request: Req) -> Self::Future {
-        let f2 = (self.f)(&request);
+    fn call(&mut self, mut request: Req) -> Self::Future {
+        let f2 = (self.f)(&mut request);
         WrapPreFuture::new(futures_util::future::ready(Ok((request, f2))))
     }
 }

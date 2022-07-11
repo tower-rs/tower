@@ -845,10 +845,10 @@ impl<L> ServiceBuilder<L> {
     /// Wraps the inner service with a synchronous pre function that returns a post function.
     ///
     /// The given function is any function that looks like
-    /// <code>[FnMut]\(&Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the request
-    /// given to the `Wrap` service, `Response` is the response returned from the inner service,
-    /// and `T` is the response returned from the `Wrap` service. If the inner service returns an
-    /// error the error is output directly without being given to the post function.
+    /// <code>[FnMut]\(&mut Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the
+    /// request given to the `Wrap` service, `Response` is the response returned from the inner
+    /// service, and `T` is the response returned from the `Wrap` service. If the inner service
+    /// returns an error the error is output directly without being given to the post function.
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn wrap<F, F2, Request, Response, T, E>(
@@ -865,7 +865,7 @@ impl<L> ServiceBuilder<L> {
     >
     where
         Self: Sized,
-        F: FnMut(&Request) -> F2,
+        F: FnMut(&mut Request) -> F2,
         F2: FnOnce(Response) -> T,
     {
         self.layer(crate::util::WrapLayer::new(f))
