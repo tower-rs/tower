@@ -352,7 +352,7 @@ where
 #[allow(missing_debug_implementations)]
 pub struct Pre<Req, Res, E, F> {
     f: F,
-    _marker: PhantomData<fn(Req) -> (Res, E)>,
+    _marker: PhantomData<fn(Req) -> (Req, Res, E)>,
 }
 
 impl<F, Req, Post, Res, E> PreFn<Req> for Pre<Req, Res, E, F>
@@ -363,9 +363,7 @@ where
     type Value = Post;
     type Response = Res;
     type Error = E;
-    type Future = std::future::Ready<
-        Result<(Self::Request, Self::Value), Result<Self::Response, Self::Error>>,
-    >;
+    type Future = std::future::Ready<Result<(Req, Post), Result<Res, E>>>;
 
     fn call(&mut self, request: Req) -> Self::Future {
         let f2 = (self.f)(&request);
@@ -379,7 +377,7 @@ where
 /// asynchronous failable post function given to [`Wrap::decorate`].
 #[allow(missing_debug_implementations)]
 pub struct Post<F, E> {
-    _marker: PhantomData<fn(F) -> E>,
+    _marker: PhantomData<fn(F, E) -> E>,
 }
 
 impl<F, Res, E, T> PostFn<Res, E, F> for Post<F, E>
@@ -388,7 +386,7 @@ where
 {
     type Response = T;
     type Error = E;
-    type Future = std::future::Ready<Result<Self::Response, Self::Error>>;
+    type Future = std::future::Ready<Result<T, E>>;
 
     fn call(self, result: Result<Res, E>, value: F) -> Self::Future {
         std::future::ready(result.map(value))
