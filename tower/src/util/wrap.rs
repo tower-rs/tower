@@ -39,8 +39,12 @@ impl<S, F, F2> Wrap<S, F, F2> {
     /// and `Err` match the types used in `pre`. The returned [`Result`] is the overall result from
     /// the wrapped service.
     ///
+    /// See the documentation for the [`decorate` combinator][] for examples.
+    ///
     /// See also [`new`](Self::new) for when you just need to share state across the inner service
     /// and don't need asynchronous functions or short-circuiting.
+    ///
+    /// [`decorate` combinator]: crate::util::ServiceExt::decorate
     pub fn decorate(inner: S, pre: F, post: F2) -> Self {
         Self { inner, pre, post }
     }
@@ -52,6 +56,10 @@ impl<S, F, F2> Wrap<S, F, F2> {
     /// request given to the `Wrap` service, `Response` is the response returned from the inner
     /// service, and `T` is the response returned from the `Wrap` service. If the inner service
     /// returns an error the error is output directly without being given to the post function.
+    ///
+    /// See the documentation for the [`wrap` combinator][] for examples.
+    ///
+    /// [`wrap` combinator]: crate::util::ServiceExt::wrap
     pub fn new<Request, T>(
         inner: S,
         f: F,
@@ -113,8 +121,12 @@ impl<F, F2> WrapLayer<F, F2> {
     /// and `Err` match the types used in `pre`. The returned [`Result`] is the overall result from
     /// the wrapped service.
     ///
+    /// See the documentation for the [`decorate` combinator][] for examples.
+    ///
     /// See also [`new`](Self::new) for when you just need to share state across the inner service
     /// and don't need asynchronous functions or short-circuiting.
+    ///
+    /// [`decorate` combinator]: crate::util::ServiceExt::decorate
     pub fn decorate(pre: F, post: F2) -> Self {
         Self { pre, post }
     }
@@ -127,6 +139,10 @@ impl<F, F2> WrapLayer<F, F2> {
     /// request given to the `Wrap` service, `Response` is the response returned from the inner
     /// service, and `T` is the response returned from the `Wrap` service. If the inner service
     /// returns an error the error is output directly without being given to the post function.
+    ///
+    /// See the documentation for the [`wrap` combinator][] for examples.
+    ///
+    /// [`wrap` combinator]: crate::util::ServiceExt::wrap
     pub fn new<Request, Response, T, E>(f: F) -> WrapLayer<Pre<Request, T, E, F>, Post<F2, E>>
     where
         F: FnMut(&mut Request) -> F2,

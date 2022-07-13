@@ -826,9 +826,13 @@ impl<L> ServiceBuilder<L> {
     /// returned by the inner service, `T` is the shared state provided by `pre`, and `Response`
     /// and `Err` match the types used in `pre`. The returned [`Result`] is the overall result from
     /// the wrapped service.
+    /// 
+    /// See the documentation for the [`decorate` combinator][] for examples.
     ///
     /// See also [`wrap`](Self::wrap) for when you just need to share state across the inner
     /// service and don't need asynchronous functions or short-circuiting.
+    /// 
+    /// [`decorate` combinator]: crate::util::ServiceExt::decorate
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn decorate<Pre, Post>(
@@ -849,6 +853,10 @@ impl<L> ServiceBuilder<L> {
     /// request given to the `Wrap` service, `Response` is the response returned from the inner
     /// service, and `T` is the response returned from the `Wrap` service. If the inner service
     /// returns an error the error is output directly without being given to the post function.
+    /// 
+    /// See the documentation for the [`wrap` combinator][] for examples.
+    /// 
+    /// [`wrap` combinator]: crate::util::ServiceExt::wrap
     #[cfg(feature = "util")]
     #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn wrap<F, F2, Request, Response, T, E>(

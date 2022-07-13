@@ -60,7 +60,7 @@ pub mod future {
     pub use super::map_result::MapResultFuture;
     pub use super::optional::future as optional;
     pub use super::then::ThenFuture;
-    pub use super::wrap::{WrapFuture, WrapPreFuture, WrapPostFuture};
+    pub use super::wrap::{WrapFuture, WrapPostFuture, WrapPreFuture};
 }
 
 pub mod helper {
@@ -1066,6 +1066,55 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// See also [`wrap`](Self::wrap) for when you just need to share state across the inner
     /// service and don't need asynchronous functions or short-circuiting.
+    ///
+    /// # Examples
+    ///
+    /// Adding a cache in front of a service:
+    ///
+    /// ```rust
+    /// use tower::{Service, ServiceExt};
+    /// use std::collections::HashMap;
+    /// use std::sync::{Arc, Mutex};
+    /// # #[derive(Clone, PartialEq, Eq, Hash)] struct Request;
+    /// # impl Request { fn new(_: &str) -> Self { Request }}
+    /// # #[derive(Clone)] struct Response;
+    ///
+    /// # fn main() {
+    /// #     async {
+    /// // A service returning Result<Response, Error>
+    /// let service = /* ... */
+    /// # tower::service_fn(|_: Request| async { Ok::<_, ()>(Response) });
+    ///
+    /// // Wrap the service in a cache for successful responses
+    /// let cache = Arc::new(Mutex::new(HashMap::new()));
+    /// let mut new_service = service.decorate(
+    ///     {
+    ///         let cache = cache.clone();
+    ///         move |req: Request| std::future::ready(
+    ///             cache.lock().unwrap().get(&req).cloned().map_or_else(
+    ///                 || Ok((req.clone(), req)),
+    ///                 |response| Err(Ok(response))),
+    ///         )
+    ///     },
+    ///     move |res: Result<Response, _>, req| async move {
+    ///         if let Ok(ref val) = res {
+    ///             cache.lock().unwrap().insert(req, val.clone());
+    ///         }
+    ///         res
+    ///     },
+    /// );
+    ///
+    /// // Call the new service
+    /// let request = Request::new("cats");
+    /// let response = new_service
+    ///     .ready()
+    ///     .await?
+    ///     .call(request)
+    ///     .await?;
+    /// #     Ok::<(), ()>(())
+    /// #     };
+    /// # }
+    /// ```
     fn decorate<Pre, Post>(self, pre: Pre, post: Post) -> Wrap<Self, Pre, Post>
     where
         Self: Sized,
@@ -1080,6 +1129,50 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// request given to the `Wrap` service, `Response` is the response returned from the inner
     /// service, and `T` is the response returned from the `Wrap` service. If the inner service
     /// returns an error the error is output directly without being given to the post function.
+    ///
+    /// # Examples
+    ///
+    /// Attaching a unique identifier to the request and response:
+    ///
+    /// ```rust
+    /// use tower::{Service, ServiceExt};
+    /// # #[derive(Clone)] struct UUID;
+    /// # impl UUID { fn new() -> Self { UUID } }
+    /// # struct Request;
+    /// # impl Request {
+    /// #     fn new(_: &str) -> Self { Request }
+    /// #     fn set_identifier(&mut self, _: UUID) {}
+    /// # }
+    /// # struct Response;
+    /// # impl Response { fn set_identifier(&mut self, _: UUID) {} }
+    ///
+    /// # fn main() {
+    /// #     async {
+    /// // A service returning Result<Response, Error>
+    /// let service = /* ... */
+    /// # tower::service_fn(|_: Request| async { Ok::<_, ()>(Response) });
+    ///
+    /// // Attach a unique identifier to each request and response
+    /// let mut new_service = service.wrap(|req| {
+    ///     let uuid = UUID::new();
+    ///     req.set_identifier(uuid.clone());
+    ///     move |mut res| {
+    ///         res.set_identifier(uuid);
+    ///         res
+    ///     }
+    /// });
+    ///
+    /// // Call the new service
+    /// let request = Request::new("cats");
+    /// let response = new_service
+    ///     .ready()
+    ///     .await?
+    ///     .call(request)
+    ///     .await?;
+    /// #     Ok::<(), ()>(())
+    /// #     };
+    /// # }
+    /// ```
     fn wrap<F, F2, T>(
         self,
         f: F,
