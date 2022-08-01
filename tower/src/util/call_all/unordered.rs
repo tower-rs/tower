@@ -35,7 +35,6 @@ pin_project! {
 impl<Svc, S> CallAllUnordered<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
     /// Create new [`CallAllUnordered`] combinator.
@@ -75,10 +74,9 @@ where
 impl<Svc, S> Stream for CallAllUnordered<Svc, S>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
 {
-    type Item = Result<Svc::Response, crate::BoxError>;
+    type Item = Result<Svc::Response, Svc::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().inner.poll_next(cx)

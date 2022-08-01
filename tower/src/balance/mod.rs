@@ -5,20 +5,13 @@
 //! Otherwise, clients could see spikes in latency if their request goes to a particularly loaded
 //! service, even when spare capacity is available to handle that request elsewhere.
 //!
-//! This module provides two pieces of middleware that helps with this type of load balancing:
-//!
-//! First, [`p2c`] implements the "[Power of Two Random Choices]" algorithm, a simple but robust
-//! technique for spreading load across services with only inexact load measurements. Use this if
-//! the set of available services is not within your control, and you simply want to spread load
-//! among that set of services.
+//! This module provides the [`p2c`] middleware, which implements the "[Power of
+//! Two Random Choices]" algorithm. This is a simple but robust  technique for
+//! spreading load across services with only inexact load measurements. Use this
+//! if the set of available services is not within your control, and you simply
+//! want to spread load among that set of services.
 //!
 //! [Power of Two Random Choices]: http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
-//!
-//! Second, [`pool`] implements a dynamically sized pool of services. It estimates the overall
-//! current load by tracking successful and unsuccessful calls to [`poll_ready`], and uses an
-//! exponentially weighted moving average to add (using [`MakeService`]) or remove (by dropping)
-//! services in response to increases or decreases in load. Use this if you are able to
-//! dynamically add more service endpoints to the system to handle added load.
 //!
 //! # Examples
 //!
@@ -52,10 +45,6 @@
 //! }
 //! # }
 //! ```
-//!
-//! [`MakeService`]: crate::MakeService
-//! [`poll_ready`]: crate::Service::poll_ready
 
 pub mod error;
 pub mod p2c;
-pub mod pool;

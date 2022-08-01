@@ -19,6 +19,6 @@ jobs:
           prefix: "(tower)|(tower-[a-z]+)"
           changelog: "$prefix/CHANGELOG.md"
           title: "$prefix $version"
-          branch: master
+          branch: "(master)|(v[0-9]+.[0-9]+.x)"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

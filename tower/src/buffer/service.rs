@@ -4,7 +4,10 @@ use super::{
     worker::{Handle, Worker},
 };
 
-use std::task::{Context, Poll};
+use std::{
+    future::Future,
+    task::{Context, Poll},
+};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::PollSender;
 use tower_service::Service;
@@ -13,18 +16,14 @@ use tower_service::Service;
 ///
 /// See the module documentation for more details.
 #[derive(Debug)]
-pub struct Buffer<T, Request>
-where
-    T: Service<Request>,
-{
-    tx: PollSender<Message<Request, T::Future>>,
+pub struct Buffer<Req, F> {
+    tx: PollSender<Message<Req, F>>,
     handle: Handle,
 }
 
-impl<T, Request> Buffer<T, Request>
+impl<Req, F> Buffer<Req, F>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
+    F: 'static,
 {
     /// Creates a new [`Buffer`] wrapping `service`.
     ///
@@ -47,12 +46,12 @@ where
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
-    pub fn new(service: T, bound: usize) -> Self
+    pub fn new<S>(service: S, bound: usize) -> Self
     where
-        T: Send + 'static,
-        T::Future: Send,
-        T::Error: Send + Sync,
-        Request: Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
+        F: Send,
+        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
     {
         let (service, worker) = Self::pair(service, bound);
         tokio::spawn(worker);
@@ -64,12 +63,12 @@ where
     /// This is useful if you do not want to spawn directly onto the tokio runtime
     /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
-    pub fn pair(service: T, bound: usize) -> (Buffer<T, Request>, Worker<T, Request>)
+    pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
     where
-        T: Send + 'static,
-        T::Error: Send + Sync,
-        Request: Send + 'static,
-        T::Future: Send + 'static,
+        S: Service<Req, Future = F> + Send + 'static,
+        F: Send,
+        S::Error: Into<crate::BoxError> + Send + Sync,
+        Req: Send + 'static,
     {
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
@@ -85,16 +84,15 @@ where
     }
 }
 
-impl<T, Request> Service<Request> for Buffer<T, Request>
+impl<Req, Rsp, F, E> Service<Req> for Buffer<Req, F>
 where
-    T: Service<Request>,
-    T::Error: Into<crate::BoxError>,
-    T::Future: Send + 'static,
-    Request: Send + 'static,
+    F: Future<Output = Result<Rsp, E>> + Send + 'static,
+    E: Into<crate::BoxError>,
+    Req: Send + 'static,
 {
-    type Response = T::Response;
+    type Response = Rsp;
     type Error = crate::BoxError;
-    type Future = ResponseFuture<T::Future>;
+    type Future = ResponseFuture<F>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // First, check if the worker is still alive.
@@ -109,7 +107,7 @@ where
             .map_err(|_| self.get_worker_error())
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
+    fn call(&mut self, request: Req) -> Self::Future {
         tracing::trace!("sending request to buffer worker");
 
         // get the current Span so that we can explicitly propagate it to the worker
@@ -132,11 +130,10 @@ where
     }
 }
 
-impl<T, Request> Clone for Buffer<T, Request>
+impl<Req, F> Clone for Buffer<Req, F>
 where
-    T: Service<Request>,
-    Request: Send + 'static,
-    T::Future: Send + 'static,
+    Req: Send + 'static,
+    F: Send + 'static,
 {
     fn clone(&self) -> Self {
         Self {

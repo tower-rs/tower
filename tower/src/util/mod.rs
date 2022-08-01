@@ -19,7 +19,6 @@ mod ready;
 mod service_fn;
 mod then;
 
-#[allow(deprecated)]
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
@@ -33,7 +32,7 @@ pub use self::{
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
-    ready::{Ready, ReadyAnd, ReadyOneshot},
+    ready::{Ready, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
@@ -72,19 +71,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Ready::new(self)
     }
 
-    /// Yields a mutable reference to the service when it is ready to accept a request.
-    #[deprecated(
-        since = "0.4.6",
-        note = "please use the `ServiceExt::ready` method instead"
-    )]
-    #[allow(deprecated)]
-    fn ready_and(&mut self) -> ReadyAnd<'_, Self, Request>
-    where
-        Self: Sized,
-    {
-        ReadyAnd::new(self)
-    }
-
     /// Yields the service when it is ready to accept a request.
     fn ready_oneshot(self) -> ReadyOneshot<Self, Request>
     where
@@ -112,7 +98,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     fn call_all<S>(self, reqs: S) -> CallAll<Self, S>
     where
         Self: Sized,
-        Self::Error: Into<crate::BoxError>,
         S: futures_core::Stream<Item = Request>,
     {
         CallAll::new(self, reqs)
