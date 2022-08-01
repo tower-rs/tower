@@ -91,7 +91,9 @@ jobs:
       # failure only occurs on a particular version.
       fail-fast: false
       matrix:
-        rust: [stable, beta, nightly]
+        # Nightly has been removed due to regressions, we can re-enable once the issue below is resolved.
+        # Related issue: https://github.com/rust-lang/rust/issues/99536
+        rust: [stable, beta]
     steps:
     - uses: actions/checkout@master
     - name: "install Rust ${{ matrix.rust }}"
