@@ -11,9 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **util**: Removed deprecated `ServiceExt::ready_and` method and `ReadyAnd`
   future ([#652])
+- **retry**: **Breaking Change** `retry::Policy::retry` now accepts `&mut Req` and `&mut Res` instead of the previous mutable versions. This
+  increases the flexibility of the retry policy. To update, update your method signature to include `mut` for both parameters. ([#584])
 
 
 [#652]: https://github.com/tower-rs/tower/pull/652
+[#584]: https://github.com/tower-rs/tower/pull/584
 
 # 0.4.12 (February 16, 2022)
 
