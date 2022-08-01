@@ -1,11 +1,11 @@
-#![doc(html_root_url = "https://docs.rs/tower-service/0.3.1")]
 #![warn(
     missing_debug_implementations,
     missing_docs,
     rust_2018_idioms,
     unreachable_pub
 )]
-#![deny(broken_intra_doc_links)]
+#![forbid(unsafe_code)]
+// `rustdoc::broken_intra_doc_links` is checked on CI
 
 //! Definition of the core `Service` trait to Tower
 //!
@@ -331,6 +331,12 @@ pub trait Service<Request> {
     /// Once `poll_ready` returns `Poll::Ready(Ok(()))`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Poll::Ready(Ok(()))` or `Poll::Ready(Err(_))`.
+    ///
+    /// Note that `poll_ready` may reserve shared resources that are consumed in a subsequent
+    /// invocation of `call`. Thus, it is critical for implementations to not assume that `call`
+    /// will always be invoked and to ensure that such resources are released if the service is
+    /// dropped before `call` is invoked or the future returned by `call` is dropped before it
+    /// is polled.
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Process the request and return the response asynchronously.

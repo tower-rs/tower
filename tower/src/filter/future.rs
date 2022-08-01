@@ -3,7 +3,7 @@
 use super::AsyncPredicate;
 use crate::BoxError;
 use futures_core::ready;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
@@ -11,21 +11,22 @@ use std::{
 };
 use tower_service::Service;
 
-/// Filtered response future from [`AsyncFilter`] services.
-///
-/// [`AsyncFilter`]: crate::filter::AsyncFilter
-#[pin_project]
-#[derive(Debug)]
-pub struct AsyncResponseFuture<P, S, Request>
-where
-    P: AsyncPredicate<Request>,
-    S: Service<P::Request>,
-{
-    #[pin]
-    state: State<P::Future, S::Future>,
+pin_project! {
+    /// Filtered response future from [`AsyncFilter`] services.
+    ///
+    /// [`AsyncFilter`]: crate::filter::AsyncFilter
+    #[derive(Debug)]
+    pub struct AsyncResponseFuture<P, S, Request>
+    where
+        P: AsyncPredicate<Request>,
+        S: Service<P::Request>,
+    {
+        #[pin]
+        state: State<P::Future, S::Future>,
 
-    /// Inner service
-    service: S,
+        // Inner service
+        service: S,
+    }
 }
 
 opaque_future! {
@@ -39,13 +40,21 @@ opaque_future! {
         >;
 }
 
-#[pin_project(project = StateProj)]
-#[derive(Debug)]
-enum State<F, G> {
-    /// Waiting for the predicate future
-    Check(#[pin] F),
-    /// Waiting for the response future
-    WaitResponse(#[pin] G),
+pin_project! {
+    #[project = StateProj]
+    #[derive(Debug)]
+    enum State<F, G> {
+        /// Waiting for the predicate future
+        Check {
+            #[pin]
+            check: F
+        },
+        /// Waiting for the response future
+        WaitResponse {
+            #[pin]
+            response: G
+        },
+    }
 }
 
 impl<P, S, Request> AsyncResponseFuture<P, S, Request>
@@ -56,7 +65,7 @@ where
 {
     pub(crate) fn new(check: P::Future, service: S) -> Self {
         Self {
-            state: State::Check(check),
+            state: State::Check { check },
             service,
         }
     }
@@ -75,12 +84,12 @@ where
 
         loop {
             match this.state.as_mut().project() {
-                StateProj::Check(mut check) => {
+                StateProj::Check { mut check } => {
                     let request = ready!(check.as_mut().poll(cx))?;
                     let response = this.service.call(request);
-                    this.state.set(State::WaitResponse(response));
+                    this.state.set(State::WaitResponse { response });
                 }
-                StateProj::WaitResponse(response) => {
+                StateProj::WaitResponse { response } => {
                     return response.poll(cx).map_err(Into::into);
                 }
             }

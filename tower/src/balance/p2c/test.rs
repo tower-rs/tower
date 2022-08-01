@@ -45,7 +45,7 @@ async fn single_endpoint() {
     handle.send_error("endpoint lost");
     assert_pending!(svc.poll_ready());
     assert!(
-        svc.get_ref().len() == 0,
+        svc.get_ref().is_empty(),
         "balancer must drop failed endpoints"
     );
 }

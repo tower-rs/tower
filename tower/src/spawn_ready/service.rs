@@ -1,4 +1,4 @@
-use super::future::ResponseFuture;
+use super::{future::ResponseFuture, SpawnReadyLayer};
 use crate::{util::ServiceExt, BoxError};
 use futures_core::ready;
 use futures_util::future::TryFutureExt;
@@ -30,6 +30,11 @@ impl<S> SpawnReady<S> {
         Self {
             inner: Inner::Service(Some(service)),
         }
+    }
+
+    /// Creates a layer that wraps services with [`SpawnReady`].
+    pub fn layer() -> SpawnReadyLayer {
+        SpawnReadyLayer::default()
     }
 }
 
@@ -75,7 +80,7 @@ where
     fn call(&mut self, request: Req) -> Self::Future {
         match self.inner {
             Inner::Service(Some(ref mut svc)) => {
-                ResponseFuture(svc.call(request).map_err(Into::into))
+                ResponseFuture::new(svc.call(request).map_err(Into::into))
             }
             _ => unreachable!("poll_ready must be called"),
         }

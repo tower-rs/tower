@@ -5,7 +5,7 @@ use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
 use futures_core::{ready, Stream};
 #[cfg(feature = "discover")]
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
 use std::pin::Pin;
 
@@ -48,17 +48,18 @@ pub struct PeakEwma<S, C = CompleteOnResponse> {
     completion: C,
 }
 
-/// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
-#[pin_project]
-#[derive(Debug)]
 #[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
-pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
-    #[pin]
-    discover: D,
-    decay_ns: f64,
-    default_rtt: Duration,
-    completion: C,
+pin_project! {
+    /// Wraps a `D`-typed stream of discovered services with `PeakEwma`.
+    #[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
+    #[derive(Debug)]
+    pub struct PeakEwmaDiscover<D, C = CompleteOnResponse> {
+        #[pin]
+        discover: D,
+        decay_ns: f64,
+        default_rtt: Duration,
+        completion: C,
+    }
 }
 
 /// Represents the relative cost of communicating with a service.
@@ -90,6 +91,7 @@ const NANOS_PER_MILLI: f64 = 1_000_000.0;
 impl<S, C> PeakEwma<S, C> {
     /// Wraps an `S`-typed service so that its load is tracked by the EWMA of its peak latency.
     pub fn new(service: S, default_rtt: Duration, decay_ns: f64, completion: C) -> Self {
+        debug_assert!(decay_ns > 0.0, "decay_ns must be positive");
         Self {
             service,
             decay_ns,
@@ -240,7 +242,7 @@ impl RttEstimate {
             recv_at,
             sent_at
         );
-        let rtt = nanos(recv_at - sent_at);
+        let rtt = nanos(recv_at.saturating_duration_since(sent_at));
 
         let now = Instant::now();
         debug_assert!(
@@ -263,7 +265,7 @@ impl RttEstimate {
             // prior estimate according to how much time has elapsed since the last
             // update. The inverse of the decay is used to scale the estimate towards the
             // observed RTT value.
-            let elapsed = nanos(now - self.update_at);
+            let elapsed = nanos(now.saturating_duration_since(self.update_at));
             let decay = (-elapsed / decay_ns).exp();
             let recency = 1.0 - decay;
             let next_estimate = (self.rtt_ns * decay) + (rtt * recency);

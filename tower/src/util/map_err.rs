@@ -72,7 +72,7 @@ where
 
     #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
-        MapErrFuture(self.inner.call(request).map_err(self.f.clone()))
+        MapErrFuture::new(self.inner.call(request).map_err(self.f.clone()))
     }
 }
 

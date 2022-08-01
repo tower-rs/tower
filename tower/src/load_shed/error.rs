@@ -7,12 +7,14 @@ use std::fmt;
 /// called.
 ///
 /// [`LoadShed`]: crate::load_shed::LoadShed
+#[derive(Default)]
 pub struct Overloaded {
     _p: (),
 }
 
 impl Overloaded {
-    pub(crate) fn new() -> Self {
+    /// Construct a new overloaded error
+    pub fn new() -> Self {
         Overloaded { _p: () }
     }
 }

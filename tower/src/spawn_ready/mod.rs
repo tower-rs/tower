@@ -3,9 +3,7 @@
 
 pub mod future;
 mod layer;
-mod make;
 mod service;
 
 pub use self::layer::SpawnReadyLayer;
-pub use self::make::{MakeFuture, MakeSpawnReady};
 pub use self::service::SpawnReady;

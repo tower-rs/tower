@@ -78,7 +78,7 @@ Depending on your particular use case, you might use Tower in several ways:
 
 * **Implementing application logic** for a networked program. You might
   use the [`Service`] trait to model your application's behavior, and use
-  the middleware [provided by this crate][modules] and by other libraries
+  the middleware [provided by this crate][all_layers] and by other libraries
   to add functionality to clients and servers provided by one or more
   protocol implementations.
 * **Implementing middleware** to add custom behavior to network clients and
@@ -110,6 +110,10 @@ The following is an incomplete list of such libraries:
   [here][warp-service] for details on using [`warp`] with Tower.
 * [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
   Server Protocol][lsp] based on Tower.
+* [`kube`]: Kubernetes client and futures controller runtime. [`kube::Client`]
+  makes use of the Tower ecosystem: [`tower`], [`tower-http`], and
+  [`tower-test`]. See [here][kube-example-minimal] and
+  [here][kube-example-trace] for examples of using [`kube`] with Tower.
 
 [`hyper`]: https://crates.io/crates/hyper
 [`tonic`]: https://crates.io/crates/tonic
@@ -120,6 +124,11 @@ The following is an incomplete list of such libraries:
 [`tower-lsp`]: https://crates.io/crates/tower-lsp
 [`lspower`]: https://crates.io/crates/lspower
 [lsp]: https://microsoft.github.io/language-server-protocol/
+[`kube`]: https://crates.io/crates/kube
+[`kube::Client`]: https://docs.rs/kube/latest/kube/struct.Client.html
+[kube-example-minimal]: https://github.com/clux/kube-rs/blob/master/examples/custom_client.rs
+[kube-example-trace]: https://github.com/clux/kube-rs/blob/master/examples/custom_client_trace.rs
+[`tower-http`]: https://crates.io/crates/tower-http
 
 If you're the maintainer of a crate that supports Tower, we'd love to add
 your crate to this list! Please [open a PR] adding a brief description of
@@ -145,11 +154,12 @@ only the [`retry`] and [`timeout`][timeouts] middleware, write:
 tower = { version = "0.4", features = ["retry", "timeout"] }
 ```
 
-See [here](modules) for a complete list of all middleware provided by
+See [here][all_layers] for a complete list of all middleware provided by
 Tower.
 
 [`Service`]: https://docs.rs/tower/latest/tower/trait.Service.html
 [`Layer`]: https://docs.rs/tower/latest/tower/trait.Layer.html
+[all_layers]: https://docs.rs/tower/latest/tower/#modules
 [timeouts]: https://docs.rs/tower/latest/tower/timeout/
 [rate limiting]: https://docs.rs/tower/latest/tower/limit/rate
 [load balancing]: https://docs.rs/tower/latest/tower/balance/
@@ -161,6 +171,13 @@ Tower.
 [`tower-test`]: https://crates.io/crates/tower-test
 [`retry`]: https://docs.rs/tower/latest/tower/retry
 [open a PR]: https://github.com/tower-rs/tower/compare
+
+
+## Supported Rust Versions
+
+Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
+least** 6 months. When increasing the MSRV, the new Rust version must have been
+released at least six months ago. The current MSRV is 1.49.0.
 
 ## License
 

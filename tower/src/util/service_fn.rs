@@ -33,7 +33,7 @@ use tower_service::Service;
 /// let mut service = service_fn(handle);
 ///
 /// let response = service
-///     .ready_and()
+///     .ready()
 ///     .await?
 ///     .call(Request::new())
 ///     .await?;

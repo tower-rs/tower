@@ -18,7 +18,6 @@ use tower_layer::Layer;
 /// [`Discover`]: crate::discover::Discover
 /// [`MakeService`]: crate::MakeService
 /// [`Service`]: crate::Service
-#[derive(Clone)]
 pub struct MakeBalanceLayer<D, Req> {
     _marker: PhantomData<fn(D, Req)>,
 }
@@ -35,6 +34,14 @@ impl<D, Req> MakeBalanceLayer<D, Req> {
 impl<D, Req> Default for MakeBalanceLayer<D, Req> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<D, Req> Clone for MakeBalanceLayer<D, Req> {
+    fn clone(&self) -> Self {
+        Self {
+            _marker: PhantomData,
+        }
     }
 }
 

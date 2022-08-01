@@ -73,7 +73,7 @@ where
 
     #[inline]
     fn call(&mut self, request: Request) -> Self::Future {
-        MapResultFuture(self.inner.call(request).map(self.f.clone()))
+        MapResultFuture::new(self.inner.call(request).map(self.f.clone()))
     }
 }
 
