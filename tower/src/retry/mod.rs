@@ -51,7 +51,7 @@ impl<P, S> Retry<P, S> {
 
 impl<P, S, Request> Service<Request> for Retry<P, S>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: Policy<Request, S::Response, S::Error> + Clone + Unpin,
     S: Service<Request> + Clone,
 {
     type Response = S::Response;
@@ -65,10 +65,10 @@ where
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request) -> Self::Future {
-        let cloned = self.policy.clone_request(&request);
+    fn call(&mut self, mut request: Request) -> Self::Future {
+        self.policy.pre_request(&mut request);
         let future = self.service.call(request);
 
-        ResponseFuture::new(cloned, self.clone(), future)
+        ResponseFuture::new(self.clone(), future)
     }
 }

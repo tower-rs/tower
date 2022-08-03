@@ -44,7 +44,7 @@ use std::future::Future;
 /// ```
 pub trait Policy<Req, Res, E>: Sized {
     /// The [`Future`] type returned by [`Policy::retry`].
-    type Future: Future<Output = Self>;
+    type Future: Future<Output = Option<Req>>;
 
     /// Check the policy if a certain request should be retried.
     ///
@@ -77,10 +77,8 @@ pub trait Policy<Req, Res, E>: Sized {
     ///
     /// [`Service::Response`]: crate::Service::Response
     /// [`Service::Error`]: crate::Service::Error
-    fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future>;
+    fn retry(&mut self, result: &mut Result<Res, E>) -> Self::Future;
 
-    /// Tries to clone a request before being passed to the inner service.
-    ///
-    /// If the request cannot be cloned, return [`None`].
-    fn clone_request(&self, req: &Req) -> Option<Req>;
+    /// Called before a request is sent.
+    fn pre_request(&mut self, _req: &mut Req) {}
 }
