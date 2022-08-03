@@ -14,9 +14,9 @@ use std::future::Future;
 /// struct Attempts(usize);
 ///
 /// impl<E> Policy<Req, Res, E> for Attempts {
-///     type Future = future::Ready<Self>;
+///     type Future = future::Ready<()>;
 ///
-///     fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
+///     fn retry(&mut self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
 ///         match result {
 ///             Ok(_) => {
 ///                 // Treat all `Response`s as success,
@@ -28,7 +28,8 @@ use std::future::Future;
 ///                 // But we limit the number of attempts...
 ///                 if self.0 > 0 {
 ///                     // Try again!
-///                     Some(future::ready(Attempts(self.0 - 1)))
+///                     self.0 -= 1;
+///                     Some(future::ready(()))
 ///                 } else {
 ///                     // Used all our attempts, no retry...
 ///                     None
@@ -37,14 +38,14 @@ use std::future::Future;
 ///         }
 ///     }
 ///
-///     fn clone_request(&self, req: &Req) -> Option<Req> {
+///     fn clone_request(&mut self, req: &Req) -> Option<Req> {
 ///         Some(req.clone())
 ///     }
 /// }
 /// ```
-pub trait Policy<Req, Res, E>: Sized {
+pub trait Policy<Req, Res, E> {
     /// The [`Future`] type returned by [`Policy::retry`].
-    type Future: Future<Output = Self>;
+    type Future: Future<Output = ()>;
 
     /// Check the policy if a certain request should be retried.
     ///
@@ -77,10 +78,14 @@ pub trait Policy<Req, Res, E>: Sized {
     ///
     /// [`Service::Response`]: crate::Service::Response
     /// [`Service::Error`]: crate::Service::Error
-    fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future>;
+    fn retry(&mut self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future>;
 
     /// Tries to clone a request before being passed to the inner service.
     ///
     /// If the request cannot be cloned, return [`None`].
-    fn clone_request(&self, req: &Req) -> Option<Req>;
+    fn clone_request(&mut self, req: &Req) -> Option<Req>;
 }
+
+// Ensure `Policy` is object safe
+#[cfg(test)]
+fn _obj_safe(_: Box<dyn Policy<(), (), (), Future = futures::future::Ready<()>>>) {}

@@ -51,7 +51,7 @@ impl<P, S> Retry<P, S> {
 
 impl<P, S, Request> Service<Request> for Retry<P, S>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: Policy<Request, S::Response, S::Error> + Clone + Unpin,
     S: Service<Request> + Clone,
 {
     type Response = S::Response;

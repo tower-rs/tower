@@ -122,16 +122,16 @@ type Handle = mock::Handle<Req, Res>;
 struct RetryErrors;
 
 impl Policy<Req, Res, Error> for RetryErrors {
-    type Future = future::Ready<Self>;
-    fn retry(&self, _: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
+    type Future = future::Ready<()>;
+    fn retry(&mut self, _: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
         if result.is_err() {
-            Some(future::ready(RetryErrors))
+            Some(future::ready(()))
         } else {
             None
         }
     }
 
-    fn clone_request(&self, req: &Req) -> Option<Req> {
+    fn clone_request(&mut self, req: &Req) -> Option<Req> {
         Some(*req)
     }
 }
@@ -140,16 +140,17 @@ impl Policy<Req, Res, Error> for RetryErrors {
 struct Limit(usize);
 
 impl Policy<Req, Res, Error> for Limit {
-    type Future = future::Ready<Self>;
-    fn retry(&self, _: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
+    type Future = future::Ready<()>;
+    fn retry(&mut self, _: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
         if result.is_err() && self.0 > 0 {
-            Some(future::ready(Limit(self.0 - 1)))
+            self.0 -= 1;
+            Some(future::ready(()))
         } else {
             None
         }
     }
 
-    fn clone_request(&self, req: &Req) -> Option<Req> {
+    fn clone_request(&mut self, req: &Req) -> Option<Req> {
         Some(*req)
     }
 }
@@ -158,18 +159,18 @@ impl Policy<Req, Res, Error> for Limit {
 struct UnlessErr(InnerError);
 
 impl Policy<Req, Res, Error> for UnlessErr {
-    type Future = future::Ready<Self>;
-    fn retry(&self, _: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
+    type Future = future::Ready<()>;
+    fn retry(&mut self, _: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
         result.as_ref().err().and_then(|err| {
             if err.to_string() != self.0 {
-                Some(future::ready(self.clone()))
+                Some(future::ready(()))
             } else {
                 None
             }
         })
     }
 
-    fn clone_request(&self, req: &Req) -> Option<Req> {
+    fn clone_request(&mut self, req: &Req) -> Option<Req> {
         Some(*req)
     }
 }
@@ -178,12 +179,12 @@ impl Policy<Req, Res, Error> for UnlessErr {
 struct CannotClone;
 
 impl Policy<Req, Res, Error> for CannotClone {
-    type Future = future::Ready<Self>;
-    fn retry(&self, _: &mut Req, _: &mut Result<Res, Error>) -> Option<Self::Future> {
+    type Future = future::Ready<()>;
+    fn retry(&mut self, _: &mut Req, _: &mut Result<Res, Error>) -> Option<Self::Future> {
         unreachable!("retry cannot be called since request isn't cloned");
     }
 
-    fn clone_request(&self, _req: &Req) -> Option<Req> {
+    fn clone_request(&mut self, _req: &Req) -> Option<Req> {
         None
     }
 }
@@ -199,21 +200,20 @@ impl Policy<Req, Res, Error> for MutatingPolicy
 where
     Error: From<&'static str>,
 {
-    type Future = future::Ready<Self>;
+    type Future = future::Ready<()>;
 
-    fn retry(&self, req: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
+    fn retry(&mut self, req: &mut Req, result: &mut Result<Res, Error>) -> Option<Self::Future> {
         if self.remaining == 0 {
             *result = Err("out of retries".into());
             None
         } else {
             *req = "retrying";
-            Some(future::ready(MutatingPolicy {
-                remaining: self.remaining - 1,
-            }))
+            self.remaining -= 1;
+            Some(future::ready(()))
         }
     }
 
-    fn clone_request(&self, req: &Req) -> Option<Req> {
+    fn clone_request(&mut self, req: &Req) -> Option<Req> {
         Some(*req)
     }
 }
