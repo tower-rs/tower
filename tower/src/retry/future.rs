@@ -63,7 +63,7 @@ where
 
 impl<P, S, Request> Future for ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone + Unpin,
+    P: Policy<Request, S::Response, S::Error> + Clone,
     S: Service<Request> + Clone,
 {
     type Output = Result<S::Response, S::Error>;
@@ -76,7 +76,7 @@ where
                 StateProj::Called { future } => {
                     let mut result = ready!(future.poll(cx));
                     if let Some(req) = &mut this.request {
-                        match this.retry.as_mut().project().policy.retry(req, &mut result) {
+                        match this.retry.policy.retry(req, &mut result) {
                             Some(checking) => {
                                 this.state.set(State::Checking { checking });
                             }

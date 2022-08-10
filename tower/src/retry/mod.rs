@@ -19,7 +19,6 @@ pin_project! {
     /// A [`Policy`] classifies what is a "failed" response.
     #[derive(Clone, Debug)]
     pub struct Retry<P, S> {
-        #[pin]
         policy: P,
         service: S,
     }
@@ -51,7 +50,7 @@ impl<P, S> Retry<P, S> {
 
 impl<P, S, Request> Service<Request> for Retry<P, S>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone + Unpin,
+    P: Policy<Request, S::Response, S::Error> + Clone,
     S: Service<Request> + Clone,
 {
     type Response = S::Response;
