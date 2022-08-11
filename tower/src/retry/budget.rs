@@ -1,4 +1,75 @@
 //! A retry "budget" for allowing only a certain amount of retries over time.
+//!
+//! # Why budgets and not max retries?
+//!
+//! The most common way of configuring retries is to specify a maximum
+//! number of retry attempts to perform before giving up. This is a familiar idea to anyone
+//! who’s used a web browser: you try to load a webpage, and if it doesn’t load, you try again.
+//! If it still doesn’t load, you try a third time. Finally you give up.
+//!
+//! Unfortunately, there are at least two problems with configuring retries this way:
+//!
+//! **Choosing the maximum number of retry attempts is a guessing game.**
+//! You need to pick a number that’s high enough to make a difference when things are somewhat failing,
+//! but not so high that it generates extra load on the system when it’s really failing. In practice,
+//! you usually pick a maximum retry attempts number out of a hat (e.g. 3) and hope for the best.
+//!
+//! **Systems configured this way are vulnerable to retry storms.**
+//! A retry storm begins when one service starts to experience a larger than normal failure rate.
+//! This causes its clients to retry those failed requests. The extra load from the retries causes the
+//! service to slow down further and fail more requests, triggering more retries. If each client is
+//! configured to retry up to 3 times, this can quadruple the number of requests being sent! To make
+//! matters even worse, if any of the clients’ clients are configured with retries, the number of retries
+//! compounds multiplicatively and can turn a small number of errors into a self-inflicted denial of service attack.
+//!
+//! It's generally dangerous to implement retries without some limiting factor. [`Budget`]s are that limit.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use std::sync::Arc;
+//!
+//! use futures_util::future;
+//! use tower::retry::{budget::Budget, Policy};
+//!
+//! type Req = String;
+//! type Res = String;
+//!
+//! #[derive(Clone, Debug)]
+//! struct RetryPolicy {
+//!     budget: Arc<Budget>,
+//! }
+//!
+//! impl<E> Policy<Req, Res, E> for RetryPolicy {
+//!     type Future = future::Ready<Self>;
+//!
+//!     fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
+//!         match result {
+//!             Ok(_) => {
+//!                 // Treat all `Response`s as success,
+//!                 // so deposit budget and don't retry...
+//!                 self.budget.deposit();
+//!                 None
+//!             }
+//!             Err(_) => {
+//!                 // Treat all errors as failures...
+//!                 // Withdraw the budget, don't retry if we overdrew.
+//!                 let withdrew = self.budget.withdraw().is_ok();
+//!                 if !withdrew {
+//!                     return None;
+//!                 }
+//!
+//!                 // Try again!
+//!                 Some(future::ready(self.clone()))
+//!             }
+//!         }
+//!     }
+//!
+//!     fn clone_request(&self, req: &Req) -> Option<Req> {
+//!         Some(req.clone())
+//!     }
+//! }
+//! ```
 
 use std::{
     fmt,
@@ -14,6 +85,10 @@ use tokio::time::Instant;
 ///
 /// This is useful for limiting the amount of retries a service can perform
 /// over a period of time, or per a certain number of requests attempted.
+///
+/// For more info about [`Budget`], please see the [module-level documentation].
+///
+/// [module-level documentation]: self
 pub struct Budget {
     bucket: Bucket,
     deposit_amount: isize,
@@ -57,7 +132,7 @@ impl Budget {
     ///
     /// - The `ttl` is the duration of how long a single `deposit` should be
     ///   considered. Must be between 1 and 60 seconds.
-    /// - The `min_per_sec` is the minimum rate of retries allowed to accomodate
+    /// - The `min_per_sec` is the minimum rate of retries allowed to accommodate
     ///   clients that have just started issuing requests, or clients that do
     ///   not issue many requests per window.
     /// - The `retry_percent` is the percentage of calls to `deposit` that can
@@ -83,7 +158,7 @@ impl Budget {
             (1, (1.0 / retry_percent) as isize)
         } else {
             // Support for when retry_percent is between 1.0 and 1000.0,
-            // meaning for every deposit D, D*retry_percent withdrawals
+            // meaning for every deposit D, D * retry_percent withdrawals
             // can be made.
             (1000, (1000.0 / retry_percent) as isize)
         };
