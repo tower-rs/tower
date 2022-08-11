@@ -43,7 +43,7 @@
 //! impl<E> Policy<Req, Res, E> for RetryPolicy {
 //!     type Future = future::Ready<Self>;
 //!
-//!     fn retry(&self, req: &Req, result: Result<&Res, &E>) -> Option<Self::Future> {
+//!     fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
 //!         match result {
 //!             Ok(_) => {
 //!                 // Treat all `Response`s as success,
