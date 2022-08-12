@@ -17,6 +17,18 @@ pin_project! {
     /// Configure retrying requests of "failed" responses.
     ///
     /// A [`Policy`] classifies what is a "failed" response.
+    ///
+    /// # Clone
+    ///
+    /// This middleware requires that the `Service` is `Clone` due to requirements
+    /// of `'static` futures. To easily add `Clone` to your service you can
+    /// use the `Buffer` middleware.
+    ///
+    /// The `Policy` is also required to implement `Clone`. This middleware will
+    /// clone the policy for each _request session_. This means one instance
+    /// of the policy will exist for one request and its subsequent retries only.
+    /// This means the mutable reference is only for that session and if you want
+    /// to share data between request sessions then you will need to `Arc<Mutex<...>`.
     #[derive(Clone, Debug)]
     pub struct Retry<P, S> {
         policy: P,

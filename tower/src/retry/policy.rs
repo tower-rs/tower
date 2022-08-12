@@ -54,8 +54,9 @@ pub trait Policy<Req, Res, E> {
     ///
     /// If the request should **not** be retried, return `None`.
     ///
-    /// If the request *should* be retried, return `Some` future of a new
-    /// policy that would apply for the next request attempt.
+    /// If the request *should* be retried, return `Some` future that will delay
+    /// the next retry of the request. This can be used to sleep for a certain
+    /// duration or resolve right away.
     ///
     /// ## Mutating Requests
     ///

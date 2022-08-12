@@ -63,7 +63,7 @@ where
 
 impl<P, S, Request> Future for ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
+    P: Policy<Request, S::Response, S::Error>,
     S: Service<Request> + Clone,
 {
     type Output = Result<S::Response, S::Error>;
