@@ -18,7 +18,31 @@ use std::{
 /// If you need a boxed [`Service`] that implements [`Clone`] consider using
 /// [`BoxCloneService`](crate::util::BoxCloneService).
 ///
-/// See module level documentation for more details.
+/// Dynamically dispatched [`Service`] objects allow for erasing the underlying
+/// [`Service`] type and using the `Service` instances as opaque handles. This can
+/// be useful when the service instance cannot be explicitly named for whatever
+/// reason.
+///
+/// # Examples
+///
+/// ```
+/// use futures_util::future::ready;
+/// # use tower_service::Service;
+/// # use tower::util::{BoxService, service_fn};
+/// // Respond to requests using a closure, but closures cannot be named...
+/// # pub fn main() {
+/// let svc = service_fn(|mut request: String| {
+///     request.push_str(" response");
+///     ready(Ok(request))
+/// });
+///
+/// let service: BoxService<String, String, ()> = BoxService::new(svc);
+/// # drop(service);
+/// }
+/// ```
+///
+/// [`Service`]: crate::Service
+/// [`Rc`]: std::rc::Rc
 pub struct BoxService<T, U, E> {
     inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>,
 }
