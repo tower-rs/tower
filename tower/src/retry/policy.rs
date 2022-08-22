@@ -56,7 +56,8 @@ pub trait Policy<Req, Res, E> {
     ///
     /// If the request *should* be retried, return `Some` future that will delay
     /// the next retry of the request. This can be used to sleep for a certain
-    /// duration or resolve right away.
+    /// duration, to wait for some external condition to be met before retrying,
+    /// or resolve right away, if the request should be retried immediately.
     ///
     /// ## Mutating Requests
     ///
