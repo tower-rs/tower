@@ -34,11 +34,11 @@ pin_project! {
             future: F
         },
         // Polling the future from [`Policy::retry`]
-        Checking {
+        Waiting {
             #[pin]
-            checking: P
+            waiting: P
         },
-        // Polling [`Service::poll_ready`] after [`Checking`] was OK.
+        // Polling [`Service::poll_ready`] after [`Waiting`] was OK.
         Retrying,
     }
 }
@@ -77,8 +77,8 @@ where
                     let mut result = ready!(future.poll(cx));
                     if let Some(req) = &mut this.request {
                         match this.retry.policy.retry(req, &mut result) {
-                            Some(checking) => {
-                                this.state.set(State::Checking { checking });
+                            Some(waiting) => {
+                                this.state.set(State::Waiting { waiting });
                             }
                             None => return Poll::Ready(result),
                         }
@@ -87,8 +87,8 @@ where
                         return Poll::Ready(result);
                     }
                 }
-                StateProj::Checking { checking } => {
-                    ready!(checking.poll(cx));
+                StateProj::Waiting { waiting } => {
+                    ready!(waiting.poll(cx));
 
                     this.state.set(State::Retrying);
                 }
