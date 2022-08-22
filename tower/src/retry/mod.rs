@@ -30,9 +30,9 @@ pin_project! {
     ///
     /// The `Policy` must also implement `Clone`. This middleware will
     /// clone the policy for each _request session_. This means a new clone
-    /// of the policy will be created for each initial request and any subsequent 
+    /// of the policy will be created for each initial request and any subsequent
     /// retries of that request. Therefore, any state stored in the `Policy` instance
-    /// is for that request session only. In order to share data across request 
+    /// is for that request session only. In order to share data across request
     /// sessions, that shared state may be stored in an [`Arc`], so that all clones
     /// of the `Policy` type reference the same instance of the shared state.
     ///
