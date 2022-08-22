@@ -26,7 +26,14 @@ pub trait Backoff: Clone {
     fn next_backoff(&mut self) -> Self::Future;
 }
 
-/// A jittered exponential backoff strategy.
+/// A jittered [exponential backoff] strategy.
+///
+/// The backoff duration will increase exponentially for every subsequent
+/// backoff, up to a maximum duration. A small amount of [random jitter] is
+/// added to each backoff duration, in order to avoid retry spikes.
+///
+/// [exponential backoff]: https://en.wikipedia.org/wiki/Exponential_backoff
+/// [random jitter]: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
 #[derive(Debug)]
 pub struct ExponentialBackoff<R = SmallRng> {
     /// The minimum amount of time to wait before resuming an operation.
