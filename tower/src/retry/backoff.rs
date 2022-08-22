@@ -178,7 +178,7 @@ pub struct InvalidBackoff(&'static str);
 
 impl Display for InvalidBackoff {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "invalid backoff: {}", self.0)
     }
 }
 
