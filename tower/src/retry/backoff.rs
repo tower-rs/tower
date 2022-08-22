@@ -14,7 +14,7 @@ use std::future::Future;
 use std::time::Duration;
 use tokio::time;
 
-/// A backoff trait where a single mutable refernces represents a single
+/// A backoff trait where a single mutable reference represents a single
 /// backoff session. Implementors must also implement [`Clone`] which will
 /// reset the backoff back to the default state for the next session.
 pub trait Backoff: Clone {
