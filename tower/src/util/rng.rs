@@ -1,4 +1,4 @@
-//! Utilities for generating random numbers.
+//! [PRNG] utilities for tower middleware.
 //!
 //! This module provides a generic [`Rng`] trait and a [`HasherRng`] that
 //! implements the trait based on [`RandomState`] or any other [`Hasher`].
@@ -6,6 +6,8 @@
 //! These utlities replace tower's internal usage of `rand` with these smaller
 //! more light weight methods. Most of the implemenations are extracted from
 //! their corresponding `rand` implementations.
+//! 
+//! [PRNG]: https://en.wikipedia.org/wiki/Pseudorandom_number_generator
 
 use std::{
     collections::hash_map::RandomState,
