@@ -47,7 +47,7 @@ full = [
 ]
 # FIXME: Use weak dependency once available (https://github.com/rust-lang/cargo/issues/8832)
 log = ["tracing/log"]
-balance = ["discover", "load", "ready-cache", "make", "slab"]
+balance = ["discover", "load", "ready-cache", "make", "slab", "util"]
 buffer = ["__common", "tokio/sync", "tokio/rt", "tokio-util", "tracing"]
 discover = ["__common"]
 filter = ["__common", "futures-util"]

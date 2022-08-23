@@ -15,7 +15,9 @@ use std::{
     ops::Range, 
 };
 
-/// A simple [`PRNG`] trait for use within tower middleware.
+/// A simple [PRNG] trait for use within tower middleware.
+/// 
+/// [PRNG]: https://en.wikipedia.org/wiki/Pseudorandom_number_generator
 pub trait Rng {
     /// Generate a random [`u64`].
     fn next_u64(&mut self) -> u64;
