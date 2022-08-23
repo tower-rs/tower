@@ -166,7 +166,7 @@ mod tests {
         }
 
         fn sample_inplace(counter: u64, length: u32, amount: u32) -> TestResult {
-            if amount > length || length > u32::MAX {
+            if amount > length || length > 256 || amount > 32  {
                 return TestResult::discard();
             }
 
