@@ -2,21 +2,21 @@
 //!
 //! This module provides a generic [`Rng`] trait and a [`HasherRng`] that
 //! implements the trait based on [`RandomState`] or any other [`Hasher`].
-//! 
+//!
 //! These utlities replace tower's internal usage of `rand` with these smaller
 //! more light weight methods. Most of the implemenations are extracted from
 //! their corresponding `rand` implementations.
-//! 
+//!
 //! [PRNG]: https://en.wikipedia.org/wiki/Pseudorandom_number_generator
 
 use std::{
     collections::hash_map::RandomState,
     hash::{BuildHasher, Hasher},
-    ops::Range, 
+    ops::Range,
 };
 
 /// A simple [PRNG] trait for use within tower middleware.
-/// 
+///
 /// [PRNG]: https://en.wikipedia.org/wiki/Pseudorandom_number_generator
 pub trait Rng {
     /// Generate a random [`u64`].
@@ -112,9 +112,9 @@ where
 /// An inplace sampler borrowed from the Rand implementation for use internally
 /// for the balance middleware.
 /// ref: https://github.com/rust-random/rand/blob/b73640705d6714509f8ceccc49e8df996fa19f51/src/seq/index.rs#L425
-/// 
+///
 /// Docs from rand:
-/// 
+///
 /// Randomly sample exactly `amount` indices from `0..length`, using an inplace
 /// partial Fisher-Yates method.
 /// Sample an amount of indices using an inplace partial fisher yates method.
