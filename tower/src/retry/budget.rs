@@ -41,9 +41,9 @@
 //! }
 //!
 //! impl<E> Policy<Req, Res, E> for RetryPolicy {
-//!     type Future = future::Ready<Self>;
+//!     type Future = future::Ready<()>;
 //!
-//!     fn retry(&self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
+//!     fn retry(&mut self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
 //!         match result {
 //!             Ok(_) => {
 //!                 // Treat all `Response`s as success,
@@ -60,12 +60,12 @@
 //!                 }
 //!
 //!                 // Try again!
-//!                 Some(future::ready(self.clone()))
+//!                 Some(future::ready(()))
 //!             }
 //!         }
 //!     }
 //!
-//!     fn clone_request(&self, req: &Req) -> Option<Req> {
+//!     fn clone_request(&mut self, req: &Req) -> Option<Req> {
 //!         Some(req.clone())
 //!     }
 //! }
