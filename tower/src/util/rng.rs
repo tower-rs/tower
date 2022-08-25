@@ -10,7 +10,7 @@
 //! [PRNG]: https://en.wikipedia.org/wiki/Pseudorandom_number_generator
 
 use std::{
-    collections::hash_map::{RandomState, DefaultHasher},
+    collections::hash_map::RandomState,
     hash::{BuildHasher, Hasher},
     ops::Range,
 };
@@ -69,11 +69,10 @@ impl<R: Rng + ?Sized> Rng for Box<R> {
 ///
 /// # Default
 ///
-/// This hasher has a default type of [`DefaultHasher`] which just uses the
-/// hasher produced from the libstd [`RandomState`] hash builder. This is the
-/// same hasher used by default in the [`HashMap`] type in std collections.
+/// This hasher has a default type of [`RandomState`] which just uses the
+/// libstd method of getting a random u64.
 #[derive(Debug)]
-pub struct HasherRng<H = DefaultHasher> {
+pub struct HasherRng<H = RandomState> {
     hasher: H,
     counter: u64,
 }
@@ -87,8 +86,7 @@ impl HasherRng {
 
 impl Default for HasherRng {
     fn default() -> Self {
-        let builder = RandomState::default();
-        HasherRng::with_hasher(builder.build_hasher())
+        HasherRng::with_hasher(RandomState::default())
     }
 }
 
@@ -101,12 +99,13 @@ impl<H> HasherRng<H> {
 
 impl<H> Rng for HasherRng<H>
 where
-    H: Hasher,
+    H: BuildHasher,
 {
     fn next_u64(&mut self) -> u64 {
-        self.hasher.write_u64(self.counter);
+        let mut hasher = self.hasher.build_hasher();
+        hasher.write_u64(self.counter);
         self.counter = self.counter.wrapping_add(1);
-        self.hasher.finish()
+        hasher.finish()
     }
 }
 
