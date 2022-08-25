@@ -2,10 +2,10 @@ use super::super::error;
 use crate::discover::{Change, Discover};
 use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
+use crate::util::rng::{sample_inplace, HasherRng, Rng};
 use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
 use pin_project_lite::pin_project;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
@@ -39,7 +39,7 @@ where
     services: ReadyCache<D::Key, D::Service, Req>,
     ready_index: Option<usize>,
 
-    rng: SmallRng,
+    rng: Box<dyn Rng + Send + Sync>,
 
     _req: PhantomData<Req>,
 }
@@ -86,20 +86,20 @@ where
 {
     /// Constructs a load balancer that uses operating system entropy.
     pub fn new(discover: D) -> Self {
-        Self::from_rng(discover, &mut rand::thread_rng()).expect("ThreadRNG must be valid")
+        Self::from_rng(discover, HasherRng::default())
     }
 
     /// Constructs a load balancer seeded with the provided random number generator.
-    pub fn from_rng<R: Rng>(discover: D, rng: R) -> Result<Self, rand::Error> {
-        let rng = SmallRng::from_rng(rng)?;
-        Ok(Self {
+    pub fn from_rng<R: Rng + Send + Sync + 'static>(discover: D, rng: R) -> Self {
+        let rng = Box::new(rng);
+        Self {
             rng,
             discover,
             services: ReadyCache::default(),
             ready_index: None,
 
             _req: PhantomData,
-        })
+        }
     }
 
     /// Returns the number of endpoints currently tracked by the balancer.
@@ -185,14 +185,14 @@ where
             len => {
                 // Get two distinct random indexes (in a random order) and
                 // compare the loads of the service at each index.
-                let idxs = rand::seq::index::sample(&mut self.rng, len, 2);
+                let idxs = sample_inplace(&mut self.rng, len as u32, 2);
 
-                let aidx = idxs.index(0);
-                let bidx = idxs.index(1);
+                let aidx = idxs[0];
+                let bidx = idxs[1];
                 debug_assert_ne!(aidx, bidx, "random indices must be distinct");
 
-                let aload = self.ready_index_load(aidx);
-                let bload = self.ready_index_load(bidx);
+                let aload = self.ready_index_load(aidx as usize);
+                let bload = self.ready_index_load(bidx as usize);
                 let chosen = if aload <= bload { aidx } else { bidx };
 
                 trace!(
@@ -203,7 +203,7 @@ where
                     chosen = if chosen == aidx { "a" } else { "b" },
                     "p2c",
                 );
-                Some(chosen)
+                Some(chosen as usize)
             }
         }
     }

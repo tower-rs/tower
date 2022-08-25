@@ -19,6 +19,8 @@ mod ready;
 mod service_fn;
 mod then;
 
+pub mod rng;
+
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
