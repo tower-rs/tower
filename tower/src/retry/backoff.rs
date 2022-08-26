@@ -1,4 +1,4 @@
-//! This module contains generic backoff utlities to be used with the retry
+//! This module contains generic [backoff] utlities to be used with the retry
 //! layer.
 //!
 //! The [`Backoff`] trait is a generic way to represent backoffs that can use
@@ -7,6 +7,8 @@
 //! [`ExponentialBackoffMaker`] implements the maker type for  
 //! [`ExponentialBackoff`] which implements the [`Backoff`] trait and provides
 //! a batteries included exponential backoff and jitter strategy.
+//!
+//! [backoff]: https://en.wikipedia.org/wiki/Exponential_backoff
 
 use std::fmt::Display;
 use std::future::Future;
