@@ -71,7 +71,7 @@ impl<R: Rng + ?Sized> Rng for Box<R> {
 ///
 /// This hasher has a default type of [`RandomState`] which just uses the
 /// libstd method of getting a random u64.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HasherRng<H = RandomState> {
     hasher: H,
     counter: u64,
