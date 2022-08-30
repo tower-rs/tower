@@ -97,7 +97,7 @@
 //!   Tower.
 //! * [`warp`]: A lightweight, composable web framework. See
 //!   [here][warp-service] for details on using [`warp`] with Tower.
-//! * [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
+//! * [`tower-lsp`]: implementations of the [Language
 //!   Server Protocol][lsp] based on Tower.
 //!
 //! [`hyper`]: https://crates.io/crates/hyper
@@ -107,7 +107,6 @@
 //! [`warp`]: https://crates.io/crates/warp
 //! [warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
 //! [`tower-lsp`]: https://crates.io/crates/tower-lsp
-//! [`lspower`]: https://crates.io/crates/lspower
 //! [lsp]: https://microsoft.github.io/language-server-protocol/
 //!
 //! If you're the maintainer of a crate that supports Tower, we'd love to add
