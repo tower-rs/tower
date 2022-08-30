@@ -196,7 +196,7 @@ impl Default for ExponentialBackoffMaker {
 }
 
 /// Backoff validation error.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct InvalidBackoff(&'static str);
 
 impl Display for InvalidBackoff {
