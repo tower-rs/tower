@@ -108,7 +108,7 @@ The following is an incomplete list of such libraries:
   Tower.
 * [`warp`]: A lightweight, composable web framework. See
   [here][warp-service] for details on using [`warp`] with Tower.
-* [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
+* [`tower-lsp`]: implementations of the [Language
   Server Protocol][lsp] based on Tower.
 * [`kube`]: Kubernetes client and futures controller runtime. [`kube::Client`]
   makes use of the Tower ecosystem: [`tower`], [`tower-http`], and
@@ -122,7 +122,6 @@ The following is an incomplete list of such libraries:
 [`warp`]: https://crates.io/crates/warp
 [warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
 [`tower-lsp`]: https://crates.io/crates/tower-lsp
-[`lspower`]: https://crates.io/crates/lspower
 [lsp]: https://microsoft.github.io/language-server-protocol/
 [`kube`]: https://crates.io/crates/kube
 [`kube::Client`]: https://docs.rs/kube/latest/kube/struct.Client.html
