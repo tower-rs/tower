@@ -84,7 +84,8 @@ pub trait Policy<Req, Res, E> {
 
     /// Tries to clone a request before being passed to the inner service.
     ///
-    /// If the request cannot be cloned, return [`None`].
+    /// If the request cannot be cloned, return [`None`]. Moreover, the retry
+    /// function will not be called if the [`None`] is returned.
     fn clone_request(&mut self, req: &Req) -> Option<Req>;
 }
 
