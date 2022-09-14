@@ -12,11 +12,11 @@ mod map_request;
 mod map_response;
 mod map_result;
 
+mod by_ref;
 mod map_future;
 mod oneshot;
 mod optional;
 mod ready;
-mod service_fn;
 mod then;
 
 pub mod rng;
@@ -25,6 +25,7 @@ pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxLayer, BoxService, UnsyncBoxService},
     boxed_clone::BoxCloneService,
+    by_ref::ByRef,
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
@@ -35,7 +36,6 @@ pub use self::{
     oneshot::Oneshot,
     optional::Optional,
     ready::{Ready, ReadyOneshot},
-    service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
 };
 
@@ -953,7 +953,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # Example
     ///
     /// ```
-    /// use tower::{Service, ServiceExt, BoxError, service_fn, util::BoxService};
+    /// use tower::{Service, ServiceExt, BoxError, util::BoxService};
     /// #
     /// # struct Request;
     /// # struct Response;
@@ -961,9 +961,9 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #     fn new() -> Self { Self }
     /// # }
     ///
-    /// let service = service_fn(|req: Request| async {
-    ///     Ok::<_, BoxError>(Response::new())
-    /// });
+    /// async fn service(req: Request) -> Result<Response, BoxError> {
+    ///     Ok(Response::new())
+    /// }
     ///
     /// let service: BoxService<Request, Response, BoxError> = service
     ///     .map_request(|req| {
@@ -999,7 +999,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// # Example
     ///
     /// ```
-    /// use tower::{Service, ServiceExt, BoxError, service_fn, util::BoxCloneService};
+    /// use tower::{Service, ServiceExt, BoxError, util::BoxCloneService};
     /// #
     /// # struct Request;
     /// # struct Response;
@@ -1007,9 +1007,9 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// #     fn new() -> Self { Self }
     /// # }
     ///
-    /// let service = service_fn(|req: Request| async {
-    ///     Ok::<_, BoxError>(Response::new())
-    /// });
+    /// async fn service(req: Request) -> Result<Response, BoxError> {
+    ///     Ok(Response::new())
+    /// }
     ///
     /// let service: BoxCloneService<Request, Response, BoxError> = service
     ///     .map_request(|req| {
@@ -1037,6 +1037,14 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Self::Future: Send + 'static,
     {
         BoxCloneService::new(self)
+    }
+
+    /// TODO
+    fn by_ref(&mut self) -> ByRef<'_, Self>
+    where
+        Self: Sized,
+    {
+        ByRef::new(self)
     }
 }
 

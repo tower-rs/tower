@@ -219,7 +219,7 @@ pub mod layer;
 #[cfg(feature = "util")]
 #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
 #[doc(inline)]
-pub use self::util::{service_fn, ServiceExt};
+pub use self::util::ServiceExt;
 
 #[doc(inline)]
 pub use crate::builder::ServiceBuilder;

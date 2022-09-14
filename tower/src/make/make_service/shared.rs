@@ -106,7 +106,6 @@ opaque_future! {
 mod tests {
     use super::*;
     use crate::make::MakeService;
-    use crate::service_fn;
     use futures::future::poll_fn;
 
     async fn echo<R>(req: R) -> Result<R, Infallible> {
@@ -115,7 +114,7 @@ mod tests {
 
     #[tokio::test]
     async fn as_make_service() {
-        let mut shared = Shared::new(service_fn(echo::<&'static str>));
+        let mut shared = Shared::new(echo::<&'static str>);
 
         poll_fn(|cx| MakeService::<(), _>::poll_ready(&mut shared, cx))
             .await
@@ -130,7 +129,7 @@ mod tests {
 
     #[tokio::test]
     async fn as_make_service_into_service() {
-        let shared = Shared::new(service_fn(echo::<&'static str>));
+        let shared = Shared::new(echo::<&'static str>);
         let mut shared = MakeService::<(), _>::into_service(shared);
 
         poll_fn(|cx| Service::<()>::poll_ready(&mut shared, cx))
