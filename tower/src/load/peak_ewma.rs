@@ -186,7 +186,6 @@ impl<D, C> PeakEwmaDiscover<D, C> {
 }
 
 #[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 impl<D, C> Stream for PeakEwmaDiscover<D, C>
 where
     D: Discover,
