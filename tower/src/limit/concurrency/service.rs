@@ -107,7 +107,6 @@ impl<T: Clone> Clone for ConcurrencyLimit<T> {
 }
 
 #[cfg(feature = "load")]
-#[cfg_attr(docsrs, doc(cfg(feature = "load")))]
 impl<S> crate::load::Load for ConcurrencyLimit<S>
 where
     S: crate::load::Load,
