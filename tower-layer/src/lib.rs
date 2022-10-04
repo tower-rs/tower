@@ -19,6 +19,7 @@
 mod identity;
 mod layer_fn;
 mod stack;
+mod tuple;
 
 pub use self::{
     identity::Identity,
