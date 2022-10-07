@@ -1,6 +1,10 @@
-# 0.3.1 (January 7, 2021)
+# 0.3.2 (October 7, 2022)
 
-### Added
+- Implement `Layer` for tuples of up to 16 elements ([#694])
+
+[#694]: https://github.com/tower-rs/tower/pull/694
+
+# 0.3.1 (January 7, 2021)
 
 - Added `layer_fn`, for constructing a `Layer` from a function taking
   a `Service` and returning a different `Service` ([#491])
