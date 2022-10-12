@@ -26,9 +26,12 @@
 //! # Example
 //!
 //! ```
+//!# use tower::retry::standard_policy::StandardRetryPolicy;
+//!# use tower::retry::budget::Budget;
+//!
 //! let policy = StandardRetryPolicy::<(), (), ()>::builder()
 //!     .should_retry(|res: &mut Result<(), ()>| true)
-//!     .clone_request(|req: &()| *req)
+//!     .clone_request(|req: &()| Some(*req))
 //!     .budget(Budget::default())
 //!     .build();
 //! ```
@@ -198,6 +201,7 @@ impl<Req, Res, E, B: MakeBackoff> StandardRetryPolicyBuilder<Req, Res, E, B> {
     ///
     /// ```
     /// # use tower::retry::standard_policy::StandardRetryPolicy;
+    /// # use tower::retry::budget::Budget;
     /// // Set the Req, Res, and E type to () for simplicity, replace these with
     /// // your specific request/response/error types.
     /// StandardRetryPolicy::<(), (), ()>::builder()
@@ -243,7 +247,7 @@ where
         let can_retry = self.is_retryable.is_retryalbe(result);
 
         if !can_retry {
-            tracing::trace!("Recived non-retryable response");
+            tracing::trace!("Received non-retryable response");
             self.budget.deposit();
             return None;
         }
