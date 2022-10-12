@@ -152,7 +152,6 @@ impl<L> ServiceBuilder<L> {
     /// # }
     /// ```
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn option_layer<T>(
         self,
         layer: Option<T>,
@@ -176,7 +175,6 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`Buffer`]: crate::buffer
     #[cfg(feature = "buffer")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "buffer")))]
     pub fn buffer<Request>(
         self,
         bound: usize,
@@ -195,7 +193,6 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`ConcurrencyLimit`]: crate::limit::concurrency
     #[cfg(feature = "limit")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "limit")))]
     pub fn concurrency_limit(
         self,
         max: usize,
@@ -219,7 +216,6 @@ impl<L> ServiceBuilder<L> {
     /// [`poll_ready`]: crate::Service::poll_ready
     /// [`Pending`]: std::task::Poll::Pending
     #[cfg(feature = "load-shed")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "load-shed")))]
     pub fn load_shed(self) -> ServiceBuilder<Stack<crate::load_shed::LoadShedLayer, L>> {
         self.layer(crate::load_shed::LoadShedLayer::new())
     }
@@ -231,7 +227,6 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`RateLimit`]: crate::limit::rate
     #[cfg(feature = "limit")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "limit")))]
     pub fn rate_limit(
         self,
         num: u64,
@@ -251,7 +246,6 @@ impl<L> ServiceBuilder<L> {
     /// [`Retry`]: crate::retry
     /// [policy]: crate::retry::Policy
     #[cfg(feature = "retry")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "retry")))]
     pub fn retry<P>(self, policy: P) -> ServiceBuilder<Stack<crate::retry::RetryLayer<P>, L>> {
         self.layer(crate::retry::RetryLayer::new(policy))
     }
@@ -266,7 +260,6 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`timeout`]: crate::timeout
     #[cfg(feature = "timeout")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "timeout")))]
     pub fn timeout(
         self,
         timeout: std::time::Duration,
@@ -284,7 +277,6 @@ impl<L> ServiceBuilder<L> {
     /// [`Filter`]: crate::filter
     /// [`Predicate`]: crate::filter::Predicate
     #[cfg(feature = "filter")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
     pub fn filter<P>(
         self,
         predicate: P,
@@ -302,7 +294,6 @@ impl<L> ServiceBuilder<L> {
     /// [`AsyncFilter`]: crate::filter::AsyncFilter
     /// [`AsyncPredicate`]: crate::filter::AsyncPredicate
     #[cfg(feature = "filter")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
     pub fn filter_async<P>(
         self,
         predicate: P,
@@ -371,7 +362,6 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`MapRequest`]: crate::util::MapRequest
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_request<F, R1, R2>(
         self,
         f: F,
@@ -392,7 +382,6 @@ impl<L> ServiceBuilder<L> {
     /// [`MapResponse`]: crate::util::MapResponse
     /// [`map_response` combinator]: crate::util::ServiceExt::map_response
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_response<F>(
         self,
         f: F,
@@ -410,7 +399,6 @@ impl<L> ServiceBuilder<L> {
     /// [`MapErr`]: crate::util::MapErr
     /// [`map_err` combinator]: crate::util::ServiceExt::map_err
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_err<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapErrLayer<F>, L>> {
         self.layer(crate::util::MapErrLayer::new(f))
     }
@@ -424,7 +412,6 @@ impl<L> ServiceBuilder<L> {
     /// [`MapFutureLayer`]: crate::util::MapFutureLayer
     /// [`map_future`]: crate::util::ServiceExt::map_future
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_future<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapFutureLayer<F>, L>> {
         self.layer(crate::util::MapFutureLayer::new(f))
     }
@@ -448,7 +435,6 @@ impl<L> ServiceBuilder<L> {
     /// [`map_response`]: ServiceBuilder::map_response
     /// [`map_err`]: ServiceBuilder::map_err
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::ThenLayer<F>, L>> {
         self.layer(crate::util::ThenLayer::new(f))
     }
@@ -470,7 +456,6 @@ impl<L> ServiceBuilder<L> {
     /// [`and_then` combinator]: crate::util::ServiceExt::and_then
     /// [`AndThen`]: crate::util::AndThen
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn and_then<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::AndThenLayer<F>, L>> {
         self.layer(crate::util::AndThenLayer::new(f))
     }
@@ -487,7 +472,6 @@ impl<L> ServiceBuilder<L> {
     /// [`map_result` combinator]: crate::util::ServiceExt::map_result
     /// [`MapResult`]: crate::util::MapResult
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn map_result<F>(self, f: F) -> ServiceBuilder<Stack<crate::util::MapResultLayer<F>, L>> {
         self.layer(crate::util::MapResultLayer::new(f))
     }
@@ -553,7 +537,6 @@ impl<L> ServiceBuilder<L> {
     /// [`Service`]: crate::Service
     /// [`service_fn`]: crate::service_fn
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn service_fn<F>(self, f: F) -> L::Service
     where
         L: Layer<crate::util::ServiceFn<F>>,
@@ -720,7 +703,6 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`BoxService::layer()`]: crate::util::BoxService::layer()
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn boxed<S, R>(
         self,
     ) -> ServiceBuilder<
@@ -784,7 +766,6 @@ impl<L> ServiceBuilder<L> {
     /// [`BoxCloneService`]: crate::util::BoxCloneService
     /// [`boxed`]: Self::boxed
     #[cfg(feature = "util")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
     pub fn boxed_clone<S, R>(
         self,
     ) -> ServiceBuilder<

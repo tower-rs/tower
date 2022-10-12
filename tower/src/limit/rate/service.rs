@@ -119,7 +119,6 @@ where
 }
 
 #[cfg(feature = "load")]
-#[cfg_attr(docsrs, doc(cfg(feature = "load")))]
 impl<S> crate::load::Load for RateLimit<S>
 where
     S: crate::load::Load,

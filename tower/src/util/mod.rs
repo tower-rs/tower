@@ -664,7 +664,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// [`Filter`]: crate::filter::Filter
     /// [predicate]: crate::filter::Predicate
     #[cfg(feature = "filter")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
     fn filter<F, NewRequest>(self, filter: F) -> crate::filter::Filter<Self, F>
     where
         Self: Sized,
@@ -751,7 +750,6 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// [`AsyncFilter`]: crate::filter::AsyncFilter
     /// [asynchronous predicate]: crate::filter::AsyncPredicate
     #[cfg(feature = "filter")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
     fn filter_async<F, NewRequest>(self, filter: F) -> crate::filter::AsyncFilter<Self, F>
     where
         Self: Sized,
