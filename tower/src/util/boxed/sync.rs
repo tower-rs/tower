@@ -64,7 +64,8 @@ impl<T, U, E> BoxService<T, U, E> {
         S::Future: Send + 'static,
     {
         // rust can't infer the type
-        let inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send> = Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
+        let inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send> =
+            Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
         let inner = SyncWrapper::new(inner);
         BoxService { inner }
     }
