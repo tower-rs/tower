@@ -30,14 +30,14 @@
 //! use std::sync::Arc;
 //!
 //! use futures_util::future;
-//! use tower::retry::{budget::TpsBudget, Policy};
+//! use tower::retry::{budget::Budget, Policy};
 //!
 //! type Req = String;
 //! type Res = String;
 //!
 //! #[derive(Clone, Debug)]
 //! struct RetryPolicy {
-//!     budget: Arc<TpsBudget>,
+//!     budget: Arc<Budget>,
 //! }
 //!
 //! impl<E> Policy<Req, Res, E> for RetryPolicy {
@@ -83,34 +83,32 @@ use tokio::time::Instant;
 
 /// Represents a "budget" for retrying requests.
 ///
-/// This budget is useful for limiting amount of retries if a service starts to
-/// recieve more than usual amount of errors in a short period of time.
-///
-/// For more info about [`Budget`], please see the [module-level documentation].
-///
-/// [module-level documentation]: self
-pub struct SimpleBudget {
-    bucket: SimpleBucket,
-    deposit_amount: isize,
-    withdraw_amount: isize,
-}
-
-/// Represents a "budget" for retrying requests.
-///
 /// This is useful for limiting the amount of retries a service can perform
 /// over a period of time, or per a certain number of requests attempted.
 ///
 /// For more info about [`Budget`], please see the [module-level documentation].
 ///
 /// [module-level documentation]: self
-pub struct TpsBudget {
-    bucket: TpsBucket,
+pub struct Budget<B = TpsBucket> {
+    bucket: B,
     deposit_amount: isize,
     withdraw_amount: isize,
 }
 
+/// A [`Bucket`] for managing retry tokens.
+/// 
+/// [`SimpleBucket`] works by increasing the cost of retries on each withdraw.
+/// Cost multiplier decrease by 1 on each deposit.
+/// 
+/// [`Budget`] uses a token bucket to decide if the request should be retried.
+/// 
+/// For more info about [`Budget`], please see the [module-level documentation].
+/// For more info about [`Bucket`], see [bucket trait]
+/// 
+/// [module-level documentation]: self
+/// [bucket trait]: self::Bucket
 #[derive(Debug)]
-struct SimpleBucket {
+pub struct SimpleBucket {
     /// Initial and max budget the bucket can have in reserve
     max_budget: isize,
     // Amount to add to multiplier for each withdraw
@@ -121,8 +119,21 @@ struct SimpleBucket {
     multiplier: AtomicUsize,
 }
 
+/// A [`Bucket`] for managing retry tokens.
+/// 
+/// [`Budget`] uses a token bucket to decide if the request should be retried.
+/// 
+/// [`TpsBucket`] works by checking how much retries have been made in a certain period of time.
+/// Minimum allowed number of retries are effectively reset on an interval. Allowed number of
+/// retries depends on failed request count in recent time frame.
+/// 
+/// For more info about [`Budget`], please see the [module-level documentation].
+/// For more info about [`Bucket`], see [bucket trait]
+/// 
+/// [module-level documentation]: self
+/// [bucket trait]: self::Bucket
 #[derive(Debug)]
-struct TpsBucket {
+pub struct TpsBucket {
     generation: Mutex<Generation>,
     /// Initial budget allowed for every second.
     reserve: isize,
@@ -146,7 +157,7 @@ struct Generation {
 /// For more info about [`Budget`], please see the [module-level documentation].
 ///
 /// [module-level documentation]: self
-pub trait Budget {
+pub trait BudgetTrait {
     /// Store a "deposit" in the budget, which will be used to permit future
     /// withdrawals.
     fn deposit(&self);
@@ -158,9 +169,78 @@ pub trait Budget {
     fn withdraw(&self) -> bool;
 }
 
+/// Represents a token bucket.
+/// 
+/// A token bucket manages a reserve of tokens to decide if a retry for the request is
+/// possible. Successful requests put tokens into the reserve. Before a request is retried,
+/// bucket is checked to ensure there are sufficient amount of tokens available. If there are,
+/// specified amount of tokens are withdrawn.
+/// 
+/// For more info about [`Budget`], please see the [module-level documentation].
+/// 
+/// [module-level documentation]: self
+pub trait Bucket {
+    /// Deposit `amt` of tokens into the bucket.
+    fn put(&self, amt: isize);
+    /// Try to withdraw `amt` of tokens from bucket. If reserve do not have sufficient
+    /// amount of tokens false is returned. If withdraw is possible, decreases the reserve 
+    /// and true is returned.
+    fn try_get(&self, amt: isize) -> bool;
+    /// Returns the amount of tokens in the reserve.
+    fn reserve(&self) -> isize;
+}
+
 // ===== impl Budget =====
 
-impl TpsBudget {
+impl Budget {
+    /// Create a [`Budget`] that allows for a certain percent of the total
+    /// requests to be retried.
+    ///
+    /// - The `retry_budget` is the minimum number of retries allowed
+    ///   to accomodate clients that have just started issuing requests. If the
+    ///   `step_count` is 0, `retry_budget` is the max number of consecutive retries
+    ///   allowed.
+    /// - The `step_count` is the limiting factor for consecutive retries. Each consecutive
+    ///   retry costs `step_count` more to execute and each successful request gradually
+    ///   reduces the cost. Must be below 10.
+    ///
+    ///   For example, if `2` is used for `step_count` each consecutive retry will cost
+    ///   2 more (1, 3, 5, 7...). Each successful request will reduce the cost by 1.
+    ///   If 0 is used for `step_count` retry cost will be same for all retries.
+    ///
+    /// - The `retry_ratio` is the percentage of calls to `deposit` that can
+    ///   be retried. This is in addition to any retries allowed for via
+    ///   `retry_budget`. Must be between 0 and 1000.
+    ///
+    ///   As an example, if `0.1` is used, then for every 10 calls to `deposit`,
+    ///   1 retry will be allowed. If `2.0` is used, then every `deposit`
+    ///   allows for 2 retries.
+    pub fn new(retry_budget: u32, step_count: u32, retry_ratio: f32) -> Budget<SimpleBucket> {
+        assert!(retry_ratio > 0.0);
+        assert!(retry_ratio <= 1000.0);
+        assert!(retry_budget < ::std::i32::MAX as u32);
+        assert!(step_count <= 10);
+
+        let (deposit_amount, withdraw_amount) = if retry_ratio <= 1.0 {
+            (1, (1.0 / retry_ratio) as isize)
+        } else {
+            (1000, (1000.0 / retry_ratio) as isize)
+        };
+
+        let reserve = (retry_budget as isize).saturating_mul(withdraw_amount);
+
+        Budget {
+            bucket: SimpleBucket {
+                max_budget: reserve,
+                step_count: step_count as usize,
+                reserve: AtomicIsize::new(reserve),
+                multiplier: AtomicUsize::new(1),
+            },
+            deposit_amount,
+            withdraw_amount,
+        }
+    }
+
     /// Create a [`Budget`] that allows for a certain percent of the total
     /// requests to be retried.
     ///
@@ -176,7 +256,7 @@ impl TpsBudget {
     ///   As an example, if `0.1` is used, then for every 10 calls to `deposit`,
     ///   1 retry will be allowed. If `2.0` is used, then every `deposit`
     ///   allows for 2 retries.
-    pub fn new(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Self {
+    pub fn new_tps(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Budget<TpsBucket> {
         // assertions taken from finagle
         assert!(ttl >= Duration::from_secs(1));
         assert!(ttl <= Duration::from_secs(60));
@@ -207,7 +287,7 @@ impl TpsBudget {
             slots.push(AtomicIsize::new(0));
         }
 
-        TpsBudget {
+        Budget {
             bucket: TpsBucket {
                 generation: Mutex::new(Generation {
                     index: 0,
@@ -224,57 +304,7 @@ impl TpsBudget {
     }
 }
 
-impl SimpleBudget {
-    /// Create a [`Budget`] that allows for a certain percent of the total
-    /// requests to be retried.
-    ///
-    /// - The `retry_budget` is the minimum number of retries allowed
-    ///   to accomodate clients that have just started issuing requests. If the
-    ///   `step_count` is 0, `retry_budget` is the max number of consecutive retries
-    ///   allowed.
-    /// - The `step_count` is the limiting factor for consecutive retries. Each consecutive
-    ///   retry costs `step_count` more to execute and each successful request gradually
-    ///   reduces the cost. Must be below 10.
-    ///
-    ///   For example, if `2` is used for `step_count` each consecutive retry will cost
-    ///   2 more (1, 3, 5, 7...). Each successful request will reduce the cost by 1.
-    ///   If 0 is used for `step_count` retry cost will be same for all retries.
-    ///
-    /// - The `retry_ratio` is the percentage of calls to `deposit` that can
-    ///   be retried. This is in addition to any retries allowed for via
-    ///   `retry_budget`. Must be between 0 and 1000.
-    ///
-    ///   As an example, if `0.1` is used, then for every 10 calls to `deposit`,
-    ///   1 retry will be allowed. If `2.0` is used, then every `deposit`
-    ///   allows for 2 retries.
-    pub fn new(retry_budget: u32, step_count: u32, retry_ratio: f32) -> Self {
-        assert!(retry_ratio > 0.0);
-        assert!(retry_ratio <= 1000.0);
-        assert!(retry_budget < ::std::i32::MAX as u32);
-        assert!(step_count <= 10);
-
-        let (deposit_amount, withdraw_amount) = if retry_ratio <= 1.0 {
-            (1, (1.0 / retry_ratio) as isize)
-        } else {
-            (1000, (1000.0 / retry_ratio) as isize)
-        };
-
-        let reserve = (retry_budget as isize).saturating_mul(withdraw_amount);
-
-        Self {
-            bucket: SimpleBucket {
-                max_budget: reserve,
-                step_count: step_count as usize,
-                reserve: AtomicIsize::new(reserve),
-                multiplier: AtomicUsize::new(1),
-            },
-            deposit_amount,
-            withdraw_amount,
-        }
-    }
-}
-
-impl Budget for TpsBudget {
+impl<B: Bucket> BudgetTrait for Budget<B> {
     fn deposit(&self) {
         self.bucket.put(self.deposit_amount)
     }
@@ -284,44 +314,18 @@ impl Budget for TpsBudget {
     }
 }
 
-impl Budget for SimpleBudget {
-    fn deposit(&self) {
-        self.bucket.put(self.deposit_amount)
-    }
-
-    fn withdraw(&self) -> bool {
-        self.bucket.try_get(self.withdraw_amount)
-    }
-}
-
-impl Default for TpsBudget {
-    fn default() -> TpsBudget {
-        TpsBudget::new(Duration::from_secs(10), 10, 0.2)
-    }
-}
-
-impl Default for SimpleBudget {
+impl Default for Budget {
     fn default() -> Self {
-        SimpleBudget::new(100, 1, 0.2)
+        Budget::new_tps(Duration::from_secs(10), 10, 0.2)
     }
 }
 
-impl fmt::Debug for TpsBudget {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl fmt::Debug for Budget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Budget")
             .field("deposit", &self.deposit_amount)
             .field("withdraw", &self.withdraw_amount)
-            .field("balance", &self.bucket.sum())
-            .finish()
-    }
-}
-
-impl fmt::Debug for SimpleBudget {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Budget")
-            .field("deposit", &self.deposit_amount)
-            .field("withdraw", &self.withdraw_amount)
-            .field("balance", &self.bucket.reserve)
+            .field("balance", &self.bucket.reserve())
             .finish()
     }
 }
@@ -329,25 +333,6 @@ impl fmt::Debug for SimpleBudget {
 // ===== impl Bucket =====
 
 impl TpsBucket {
-    fn put(&self, amt: isize) {
-        self.expire();
-        self.writer.fetch_add(amt, Ordering::SeqCst);
-    }
-
-    fn try_get(&self, amt: isize) -> bool {
-        debug_assert!(amt >= 0);
-
-        self.expire();
-
-        let sum = self.sum();
-        if sum >= amt {
-            self.writer.fetch_add(-amt, Ordering::SeqCst);
-            true
-        } else {
-            false
-        }
-    }
-
     fn expire(&self) {
         let mut gen = self.generation.lock().expect("generation lock");
 
@@ -388,7 +373,32 @@ impl TpsBucket {
     }
 }
 
-impl SimpleBucket {
+impl Bucket for TpsBucket {
+    fn put(&self, amt: isize) {
+        self.expire();
+        self.writer.fetch_add(amt, Ordering::SeqCst);
+    }
+
+    fn try_get(&self, amt: isize) -> bool {
+        debug_assert!(amt >= 0);
+
+        self.expire();
+
+        let sum = self.sum();
+        if sum >= amt {
+            self.writer.fetch_add(-amt, Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn reserve(&self) -> isize {
+        self.sum()
+    }
+}
+
+impl Bucket for SimpleBucket {
     fn put(&self, amt: isize) {
         self.reserve.fetch_add(amt, Ordering::SeqCst);
         self.reserve.fetch_min(self.max_budget, Ordering::SeqCst);
@@ -414,6 +424,10 @@ impl SimpleBucket {
             false
         }
     }
+
+    fn reserve(&self) -> isize {
+        self.reserve.load(Ordering::SeqCst)
+    }
 }
 
 #[cfg(test)]
@@ -423,13 +437,13 @@ mod tests {
 
     #[test]
     fn simple_empty() {
-        let bgt = SimpleBudget::new(0, 0, 1.0);
+        let bgt = Budget::new(0, 0, 1.0);
         assert!(!bgt.withdraw())
     }
 
     #[test]
     fn simple_reserve() {
-        let bgt = SimpleBudget::new(5, 0, 1.0);
+        let bgt = Budget::new(5, 0, 1.0);
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
@@ -441,7 +455,7 @@ mod tests {
 
     #[test]
     fn simple_max_reserve() {
-        let bgt = SimpleBudget::new(2, 0, 1.0);
+        let bgt = Budget::new(2, 0, 1.0);
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
         assert!(!bgt.withdraw());
@@ -455,10 +469,10 @@ mod tests {
         assert!(bgt.withdraw());
         assert!(!bgt.withdraw());
     }
-    
+
     #[test]
     fn simple_step() {
-        let bgt = SimpleBudget::new(5, 2, 1.0);
+        let bgt = Budget::new(5, 2, 1.0);
         assert!(bgt.withdraw()); // Next cost 3
         assert!(bgt.withdraw()); // Next cost 5
 
@@ -475,7 +489,7 @@ mod tests {
 
     #[test]
     fn tps_empty() {
-        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 1.0);
+        let bgt = Budget::new_tps(Duration::from_secs(1), 0, 1.0);
         assert!(!bgt.withdraw());
     }
 
@@ -483,7 +497,7 @@ mod tests {
     async fn tps_leaky() {
         time::pause();
 
-        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 1.0);
+        let bgt = Budget::new_tps(Duration::from_secs(1), 0, 1.0);
         bgt.deposit();
 
         time::advance(Duration::from_secs(3)).await;
@@ -495,7 +509,7 @@ mod tests {
     async fn tps_slots() {
         time::pause();
 
-        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.5);
+        let bgt = Budget::new_tps(Duration::from_secs(1), 0, 0.5);
         bgt.deposit();
         bgt.deposit();
         time::advance(Duration::from_millis(901)).await;
@@ -518,7 +532,7 @@ mod tests {
 
     #[tokio::test]
     async fn tps_reserve() {
-        let bgt = TpsBudget::new(Duration::from_secs(1), 5, 1.0);
+        let bgt = Budget::new_tps(Duration::from_secs(1), 5, 1.0);
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
