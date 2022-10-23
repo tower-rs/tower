@@ -30,14 +30,14 @@
 //! use std::sync::Arc;
 //!
 //! use futures_util::future;
-//! use tower::retry::{budget::{Budget, BudgetTrait}, Policy};
+//! use tower::retry::{budget::{Budget, TpsBudget}, Policy};
 //!
 //! type Req = String;
 //! type Res = String;
 //!
 //! #[derive(Clone, Debug)]
 //! struct RetryPolicy {
-//!     budget: Arc<Budget>,
+//!     budget: Arc<TpsBudget>,
 //! }
 //!
 //! impl<E> Policy<Req, Res, E> for RetryPolicy {
@@ -71,16 +71,14 @@
 //! }
 //! ```
 
-#[allow(clippy::module_inception)]
-pub mod budget;
+pub mod tps_budget;
 
-pub use budget::Budget;
-pub use budget::TpsBucket;
+pub use tps_budget::TpsBudget;
 
 /// For more info about [`Budget`], please see the [module-level documentation].
 ///
 /// [module-level documentation]: self
-pub trait BudgetTrait {
+pub trait Budget {
     /// Store a "deposit" in the budget, which will be used to permit future
     /// withdrawals.
     fn deposit(&self);
@@ -90,27 +88,4 @@ pub trait BudgetTrait {
     ///
     /// If there is not enough, false is returned.
     fn withdraw(&self) -> bool;
-}
-
-/// Represents a token bucket.
-///
-/// A token bucket manages a reserve of tokens to decide if a retry for the request is
-/// possible. Successful requests put tokens into the reserve. Before a request is retried,
-/// bucket is checked to ensure there are sufficient amount of tokens available. If there are,
-/// specified amount of tokens are withdrawn.
-///
-/// For more info about [`Budget`], please see the [module-level documentation].
-///
-/// [module-level documentation]: self
-pub trait Bucket {
-    /// Deposit `amt` of tokens into the bucket.
-    fn put(&self, amt: isize);
-
-    /// Try to withdraw `amt` of tokens from bucket. If reserve do not have sufficient
-    /// amount of tokens false is returned. If withdraw is possible, decreases the reserve
-    /// and true is returned.
-    fn try_get(&self, amt: isize) -> bool;
-
-    /// Returns the amount of tokens in the reserve.
-    fn reserve(&self) -> isize;
 }

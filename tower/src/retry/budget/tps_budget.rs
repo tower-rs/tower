@@ -1,4 +1,4 @@
-//! Budget implementations
+//! Transactions Per Minute (Tps) Budget implementations
 
 use std::{
     fmt,
@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::time::Instant;
 
-use super::{Bucket, BudgetTrait};
+use super::Budget;
 
 /// Represents a "budget" for retrying requests.
 ///
@@ -20,25 +20,23 @@ use super::{Bucket, BudgetTrait};
 /// For more info about [`Budget`], please see the [module-level documentation].
 ///
 /// [module-level documentation]: super
-pub struct Budget<B = TpsBucket> {
-    bucket: B,
+pub struct TpsBudget {
+    bucket: TpsBucket,
     deposit_amount: isize,
     withdraw_amount: isize,
 }
 
-/// A [`Bucket`] for managing retry tokens.
+/// A Transactions Per Minute config for managing retry tokens.
 ///
-/// [`Budget`] uses a token bucket to decide if the request should be retried.
+/// [`TpsBudget`] uses a token bucket to decide if the request should be retried.
 ///
 /// [`TpsBucket`] works by checking how much retries have been made in a certain period of time.
 /// Minimum allowed number of retries are effectively reset on an interval. Allowed number of
 /// retries depends on failed request count in recent time frame.
 ///
 /// For more info about [`Budget`], please see the [module-level documentation].
-/// For more info about [`Bucket`], see [bucket trait]
 ///
 /// [module-level documentation]: super
-/// [bucket trait]: self::Bucket
 #[derive(Debug)]
 pub struct TpsBucket {
     generation: Mutex<Generation>,
@@ -61,10 +59,10 @@ struct Generation {
     time: Instant,
 }
 
-// ===== impl Budget =====
+// ===== impl TpsBudget =====
 
-impl Budget {
-    /// Create a [`Budget`] that allows for a certain percent of the total
+impl TpsBudget {
+    /// Create a [`TpsBudget`] that allows for a certain percent of the total
     /// requests to be retried.
     ///
     /// - The `ttl` is the duration of how long a single `deposit` should be
@@ -79,7 +77,7 @@ impl Budget {
     ///   As an example, if `0.1` is used, then for every 10 calls to `deposit`,
     ///   1 retry will be allowed. If `2.0` is used, then every `deposit`
     ///   allows for 2 retries.
-    pub fn new_tps(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Budget<TpsBucket> {
+    pub fn new(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Self {
         // assertions taken from finagle
         assert!(ttl >= Duration::from_secs(1));
         assert!(ttl <= Duration::from_secs(60));
@@ -110,7 +108,7 @@ impl Budget {
             slots.push(AtomicIsize::new(0));
         }
 
-        Budget {
+        TpsBudget {
             bucket: TpsBucket {
                 generation: Mutex::new(Generation {
                     index: 0,
@@ -127,7 +125,7 @@ impl Budget {
     }
 }
 
-impl<B: Bucket> BudgetTrait for Budget<B> {
+impl Budget for TpsBudget {
     fn deposit(&self) {
         self.bucket.put(self.deposit_amount)
     }
@@ -137,23 +135,23 @@ impl<B: Bucket> BudgetTrait for Budget<B> {
     }
 }
 
-impl Default for Budget {
+impl Default for TpsBudget {
     fn default() -> Self {
-        Budget::new_tps(Duration::from_secs(10), 10, 0.2)
+        TpsBudget::new(Duration::from_secs(10), 10, 0.2)
     }
 }
 
-impl fmt::Debug for Budget {
+impl fmt::Debug for TpsBudget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Budget")
             .field("deposit", &self.deposit_amount)
             .field("withdraw", &self.withdraw_amount)
-            .field("balance", &self.bucket.reserve())
+            .field("balance", &self.bucket.sum())
             .finish()
     }
 }
 
-// ===== impl Bucket =====
+// ===== impl TpsBucket =====
 
 impl TpsBucket {
     fn expire(&self) {
@@ -194,9 +192,7 @@ impl TpsBucket {
             .saturating_add(windowed_sum)
             .saturating_add(self.reserve)
     }
-}
 
-impl Bucket for TpsBucket {
     fn put(&self, amt: isize) {
         self.expire();
         self.writer.fetch_add(amt, Ordering::SeqCst);
@@ -215,22 +211,18 @@ impl Bucket for TpsBucket {
             false
         }
     }
-
-    fn reserve(&self) -> isize {
-        self.sum()
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::retry::budget::BudgetTrait;
+    use crate::retry::budget::Budget;
 
     use super::*;
     use tokio::time;
 
     #[test]
     fn tps_empty() {
-        let bgt = Budget::new_tps(Duration::from_secs(1), 0, 1.0);
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 1.0);
         assert!(!bgt.withdraw());
     }
 
@@ -238,7 +230,7 @@ mod tests {
     async fn tps_leaky() {
         time::pause();
 
-        let bgt = Budget::new_tps(Duration::from_secs(1), 0, 1.0);
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 1.0);
         bgt.deposit();
 
         time::advance(Duration::from_secs(3)).await;
@@ -250,7 +242,7 @@ mod tests {
     async fn tps_slots() {
         time::pause();
 
-        let bgt = Budget::new_tps(Duration::from_secs(1), 0, 0.5);
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.5);
         bgt.deposit();
         bgt.deposit();
         time::advance(Duration::from_millis(901)).await;
@@ -273,7 +265,7 @@ mod tests {
 
     #[tokio::test]
     async fn tps_reserve() {
-        let bgt = Budget::new_tps(Duration::from_secs(1), 5, 1.0);
+        let bgt = TpsBudget::new(Duration::from_secs(1), 5, 1.0);
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
         assert!(bgt.withdraw());
