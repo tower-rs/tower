@@ -81,7 +81,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         ReadyOneshot::new(self)
     }
 
-    /// Consume this `Service`, calling with the providing request once it is ready.
+    /// Consume this `Service`, calling it with the provided request once it is ready.
     fn oneshot(self, req: Request) -> Oneshot<Self, Request>
     where
         Self: Sized,
