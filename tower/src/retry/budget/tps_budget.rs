@@ -12,33 +12,18 @@ use tokio::time::Instant;
 
 use super::Budget;
 
-/// Represents a "budget" for retrying requests.
-///
-/// This is useful for limiting the amount of retries a service can perform
-/// over a period of time, or per a certain number of requests attempted.
-///
-/// For more info about [`Budget`], please see the [module-level documentation].
-///
-/// [module-level documentation]: super
-pub struct TpsBudget {
-    bucket: TpsBucket,
-    deposit_amount: isize,
-    withdraw_amount: isize,
-}
-
 /// A Transactions Per Minute config for managing retry tokens.
 ///
 /// [`TpsBudget`] uses a token bucket to decide if the request should be retried.
 ///
-/// [`TpsBucket`] works by checking how much retries have been made in a certain period of time.
+/// [`TpsBudget`] works by checking how much retries have been made in a certain period of time.
 /// Minimum allowed number of retries are effectively reset on an interval. Allowed number of
 /// retries depends on failed request count in recent time frame.
 ///
 /// For more info about [`Budget`], please see the [module-level documentation].
 ///
 /// [module-level documentation]: super
-#[derive(Debug)]
-pub struct TpsBucket {
+pub struct TpsBudget {
     generation: Mutex<Generation>,
     /// Initial budget allowed for every second.
     reserve: isize,
@@ -49,6 +34,10 @@ pub struct TpsBucket {
     /// The changers for the current slot to be commited
     /// after the slot expires.
     writer: AtomicIsize,
+    /// Amount of tokens to deposit for each put().
+    deposit_amount: isize,
+    /// Amount of tokens to withdraw for each try_get().
+    withdraw_amount: isize,
 }
 
 #[derive(Debug)]
@@ -109,51 +98,19 @@ impl TpsBudget {
         }
 
         TpsBudget {
-            bucket: TpsBucket {
-                generation: Mutex::new(Generation {
-                    index: 0,
-                    time: Instant::now(),
-                }),
-                reserve,
-                slots: slots.into_boxed_slice(),
-                window: ttl / windows,
-                writer: AtomicIsize::new(0),
-            },
+            generation: Mutex::new(Generation {
+                index: 0,
+                time: Instant::now(),
+            }),
+            reserve,
+            slots: slots.into_boxed_slice(),
+            window: ttl / windows,
+            writer: AtomicIsize::new(0),
             deposit_amount,
             withdraw_amount,
         }
     }
-}
 
-impl Budget for TpsBudget {
-    fn deposit(&self) {
-        self.bucket.put(self.deposit_amount)
-    }
-
-    fn withdraw(&self) -> bool {
-        self.bucket.try_get(self.withdraw_amount)
-    }
-}
-
-impl Default for TpsBudget {
-    fn default() -> Self {
-        TpsBudget::new(Duration::from_secs(10), 10, 0.2)
-    }
-}
-
-impl fmt::Debug for TpsBudget {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Budget")
-            .field("deposit", &self.deposit_amount)
-            .field("withdraw", &self.withdraw_amount)
-            .field("balance", &self.bucket.sum())
-            .finish()
-    }
-}
-
-// ===== impl TpsBucket =====
-
-impl TpsBucket {
     fn expire(&self) {
         let mut gen = self.generation.lock().expect("generation lock");
 
@@ -210,6 +167,32 @@ impl TpsBucket {
         } else {
             false
         }
+    }
+}
+
+impl Budget for TpsBudget {
+    fn deposit(&self) {
+        self.put(self.deposit_amount)
+    }
+
+    fn withdraw(&self) -> bool {
+        self.try_get(self.withdraw_amount)
+    }
+}
+
+impl Default for TpsBudget {
+    fn default() -> Self {
+        TpsBudget::new(Duration::from_secs(10), 10, 0.2)
+    }
+}
+
+impl fmt::Debug for TpsBudget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Budget")
+            .field("deposit", &self.deposit_amount)
+            .field("withdraw", &self.withdraw_amount)
+            .field("balance", &self.sum())
+            .finish()
     }
 }
 
