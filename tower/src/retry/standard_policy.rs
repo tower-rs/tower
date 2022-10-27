@@ -71,7 +71,7 @@ impl<Res, E, F> IsRetryable<Res, E> for F
 where
     F: Fn(&mut Result<Res, E>) -> bool + Send + Sync + 'static,
 {
-    fn is_retryalbe(&self, response: &mut Result<Res, E>) -> bool {
+    fn is_retryable(&self, response: &mut Result<Res, E>) -> bool {
         (self)(response)
     }
 }
@@ -244,7 +244,7 @@ where
     type Future = <B::Backoff as Backoff>::Future;
 
     fn retry(&mut self, _req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future> {
-        let can_retry = self.is_retryable.is_retryalbe(result);
+        let can_retry = self.is_retryable.is_retryable(result);
 
         if !can_retry {
             tracing::trace!("Received non-retryable response");
