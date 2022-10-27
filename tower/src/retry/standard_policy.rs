@@ -1,5 +1,5 @@
 //! A standard retry policy that combines many of the `retry` module's utilities
-//! together in a production ready retry policy.
+//! together in a production-ready retry policy.
 //!
 //! # Defaults
 //!
@@ -53,7 +53,7 @@ use crate::retry::Policy;
 pub trait IsRetryable<Res, E>: Send + Sync + 'static {
     /// Return `true` if the request associated with the response should be
     /// retried and `false` if it should not be retried.
-    fn is_retryalbe(&self, response: &mut Result<Res, E>) -> bool;
+    fn is_retryable(&self, response: &mut Result<Res, E>) -> bool;
 }
 
 /// A trait to clone a request for the [`StandardRetryPolicy`].
