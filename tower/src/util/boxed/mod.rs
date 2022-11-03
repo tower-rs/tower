@@ -5,5 +5,5 @@ mod unsync;
 
 #[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/57411
 pub use self::{
-    layer::BoxLayer, layer_clone::BoxCloneLayer, sync::BoxService, unsync::UnsyncBoxService,
+    layer::BoxLayer, layer_clone::BoxCloneServiceLayer, sync::BoxService, unsync::UnsyncBoxService,
 };
