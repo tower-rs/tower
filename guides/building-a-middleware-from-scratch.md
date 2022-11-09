@@ -25,8 +25,8 @@ and the duration of the timeout:
 ```rust
 use std::time::Duration;
 
-struct Timeout<T> {
-    inner: T,
+struct Timeout<S> {
+    inner: S,
     timeout: Duration,
 }
 ```
