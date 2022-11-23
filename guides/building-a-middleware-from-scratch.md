@@ -90,7 +90,7 @@ the process a bit easier.
 
 To actually add a timeout to the inner service what we essentially have to do is
 detect when the future returned by `self.inner.call(request)` has been running
-longer than `self.duration` and abort with an error.
+longer than `self.timeout` and abort with an error.
 
 The approach we're going to take is to call [`tokio::time::sleep`] to get a
 future that completes when we're out of time and then select the value from
@@ -107,7 +107,7 @@ fn call(&mut self, request: Request) -> Self::Future {
 
     // This variable has type `tokio::time::Sleep`.
     //
-    // We don't have to clone `self.duration` as it implements the `Copy` trait.
+    // We don't have to clone `self.timeout` as it implements the `Copy` trait.
     let sleep = tokio::time::sleep(self.timeout);
 
     // what to write here?
