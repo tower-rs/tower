@@ -4,14 +4,16 @@ use futures_util::{
     future::{ready, Ready},
     pin_mut,
 };
+use std::fmt;
+use std::future::Future;
 use std::task::{Context, Poll};
 use std::{cell::Cell, rc::Rc};
 use tokio_test::{assert_pending, assert_ready, task};
 use tower::util::ServiceExt;
 use tower_service::*;
-use tower_test::{assert_request_eq, mock};
+use tower_test::{assert_request_eq, mock, mock::Mock};
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
+type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 #[derive(Debug, Eq, PartialEq)]
 struct Srv {
@@ -163,4 +165,89 @@ async fn pending() {
     let res = assert_ready!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
     assert_eq!(res.transpose().unwrap(), Some("res"));
     assert_pending!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+}
+
+#[tokio::test]
+async fn poll_ready_error() {
+    struct ReadyOnceThenErr {
+        polled: bool,
+        inner: Mock<&'static str, &'static str>,
+    }
+
+    #[derive(Debug)]
+    pub struct StringErr(String);
+
+    impl fmt::Display for StringErr {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fmt::Display::fmt(&self.0, f)
+        }
+    }
+
+    impl std::error::Error for StringErr {}
+
+    impl Service<&'static str> for ReadyOnceThenErr {
+        type Response = &'static str;
+        type Error = Error;
+        type Future = <Mock<&'static str, &'static str> as Service<&'static str>>::Future;
+
+        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            match self.polled {
+                false => {
+                    self.polled = true;
+                    self.inner.poll_ready(cx)
+                }
+                true => Poll::Ready(Err(Box::new(StringErr("poll_ready error".to_string())))),
+            }
+        }
+
+        fn call(&mut self, req: &'static str) -> Self::Future {
+            self.inner.call(req)
+        }
+    }
+
+    let _t = support::trace_init();
+
+    let (mock, mut handle) = mock::pair::<_, &'static str>();
+    let svc = ReadyOnceThenErr {
+        polled: false,
+        inner: mock,
+    };
+    let mut task = task::spawn(());
+
+    // "req0" is called, then "req1" receives a poll_ready error so "req2" will never be called.
+    // Still the response from "req0" is waited on before ending the `call_all` stream.
+    let requests = futures_util::stream::iter(vec!["req0", "req1", "req2"]);
+    let ca = svc.call_all(requests);
+    pin_mut!(ca);
+    let err = assert_ready!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    assert_eq!(err.unwrap().unwrap_err().to_string(), "poll_ready error");
+    assert_request_eq!(handle, "req0").send_response("res0");
+    let res = assert_ready!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    assert_eq!(res.transpose().unwrap(), Some("res0"));
+    let res = assert_ready!(task.enter(|cx, _| ca.as_mut().poll_next(cx)));
+    assert_eq!(res.transpose().unwrap(), None);
+}
+
+#[tokio::test]
+async fn stream_does_not_block_service() {
+    use tower::buffer::Buffer;
+    use tower::limit::ConcurrencyLimit;
+
+    let _t = support::trace_init();
+    let (mock, mut handle) = mock::pair::<_, &'static str>();
+    let mut task = task::spawn(());
+
+    let svc = Buffer::new(ConcurrencyLimit::new(mock, 1), 1);
+
+    // Always pending, but should not occupy a concurrency slot.
+    let pending = svc.clone().call_all(futures_util::stream::pending());
+    pin_mut!(pending);
+    assert_pending!(task.enter(|cx, _| pending.as_mut().poll_next(cx)));
+
+    let call = svc.oneshot("req");
+    pin_mut!(call);
+    assert_pending!(task.enter(|cx, _| call.as_mut().poll(cx)));
+    assert_request_eq!(handle, "req").send_response("res");
+    let res = assert_ready!(task.enter(|cx, _| call.as_mut().poll(cx)));
+    assert_eq!(res.unwrap(), "res");
 }

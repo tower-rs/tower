@@ -197,6 +197,16 @@ where
         self.ready.get_index_mut(idx).map(|(k, v)| (k, &mut v.0))
     }
 
+    /// Returns an iterator over the ready keys and services.
+    pub fn iter_ready(&self) -> impl Iterator<Item = (&K, &S)> {
+        self.ready.iter().map(|(k, s)| (k, &s.0))
+    }
+
+    /// Returns a mutable iterator over the ready keys and services.
+    pub fn iter_ready_mut(&mut self) -> impl Iterator<Item = (&K, &mut S)> {
+        self.ready.iter_mut().map(|(k, s)| (k, &mut s.0))
+    }
+
     /// Evicts an item from the cache.
     ///
     /// Returns true if a service was marked for eviction.

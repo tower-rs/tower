@@ -23,7 +23,7 @@ pub mod rng;
 
 pub use self::{
     and_then::{AndThen, AndThenLayer},
-    boxed::{BoxLayer, BoxService, UnsyncBoxService},
+    boxed::{BoxCloneServiceLayer, BoxLayer, BoxService, UnsyncBoxService},
     boxed_clone::BoxCloneService,
     either::Either,
     future_service::{future_service, FutureService},
@@ -81,7 +81,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         ReadyOneshot::new(self)
     }
 
-    /// Consume this `Service`, calling with the providing request once it is ready.
+    /// Consume this `Service`, calling it with the provided request once it is ready.
     fn oneshot(self, req: Request) -> Oneshot<Self, Request>
     where
         Self: Sized,
