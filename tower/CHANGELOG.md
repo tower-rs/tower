@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Unreleased
 
+### Fixed
+
+- **util**: `BoxService` is now `Sync` ([#702])
+
 ### Changed
 
 - **util**: Removed deprecated `ServiceExt::ready_and` method and `ReadyAnd`
@@ -17,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#652]: https://github.com/tower-rs/tower/pull/652
 [#584]: https://github.com/tower-rs/tower/pull/584
+[#702]: https://github.com/tower-rs/tower/pull/702
 
 # 0.4.12 (February 16, 2022)
 
