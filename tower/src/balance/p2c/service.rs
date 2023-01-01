@@ -1,4 +1,5 @@
 use super::super::error;
+use super::future::ResponseFuture;
 use crate::discover::{Change, Discover};
 use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
@@ -8,6 +9,7 @@ use futures_util::future::{self, TryFutureExt};
 use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::time::Duration;
 use std::{
     fmt,
     future::Future,
@@ -15,6 +17,7 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::sync::oneshot;
+use tokio::time::Sleep;
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -41,7 +44,18 @@ where
 
     rng: Box<dyn Rng + Send + Sync>,
 
+    /// How long we'll wait for a service to be discovered before giving up and returning an
+    /// error.
+    timeout: Option<Duration>,
+    state: State,
+
     _req: PhantomData<Req>,
+}
+
+enum State {
+    Waiting(Pin<Box<Sleep>>),
+    TimedOut,
+    Ready,
 }
 
 impl<D: Discover, Req> fmt::Debug for Balance<D, Req>
@@ -89,6 +103,24 @@ where
         Self::from_rng(discover, HasherRng::default())
     }
 
+    /// Constructs a load balancer with a timeout and that uses operating system entropy.
+    ///
+    /// The timeout determines how long we will wait for a service to become discovered
+    /// (but not necessarily ready).
+    pub fn new_with_timeout(discover: D, timeout: Duration) -> Self {
+        Self {
+            rng: Box::new(HasherRng::default()),
+            discover,
+            services: ReadyCache::default(),
+            ready_index: None,
+
+            timeout: Some(timeout),
+            state: State::Ready,
+
+            _req: PhantomData,
+        }
+    }
+
     /// Constructs a load balancer seeded with the provided random number generator.
     pub fn from_rng<R: Rng + Send + Sync + 'static>(discover: D, rng: R) -> Self {
         let rng = Box::new(rng);
@@ -97,6 +129,9 @@ where
             discover,
             services: ReadyCache::default(),
             ready_index: None,
+
+            timeout: None,
+            state: State::Ready,
 
             _req: PhantomData,
         }
@@ -226,9 +261,11 @@ where
 {
     type Response = <D::Service as Service<Req>>::Response;
     type Error = crate::BoxError;
-    type Future = future::MapErr<
-        <D::Service as Service<Req>>::Future,
-        fn(<D::Service as Service<Req>>::Error) -> crate::BoxError,
+    type Future = ResponseFuture<
+        future::MapErr<
+            <D::Service as Service<Req>>::Future,
+            fn(<D::Service as Service<Req>>::Error) -> crate::BoxError,
+        >,
     >;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -263,6 +300,43 @@ where
                 }
             }
 
+            if let Some(timeout) = self.timeout {
+                let empty = self.services.is_empty();
+                loop {
+                    match &mut self.state {
+                        State::Ready if empty => {
+                            // No services available, start a timer.
+                            self.state = State::Waiting(Box::pin(tokio::time::sleep(timeout)));
+                        }
+                        State::Waiting(sleep) if empty => {
+                            // Do we need to keep waiting?
+                            match Pin::new(sleep).poll(cx) {
+                                Poll::Pending => return Poll::Pending,
+                                Poll::Ready(_) => {
+                                    self.state = State::TimedOut;
+                                    return Poll::Ready(Ok(()));
+                                }
+                            }
+                        }
+                        State::Waiting(_) if !empty => {
+                            // We found some services since the timer started.
+                            self.state = State::Ready;
+                            break;
+                        }
+                        State::TimedOut if self.services.ready_len() > 0 => {
+                            // We timed out, but discovered a service since then
+                            // which has become ready. Might as well use it.
+                            self.state = State::Ready;
+                        }
+                        State::TimedOut => {
+                            // Just call us already!
+                            return Poll::Ready(Ok(()));
+                        }
+                        _ => break,
+                    }
+                }
+            }
+
             // Select a new service by comparing two at random and using the
             // lesser-loaded service.
             self.ready_index = self.p2c_ready_index();
@@ -276,10 +350,23 @@ where
     }
 
     fn call(&mut self, request: Req) -> Self::Future {
-        let index = self.ready_index.take().expect("called before ready");
-        self.services
-            .call_ready_index(index, request)
-            .map_err(Into::into)
+        match self.state {
+            State::Ready => {
+                let index = self.ready_index.take().expect("called before ready");
+                ResponseFuture::called(
+                    self.services
+                        .call_ready_index(index, request)
+                        .map_err(Into::into),
+                )
+            }
+            State::TimedOut => {
+                // We timed out waiting to discover any services.
+                // Reset the state and error this request.
+                self.state = State::Ready;
+                ResponseFuture::timed_out()
+            }
+            State::Waiting(_) => panic!("called before ready"),
+        }
     }
 }
 

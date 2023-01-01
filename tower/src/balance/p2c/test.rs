@@ -1,8 +1,8 @@
-use crate::discover::ServiceList;
 use crate::load;
-use futures_util::pin_mut;
-use std::task::Poll;
-use tokio_test::{assert_pending, assert_ready, assert_ready_ok, task};
+use crate::{discover::ServiceList, timeout::error::Elapsed};
+use futures_util::{future, pin_mut};
+use std::{task::Poll, time::Duration};
+use tokio_test::{assert_pending, assert_ready, assert_ready_err, assert_ready_ok, task};
 use tower_test::{assert_request_eq, mock};
 
 use super::*;
@@ -13,6 +13,54 @@ async fn empty() {
     let disco = ServiceList::new(empty);
     let mut svc = mock::Spawn::new(Balance::new(disco));
     assert_pending!(svc.poll_ready());
+}
+
+/// Scenario: No services are available for longer than the given timeout.
+///
+/// Test using manual polling.
+#[tokio::test]
+async fn timeout_poll() {
+    let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
+    let disco = ServiceList::new(empty);
+
+    let timeout_ms: u64 = 100;
+
+    tokio::time::pause();
+
+    let mut svc = mock::Spawn::new(Balance::new_with_timeout(
+        disco,
+        Duration::from_millis(timeout_ms),
+    ));
+    assert_pending!(svc.poll_ready(), "pending: no services discovered");
+
+    tokio::time::advance(Duration::from_millis(timeout_ms + 1)).await;
+    assert_ready_ok!(svc.poll_ready(), "ready(ok): timed out");
+
+    let mut fut = task::spawn(svc.call(()));
+    assert_ready_err!(fut.poll(), "ready(err): timed out");
+}
+
+/// Scenario: No services are available for longer than the given timeout.
+///
+/// Test using async/await.
+#[tokio::test]
+async fn timeout_await() {
+    use tower_service::Service;
+
+    let empty: Vec<load::Constant<mock::Mock<(), &'static str>, usize>> = vec![];
+    let disco = ServiceList::new(empty);
+    let mut svc = Balance::new_with_timeout(disco, Duration::from_millis(50));
+
+    future::poll_fn(|cx| svc.poll_ready(cx))
+        .await
+        .expect("Should become ready after timing out");
+    let err = svc
+        .call(())
+        .await
+        .expect_err("Should error after timing out");
+
+    err.downcast_ref::<Elapsed>()
+        .expect("Should be a timeout error");
 }
 
 #[tokio::test]

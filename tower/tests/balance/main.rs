@@ -4,9 +4,11 @@ mod support;
 
 use std::future::Future;
 use std::task::{Context, Poll};
-use tokio_test::{assert_pending, assert_ready, task};
+use std::time::Duration;
+use tokio_test::{assert_pending, assert_ready, assert_ready_ok, task};
 use tower::balance::p2c::Balance;
 use tower::discover::Change;
+use tower::load;
 use tower_service::Service;
 use tower_test::mock;
 
@@ -167,4 +169,31 @@ fn stress() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn service_discovered_while_waiting() {
+    let timeout_ms: u64 = 100;
+
+    tokio::time::pause();
+
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
+    let mut svc = mock::Spawn::new(Balance::new_with_timeout(
+        support::IntoStream::new(rx),
+        Duration::from_millis(timeout_ms),
+    ));
+
+    assert_pending!(svc.poll_ready(), "pending: no services discovered");
+
+    let (mock, mut _handle) = mock::pair::<Req, Req>();
+    let mock = load::Constant::new(mock, 0);
+    let ok = tx.send(Ok(Change::Insert(1, mock)));
+    assert!(ok.is_ok());
+
+    tokio::time::advance(Duration::from_millis(timeout_ms / 2)).await;
+
+    assert_ready_ok!(svc.poll_ready(), "ready: service discovered");
+
+    let mut fut = task::spawn(svc.call("hello"));
+    assert_pending!(fut.poll());
 }

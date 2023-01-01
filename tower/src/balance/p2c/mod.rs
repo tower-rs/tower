@@ -29,6 +29,7 @@
 //! [finagle]: https://twitter.github.io/finagle/guide/Clients.html#power-of-two-choices-p2c-least-loaded
 //! [`Stream`]: https://docs.rs/futures/0.3/futures/stream/trait.Stream.html
 
+mod future;
 mod layer;
 mod make;
 mod service;
