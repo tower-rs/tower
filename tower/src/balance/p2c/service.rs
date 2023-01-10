@@ -2,7 +2,7 @@ use super::super::error;
 use crate::discover::{Change, Discover};
 use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
-use crate::util::rng::{sample_inplace, HasherRng, Rng};
+use crate::util::rng::{sample_floyd2, HasherRng, Rng};
 use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
 use pin_project_lite::pin_project;
@@ -185,10 +185,7 @@ where
             len => {
                 // Get two distinct random indexes (in a random order) and
                 // compare the loads of the service at each index.
-                let idxs = sample_inplace(&mut self.rng, len as u32, 2);
-
-                let aidx = idxs[0];
-                let bidx = idxs[1];
+                let [aidx, bidx] = sample_floyd2(&mut self.rng, len as u64);
                 debug_assert_ne!(aidx, bidx, "random indices must be distinct");
 
                 let aload = self.ready_index_load(aidx as usize);

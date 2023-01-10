@@ -109,35 +109,19 @@ where
     }
 }
 
-/// An inplace sampler borrowed from the Rand implementation for use internally
-/// for the balance middleware.
-/// ref: https://github.com/rust-random/rand/blob/b73640705d6714509f8ceccc49e8df996fa19f51/src/seq/index.rs#L425
+/// A sampler modified from the Rand implementation for use internally for the balance middleware.
 ///
-/// Docs from rand:
+/// It's an implemenetation of Floyd's combination algorithm. with amount fixed at 2. This uses no allocated
+/// memory and finishes in constant time (only 2 random calls)
 ///
-/// Randomly sample exactly `amount` indices from `0..length`, using an inplace
-/// partial Fisher-Yates method.
-/// Sample an amount of indices using an inplace partial fisher yates method.
-///
-/// This allocates the entire `length` of indices and randomizes only the first `amount`.
-/// It then truncates to `amount` and returns.
-///
-/// This method is not appropriate for large `length` and potentially uses a lot
-/// of memory; because of this we only implement for `u32` index (which improves
-/// performance in all cases).
-///
-/// Set-up is `O(length)` time and memory and shuffling is `O(amount)` time.
-pub(crate) fn sample_inplace<R: Rng>(rng: &mut R, length: u32, amount: u32) -> Vec<u32> {
-    debug_assert!(amount <= length);
-    let mut indices: Vec<u32> = Vec::with_capacity(length as usize);
-    indices.extend(0..length);
-    for i in 0..amount {
-        let j: u64 = rng.next_range(i as u64..length as u64);
-        indices.swap(i as usize, j as usize);
-    }
-    indices.truncate(amount as usize);
-    debug_assert_eq!(indices.len(), amount as usize);
-    indices
+/// ref: This was borrowed and modified from the following Rand implementation
+/// https://github.com/rust-random/rand/blob/b73640705d6714509f8ceccc49e8df996fa19f51/src/seq/index.rs#L375-L411
+pub(crate) fn sample_floyd2<R: Rng>(rng: &mut R, length: u64) -> [u64; 2] {
+    debug_assert!(2 <= length);
+    let aidx = rng.next_range(0..length - 1);
+    let bidx = rng.next_range(0..length);
+    let aidx = if aidx == bidx { length - 1 } else { aidx };
+    [aidx, bidx]
 }
 
 #[cfg(test)]
@@ -167,32 +151,21 @@ mod tests {
             TestResult::from_bool(n >= range.start && (n < range.end || range.start == range.end))
         }
 
-        fn sample_inplace(counter: u64, length: u32, amount: u32) -> TestResult {
-            if amount > length || length > 256 || amount > 32  {
+        fn sample_floyd2(counter: u64, length: u64) -> TestResult {
+            if length < 2 || length > 256 {
                 return TestResult::discard();
             }
 
             let mut rng = HasherRng::default();
             rng.counter = counter;
 
-            let indxs = super::sample_inplace(&mut rng, length, amount);
+            let [a, b] = super::sample_floyd2(&mut rng, length, amount);
 
-            for indx in indxs {
-                if indx > length {
-                    return TestResult::failed();
-                }
+            if a >= length || b >= length || a == b {
+                return TestResult::failed();
             }
 
             TestResult::passed()
         }
-    }
-
-    #[test]
-    fn sample_inplace_boundaries() {
-        let mut r = HasherRng::default();
-
-        assert_eq!(super::sample_inplace(&mut r, 0, 0).len(), 0);
-        assert_eq!(super::sample_inplace(&mut r, 1, 0).len(), 0);
-        assert_eq!(super::sample_inplace(&mut r, 1, 1), vec![0]);
     }
 }
