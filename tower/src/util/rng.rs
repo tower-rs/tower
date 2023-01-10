@@ -159,13 +159,22 @@ mod tests {
             let mut rng = HasherRng::default();
             rng.counter = counter;
 
-            let [a, b] = super::sample_floyd2(&mut rng, length, amount);
+            let [a, b] = super::sample_floyd2(&mut rng, length);
 
             if a >= length || b >= length || a == b {
                 return TestResult::failed();
             }
 
             TestResult::passed()
+        }
+    }
+
+    #[test]
+    fn sample_inplace_boundaries() {
+        let mut r = HasherRng::default();
+        match super::sample_floyd2(&mut r, 2) {
+            [0, 1] | [1, 0] => (),
+            err => panic!("{err:?}"),
         }
     }
 }
