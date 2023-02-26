@@ -118,7 +118,7 @@ The following is an incomplete list of such libraries:
 [`tonic`]: https://crates.io/crates/tonic
 [tonic-examples]: https://github.com/hyperium/tonic/tree/master/examples/src/tower
 [grpc]: https://grpc.io
-[`warp`]: https://crates.io/crates/warp
+[`axum`]: https://crates.io/crates/axum
 [warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
 [`tower-lsp`]: https://crates.io/crates/tower-lsp
 [lsp]: https://microsoft.github.io/language-server-protocol/
