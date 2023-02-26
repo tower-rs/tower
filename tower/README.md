@@ -106,8 +106,7 @@ The following is an incomplete list of such libraries:
 * [`tonic`]: A [gRPC-over-HTTP/2][grpc] implementation built on top of
   [`hyper`]. See [here][tonic-examples] for examples of using [`tonic`] with
   Tower.
-* [`warp`]: A lightweight, composable web framework. See
-  [here][warp-service] for details on using [`warp`] with Tower.
+* [`axum`]: Ergonomic and modular web framework built with Tokio, Tower, and Hyper.
 * [`tower-lsp`]: implementations of the [Language
   Server Protocol][lsp] based on Tower.
 * [`kube`]: Kubernetes client and futures controller runtime. [`kube::Client`]
