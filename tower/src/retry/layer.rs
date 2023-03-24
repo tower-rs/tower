@@ -2,13 +2,13 @@ use super::Retry;
 use tower_layer::Layer;
 
 /// Retry requests based on a policy
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RetryLayer<P> {
     policy: P,
 }
 
 impl<P> RetryLayer<P> {
-    /// Create a new [`RetryLayer`] from a retry policy
+    /// Creates a new [`RetryLayer`] from a retry policy.
     pub fn new(policy: P) -> Self {
         RetryLayer { policy }
     }
