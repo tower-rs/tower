@@ -351,6 +351,7 @@ pub trait Service<Request> {
     ///
     /// Implementations are permitted to panic if `call` is invoked without
     /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
+    #[must_use = "futures do nothing unless you `.await` or poll them"]
     fn call(&mut self, req: Request) -> Self::Future;
 }
 
