@@ -45,26 +45,26 @@ use std::{
 ///
 /// [`Service`]: crate::Service
 /// [`Rc`]: std::rc::Rc
-pub struct BoxService<T, U, E> {
+pub struct BoxService<'a, T, U, E> {
     inner:
-        SyncWrapper<Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send>>,
+        SyncWrapper<Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<'a, U, E>> + Send + 'a>>,
 }
 
 /// A boxed `Future + Send` trait object.
 ///
 /// This type alias represents a boxed future that is [`Send`] and can be moved
 /// across threads.
-type BoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
+type BoxFuture<'a, T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'a>>;
 
-impl<T, U, E> BoxService<T, U, E> {
+impl<'a, T, U, E> BoxService<'a, T, U, E> {
     #[allow(missing_docs)]
     pub fn new<S>(inner: S) -> Self
     where
-        S: Service<T, Response = U, Error = E> + Send + 'static,
-        S::Future: Send + 'static,
+        S: Service<T, Response = U, Error = E> + Send + 'a,
+        S::Future: Send + 'a,
     {
         // rust can't infer the type
-        let inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<U, E>> + Send> =
+        let inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<'a, U, E>> + Send + 'a> =
             Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
         let inner = SyncWrapper::new(inner);
         BoxService { inner }
@@ -76,28 +76,28 @@ impl<T, U, E> BoxService<T, U, E> {
     /// [`Layer`]: crate::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
-        S: Service<T, Response = U, Error = E> + Send + 'static,
-        S::Future: Send + 'static,
+        S: Service<T, Response = U, Error = E> + Send + 'a,
+        S::Future: Send + 'a,
     {
         layer_fn(Self::new)
     }
 }
 
-impl<T, U, E> Service<T> for BoxService<T, U, E> {
+impl<'a, T, U, E> Service<T> for BoxService<'a, T, U, E> {
     type Response = U;
     type Error = E;
-    type Future = BoxFuture<U, E>;
+    type Future = BoxFuture<'a, U, E>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), E>> {
         self.inner.get_mut().poll_ready(cx)
     }
 
-    fn call(&mut self, request: T) -> BoxFuture<U, E> {
+    fn call(&mut self, request: T) -> BoxFuture<'a, U, E> {
         self.inner.get_mut().call(request)
     }
 }
 
-impl<T, U, E> fmt::Debug for BoxService<T, U, E> {
+impl<'a, T, U, E> fmt::Debug for BoxService<'a, T, U, E> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BoxService").finish()
     }
