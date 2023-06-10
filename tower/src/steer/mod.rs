@@ -91,7 +91,7 @@ where
 ///
 /// An example use case is a sharded service.
 /// It accepts new requests, then:
-/// 1. Determines, via the provided [`Picker`], which [`Service`] the request coresponds to.
+/// 1. Determines, via the provided [`Picker`], which [`Service`] the request corresponds to.
 /// 2. Waits (in [`Service::poll_ready`]) for *all* services to be ready.
 /// 3. Calls the correct [`Service`] with the request, and returns a future corresponding to the
 ///    call.
