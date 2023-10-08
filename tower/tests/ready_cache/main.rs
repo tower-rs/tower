@@ -200,7 +200,7 @@ async fn cancelation_observed() {
     let mut handles = vec![];
 
     // NOTE This test passes at 129 items, but fails at 130 items (if coop
-    // schedulding interferes with cancelation).
+    // scheduling interferes with cancelation).
     for _ in 0..130 {
         let (svc, mut handle) = tower_test::mock::pair::<(), ()>();
         handle.allow(1);
