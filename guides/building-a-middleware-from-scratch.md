@@ -74,7 +74,7 @@ where
     type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Our middleware doesn't care about backpressure so its ready as long
+        // Our middleware doesn't care about backpressure so it's ready as long
         // as the inner service is ready.
         self.inner.poll_ready(cx)
     }
@@ -192,9 +192,9 @@ where
 
 Ideally we want to write something like this:
 
-1. First poll `self.response_future` and if its ready return the response or error it
+1. First poll `self.response_future` and if it's ready return the response or error it
    resolved to.
-2. Otherwise poll `self.sleep` and if its ready return an error.
+2. Otherwise poll `self.sleep` and if it's ready return an error.
 3. If neither future is ready return `Poll::Pending`.
 
 We might try:
