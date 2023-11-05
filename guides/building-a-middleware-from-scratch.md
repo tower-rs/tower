@@ -487,7 +487,7 @@ where
 }
 ```
 
-Finally we have to revisit our `Service` implementation and update it to also
+Revisit our `Service` implementation and update it to also
 use `BoxError`:
 
 ```rust
@@ -519,6 +519,94 @@ where
 }
 ```
 
+Create a layer for usage:
+```rs
+impl TimeoutLayer {
+    /// Create a timeout from a duration
+    pub fn new(timeout: Duration) -> Self {
+        TimeoutLayer { timeout }
+    }
+}
+
+impl<S> Layer<S> for TimeoutLayer {
+    type Service = Timeout<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        Timeout::new(service, self.timeout)
+    }
+}
+```
+
+Usage
+```rs
+use axum::{
+    Router,
+    routing::get,
+};
+use std::time::Duration;
+use tower::ServiceBuilder;
+
+let app = Router::new()
+    .route("/", get(|| async {}))
+    .layer(
+        ServiceBuilder::new()
+            .layer(TimeoutLayer::new(Duration::from_secs(5)))
+    );
+```
+
+But wait, we get a compile error:
+```
+error[E0277]: the trait bound `Infallible: From<Box<(dyn std::error::Error + Send + Sync + 'static)>>` is not satisfied
+   --> src/lib.rs:123:25
+    |
+123 |     Router::new().layer(ServiceBuilder::new().layer(TimeoutLayer::new(Duration::from_secs(5))))
+    |                   ----- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `From<Box<(dyn std::error::Error + Send + Sync + 'static)>>` is not implemented for `Infallible`
+    |                   |
+    |                   required by a bound introduced by this call
+    |
+```
+
+That's because there's an attempt to convert a Box<dyn StdError + Send + Sync + 'static> into Infallible. The Infallible type is used to signify that a function will never return an error.
+> Axum’s error handling model requires handlers to always return a response. However middleware is one possible way to introduce errors into an application. If hyper receives an error the connection will be closed without sending a response. Thus axum requires those errors to be handled gracefully. - [doc](https://docs.rs/axum/latest/axum/middleware/index.html#error-handling-for-middleware)
+
+This can be handled with HandleErrorLayer:
+```rs
+use axum::{
+    Router,
+    routing::get,
+    http::StatusCode,
+    error_handling::HandleErrorLayer,
+};
+use std::time::Duration;
+use tower::ServiceBuilder;
+
+// create a callback
+async fn handle_timeout_error(err: BoxError) -> (StatusCode, String) {
+    if err.is::<tower::timeout::error::Elapsed>() {
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            "Request took too long".to_string(),
+        )
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Unhandled internal error: {}", err),
+        )
+    }
+}
+
+let app = Router::new()
+    .route("/", get(|| async {}))
+    .layer(
+        ServiceBuilder::new()
+            // this middleware goes above `TimeoutLayer` because it will receive
+            // errors returned by `TimeoutLayer
+            .layer(HandleErrorLayer::new(handle_timeout_error))
+            .layer(TimeoutLayer::new(Duration::from_secs(5)))
+    );
+```
+
+
 ## Conclusion
 
 Thats it! We've now successfully implemented the `Timeout` middleware as it
@@ -527,6 +615,9 @@ exists in Tower today.
 Our final implementation is:
 
 ```rust
+use axum::error_handling::HandleErrorLayer;
+use axum::Router;
+use http::StatusCode;
 use pin_project::pin_project;
 use std::time::Duration;
 use std::{
@@ -536,10 +627,11 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::time::Sleep;
-use tower::Service;
+use tower::{Layer, Service, ServiceBuilder};
 
 #[derive(Debug, Clone)]
-struct Timeout<S> {
+// make it public
+pub struct Timeout<S> {
     inner: S,
     timeout: Duration,
 }
@@ -575,7 +667,8 @@ where
 }
 
 #[pin_project]
-struct ResponseFuture<F> {
+// make it public
+pub struct ResponseFuture<F> {
     #[pin]
     response_future: F,
     #[pin]
@@ -624,6 +717,49 @@ impl fmt::Display for TimeoutError {
 impl std::error::Error for TimeoutError {}
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+#[derive(Debug, Clone)]
+pub struct TimeoutLayer {
+    timeout: Duration,
+}
+
+impl TimeoutLayer {
+    /// Create a timeout from a duration
+    pub fn new(timeout: Duration) -> Self {
+        TimeoutLayer { timeout }
+    }
+}
+
+impl<S> Layer<S> for TimeoutLayer {
+    type Service = Timeout<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        Timeout::new(service, self.timeout)
+    }
+}
+
+async fn handle_timeout_error(err: BoxError) -> (StatusCode, String) {
+    if err.is::<tower::timeout::error::Elapsed>() {
+        (
+            StatusCode::REQUEST_TIMEOUT,
+            "Request took too long".to_string(),
+        )
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Unhandled internal error: {}", err),
+        )
+    }
+}
+
+pub fn make_app() -> Router {
+    Router::new().layer(
+        ServiceBuilder::new()
+            .layer(HandleErrorLayer::new(handle_timeout_error))
+            .layer(TimeoutLayer::new(Duration::from_secs(5))),
+    )
+}
+
 ```
 
 You can find the code in Tower [here][timeout-in-tower].
