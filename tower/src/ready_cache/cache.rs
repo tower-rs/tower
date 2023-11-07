@@ -31,7 +31,7 @@ use tracing::{debug, trace};
 /// in the ready set. The `ReadyCache::check_*` functions can be used to ensure
 /// that a service is ready before dispatching a request.
 ///
-/// The ready set can hold services for an abitrarily long time. During this
+/// The ready set can hold services for an arbitrarily long time. During this
 /// time, the runtime may process events that invalidate that ready state (for
 /// instance, if a keepalive detects a lost connection). In such cases, callers
 /// should use [`ReadyCache::check_ready`] (or [`ReadyCache::check_ready_index`])

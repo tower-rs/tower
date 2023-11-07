@@ -1,4 +1,4 @@
-//! This module contains generic [backoff] utlities to be used with the retry
+//! This module contains generic [backoff] utilities to be used with the retry
 //! layer.
 //!
 //! The [`Backoff`] trait is a generic way to represent backoffs that can use
