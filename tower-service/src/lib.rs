@@ -91,13 +91,14 @@ use std::task::{Context, Poll};
 /// As an example, here is how a Redis request would be issued:
 ///
 /// ```rust,ignore
-/// let client = redis::Client::new()
+/// let mut client = redis::Client::new()
 ///     .connect("127.0.0.1:6379".parse().unwrap())
 ///     .unwrap();
 ///
+/// futures::future::poll_fn(|cx| Service::<Cmd>::poll_ready(&mut client, cx)).await?;
+///
 /// let resp = client.call(Cmd::set("foo", "this is the value of foo")).await?;
 ///
-/// // Wait for the future to resolve
 /// println!("Redis response: {:?}", resp);
 /// ```
 ///
@@ -355,9 +356,9 @@ pub trait Service<Request> {
     fn call(&mut self, req: Request) -> Self::Future;
 }
 
-impl<'a, S, Request> Service<Request> for &'a mut S
+impl<S, Request> Service<Request> for &mut S
 where
-    S: Service<Request> + 'a,
+    S: Service<Request> + ?Sized,
 {
     type Response = S::Response;
     type Error = S::Error;
