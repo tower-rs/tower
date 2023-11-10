@@ -1,10 +1,24 @@
 //! Middleware for retrying "failed" requests.
+//!
+//! # Batteries-Included Features
+//!
+//! The [`standard_policy`] module contains a default retry [`Policy`] that can
+//! be used with the [`Retry`] middleware. For more information, see the module
+//! docs for [`standard_policy`].
+//!
+//! The [`backoff`] module contains utilities for implementing backoffs —
+//! which determine how long to wait between retries — in a custom [`Policy`].
+//!
+//! The [`budget`] module contains utilities to reduce the amount of concurrent
+//! retries made by a tower middleware stack. The goal for this is to reduce
+//! congestive collapse when downstream systems degrade.
 
 pub mod backoff;
 pub mod budget;
 pub mod future;
 mod layer;
 mod policy;
+pub mod standard_policy;
 
 pub use self::layer::RetryLayer;
 pub use self::policy::Policy;
