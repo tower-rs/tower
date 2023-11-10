@@ -980,10 +980,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// [`Service`]: crate::Service
     /// [`boxed_clone`]: Self::boxed_clone
-    fn boxed(self) -> BoxService<Request, Self::Response, Self::Error>
+    fn boxed<'a>(self) -> BoxService<'a, Request, Self::Response, Self::Error>
     where
-        Self: Sized + Send + 'static,
-        Self::Future: Send + 'static,
+        Self: Sized + Send + 'a,
+        Self::Future: Send + 'a,
     {
         BoxService::new(self)
     }
@@ -1029,10 +1029,10 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     ///
     /// [`Service`]: crate::Service
     /// [`boxed`]: Self::boxed
-    fn boxed_clone(self) -> BoxCloneService<Request, Self::Response, Self::Error>
+    fn boxed_clone<'a>(self) -> BoxCloneService<'a, Request, Self::Response, Self::Error>
     where
-        Self: Clone + Sized + Send + 'static,
-        Self::Future: Send + 'static,
+        Self: Clone + Sized + Send + 'a,
+        Self::Future: Send + 'a,
     {
         BoxCloneService::new(self)
     }
