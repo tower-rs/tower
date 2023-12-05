@@ -49,7 +49,7 @@ where
     M: Service<Target>,
 {
     /// Lazily connect and reconnect to a [`Service`].
-    pub fn new<S, Request>(mk_service: M, target: Target) -> Self {
+    pub fn new(mk_service: M, target: Target) -> Self {
         Reconnect {
             mk_service,
             state: State::Idle,
