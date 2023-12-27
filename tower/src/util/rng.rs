@@ -174,7 +174,7 @@ mod tests {
         let mut r = HasherRng::default();
         match super::sample_floyd2(&mut r, 2) {
             [0, 1] | [1, 0] => (),
-            err => panic!("{err:?}"),
+            err => panic!("{:?}", err),
         }
     }
 }

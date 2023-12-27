@@ -168,7 +168,7 @@ impl<F: Future> common::Drive<F> for FuturesOrdered<F> {
     }
 
     fn push(&mut self, future: F) {
-        FuturesOrdered::push(self, future)
+        FuturesOrdered::push_back(self, future)
     }
 
     fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<F::Output>> {
