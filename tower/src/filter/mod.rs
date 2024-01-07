@@ -61,7 +61,7 @@ pub struct AsyncFilter<T, U> {
 
 impl<T, U> Filter<T, U> {
     /// Returns a new [`Filter`] service wrapping `inner`.
-    pub fn new(inner: T, predicate: U) -> Self {
+    pub const fn new(inner: T, predicate: U) -> Self {
         Self { inner, predicate }
     }
 
@@ -123,7 +123,7 @@ where
 
 impl<T, U> AsyncFilter<T, U> {
     /// Returns a new [`AsyncFilter`] service wrapping `inner`.
-    pub fn new(inner: T, predicate: U) -> Self {
+    pub const fn new(inner: T, predicate: U) -> Self {
         Self { inner, predicate }
     }
 

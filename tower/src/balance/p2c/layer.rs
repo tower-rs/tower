@@ -24,7 +24,7 @@ pub struct MakeBalanceLayer<D, Req> {
 
 impl<D, Req> MakeBalanceLayer<D, Req> {
     /// Build balancers using operating system entropy.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             _marker: PhantomData,
         }

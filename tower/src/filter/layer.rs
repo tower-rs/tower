@@ -35,7 +35,7 @@ impl<U> FilterLayer<U> {
     ///
     /// [`Predicate`]: crate::filter::Predicate
     /// [`Filter`]: crate::filter::Filter
-    pub fn new(predicate: U) -> Self {
+    pub const fn new(predicate: U) -> Self {
         Self { predicate }
     }
 }
@@ -57,7 +57,7 @@ impl<U> AsyncFilterLayer<U> {
     ///
     /// [`AsyncPredicate`]: crate::filter::AsyncPredicate
     /// [`Filter`]: crate::filter::Filter
-    pub fn new(predicate: U) -> Self {
+    pub const fn new(predicate: U) -> Self {
         Self { predicate }
     }
 }

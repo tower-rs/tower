@@ -23,7 +23,7 @@ pub struct Optional<T> {
 
 impl<T> Optional<T> {
     /// Create a new [`Optional`].
-    pub fn new<Request>(inner: Option<T>) -> Optional<T>
+    pub const fn new<Request>(inner: Option<T>) -> Optional<T>
     where
         T: Service<Request>,
         T::Error: Into<crate::BoxError>,

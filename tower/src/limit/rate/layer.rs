@@ -11,7 +11,7 @@ pub struct RateLimitLayer {
 
 impl RateLimitLayer {
     /// Create new rate limit layer.
-    pub fn new(num: u64, per: Duration) -> Self {
+    pub const fn new(num: u64, per: Duration) -> Self {
         let rate = Rate::new(num, per);
         RateLimitLayer { rate }
     }

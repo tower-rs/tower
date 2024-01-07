@@ -27,7 +27,7 @@ pin_project! {
 
 impl<T, M: Copy> Constant<T, M> {
     /// Wraps a `T`-typed service with a constant `M`-typed load metric.
-    pub fn new(inner: T, load: M) -> Self {
+    pub const fn new(inner: T, load: M) -> Self {
         Self { inner, load }
     }
 }

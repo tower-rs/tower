@@ -13,7 +13,7 @@ pub struct LoadShedLayer {
 
 impl LoadShedLayer {
     /// Creates a new layer.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         LoadShedLayer { _p: () }
     }
 }

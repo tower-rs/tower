@@ -33,7 +33,7 @@ impl<Request> BufferLayer<Request> {
     /// [`Poll::Ready`]: std::task::Poll::Ready
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
-    pub fn new(bound: usize) -> Self {
+    pub const fn new(bound: usize) -> Self {
         BufferLayer {
             bound,
             _p: PhantomData,

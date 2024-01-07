@@ -26,7 +26,7 @@ enum Inner<S> {
 
 impl<S> SpawnReady<S> {
     /// Creates a new [`SpawnReady`] wrapping `service`.
-    pub fn new(service: S) -> Self {
+    pub const fn new(service: S) -> Self {
         Self {
             inner: Inner::Service(Some(service)),
         }

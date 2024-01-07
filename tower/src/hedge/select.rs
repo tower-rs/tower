@@ -34,7 +34,7 @@ pin_project! {
 }
 
 impl<P, A, B> Select<P, A, B> {
-    pub fn new<Request>(policy: P, a: A, b: B) -> Self
+    pub const fn new<Request>(policy: P, a: A, b: B) -> Self
     where
         P: Policy<Request>,
         A: Service<Request>,

@@ -42,7 +42,7 @@ opaque_future! {
 
 impl<S, F> MapResult<S, F> {
     /// Creates a new [`MapResult`] service.
-    pub fn new(inner: S, f: F) -> Self {
+    pub const fn new(inner: S, f: F) -> Self {
         MapResult { f, inner }
     }
 
@@ -79,7 +79,7 @@ where
 
 impl<F> MapResultLayer<F> {
     /// Creates a new [`MapResultLayer`] layer.
-    pub fn new(f: F) -> Self {
+    pub const fn new(f: F) -> Self {
         MapResultLayer { f }
     }
 }

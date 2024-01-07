@@ -17,7 +17,7 @@ pub struct MapFuture<S, F> {
 
 impl<S, F> MapFuture<S, F> {
     /// Creates a new [`MapFuture`] service.
-    pub fn new(inner: S, f: F) -> Self {
+    pub const fn new(inner: S, f: F) -> Self {
         Self { inner, f }
     }
 
@@ -88,7 +88,7 @@ pub struct MapFutureLayer<F> {
 
 impl<F> MapFutureLayer<F> {
     /// Creates a new [`MapFutureLayer`] layer.
-    pub fn new(f: F) -> Self {
+    pub const fn new(f: F) -> Self {
         Self { f }
     }
 }
