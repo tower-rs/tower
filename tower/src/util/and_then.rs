@@ -74,7 +74,7 @@ pub struct AndThenLayer<F> {
 
 impl<S, F> AndThen<S, F> {
     /// Creates a new `AndThen` service.
-    pub fn new(inner: S, f: F) -> Self {
+    pub const fn new(inner: S, f: F) -> Self {
         AndThen { f, inner }
     }
 
@@ -110,7 +110,7 @@ where
 
 impl<F> AndThenLayer<F> {
     /// Creates a new [`AndThenLayer`] layer.
-    pub fn new(f: F) -> Self {
+    pub const fn new(f: F) -> Self {
         AndThenLayer { f }
     }
 }

@@ -51,7 +51,7 @@ where
     S: Stream,
     Q: Drive<Svc::Future>,
 {
-    pub(crate) fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
+    pub(crate) const fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
         CallAll {
             service: Some(service),
             stream,

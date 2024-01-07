@@ -35,11 +35,11 @@ pin_project! {
 }
 
 impl<S: Service<Req>, Req> State<S, Req> {
-    fn not_ready(svc: S, req: Option<Req>) -> Self {
+    const fn not_ready(svc: S, req: Option<Req>) -> Self {
         Self::NotReady { svc, req }
     }
 
-    fn called(fut: S::Future) -> Self {
+    const fn called(fut: S::Future) -> Self {
         Self::Called { fut }
     }
 }
@@ -71,7 +71,7 @@ where
     S: Service<Req>,
 {
     #[allow(missing_docs)]
-    pub fn new(svc: S, req: Req) -> Self {
+    pub const fn new(svc: S, req: Req) -> Self {
         Oneshot {
             state: State::not_ready(svc, Some(req)),
         }

@@ -115,7 +115,7 @@ impl Default for ServiceBuilder<Identity> {
 
 impl ServiceBuilder<Identity> {
     /// Create a new [`ServiceBuilder`].
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         ServiceBuilder {
             layer: Identity::new(),
         }
