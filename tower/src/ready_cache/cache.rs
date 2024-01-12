@@ -4,7 +4,7 @@ use super::error;
 use futures_core::Stream;
 use futures_util::{stream::FuturesUnordered, task::AtomicWaker};
 pub use indexmap::Equivalent;
-use indexmap::{IndexMap, map::MutableKeys as _};
+use indexmap::{map::MutableKeys as _, IndexMap};
 use std::fmt;
 use std::future::Future;
 use std::hash::Hash;
