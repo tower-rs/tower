@@ -3,7 +3,7 @@
 //! This module provides a generic [`Rng`] trait and a [`HasherRng`] that
 //! implements the trait based on [`RandomState`] or any other [`Hasher`].
 //!
-//! These utlities replace tower's internal usage of `rand` with these smaller,
+//! These utilities replace tower's internal usage of `rand` with these smaller,
 //! more lightweight methods. Most of the implementations are extracted from
 //! their corresponding `rand` implementations.
 //!
@@ -111,7 +111,7 @@ where
 
 /// A sampler modified from the Rand implementation for use internally for the balance middleware.
 ///
-/// It's an implemenetation of Floyd's combination algorithm. with amount fixed at 2. This uses no allocated
+/// It's an implementation of Floyd's combination algorithm. with amount fixed at 2. This uses no allocated
 /// memory and finishes in constant time (only 2 random calls)
 ///
 /// ref: This was borrowed and modified from the following Rand implementation
