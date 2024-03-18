@@ -18,7 +18,8 @@ use tower_service::Service;
 pub struct BoxCloneSyncService<T, U, E>(
     Box<
         dyn CloneService<T, Response = U, Error = E, Future = BoxFuture<'static, Result<U, E>>>
-            + Send,
+            + Send
+            + Sync,
     >,
 );
 
@@ -26,7 +27,7 @@ impl<T, U, E> BoxCloneSyncService<T, U, E> {
     /// Create a new `BoxCloneService`.
     pub fn new<S>(inner: S) -> Self
     where
-        S: Service<T, Response = U, Error = E> + Clone + Send + 'static,
+        S: Service<T, Response = U, Error = E> + Clone + Send + Sync + 'static,
         S::Future: Send + 'static,
     {
         let inner = inner.map_future(|f| Box::pin(f) as _);
@@ -39,7 +40,7 @@ impl<T, U, E> BoxCloneSyncService<T, U, E> {
     /// [`Layer`]: crate::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
-        S: Service<T, Response = U, Error = E> + Clone + Send + 'static,
+        S: Service<T, Response = U, Error = E> + Clone + Send + Sync + 'static,
         S::Future: Send + 'static,
     {
         layer_fn(Self::new)
@@ -73,18 +74,22 @@ trait CloneService<R>: Service<R> {
         &self,
     ) -> Box<
         dyn CloneService<R, Response = Self::Response, Error = Self::Error, Future = Self::Future>
-            + Send,
+            + Send
+            + Sync,
     >;
 }
 
 impl<R, T> CloneService<R> for T
 where
-    T: Service<R> + Send + Clone + 'static,
+    T: Service<R> + Send + Sync + Clone + 'static,
 {
     fn clone_box(
         &self,
-    ) -> Box<dyn CloneService<R, Response = T::Response, Error = T::Error, Future = T::Future> + Send>
-    {
+    ) -> Box<
+        dyn CloneService<R, Response = T::Response, Error = T::Error, Future = T::Future>
+            + Send
+            + Sync,
+    > {
         Box::new(self.clone())
     }
 }
