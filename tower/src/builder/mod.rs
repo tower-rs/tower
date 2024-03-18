@@ -75,7 +75,7 @@ use std::fmt;
 /// # #[cfg(feature = "limit")]
 /// # use tower::limit::concurrency::ConcurrencyLimitLayer;
 /// # #[cfg(feature = "limit")]
-/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + 'static + Send, S::Future: Send {
+/// # async fn wrap<S>(svc: S) where S: Service<(), Error = &'static str> + Send, S::Future: Send {
 /// ServiceBuilder::new()
 ///     .concurrency_limit(5)
 ///     .service(svc);
@@ -703,7 +703,7 @@ impl<L> ServiceBuilder<L> {
     ///
     /// [`BoxService::layer()`]: crate::util::BoxService::layer()
     #[cfg(feature = "util")]
-    pub fn boxed<S, R>(
+    pub fn boxed<'a, S, R>(
         self,
     ) -> ServiceBuilder<
         Stack<
@@ -711,6 +711,7 @@ impl<L> ServiceBuilder<L> {
                 fn(
                     L::Service,
                 ) -> crate::util::BoxService<
+                    'a,
                     R,
                     <L::Service as Service<R>>::Response,
                     <L::Service as Service<R>>::Error,
@@ -721,8 +722,8 @@ impl<L> ServiceBuilder<L> {
     >
     where
         L: Layer<S>,
-        L::Service: Service<R> + Send + 'static,
-        <L::Service as Service<R>>::Future: Send + 'static,
+        L::Service: Service<R> + Send + 'a,
+        <L::Service as Service<R>>::Future: Send + 'a,
     {
         self.layer(crate::util::BoxService::layer())
     }
@@ -766,7 +767,7 @@ impl<L> ServiceBuilder<L> {
     /// [`BoxCloneService`]: crate::util::BoxCloneService
     /// [`boxed`]: Self::boxed
     #[cfg(feature = "util")]
-    pub fn boxed_clone<S, R>(
+    pub fn boxed_clone<'a, S, R>(
         self,
     ) -> ServiceBuilder<
         Stack<
@@ -774,6 +775,7 @@ impl<L> ServiceBuilder<L> {
                 fn(
                     L::Service,
                 ) -> crate::util::BoxCloneService<
+                    'a,
                     R,
                     <L::Service as Service<R>>::Response,
                     <L::Service as Service<R>>::Error,
@@ -784,8 +786,8 @@ impl<L> ServiceBuilder<L> {
     >
     where
         L: Layer<S>,
-        L::Service: Service<R> + Clone + Send + 'static,
-        <L::Service as Service<R>>::Future: Send + 'static,
+        L::Service: Service<R> + Clone + Send + 'a,
+        <L::Service as Service<R>>::Future: Send + 'a,
     {
         self.layer(crate::util::BoxCloneService::layer())
     }
