@@ -5,16 +5,13 @@ use crate::ready_cache::{error::Failed, ReadyCache};
 use crate::util::rng::{sample_floyd2, HasherRng, Rng};
 use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
-use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
     fmt,
-    future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::oneshot;
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -56,25 +53,6 @@ where
             .field("services", &self.services)
             .finish()
     }
-}
-
-pin_project! {
-    /// A Future that becomes satisfied when an `S`-typed service is ready.
-    ///
-    /// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
-    struct UnreadyService<K, S, Req> {
-        key: Option<K>,
-        #[pin]
-        cancel: oneshot::Receiver<()>,
-        service: Option<S>,
-
-        _req: PhantomData<Req>,
-    }
-}
-
-enum Error<E> {
-    Inner(E),
-    Canceled,
 }
 
 impl<D, Req> Balance<D, Req>
@@ -277,52 +255,5 @@ where
         self.services
             .call_ready_index(index, request)
             .map_err(Into::into)
-    }
-}
-
-impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
-    type Output = Result<(K, S), (K, Error<S::Error>)>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        if let Poll::Ready(Ok(())) = this.cancel.poll(cx) {
-            let key = this.key.take().expect("polled after ready");
-            return Poll::Ready(Err((key, Error::Canceled)));
-        }
-
-        let res = ready!(this
-            .service
-            .as_mut()
-            .expect("poll after ready")
-            .poll_ready(cx));
-
-        let key = this.key.take().expect("polled after ready");
-        let svc = this.service.take().expect("polled after ready");
-
-        match res {
-            Ok(()) => Poll::Ready(Ok((key, svc))),
-            Err(e) => Poll::Ready(Err((key, Error::Inner(e)))),
-        }
-    }
-}
-
-impl<K, S, Req> fmt::Debug for UnreadyService<K, S, Req>
-where
-    K: fmt::Debug,
-    S: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            key,
-            cancel,
-            service,
-            _req,
-        } = self;
-        f.debug_struct("UnreadyService")
-            .field("key", key)
-            .field("cancel", cancel)
-            .field("service", service)
-            .finish()
     }
 }
