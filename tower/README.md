@@ -44,7 +44,7 @@ middleware with [`Service`]s. If a [`Service`] can be thought of as an
 asynchronous function from a request type to a response type, a [`Layer`] is
 a function taking a [`Service`] of one type and returning a [`Service`] of a
 different type. The [`ServiceBuilder`] type is used to add middleware to a
-service by composing it with multiple multiple [`Layer`]s.
+service by composing it with multiple [`Layer`]s.
 
 ### The Tower Ecosystem
 
@@ -95,7 +95,7 @@ Depending on your particular use case, you might use Tower in several ways:
 
   Additionally, when a network protocol requires functionality already
   provided by existing Tower middleware, a protocol implementation might use
-  Tower middleware internally, as well as as an integration point.
+  Tower middleware internally, as well as an integration point.
 
 ### Library Support
 
@@ -106,8 +106,7 @@ The following is an incomplete list of such libraries:
 * [`tonic`]: A [gRPC-over-HTTP/2][grpc] implementation built on top of
   [`hyper`]. See [here][tonic-examples] for examples of using [`tonic`] with
   Tower.
-* [`warp`]: A lightweight, composable web framework. See
-  [here][warp-service] for details on using [`warp`] with Tower.
+* [`axum`]: Ergonomic and modular web framework built with Tokio, Tower, and Hyper.
 * [`tower-lsp`]: implementations of the [Language
   Server Protocol][lsp] based on Tower.
 * [`kube`]: Kubernetes client and futures controller runtime. [`kube::Client`]
@@ -119,8 +118,7 @@ The following is an incomplete list of such libraries:
 [`tonic`]: https://crates.io/crates/tonic
 [tonic-examples]: https://github.com/hyperium/tonic/tree/master/examples/src/tower
 [grpc]: https://grpc.io
-[`warp`]: https://crates.io/crates/warp
-[warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
+[`axum`]: https://crates.io/crates/axum
 [`tower-lsp`]: https://crates.io/crates/tower-lsp
 [lsp]: https://microsoft.github.io/language-server-protocol/
 [`kube`]: https://crates.io/crates/kube

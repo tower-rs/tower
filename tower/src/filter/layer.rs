@@ -22,7 +22,7 @@ pub struct FilterLayer<U> {
 /// [predicate]: crate::filter::AsyncPredicate
 /// [`Layer`]: crate::Layer
 /// [`Filter`]: crate::filter::AsyncFilter
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AsyncFilterLayer<U> {
     predicate: U,
 }

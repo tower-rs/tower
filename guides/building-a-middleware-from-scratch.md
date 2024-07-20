@@ -74,7 +74,7 @@ where
     type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Our middleware doesn't care about backpressure so its ready as long
+        // Our middleware doesn't care about backpressure, so it's ready as long
         // as the inner service is ready.
         self.inner.poll_ready(cx)
     }
@@ -192,9 +192,9 @@ where
 
 Ideally we want to write something like this:
 
-1. First poll `self.response_future` and if its ready return the response or error it
+1. First poll `self.response_future`, and if it's ready, return the response or error it
    resolved to.
-2. Otherwise poll `self.sleep` and if its ready return an error.
+2. Otherwise, poll `self.sleep`, and if it's ready, return an error.
 3. If neither future is ready return `Poll::Pending`.
 
 We might try:
@@ -323,7 +323,7 @@ where
         // long and we have to return an error.
         match this.sleep.poll(cx) {
             Poll::Ready(()) => {
-                // Our time is up, but error do we return?!
+                // Our time is up, but what error do we return?!
                 todo!()
             }
             Poll::Pending => {
@@ -377,7 +377,7 @@ and can use `match` to get at the exact error, the approach has three issues:
 1. In practice its common to nest lots of middleware. That would make the final
    error enum very large. Its not unlikely to look something like
    `BufferError<RateLimitError<TimeoutError<MyError>>>`. Pattern matching on
-   such a type (to for example determine if the error is retry-able) is very
+   such a type (to, for example, determine if the error is retry-able) is very
    tedious.
 2. If we change the order our middleware are applied in we also change the final
    error type meaning we have to update our pattern matches.
