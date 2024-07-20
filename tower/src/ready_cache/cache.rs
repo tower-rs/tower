@@ -193,7 +193,7 @@ where
     }
 
     /// Obtains a mutable reference to a service in the ready set by index.
-    pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&mut K, &mut S)> {
+    pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&K, &mut S)> {
         self.ready.get_index_mut(idx).map(|(k, v)| (k, &mut v.0))
     }
 
