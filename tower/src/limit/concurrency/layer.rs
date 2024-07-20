@@ -13,7 +13,7 @@ pub struct ConcurrencyLimitLayer {
 
 impl ConcurrencyLimitLayer {
     /// Create a new concurrency limit layer.
-    pub fn new(max: usize) -> Self {
+    pub const fn new(max: usize) -> Self {
         ConcurrencyLimitLayer { max }
     }
 }

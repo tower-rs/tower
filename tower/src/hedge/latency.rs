@@ -38,7 +38,7 @@ impl<S, R> Latency<R, S>
 where
     R: Record + Clone,
 {
-    pub fn new<Request>(rec: R, service: S) -> Self
+    pub const fn new<Request>(rec: R, service: S) -> Self
     where
         S: Service<Request>,
         S::Error: Into<crate::BoxError>,

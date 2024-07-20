@@ -25,7 +25,7 @@ pub struct Timeout<T> {
 
 impl<T> Timeout<T> {
     /// Creates a new [`Timeout`]
-    pub fn new(inner: T, timeout: Duration) -> Self {
+    pub const fn new(inner: T, timeout: Duration) -> Self {
         Timeout { inner, timeout }
     }
 

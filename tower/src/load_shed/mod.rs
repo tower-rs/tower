@@ -23,7 +23,7 @@ pub struct LoadShed<S> {
 
 impl<S> LoadShed<S> {
     /// Wraps a service in [`LoadShed`] middleware.
-    pub fn new(inner: S) -> Self {
+    pub const fn new(inner: S) -> Self {
         LoadShed {
             inner,
             is_ready: false,

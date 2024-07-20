@@ -14,7 +14,7 @@ pub struct Overloaded {
 
 impl Overloaded {
     /// Construct a new overloaded error
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Overloaded { _p: () }
     }
 }
