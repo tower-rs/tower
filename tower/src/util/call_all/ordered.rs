@@ -63,7 +63,7 @@ pin_project! {
     ///     reqs.unbounded_send("three").unwrap();
     ///     drop(reqs);
     ///
-    ///     // We then loop over the response Strem that we get back from call_all.
+    ///     // We then loop over the response `Stream` that we get back from call_all.
     ///     let mut i = 0usize;
     ///     while let Some(rsp) = rsps.next().await {
     ///         // Each response is a Result (we could also have used TryStream::try_next)
