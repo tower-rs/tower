@@ -31,7 +31,7 @@ pub struct TpsBudget {
     slots: Box<[AtomicIsize]>,
     /// The amount of time represented by each slot.
     window: Duration,
-    /// The changers for the current slot to be commited
+    /// The changers for the current slot to be committed
     /// after the slot expires.
     writer: AtomicIsize,
     /// Amount of tokens to deposit for each put().
