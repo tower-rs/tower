@@ -144,7 +144,7 @@
 //!
 //! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 //! least** 6 months. When increasing the MSRV, the new Rust version must have been
-//! released at least six months ago. The current MSRV is 1.49.0.
+//! released at least six months ago. The current MSRV is 1.63.0.
 //!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer
@@ -202,15 +202,20 @@ pub mod layer;
 
 #[cfg(feature = "util")]
 #[doc(inline)]
+#[cfg_attr(docsrs, doc(cfg(feature = "util")))]
 pub use self::util::{service_fn, ServiceExt};
 
 #[doc(inline)]
 pub use crate::builder::ServiceBuilder;
+
 #[cfg(feature = "make")]
 #[doc(inline)]
+#[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 pub use crate::make::MakeService;
+
 #[doc(inline)]
 pub use tower_layer::Layer;
+
 #[doc(inline)]
 pub use tower_service::Service;
 
