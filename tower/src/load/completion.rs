@@ -59,7 +59,7 @@ pin_project! {
 
 impl<F, C, H> TrackCompletionFuture<F, C, H> {
     /// Wraps a future, propagating the tracker into its value if successful.
-    pub fn new(completion: C, handle: H, future: F) -> Self {
+    pub const fn new(completion: C, handle: H, future: F) -> Self {
         TrackCompletionFuture {
             future,
             completion,

@@ -101,7 +101,7 @@ impl<F, S> FutureService<F, S> {
     ///
     /// This will most likely come up if you're calling `future_service` with an async block. In that
     /// case you can use `Box::pin(async { ... })` as shown in the example.
-    pub fn new(future: F) -> Self {
+    pub const fn new(future: F) -> Self {
         Self {
             state: State::Future(future),
         }

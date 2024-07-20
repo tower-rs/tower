@@ -13,9 +13,9 @@ impl Rate {
     /// # Panics
     ///
     /// This function panics if `num` or `per` is 0.
-    pub fn new(num: u64, per: Duration) -> Self {
+    pub const fn new(num: u64, per: Duration) -> Self {
         assert!(num > 0);
-        assert!(per > Duration::from_millis(0));
+        assert!(per.as_nanos() > 0);
 
         Rate { num, per }
     }

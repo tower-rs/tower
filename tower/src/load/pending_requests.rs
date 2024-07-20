@@ -100,7 +100,7 @@ where
 #[cfg(feature = "discover")]
 impl<D, C> PendingRequestsDiscover<D, C> {
     /// Wraps a [`Discover`], wrapping all of its services with [`PendingRequests`].
-    pub fn new<Request>(discover: D, completion: C) -> Self
+    pub const fn new<Request>(discover: D, completion: C) -> Self
     where
         D: Discover,
         D::Service: Service<Request>,
