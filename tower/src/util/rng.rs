@@ -27,11 +27,11 @@ pub trait Rng {
         // Borrowed from:
         // https://github.com/rust-random/rand/blob/master/src/distributions/float.rs#L106
         let float_size = std::mem::size_of::<f64>() as u32 * 8;
-        let precison = 52 + 1;
-        let scale = 1.0 / ((1u64 << precison) as f64);
+        let precision = 52 + 1;
+        let scale = 1.0 / ((1u64 << precision) as f64);
 
         let value = self.next_u64();
-        let value = value >> (float_size - precison);
+        let value = value >> (float_size - precision);
 
         scale * value as f64
     }
@@ -111,8 +111,8 @@ where
 
 /// A sampler modified from the Rand implementation for use internally for the balance middleware.
 ///
-/// It's an implementation of Floyd's combination algorithm. with amount fixed at 2. This uses no allocated
-/// memory and finishes in constant time (only 2 random calls)
+/// It's an implementation of Floyd's combination algorithm with amount fixed at 2. This uses no allocated
+/// memory and finishes in constant time (only 2 random calls).
 ///
 /// ref: This was borrowed and modified from the following Rand implementation
 /// https://github.com/rust-random/rand/blob/b73640705d6714509f8ceccc49e8df996fa19f51/src/seq/index.rs#L375-L411
