@@ -68,32 +68,32 @@ util = ["__common", "futures-util", "pin-project-lite", "sync_wrapper"]
 tower-layer = { version = "0.3.1", path = "../tower-layer" }
 tower-service = { version = "0.3.1", path = "../tower-service" }
 
-futures-core = { version = "0.3", optional = true }
-futures-util = { version = "0.3", default-features = false, features = ["alloc"], optional = true }
-hdrhistogram = { version = "7.0", optional = true, default-features = false }
-indexmap = { version = "2.0.2", optional = true }
-slab = { version = "0.4", optional = true }
-tokio = { version = "1.6", optional = true, features = ["sync"] }
-tokio-stream = { version = "0.1.0", optional = true }
-tokio-util = { version = "0.7.0", default-features = false, optional = true }
-tracing = { version = "0.1.2", default-features = false, features = ["std"], optional = true }
-pin-project-lite = { version = "0.2.7", optional = true }
-sync_wrapper = { version = "0.1.1", optional = true }
+futures-core = { workspace = true, optional = true }
+futures-util = { workspace = true, features = ["alloc"], optional = true }
+hdrhistogram = { workspace = true, optional = true }
+indexmap = { workspace = true, optional = true }
+slab = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["sync"], optional = true }
+tokio-stream = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
+tracing = { workspace = true, features = ["std"], optional = true }
+pin-project-lite = { workspace = true, optional = true }
+sync_wrapper = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures = "0.3"
-hdrhistogram = { version = "7.0", default-features = false }
-pin-project-lite = "0.2.7"
-tokio = { version = "1.6.2", features = ["macros", "sync", "test-util", "rt-multi-thread"] }
-tokio-stream = "0.1"
-tokio-test = "0.4"
+futures = { workspace = true }
+hdrhistogram = { workspace = true }
+pin-project-lite = { workspace = true }
+tokio = { workspace = true, features = ["macros", "sync", "test-util", "rt-multi-thread"] }
+tokio-stream = { workspace = true }
+tokio-test = { workspace = true }
 tower-test = { version = "0.4", path = "../tower-test" }
-tracing = { version = "0.1.2", default-features = false, features = ["std"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
-http = "0.2"
-lazy_static = "1.4.0"
-rand = { version = "0.8", features = ["small_rng"] }
-quickcheck = "1"
+tracing = { workspace = true, features = ["std"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "ansi"] }
+http = { workspace = true }
+lazy_static = { workspace = true }
+rand = { workspace = true, features = ["small_rng"] }
+quickcheck = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

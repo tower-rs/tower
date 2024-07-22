@@ -6,3 +6,23 @@ members = [
   "tower-service",
   "tower-test",
 ]
+
+[workspace.dependencies]
+futures = "0.3"
+futures-core = "0.3"
+futures-util = { version = "0.3", default-features = false }
+hdrhistogram = { version = "7.0", default-features = false }
+http = "0.2"
+indexmap = "2.0.2"
+lazy_static = "1.4.0"
+pin-project-lite = "0.2.7"
+quickcheck = "1"
+rand = "0.8"
+slab = "0.4"
+sync_wrapper = "0.1.1"
+tokio = "1.6.2"
+tokio-stream = "0.1.0"
+tokio-test = "0.4"
+tokio-util = { version = "0.7.0", default-features = false }
+tracing = { version = "0.1.2", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
