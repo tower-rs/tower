@@ -62,7 +62,7 @@ impl<Request, F> State<Request, F> {
 }
 
 impl<P, S> Delay<P, S> {
-    pub fn new<Request>(policy: P, service: S) -> Self
+    pub const fn new<Request>(policy: P, service: S) -> Self
     where
         P: Policy<Request>,
         S: Service<Request> + Clone,

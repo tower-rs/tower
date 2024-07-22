@@ -130,7 +130,7 @@ use std::task::{Context, Poll};
 /// }
 ///
 /// impl<T> Timeout<T> {
-///     pub fn new(inner: T, timeout: Duration) -> Timeout<T> {
+///     pub const fn new(inner: T, timeout: Duration) -> Timeout<T> {
 ///         Timeout {
 ///             inner,
 ///             timeout
@@ -204,7 +204,7 @@ use std::task::{Context, Poll};
 /// pub struct TimeoutLayer(Duration);
 ///
 /// impl TimeoutLayer {
-///     pub fn new(delay: Duration) -> Self {
+///     pub const fn new(delay: Duration) -> Self {
 ///         TimeoutLayer(delay)
 ///     }
 /// }

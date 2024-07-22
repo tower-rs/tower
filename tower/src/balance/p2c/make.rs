@@ -42,7 +42,7 @@ pin_project! {
 
 impl<S, Req> MakeBalance<S, Req> {
     /// Build balancers using operating system entropy.
-    pub fn new(make_discover: S) -> Self {
+    pub const fn new(make_discover: S) -> Self {
         Self {
             inner: make_discover,
             _marker: PhantomData,
