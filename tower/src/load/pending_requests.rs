@@ -45,6 +45,7 @@ pub struct Count(usize);
 
 /// Tracks an in-flight request by reference count.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====

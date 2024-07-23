@@ -81,7 +81,7 @@ pin-project-lite = { version = "0.2.7", optional = true }
 sync_wrapper = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
-futures = "0.3"
+futures = "0.3.22"
 hdrhistogram = { version = "7.0", default-features = false }
 pin-project-lite = "0.2.7"
 tokio = { version = "1.6.2", features = ["macros", "sync", "test-util", "rt-multi-thread"] }
