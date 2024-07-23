@@ -12,19 +12,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
       - name: Install nightly Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
-          profile: minimal
       - name: Generate documentation
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --workspace --no-deps --all-features
-          # Tower uses nightly-only RustDoc features
-          toolchain: nightly
+        run: cargo doc --workspace --no-deps --all-features
         env:
           # Enable the RustDoc `#[doc(cfg(...))]` attribute.
           RUSTDOCFLAGS: --cfg docsrs
@@ -36,4 +30,3 @@ jobs:
           build_dir: target/doc
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
