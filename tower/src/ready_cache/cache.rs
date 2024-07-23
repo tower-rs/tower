@@ -31,7 +31,7 @@ use tracing::{debug, trace};
 /// in the ready set. The `ReadyCache::check_*` functions can be used to ensure
 /// that a service is ready before dispatching a request.
 ///
-/// The ready set can hold services for an abitrarily long time. During this
+/// The ready set can hold services for an arbitrarily long time. During this
 /// time, the runtime may process events that invalidate that ready state (for
 /// instance, if a keepalive detects a lost connection). In such cases, callers
 /// should use [`ReadyCache::check_ready`] (or [`ReadyCache::check_ready_index`])
@@ -193,7 +193,7 @@ where
     }
 
     /// Obtains a mutable reference to a service in the ready set by index.
-    pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&mut K, &mut S)> {
+    pub fn get_ready_index_mut(&mut self, idx: usize) -> Option<(&K, &mut S)> {
         self.ready.get_index_mut(idx).map(|(k, v)| (k, &mut v.0))
     }
 

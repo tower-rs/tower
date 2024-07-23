@@ -22,7 +22,7 @@
 //! response or an error. This abstraction can be used to model both clients and
 //! servers.
 //!
-//! Generic components, like [timeouts], [rate limiting], and [load balancing],
+//! Generic components, like [`timeout`], [rate limiting], and [load balancing],
 //! can be modeled as [`Service`]s that wrap some inner service and apply
 //! additional behavior before or after the inner service is called. This allows
 //! implementing these components in a protocol-agnostic, composable way. Typically,
@@ -130,7 +130,7 @@
 //! ```
 //!
 //! Alternatively, you can only enable some features. For example, to enable
-//! only the [`retry`] and [`timeout`][timeouts] middleware, write:
+//! only the [`retry`] and [`timeout`] middleware, write:
 //!
 //! ```toml
 //! tower = { version = "0.4", features = ["retry", "timeout"] }
@@ -144,11 +144,10 @@
 //!
 //! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 //! least** 6 months. When increasing the MSRV, the new Rust version must have been
-//! released at least six months ago. The current MSRV is 1.49.0.
+//! released at least six months ago. The current MSRV is 1.64.0.
 //!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer
-//! [timeouts]: crate::timeout
 //! [rate limiting]: crate::limit::rate
 //! [load balancing]: crate::balance
 //! [`ServiceBuilder`]: crate::ServiceBuilder
@@ -202,15 +201,20 @@ pub mod layer;
 
 #[cfg(feature = "util")]
 #[doc(inline)]
+#[cfg_attr(docsrs, doc(cfg(feature = "util")))]
 pub use self::util::{service_fn, ServiceExt};
 
 #[doc(inline)]
 pub use crate::builder::ServiceBuilder;
+
 #[cfg(feature = "make")]
 #[doc(inline)]
+#[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 pub use crate::make::MakeService;
+
 #[doc(inline)]
 pub use tower_layer::Layer;
+
 #[doc(inline)]
 pub use tower_service::Service;
 

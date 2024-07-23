@@ -390,7 +390,7 @@ means we can combine multiple errors type into one. That has the following
 advantages:
 
 1. Our error handling is less fragile since changing the order middleware are
-   applied in wont change the final error type.
+   applied in won't change the final error type.
 2. The error type now has a constant size regardless how many middleware we've
    applied.
 3. Extracting the error no longer requires a big `match` but can instead be done
@@ -412,7 +412,7 @@ For our `Timeout` middleware that means we need to create a struct that
 implements `std::error::Error` such that we can convert it into a `Box<dyn
 std::error::Error + Send + Sync>`. We also have to require that the inner
 service's error type implements `Into<Box<dyn std::error::Error + Send +
-Sync>>`. Luckily most errors automatically satisfies that so it wont require
+Sync>>`. Luckily most errors automatically satisfies that so it won't require
 users to write any additional code. We're using `Into` for the trait bound
 rather than `From` as recommend by the [standard
 library](https://doc.rust-lang.org/stable/std/convert/trait.From.html).
@@ -521,7 +521,7 @@ where
 
 ## Conclusion
 
-Thats it! We've now successfully implemented the `Timeout` middleware as it
+That's it! We've now successfully implemented the `Timeout` middleware as it
 exists in Tower today.
 
 Our final implementation is:

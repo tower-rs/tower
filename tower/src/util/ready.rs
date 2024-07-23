@@ -26,7 +26,7 @@ where
     T: Service<Request>,
 {
     #[allow(missing_docs)]
-    pub fn new(service: T) -> Self {
+    pub const fn new(service: T) -> Self {
         Self {
             inner: Some(service),
             _p: PhantomData,

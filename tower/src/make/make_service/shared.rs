@@ -75,7 +75,7 @@ pub struct Shared<S> {
 
 impl<S> Shared<S> {
     /// Create a new [`Shared`] from a service.
-    pub fn new(service: S) -> Self {
+    pub const fn new(service: S) -> Self {
         Self { service }
     }
 }

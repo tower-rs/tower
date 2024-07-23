@@ -45,6 +45,7 @@ pub struct Count(usize);
 
 /// Tracks an in-flight request by reference count.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
@@ -100,7 +101,7 @@ where
 #[cfg(feature = "discover")]
 impl<D, C> PendingRequestsDiscover<D, C> {
     /// Wraps a [`Discover`], wrapping all of its services with [`PendingRequests`].
-    pub fn new<Request>(discover: D, completion: C) -> Self
+    pub const fn new<Request>(discover: D, completion: C) -> Self
     where
         D: Discover,
         D::Service: Service<Request>,

@@ -49,7 +49,7 @@ where
     M: Service<Target>,
 {
     /// Lazily connect and reconnect to a [`Service`].
-    pub fn new<S, Request>(mk_service: M, target: Target) -> Self {
+    pub const fn new(mk_service: M, target: Target) -> Self {
         Reconnect {
             mk_service,
             state: State::Idle,
@@ -59,7 +59,7 @@ where
     }
 
     /// Reconnect to a already connected [`Service`].
-    pub fn with_connection(init_conn: M::Response, mk_service: M, target: Target) -> Self {
+    pub const fn with_connection(init_conn: M::Response, mk_service: M, target: Target) -> Self {
         Reconnect {
             mk_service,
             state: State::Connected(init_conn),

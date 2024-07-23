@@ -74,7 +74,7 @@ application code, libraries providing middleware implementations, and
 libraries that implement servers and/or clients for various network
 protocols.
 
-Depending on your particular use case, you might use Tower in several ways: 
+Depending on your particular use case, you might use Tower in several ways:
 
 * **Implementing application logic** for a networked program. You might
   use the [`Service`] trait to model your application's behavior, and use
@@ -174,7 +174,7 @@ Tower.
 
 Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 least** 6 months. When increasing the MSRV, the new Rust version must have been
-released at least six months ago. The current MSRV is 1.49.0.
+released at least six months ago. The current MSRV is 1.64.0.
 
 ## License
 

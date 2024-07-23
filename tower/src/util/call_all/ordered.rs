@@ -63,7 +63,7 @@ pin_project! {
     ///     reqs.unbounded_send("three").unwrap();
     ///     drop(reqs);
     ///
-    ///     // We then loop over the response Strem that we get back from call_all.
+    ///     // We then loop over the response `Stream` that we get back from call_all.
     ///     let mut i = 0usize;
     ///     while let Some(rsp) = rsps.next().await {
     ///         // Each response is a Result (we could also have used TryStream::try_next)
@@ -168,7 +168,7 @@ impl<F: Future> common::Drive<F> for FuturesOrdered<F> {
     }
 
     fn push(&mut self, future: F) {
-        FuturesOrdered::push(self, future)
+        FuturesOrdered::push_back(self, future)
     }
 
     fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<F::Output>> {
