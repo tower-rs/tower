@@ -22,7 +22,7 @@
 //! response or an error. This abstraction can be used to model both clients and
 //! servers.
 //!
-//! Generic components, like [timeouts], [rate limiting], and [load balancing],
+//! Generic components, like [`timeout`], [rate limiting], and [load balancing],
 //! can be modeled as [`Service`]s that wrap some inner service and apply
 //! additional behavior before or after the inner service is called. This allows
 //! implementing these components in a protocol-agnostic, composable way. Typically,
@@ -130,7 +130,7 @@
 //! ```
 //!
 //! Alternatively, you can only enable some features. For example, to enable
-//! only the [`retry`] and [`timeout`][timeouts] middleware, write:
+//! only the [`retry`] and [`timeout`] middleware, write:
 //!
 //! ```toml
 //! tower = { version = "0.4", features = ["retry", "timeout"] }
@@ -148,7 +148,6 @@
 //!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer
-//! [timeouts]: crate::timeout
 //! [rate limiting]: crate::limit::rate
 //! [load balancing]: crate::balance
 //! [`ServiceBuilder`]: crate::ServiceBuilder
