@@ -1,4 +1,4 @@
-use super::ServiceExt;
+use crate::ServiceExt;
 use futures_util::future::BoxFuture;
 use std::{
     fmt,
