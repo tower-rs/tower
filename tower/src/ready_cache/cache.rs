@@ -42,7 +42,7 @@ use tracing::{debug, trace};
 /// the _pending_ set to be driven to readiness again.
 ///
 /// When `ReadyCache::check_ready*` returns `false`, it indicates that the
-/// specified service is _not_ ready. If an error is returned, this indicats that
+/// specified service is _not_ ready. If an error is returned, this indicates that
 /// the server failed and has been removed from the cache entirely.
 ///
 /// [`ReadyCache::evict`] can be used to remove a service from the cache (by key),
