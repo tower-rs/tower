@@ -46,8 +46,9 @@ use std::{
 /// [`Service`]: crate::Service
 /// [`Rc`]: std::rc::Rc
 pub struct BoxService<'a, T, U, E> {
-    inner:
-        SyncWrapper<Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<'a, U, E>> + Send + 'a>>,
+    inner: SyncWrapper<
+        Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<'a, U, E>> + Send + 'a>,
+    >,
 }
 
 /// A boxed `Future + Send` trait object.
@@ -64,8 +65,9 @@ impl<'a, T, U, E> BoxService<'a, T, U, E> {
         S::Future: Send + 'a,
     {
         // rust can't infer the type
-        let inner: Box<dyn Service<T, Response = U, Error = E, Future = BoxFuture<'a, U, E>> + Send + 'a> =
-            Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
+        let inner: Box<
+            dyn Service<T, Response = U, Error = E, Future = BoxFuture<'a, U, E>> + Send + 'a,
+        > = Box::new(inner.map_future(|f: S::Future| Box::pin(f) as _));
         let inner = SyncWrapper::new(inner);
         BoxService { inner }
     }

@@ -33,7 +33,10 @@ impl<'a, T, U, E> UnsyncBoxService<'a, T, U, E> {
         S: Service<T, Response = U, Error = E> + 'a,
         S::Future: 'a,
     {
-        let inner = Box::new(UnsyncBoxed { inner, _marker: PhantomData });
+        let inner = Box::new(UnsyncBoxed {
+            inner,
+            _marker: PhantomData,
+        });
         UnsyncBoxService { inner }
     }
 

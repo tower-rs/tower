@@ -57,7 +57,8 @@ use tower_service::Service;
 /// ```
 pub struct BoxCloneService<'a, T, U, E>(
     Box<
-        dyn 'a+CloneService<T, Response = U, Error = E, Future = BoxFuture<'a, Result<U, E>>>
+        dyn 'a
+            + CloneService<T, Response = U, Error = E, Future = BoxFuture<'a, Result<U, E>>>
             + Send,
     >,
 );
@@ -112,10 +113,12 @@ trait CloneService<R>: Service<R> {
     fn clone_box<'a>(
         &self,
     ) -> Box<
-        dyn 'a+CloneService<R, Response = Self::Response, Error = Self::Error, Future = Self::Future>
+        dyn 'a
+            + CloneService<R, Response = Self::Response, Error = Self::Error, Future = Self::Future>
             + Send,
     >
-    where Self: 'a;
+    where
+        Self: 'a;
 }
 
 impl<R, T> CloneService<R> for T
@@ -124,8 +127,13 @@ where
 {
     fn clone_box<'a>(
         &self,
-    ) -> Box<dyn CloneService<R, Response = T::Response, Error = T::Error, Future = T::Future> + Send + 'a>
-    where Self: 'a
+    ) -> Box<
+        dyn CloneService<R, Response = T::Response, Error = T::Error, Future = T::Future>
+            + Send
+            + 'a,
+    >
+    where
+        Self: 'a,
     {
         let v = self.clone();
         Box::new(v)
