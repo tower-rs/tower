@@ -236,7 +236,10 @@ use std::task::{Context, Poll};
 ///
 /// Services are permitted to panic if `call` is invoked without obtaining `Poll::Ready(Ok(()))`
 /// from `poll_ready`. You should therefore be careful when cloning services for example to move
-/// them into boxed futures. Even though the original service is ready, the clone might not be.
+/// them into boxed futures. Even though the original service is ready, the clone might not be,
+/// as in the case of the [`ConcurrencyLimit`] middleware.
+///
+/// [`ConcurrencyLimit`]: crate::limit::ConcurrencyLimit#impl-Clone
 ///
 /// Therefore this kind of code is wrong and might panic:
 ///
