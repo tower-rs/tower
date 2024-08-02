@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Unreleased
+# 0.5.0
 
 ### Fixed
 
@@ -17,11 +17,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   future ([#652])
 - **retry**: **Breaking Change** `retry::Policy::retry` now accepts `&mut Req` and `&mut Res` instead of the previous mutable versions. This
   increases the flexibility of the retry policy. To update, update your method signature to include `mut` for both parameters. ([#584])
+- **retry**: **Breaking Change** Change Policy to accept &mut self ([#681])
+- **retry**: Add generic backoff utilities ([#685])
+- **retry**: Add Budget trait. This allows end-users to implement their own budget and bucket implementations. ([#703])
+- **reconnect**: **Breaking Change** Remove unused generic parameter from `Reconnect::new` ([#755])
+- **ready-cache**: Allow iteration over ready services ([#700])
+- **discover**: Implement `Clone` for Change ([#701])
+- **util**: Add a BoxCloneServiceLayer ([#708])
+- **rng**: use a simpler random 2-sampler ([#716])
+- **filter**: Derive `Clone` for `AsyncFilterLayer` ([#731])
+- **general**: Update IndexMap ([#741])
+- **MSRV**: Increase MSRV to 1.63.0 ([#741])
 
-
+[#702]: https://github.com/tower-rs/tower/pull/702
 [#652]: https://github.com/tower-rs/tower/pull/652
 [#584]: https://github.com/tower-rs/tower/pull/584
-[#702]: https://github.com/tower-rs/tower/pull/702
+[#681]: https://github.com/tower-rs/tower/pull/681
+[#685]: https://github.com/tower-rs/tower/pull/685
+[#703]: https://github.com/tower-rs/tower/pull/703
+[#755]: https://github.com/tower-rs/tower/pull/755
+[#700]: https://github.com/tower-rs/tower/pull/700
+[#701]: https://github.com/tower-rs/tower/pull/701
+[#708]: https://github.com/tower-rs/tower/pull/708
+[#716]: https://github.com/tower-rs/tower/pull/716
+[#731]: https://github.com/tower-rs/tower/pull/731
+[#741]: https://github.com/tower-rs/tower/pull/741
 
 # 0.4.12 (February 16, 2022)
 
