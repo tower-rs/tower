@@ -23,7 +23,7 @@ pub trait MakeBackoff {
     type Backoff: Backoff;
 
     /// Constructs a new backoff type.
-    fn make_backoff(&mut self) -> Self::Backoff;
+    fn make_backoff(&self) -> Self::Backoff;
 }
 
 /// A backoff trait where a single mutable reference represents a single
@@ -120,7 +120,7 @@ where
 {
     type Backoff = ExponentialBackoff<R>;
 
-    fn make_backoff(&mut self) -> Self::Backoff {
+    fn make_backoff(&self) -> Self::Backoff {
         ExponentialBackoff {
             max: self.max,
             min: self.min,
@@ -179,6 +179,8 @@ where
 
         self.iterations += 1;
 
+        tracing::trace!(next_backoff_ms = %next.as_millis(), "Next backoff");
+
         tokio::time::sleep(next)
     }
 }
@@ -217,7 +219,7 @@ mod tests {
             let min = time::Duration::from_millis(min_ms);
             let max = time::Duration::from_millis(max_ms);
             let rng = HasherRng::default();
-            let mut backoff = match ExponentialBackoffMaker::new(min, max, 0.0, rng) {
+            let backoff = match ExponentialBackoffMaker::new(min, max, 0.0, rng) {
                 Err(_) => return TestResult::discard(),
                 Ok(backoff) => backoff,
             };
@@ -231,7 +233,7 @@ mod tests {
             let min = time::Duration::from_millis(min_ms);
             let max = time::Duration::from_millis(max_ms);
             let rng = HasherRng::default();
-            let mut backoff = match ExponentialBackoffMaker::new(min, max, 0.0, rng) {
+            let backoff = match ExponentialBackoffMaker::new(min, max, 0.0, rng) {
                 Err(_) => return TestResult::discard(),
                 Ok(backoff) => backoff,
             };
@@ -246,7 +248,7 @@ mod tests {
             let base = time::Duration::from_millis(base_ms);
             let max = time::Duration::from_millis(max_ms);
             let rng = HasherRng::default();
-            let mut backoff = match ExponentialBackoffMaker::new(base, max, jitter, rng) {
+            let backoff = match ExponentialBackoffMaker::new(base, max, jitter, rng) {
                 Err(_) => return TestResult::discard(),
                 Ok(backoff) => backoff,
             };
