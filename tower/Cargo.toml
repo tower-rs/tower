@@ -1,9 +1,7 @@
 [package]
 name = "tower"
 # When releasing to crates.io:
-# - Update doc url
-#   - Cargo.toml
-#   - README.md
+# - Update README.md
 # - Update CHANGELOG.md.
 # - Create "vX.X.X" git tag.
 version = "0.5.0"
@@ -12,7 +10,6 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/tower-rs/tower"
 homepage = "https://github.com/tower-rs/tower"
-documentation = "https://docs.rs/tower/0.5.0"
 description = """
 Tower is a library of modular and reusable components for building robust
 clients and servers.
