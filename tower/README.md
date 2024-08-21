@@ -141,14 +141,14 @@ To get started using all of Tower's optional middleware, add this to your
 `Cargo.toml`:
 
 ```toml
-tower = { version = "0.5.0", features = ["full"] }
+tower = { version = "0.5.1", features = ["full"] }
 ```
 
 Alternatively, you can only enable some features. For example, to enable
 only the [`retry`] and [`timeout`][timeouts] middleware, write:
 
 ```toml
-tower = { version = "0.5.0", features = ["retry", "timeout"] }
+tower = { version = "0.5.1", features = ["retry", "timeout"] }
 ```
 
 See [here][all_layers] for a complete list of all middleware provided by
