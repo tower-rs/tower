@@ -7,6 +7,7 @@ mod layer;
 mod policy;
 
 pub use self::layer::RetryLayer;
+pub use self::policy::Outcome;
 pub use self::policy::Policy;
 
 use self::future::ResponseFuture;
@@ -86,9 +87,10 @@ where
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
-        let cloned = self.policy.clone_request(&request);
-        let future = self.service.call(request);
+        let cloneable = self.policy.create_cloneable_request(request);
+        let req = self.policy.clone_request(&cloneable);
+        let future = self.service.call(req);
 
-        ResponseFuture::new(cloned, self.clone(), future)
+        ResponseFuture::new(cloneable, self.clone(), future)
     }
 }

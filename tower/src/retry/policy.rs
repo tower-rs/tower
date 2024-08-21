@@ -47,6 +47,10 @@ pub trait Policy<Req, Res, E> {
     /// The [`Future`] type returned by [`Policy::retry`].
     type Future: Future<Output = ()>;
 
+    /// A type that is able to store request object, that can be
+    /// cloned back to original request.
+    type CloneableRequest;
+
     /// Check the policy if a certain request should be retried.
     ///
     /// This method is passed a reference to the original request, and either
@@ -80,15 +84,36 @@ pub trait Policy<Req, Res, E> {
     ///
     /// [`Service::Response`]: crate::Service::Response
     /// [`Service::Error`]: crate::Service::Error
-    fn retry(&mut self, req: &mut Req, result: &mut Result<Res, E>) -> Option<Self::Future>;
+    fn retry(
+        &mut self,
+        req: &mut Self::CloneableRequest,
+        result: Result<Res, E>,
+    ) -> Outcome<Self::Future, Res, E>;
 
-    /// Tries to clone a request before being passed to the inner service.
-    ///
-    /// If the request cannot be cloned, return [`None`]. Moreover, the retry
-    /// function will not be called if the [`None`] is returned.
-    fn clone_request(&mut self, req: &Req) -> Option<Req>;
+    /// Consume initial request and returns `CloneableRequest` which
+    /// will be used to recreate original request objects for each retry.
+    /// This is essential in cases where original request cannot be cloned,
+    /// but can only be consumed.
+    fn create_cloneable_request(&mut self, req: Req) -> Self::CloneableRequest;
+
+    /// Recreates original request object for each retry.
+    fn clone_request(&mut self, req: &Self::CloneableRequest) -> Req;
+}
+
+/// Outcome from [`Policy::retry`] with two choices:
+/// * don retry, and just return result
+/// * or retry by specifying future that might be used to control delay before next call.
+#[derive(Debug)]
+pub enum Outcome<Fut, Resp, Err> {
+    /// Future which will allow delay retry
+    Retry(Fut),
+    /// Result that will be returned from middleware.
+    Return(Result<Resp, Err>),
 }
 
 // Ensure `Policy` is object safe
 #[cfg(test)]
-fn _obj_safe(_: Box<dyn Policy<(), (), (), Future = futures::future::Ready<()>>>) {}
+fn _obj_safe(
+    _: Box<dyn Policy<(), (), (), Future = futures::future::Ready<()>, CloneableRequest = ()>>,
+) {
+}

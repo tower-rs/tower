@@ -5,7 +5,6 @@ use futures_util::{
     pin_mut,
 };
 use std::fmt;
-use std::future::Future;
 use std::task::{Context, Poll};
 use std::{cell::Cell, rc::Rc};
 use tokio_test::{assert_pending, assert_ready, task};
