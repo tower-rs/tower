@@ -22,7 +22,7 @@ edition = "2018"
 [dependencies]
 
 [dev-dependencies]
-http = { workspace = true }
+http = "0.2"
 tower-layer = { version = "0.3", path = "../tower-layer" }
-tokio = { workspace = true, features = ["macros", "time"] }
-futures = { workspace = true }
+tokio = { version = "1.6.2", features = ["macros", "time"] }
+futures = "0.3.22"

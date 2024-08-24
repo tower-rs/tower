@@ -20,12 +20,12 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-util = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
-tokio-test = { workspace = true }
+futures-util = "0.3.22"
+tokio = { version = "1.6.2", features = ["sync"] }
+tokio-test = "0.4"
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tower-service = { version = "0.3", path = "../tower-service" }
-pin-project-lite = { workspace = true }
+pin-project-lite = "0.2.7"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros"] }
+tokio = { version = "1.6.2", features = ["macros"] }

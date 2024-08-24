@@ -144,7 +144,7 @@
 //!
 //! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 //! least** 6 months. When increasing the MSRV, the new Rust version must have been
-//! released at least six months ago. The current MSRV is 1.64.0.
+//! released at least six months ago. The current MSRV is 1.63.0.
 //!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer
