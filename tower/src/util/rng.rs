@@ -116,7 +116,7 @@ where
 ///
 /// ref: This was borrowed and modified from the following Rand implementation
 /// https://github.com/rust-random/rand/blob/b73640705d6714509f8ceccc49e8df996fa19f51/src/seq/index.rs#L375-L411
-#[cfg(any(feature = "full", not(any(feature = "hedge", feature = "retry", feature = "spawn-ready", feature = "util"))))]
+#[cfg(feature = "balance")]
 pub(crate) fn sample_floyd2<R: Rng>(rng: &mut R, length: u64) -> [u64; 2] {
     debug_assert!(2 <= length);
     let aidx = rng.next_range(0..length - 1);
