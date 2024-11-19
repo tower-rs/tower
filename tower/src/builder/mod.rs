@@ -789,6 +789,76 @@ impl<L> ServiceBuilder<L> {
     {
         self.layer(crate::util::BoxCloneService::layer())
     }
+
+    /// Wraps the inner service with async pre/post functions.
+    ///
+    /// The `pre` function is any function that looks like
+    /// <code>async [FnMut]\(Request) -> [Result]<(SRequest, T), [Result]<Response, Err>></code>
+    /// where `Request` is the request given to the `Wrap` service.
+    ///
+    /// * If this function outputs <code>[Ok]\((SRequest, T))</code> the `SRequest` is passed to
+    ///   the inner service and the `T` is retained as shared state. When the inner service outputs
+    ///   a result, this result is passed to `post` along with the shared `T`.
+    /// * If this function returns <code>[Err]\(result)</code> the result is output by the `Wrap`
+    ///   service without calling the inner service or the `post` function.
+    ///
+    /// The `post` function is any function that looks like
+    /// <code>async [FnOnce]\(Res, T) -> [Result]<Response, Err></code> where `Res` is the result
+    /// returned by the inner service, `T` is the shared state provided by `pre`, and `Response`
+    /// and `Err` match the types used in `pre`. The returned [`Result`] is the overall result from
+    /// the wrapped service.
+    /// 
+    /// See the documentation for the [`decorate` combinator][] for examples.
+    ///
+    /// See also [`wrap`](Self::wrap) for when you just need to share state across the inner
+    /// service and don't need asynchronous functions or short-circuiting.
+    /// 
+    /// [`decorate` combinator]: crate::util::ServiceExt::decorate
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn decorate<Pre, Post>(
+        self,
+        pre: Pre,
+        post: Post,
+    ) -> ServiceBuilder<Stack<crate::util::WrapLayer<Pre, Post>, L>>
+    where
+        Self: Sized,
+    {
+        self.layer(crate::util::WrapLayer::decorate(pre, post))
+    }
+
+    /// Wraps the inner service with a synchronous pre function that returns a post function.
+    ///
+    /// The given function is any function that looks like
+    /// <code>[FnMut]\(&mut Request) -> [FnOnce]\(Response) -> T</code> where `Request` is the
+    /// request given to the `Wrap` service, `Response` is the response returned from the inner
+    /// service, and `T` is the response returned from the `Wrap` service. If the inner service
+    /// returns an error the error is output directly without being given to the post function.
+    /// 
+    /// See the documentation for the [`wrap` combinator][] for examples.
+    /// 
+    /// [`wrap` combinator]: crate::util::ServiceExt::wrap
+    #[cfg(feature = "util")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "util")))]
+    pub fn wrap<F, F2, Request, Response, T, E>(
+        self,
+        f: F,
+    ) -> ServiceBuilder<
+        Stack<
+            crate::util::WrapLayer<
+                crate::util::helper::Pre<Request, T, E, F>,
+                crate::util::helper::Post<F2, E>,
+            >,
+            L,
+        >,
+    >
+    where
+        Self: Sized,
+        F: FnMut(&mut Request) -> F2,
+        F2: FnOnce(Response) -> T,
+    {
+        self.layer(crate::util::WrapLayer::new(f))
+    }
 }
 
 impl<L: fmt::Debug> fmt::Debug for ServiceBuilder<L> {

@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **util**: `BoxService` is now `Sync` ([#702])
 
+### Added
+
+- **util**: Add `Wrap` for wrapping a `Service` with pre/post functions
+
 ### Changed
 
 - **util**: Removed deprecated `ServiceExt::ready_and` method and `ReadyAnd`
