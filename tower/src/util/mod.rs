@@ -24,7 +24,7 @@ pub mod rng;
 pub use self::{
     and_then::{AndThen, AndThenLayer},
     boxed::{BoxCloneServiceLayer, BoxLayer, BoxService, UnsyncBoxService},
-    boxed_clone::BoxCloneService,
+    boxed_clone::{BoxCloneService, UnsyncBoxCloneService},
     either::Either,
     future_service::{future_service, FutureService},
     map_err::{MapErr, MapErrLayer},
