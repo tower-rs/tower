@@ -24,7 +24,9 @@ pub mod rng;
 
 pub use self::{
     and_then::{AndThen, AndThenLayer},
-    boxed::{BoxCloneServiceLayer, BoxLayer, BoxService, UnsyncBoxService},
+    boxed::{
+        BoxCloneServiceLayer, BoxCloneSyncServiceLayer, BoxLayer, BoxService, UnsyncBoxService,
+    },
     boxed_clone::BoxCloneService,
     boxed_clone_sync::BoxCloneSyncService,
     either::Either,
