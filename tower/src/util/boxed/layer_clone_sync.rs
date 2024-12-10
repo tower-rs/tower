@@ -88,7 +88,7 @@ pub struct BoxCloneSyncServiceLayer<In, T, U, E> {
 }
 
 impl<In, T, U, E> BoxCloneSyncServiceLayer<In, T, U, E> {
-    /// Create a new [`BoxCloneServiceLayer`].
+    /// Create a new [`BoxCloneSyncServiceLayer`].
     pub fn new<L>(inner_layer: L) -> Self
     where
         L: Layer<In> + Send + Sync + 'static,
