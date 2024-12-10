@@ -26,7 +26,7 @@
 //! [`TrackCompletion`] trait, with [`CompleteOnResponse`] as the default type. The behavior of
 //! [`CompleteOnResponse`] is what you would normally expect for a request-response cycle: when the
 //! response is produced, the request is considered "finished", and load goes down. This can be
-//! overriden by your own user-defined type to track more complex request completion semantics. See
+//! overridden by your own user-defined type to track more complex request completion semantics. See
 //! the documentation for [`completion`] for more details.
 //!
 //! # Examples

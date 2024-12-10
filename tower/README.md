@@ -74,7 +74,7 @@ application code, libraries providing middleware implementations, and
 libraries that implement servers and/or clients for various network
 protocols.
 
-Depending on your particular use case, you might use Tower in several ways: 
+Depending on your particular use case, you might use Tower in several ways:
 
 * **Implementing application logic** for a networked program. You might
   use the [`Service`] trait to model your application's behavior, and use
@@ -141,14 +141,14 @@ To get started using all of Tower's optional middleware, add this to your
 `Cargo.toml`:
 
 ```toml
-tower = { version = "0.4", features = ["full"] }
+tower = { version = "0.5.1", features = ["full"] }
 ```
 
 Alternatively, you can only enable some features. For example, to enable
 only the [`retry`] and [`timeout`][timeouts] middleware, write:
 
 ```toml
-tower = { version = "0.4", features = ["retry", "timeout"] }
+tower = { version = "0.5.1", features = ["retry", "timeout"] }
 ```
 
 See [here][all_layers] for a complete list of all middleware provided by
@@ -174,7 +174,7 @@ Tower.
 
 Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 least** 6 months. When increasing the MSRV, the new Rust version must have been
-released at least six months ago. The current MSRV is 1.63.0.
+released at least six months ago. The current MSRV is 1.64.0.
 
 ## License
 

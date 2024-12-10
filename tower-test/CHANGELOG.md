@@ -1,3 +1,7 @@
+# 0.5.0 (August 1, 2023)
+
+- Update dependency on tower to 0.5.0-alpha.1.
+
 # 0.4.0 (January 7, 2021)
 
 - Updated `tokio-test` dependency to 0.4
