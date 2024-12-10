@@ -18,7 +18,7 @@ use crate::util::BoxCloneSyncService;
 /// # Example
 ///
 /// `BoxCloneSyncServiceLayer` can, for example, be useful to create layers dynamically that otherwise wouldn't have
-/// the same types, when the underlying service must be clone and sync (for example, when building a Hyper connector)
+/// the same types, when the underlying service must be clone and sync (for example, when building a Hyper connector).
 /// In this example, we include a [`Timeout`] layer only if an environment variable is set. We can use
 /// `BoxCloneSyncServiceLayer` to return a consistent type regardless of runtime configuration:
 ///
