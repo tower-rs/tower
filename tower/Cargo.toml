@@ -4,7 +4,7 @@ name = "tower"
 # - Update README.md
 # - Update CHANGELOG.md.
 # - Create "vX.X.X" git tag.
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
