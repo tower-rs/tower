@@ -219,6 +219,7 @@ pub use tower_layer::Layer;
 pub use tower_service::Service;
 
 #[allow(unreachable_pub)]
+#[cfg(any(feature = "balance", feature = "discover", feature = "make"))]
 mod sealed {
     pub trait Sealed<T> {}
 }
