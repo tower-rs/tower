@@ -189,13 +189,12 @@ where
     }
 }
 
-impl<M, S, Target, Request> Service<Target> for IntoService<M, Request>
+impl<M, Target, Request> Service<Target> for IntoService<M, Request>
 where
-    M: Service<Target, Response = S>,
-    S: Service<Request>,
+    M: MakeService<Target, Request>,
 {
-    type Response = M::Response;
-    type Error = M::Error;
+    type Response = M::Service;
+    type Error = M::MakeError;
     type Future = M::Future;
 
     #[inline]
@@ -230,13 +229,12 @@ where
     }
 }
 
-impl<M, S, Target, Request> Service<Target> for AsService<'_, M, Request>
+impl<M, Target, Request> Service<Target> for AsService<'_, M, Request>
 where
-    M: Service<Target, Response = S>,
-    S: Service<Request>,
+    M: MakeService<Target, Request>,
 {
-    type Response = M::Response;
-    type Error = M::Error;
+    type Response = M::Service;
+    type Error = M::MakeError;
     type Future = M::Future;
 
     #[inline]
