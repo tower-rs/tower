@@ -24,7 +24,7 @@ pub struct BoxCloneSyncService<T, U, E>(
 );
 
 impl<T, U, E> BoxCloneSyncService<T, U, E> {
-    /// Create a new `BoxCloneService`.
+    /// Create a new `BoxCloneSyncService`.
     pub fn new<S>(inner: S) -> Self
     where
         S: Service<T, Response = U, Error = E> + Clone + Send + Sync + 'static,
