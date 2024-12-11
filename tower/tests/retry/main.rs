@@ -2,9 +2,11 @@
 #[path = "../support.rs"]
 mod support;
 
+use std::time::Duration;
+
 use futures_util::future;
 use tokio_test::{assert_pending, assert_ready_err, assert_ready_ok, task};
-use tower::retry::Policy;
+use tower::retry::{standard_policy::StandardRetryPolicy, Policy};
 use tower_test::{assert_request_eq, mock};
 
 #[tokio::test(flavor = "current_thread")]
@@ -216,6 +218,44 @@ where
     fn clone_request(&mut self, req: &Req) -> Option<Req> {
         Some(*req)
     }
+}
+
+#[tokio::test]
+async fn basic() {
+    let _t = support::trace_init();
+
+    tokio::time::pause();
+
+    let policy = StandardRetryPolicy::builder()
+        .should_retry(
+            |r: &mut Result<&'static str, Box<dyn std::error::Error + Send + Sync>>| {
+                if let Err(e) = r {
+                    if format!("{:?}", e).contains("retry me") {
+                        return true;
+                    }
+                }
+
+                false
+            },
+        )
+        .clone_request(|r: &&'static str| Some(*r))
+        .build();
+
+    let (mut svc, mut handle) = new_service(policy);
+
+    assert_ready_ok!(svc.poll_ready());
+
+    let mut fut = task::spawn(svc.call("hello"));
+
+    assert_request_eq!(handle, "hello").send_error("retry me");
+
+    assert_pending!(fut.poll());
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_pending!(fut.poll());
+
+    assert_request_eq!(handle, "hello").send_response("world");
+
+    assert_eq!(fut.await.unwrap(), "world");
 }
 
 fn new_service<P: Policy<Req, Res, Error> + Clone>(
