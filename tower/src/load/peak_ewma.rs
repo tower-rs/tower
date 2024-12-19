@@ -3,11 +3,11 @@
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
-use futures_core::{ready, Stream};
+use futures_core::Stream;
 #[cfg(feature = "discover")]
 use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
-use std::pin::Pin;
+use std::{pin::Pin, task::ready};
 
 use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
 use super::Load;
@@ -309,8 +309,7 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use futures_util::future;
-    use std::time::Duration;
+    use std::{future, time::Duration};
     use tokio::time;
     use tokio_test::{assert_ready, assert_ready_ok, task};
 
@@ -327,7 +326,7 @@ mod tests {
         }
 
         fn call(&mut self, (): ()) -> Self::Future {
-            future::ok(())
+            future::ready(Ok(()))
         }
     }
 

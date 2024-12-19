@@ -1,12 +1,11 @@
 //! [`Future`] types
 //!
 //! [`Future`]: std::future::Future
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tokio::sync::OwnedSemaphorePermit;
 

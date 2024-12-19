@@ -154,7 +154,7 @@ where
             self.state = match &mut self.state {
                 State::Future(fut) => {
                     let fut = Pin::new(fut);
-                    let svc = futures_core::ready!(fut.poll(cx)?);
+                    let svc = std::task::ready!(fut.poll(cx)?);
                     State::Service(svc)
                 }
                 State::Service(svc) => return svc.poll_ready(cx),
@@ -176,8 +176,10 @@ mod tests {
     use super::*;
     use crate::util::{future_service, ServiceExt};
     use crate::Service;
-    use futures::future::{ready, Ready};
-    use std::convert::Infallible;
+    use std::{
+        convert::Infallible,
+        future::{ready, Ready},
+    };
 
     #[tokio::test]
     async fn pending_service_debug_impl() {
@@ -185,7 +187,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", pending_svc),
-            "FutureService { state: State::Future(<futures_util::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, core::convert::Infallible>>>) }"
+            "FutureService { state: State::Future(<core::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, core::convert::Infallible>>>) }"
         );
 
         pending_svc.ready().await.unwrap();

@@ -12,10 +12,10 @@ use tower_service::Service;
 /// # use std::task::{Context, Poll};
 /// # use std::pin::Pin;
 /// # use std::convert::Infallible;
+/// use std::future::{Ready, ready};
 /// use tower::make::{MakeService, Shared};
 /// use tower::buffer::Buffer;
 /// use tower::Service;
-/// use futures::future::{Ready, ready};
 ///
 /// // An example connection type
 /// struct Connection {}
@@ -93,13 +93,13 @@ where
     }
 
     fn call(&mut self, _target: T) -> Self::Future {
-        SharedFuture::new(futures_util::future::ready(Ok(self.service.clone())))
+        SharedFuture::new(std::future::ready(Ok(self.service.clone())))
     }
 }
 
 opaque_future! {
     /// Response future from [`Shared`] services.
-    pub type SharedFuture<S> = futures_util::future::Ready<Result<S, Infallible>>;
+    pub type SharedFuture<S> = std::future::Ready<Result<S, Infallible>>;
 }
 
 #[cfg(test)]
@@ -107,7 +107,7 @@ mod tests {
     use super::*;
     use crate::make::MakeService;
     use crate::service_fn;
-    use futures::future::poll_fn;
+    use std::future::poll_fn;
 
     async fn echo<R>(req: R) -> Result<R, Infallible> {
         Ok(req)
