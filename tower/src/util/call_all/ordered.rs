@@ -24,7 +24,7 @@ pin_project! {
     /// # use std::error::Error;
     /// # use std::rc::Rc;
     /// #
-    /// use futures::future::{ready, Ready};
+    /// use std::future::{ready, Ready};
     /// use futures::StreamExt;
     /// use futures::channel::mpsc;
     /// use tower_service::Service;

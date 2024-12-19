@@ -1,14 +1,13 @@
 //! Future types
 
 use crate::mock::error::{self, Error};
-use futures_util::ready;
 use pin_project_lite::pin_project;
 use tokio::sync::oneshot;
 
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 pin_project! {

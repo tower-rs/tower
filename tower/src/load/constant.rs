@@ -3,9 +3,9 @@
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
-use futures_core::{ready, Stream};
+use futures_core::Stream;
 #[cfg(feature = "discover")]
-use std::pin::Pin;
+use std::{pin::Pin, task::ready};
 
 use super::Load;
 use pin_project_lite::pin_project;

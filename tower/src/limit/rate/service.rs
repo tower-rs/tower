@@ -1,9 +1,8 @@
 use super::Rate;
-use futures_core::ready;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tokio::time::{Instant, Sleep};
 use tower_service::Service;

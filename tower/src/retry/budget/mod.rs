@@ -27,9 +27,8 @@
 //! # Examples
 //!
 //! ```rust
-//! use std::sync::Arc;
+//! use std::{future, sync::Arc};
 //!
-//! use futures_util::future;
 //! use tower::retry::{budget::{Budget, TpsBudget}, Policy};
 //!
 //! type Req = String;
