@@ -12,7 +12,8 @@
 //! # Examples
 //!
 //! ```rust
-//! use futures_util::{future::poll_fn, pin_mut};
+//! use std::future::poll_fn;
+//! use futures_util::pin_mut;
 //! use tower::discover::{Change, Discover};
 //! async fn services_monitor<D: Discover>(services: D) {
 //!     pin_mut!(services);

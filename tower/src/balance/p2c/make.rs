@@ -1,6 +1,5 @@
 use super::Balance;
 use crate::discover::Discover;
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -8,7 +7,7 @@ use std::{
     fmt,
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 
