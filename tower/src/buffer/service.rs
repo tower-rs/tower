@@ -65,7 +65,7 @@ where
     /// the background `Worker` that you can then spawn.
     pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
     where
-        S: Service<Req, Future = F> + Send + 'static,
+        S: Service<Req, Future = F> + Send,
         F: Send,
         S::Error: Into<crate::BoxError> + Send + Sync,
         Req: Send + 'static,
@@ -132,8 +132,8 @@ where
 
 impl<Req, F> Clone for Buffer<Req, F>
 where
-    Req: Send + 'static,
-    F: Send + 'static,
+    Req: Send,
+    F: Send,
 {
     fn clone(&self) -> Self {
         Self {
