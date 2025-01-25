@@ -21,7 +21,6 @@ extern crate std;
 
 use alloc::boxed::Box;
 
-
 use core::future::Future;
 use core::marker::Sized;
 use core::result::Result;
