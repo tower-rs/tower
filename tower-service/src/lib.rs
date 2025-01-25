@@ -13,8 +13,16 @@
 //! request / response clients and servers. It is simple but powerful and is
 //! used as the foundation for the rest of Tower.
 
-use std::future::Future;
-use std::task::{Context, Poll};
+#![no_std]
+
+extern crate alloc;
+
+use alloc::boxed::Box;
+
+use core::future::Future;
+use core::marker::Sized;
+use core::result::Result;
+use core::task::{Context, Poll};
 
 /// An asynchronous function from a `Request` to a `Response`.
 ///
@@ -273,7 +281,7 @@ use std::task::{Context, Poll};
 /// }
 /// ```
 ///
-/// You should instead use [`std::mem::replace`] to take the service that was ready:
+/// You should instead use [`core::mem::replace`] to take the service that was ready:
 ///
 /// ```rust
 /// # use std::pin::Pin;

@@ -1,5 +1,5 @@
 use super::Layer;
-use std::fmt;
+use core::fmt;
 
 /// Returns a new [`LayerFn`] that implements [`Layer`] by calling the
 /// given function.
@@ -13,10 +13,10 @@ use std::fmt;
 /// # Example
 /// ```rust
 /// # use tower::Service;
-/// # use std::task::{Poll, Context};
+/// # use core::task::{Poll, Context};
 /// # use tower_layer::{Layer, layer_fn};
-/// # use std::fmt;
-/// # use std::convert::Infallible;
+/// # use core::fmt;
+/// # use core::convert::Infallible;
 /// #
 /// // A middleware that logs requests before forwarding them to another service
 /// pub struct LogService<S> {
@@ -88,7 +88,7 @@ where
 impl<F> fmt::Debug for LayerFn<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LayerFn")
-            .field("f", &format_args!("{}", std::any::type_name::<F>()))
+            .field("f", &format_args!("{}", core::any::type_name::<F>()))
             .finish()
     }
 }
@@ -96,6 +96,7 @@ impl<F> fmt::Debug for LayerFn<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::{format, string::ToString};
 
     #[allow(dead_code)]
     #[test]
