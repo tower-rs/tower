@@ -19,6 +19,10 @@ Trait representing an asynchronous, request / response based, client or server.
 categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
+[features]
+default = ["std"]
+std = []
+
 [dependencies]
 
 [dev-dependencies]
