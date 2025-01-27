@@ -28,7 +28,7 @@ impl Service<Req> for Mock {
 impl tower::load::Load for Mock {
     type Metric = usize;
     fn load(&self) -> Self::Metric {
-        rand::random()
+        rand::random_range(usize::MIN..=usize::MAX)
     }
 }
 
@@ -43,7 +43,7 @@ fn stress() {
     let mut services = slab::Slab::<(mock::Handle<Req, Req>, bool)>::new();
     let mut retired = Vec::<mock::Handle<Req, Req>>::new();
     for _ in 0..100_000 {
-        for _ in 0..(rand::random::<u8>() % 8) {
+        for _ in 0..rand::random_range(0u8..8) {
             if !services.is_empty() && rand::random() {
                 if nready == 0 || rand::random::<u8>() > u8::MAX / 4 {
                     // ready a service
@@ -114,8 +114,7 @@ fn stress() {
                 } else {
                     // remove
                     while !services.is_empty() {
-                        let k =
-                            rand::random::<usize>() % (services.iter().next_back().unwrap().0 + 1);
+                        let k = rand::random_range(0..=services.iter().next_back().unwrap().0);
                         if services.contains(k) {
                             let (handle, ready) = services.remove(k);
                             if ready {
@@ -130,7 +129,7 @@ fn stress() {
             } else {
                 // fail a service
                 while !services.is_empty() {
-                    let k = rand::random::<usize>() % (services.iter().next_back().unwrap().0 + 1);
+                    let k = rand::random_range(0..=services.iter().next_back().unwrap().0);
                     if services.contains(k) {
                         let (mut handle, ready) = services.remove(k);
                         if ready {
