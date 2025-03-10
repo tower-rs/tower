@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **util**: **Breaking Change** `Either::A` and `Either::B` have been renamed `Either::Left` and `Either::Right`, respectively. ([#637])
 - **util**: **Breaking Change** `Either` now requires its two services to have the same error type. ([#637])
 - **util**: **Breaking Change** `Either` no longer implemenmts `Future`. ([#637])
+- **buffer**: **Breaking Change** `Buffer<S, Request>` is now generic over `Buffer<Request, S::Future>.` ([#654])
 
 [#702]: https://github.com/tower-rs/tower/pull/702
 [#652]: https://github.com/tower-rs/tower/pull/652
@@ -64,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#731]: https://github.com/tower-rs/tower/pull/731
 [#741]: https://github.com/tower-rs/tower/pull/741
 [#637]: https://github.com/tower-rs/tower/pull/637
+[#654]: https://github.com/tower-rs/tower/pull/654
 
 # 0.4.12 (February 16, 2022)
 
