@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **util**: Add `BoxCloneSyncService` which is a `Clone + Send + Sync` boxed `Service` ([#777])
 - **util**: Add `BoxCloneSyncServiceLayer` which is a `Clone + Send + Sync` boxed `Layer` ([802])
 
+[#777]: https://github.com/tower-rs/tower/pull/777
+[#802]: https://github.com/tower-rs/tower/pull/802
+
 # 0.5.1
 
 ### Fixed
