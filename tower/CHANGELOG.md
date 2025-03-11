@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **filter**: Derive `Clone` for `AsyncFilterLayer` ([#731])
 - **general**: Update IndexMap ([#741])
 - **MSRV**: Increase MSRV to 1.63.0 ([#741])
+- **util**: **Breaking Change** `Either::A` and `Either::B` have been renamed `Either::Left` and `Either::Right`, respectively. ([#637])
+- **util**: **Breaking Change** `Either` now requires its two services to have the same error type. ([#637])
+- **util**: **Breaking Change** `Either` no longer implemenmts `Future`. ([#637])
 
 [#702]: https://github.com/tower-rs/tower/pull/702
 [#652]: https://github.com/tower-rs/tower/pull/652
@@ -57,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#716]: https://github.com/tower-rs/tower/pull/716
 [#731]: https://github.com/tower-rs/tower/pull/731
 [#741]: https://github.com/tower-rs/tower/pull/741
+[#637]: https://github.com/tower-rs/tower/pull/637
 
 # 0.4.12 (February 16, 2022)
 
