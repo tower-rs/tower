@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   increases the flexibility of the retry policy. To update, update your method signature to include `mut` for both parameters. ([#584])
 - **retry**: **Breaking Change** Change Policy to accept &mut self ([#681])
 - **retry**: Add generic backoff utilities ([#685])
-- **retry**: Add Budget trait. This allows end-users to implement their own budget and bucket implementations. ([#703])
+- **retry**: **Breaking Change** `Budget` is now a trait. This allows end-users to implement their own budget and bucket implementations. ([#703])
 - **reconnect**: **Breaking Change** Remove unused generic parameter from `Reconnect::new` ([#755])
 - **ready-cache**: Allow iteration over ready services ([#700])
 - **discover**: Implement `Clone` for Change ([#701])
