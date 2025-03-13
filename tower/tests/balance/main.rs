@@ -2,6 +2,7 @@
 #[path = "../support.rs"]
 mod support;
 
+use rand::distr::{Distribution, Uniform};
 use std::future::Future;
 use std::task::{Context, Poll};
 use tokio_test::{assert_pending, assert_ready, task};
@@ -28,7 +29,9 @@ impl Service<Req> for Mock {
 impl tower::load::Load for Mock {
     type Metric = usize;
     fn load(&self) -> Self::Metric {
-        rand::random()
+        Uniform::new_inclusive(usize::MIN, usize::MAX)
+            .unwrap()
+            .sample(&mut rand::rng())
     }
 }
 
@@ -114,7 +117,9 @@ fn stress() {
                 } else {
                     // remove
                     while !services.is_empty() {
-                        let k = rand::random::<usize>() % (services.iter().last().unwrap().0 + 1);
+                        let k = Uniform::new_inclusive(0, services.iter().last().unwrap().0)
+                            .unwrap()
+                            .sample(&mut rand::rng());
                         if services.contains(k) {
                             let (handle, ready) = services.remove(k);
                             if ready {
@@ -129,7 +134,9 @@ fn stress() {
             } else {
                 // fail a service
                 while !services.is_empty() {
-                    let k = rand::random::<usize>() % (services.iter().last().unwrap().0 + 1);
+                    let k = Uniform::new_inclusive(0, services.iter().last().unwrap().0)
+                        .unwrap()
+                        .sample(&mut rand::rng());
                     if services.contains(k) {
                         let (mut handle, ready) = services.remove(k);
                         if ready {

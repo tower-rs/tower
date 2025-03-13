@@ -124,7 +124,7 @@ fn gen_disco() -> impl Discover<
 
                     let maxms = u64::from(latency.subsec_millis())
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
-                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
+                    let latency = Duration::from_millis(rand::rng().random_range(0..maxms));
 
                     async move {
                         time::sleep_until(start + latency).await;
