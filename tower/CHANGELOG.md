@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **util**: **Breaking Change** `Either` now requires its two services to have the same error type. ([#637])
 - **util**: **Breaking Change** `Either` no longer implemenmts `Future`. ([#637])
 - **buffer**: **Breaking Change** `Buffer<S, Request>` is now generic over `Buffer<Request, S::Future>.` ([#654])
+- **buffer**: **Breaking Change** `Buffer`'s capacity now correctly matches the specified size. Previously, the
+  capacity was subtly off-by-one, because a slot was held even while the worker task was processing a message. ([#635])
 
 [#702]: https://github.com/tower-rs/tower/pull/702
 [#652]: https://github.com/tower-rs/tower/pull/652
@@ -66,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#741]: https://github.com/tower-rs/tower/pull/741
 [#637]: https://github.com/tower-rs/tower/pull/637
 [#654]: https://github.com/tower-rs/tower/pull/654
+[#635]: https://github.com/tower-rs/tower/pull/635
 
 # 0.4.12 (February 16, 2022)
 
