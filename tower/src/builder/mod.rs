@@ -635,7 +635,7 @@ impl<L> ServiceBuilder<L> {
     /// impl Service<Request> for MyService {
     ///   type Response = Response;
     ///   type Error = Error;
-    ///   type Future = futures_util::future::Ready<Result<Response, Error>>;
+    ///   type Future = std::future::Ready<Result<Response, Error>>;
     ///
     ///   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
     ///       // ...

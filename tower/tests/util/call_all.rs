@@ -1,11 +1,8 @@
 use super::support;
 use futures_core::Stream;
-use futures_util::{
-    future::{ready, Ready},
-    pin_mut,
-};
+use futures_util::pin_mut;
 use std::fmt;
-use std::future::Future;
+use std::future::{ready, Future, Ready};
 use std::task::{Context, Poll};
 use std::{cell::Cell, rc::Rc};
 use tokio_test::{assert_pending, assert_ready, task};
