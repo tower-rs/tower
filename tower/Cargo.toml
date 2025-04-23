@@ -58,6 +58,7 @@ reconnect = ["make", "tokio/io-std", "tracing"]
 retry = ["__common", "tokio/time", "util"]
 spawn-ready = ["__common", "futures-util", "tokio/sync", "tokio/rt", "util", "tracing"]
 steer = []
+task-local = ["tokio/rt"]
 timeout = ["pin-project-lite", "tokio/time"]
 util = ["__common", "futures-util", "pin-project-lite", "sync_wrapper"]
 
