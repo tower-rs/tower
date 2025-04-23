@@ -20,7 +20,7 @@ quickcheck = "1"
 rand = "0.8"
 slab = "0.4"
 sync_wrapper = "1"
-tokio = "1.6.2"
+tokio = "1.32.1"
 tokio-stream = "0.1.0"
 tokio-test = "0.4"
 tokio-util = { version = "0.7.0", default-features = false }
