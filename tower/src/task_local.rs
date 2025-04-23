@@ -69,6 +69,12 @@ where
     }
 
     fn call(&mut self, req: R) -> Self::Future {
-        self.key.scope(self.value.clone(), self.inner.call(req))
+        // This is not great. I don't want to clone the value twice.
+        // Probably need to introduce a custom Future that delays calling
+        // inner.call until the local-key is set?
+        let fut = self
+            .key
+            .sync_scope(self.value.clone(), || self.inner.call(req));
+        self.key.scope(self.value.clone(), fut)
     }
 }
