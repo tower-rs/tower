@@ -1,7 +1,7 @@
 #![cfg(all(feature = "buffer", feature = "limit", feature = "retry"))]
 mod support;
-use futures_util::{future::Ready, pin_mut};
-use std::time::Duration;
+use futures_util::pin_mut;
+use std::{future::Ready, time::Duration};
 use tower::builder::ServiceBuilder;
 use tower::retry::Policy;
 use tower::util::ServiceExt;

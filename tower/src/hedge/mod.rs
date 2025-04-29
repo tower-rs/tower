@@ -4,11 +4,12 @@
 #![warn(missing_debug_implementations, missing_docs, unreachable_pub)]
 
 use crate::filter::AsyncFilter;
-use futures_util::future;
+use futures_util::future::Either;
 use pin_project_lite::pin_project;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{
+    future,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -222,7 +223,7 @@ impl<P, Request> crate::filter::AsyncPredicate<Request> for PolicyPredicate<P>
 where
     P: Policy<Request>,
 {
-    type Future = future::Either<
+    type Future = Either<
         future::Ready<Result<Request, crate::BoxError>>,
         future::Pending<Result<Request, crate::BoxError>>,
     >;
@@ -230,13 +231,13 @@ where
 
     fn check(&mut self, request: Request) -> Self::Future {
         if self.0.can_retry(&request) {
-            future::Either::Left(future::ready(Ok(request)))
+            Either::Left(future::ready(Ok(request)))
         } else {
             // If the hedge retry should not be issued, we simply want to wait
             // for the result of the original request.  Therefore we don't want
             // to return an error here.  Instead, we use future::pending to ensure
             // that the original request wins the select.
-            future::Either::Right(future::pending())
+            Either::Right(future::pending())
         }
     }
 }

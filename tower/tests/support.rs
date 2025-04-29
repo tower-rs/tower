@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use futures::future;
 use std::fmt;
+use std::future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::sync::mpsc;

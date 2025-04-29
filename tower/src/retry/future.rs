@@ -1,11 +1,10 @@
 //! Future types
 
 use super::{Policy, Retry};
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{ready, Context, Poll};
 use tower_service::Service;
 
 pin_project! {
