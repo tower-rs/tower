@@ -191,6 +191,8 @@ pub mod retry;
 pub mod spawn_ready;
 #[cfg(feature = "steer")]
 pub mod steer;
+#[cfg(feature = "task-local")]
+pub mod task_local;
 #[cfg(feature = "timeout")]
 pub mod timeout;
 #[cfg(feature = "util")]

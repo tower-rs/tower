@@ -944,6 +944,21 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         MapFuture::new(self, f)
     }
 
+    /// Set the given tokio [`task_local!`][tokio::task_local] to a clone of the given value for
+    /// every [`call`][crate::Service::call] of the underlying service.
+    #[cfg(feature = "task-local")]
+    fn set_task_local<T>(
+        self,
+        key: &'static tokio::task::LocalKey<T>,
+        value: T,
+    ) -> crate::task_local::SetTaskLocal<Self, T>
+    where
+        Self: Sized,
+        T: Clone + Send + Sync + 'static,
+    {
+        crate::task_local::SetTaskLocal::new(self, key, value)
+    }
+
     /// Convert the service into a [`Service`] + [`Send`] trait object.
     ///
     /// See [`BoxService`] for more details.
