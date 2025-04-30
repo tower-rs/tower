@@ -10,7 +10,7 @@ edition = "2018"
 tower = { version = "0.4", path = "../tower", features = ["full"] }
 tower-service = "0.3"
 tokio = { version = "1.0", features = ["full"] }
-rand = "0.8"
+rand = "0.9"
 pin-project = "1.0"
 futures = "0.3.22"
 tracing = "0.1"
