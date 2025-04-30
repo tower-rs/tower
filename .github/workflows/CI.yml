@@ -41,7 +41,9 @@ jobs:
       - name: "install Rust nightly"
         uses: dtolnay/rust-toolchain@nightly
       - name: Select minimal versions
-        run: cargo update -Z minimal-versions
+        run: |
+          cargo update -Z minimal-versions
+          cargo update -p lazy_static --precise 1.5.0
       - name: Check
         run: |
           rustup default ${{ env.MSRV }}
@@ -90,7 +92,9 @@ jobs:
       - name: "install Rust nightly"
         uses: dtolnay/rust-toolchain@nightly
       - name: Select minimal versions
-        run: cargo update -Z minimal-versions
+        run: |
+          cargo update -Z minimal-versions
+          cargo update -p lazy_static --precise 1.5.0
       - name: test
         run: |
           rustup default ${{ env.MSRV }}
