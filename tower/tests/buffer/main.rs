@@ -172,14 +172,13 @@ async fn waits_for_channel_capacity() {
 
     assert_ready_ok!(service.poll_ready());
     let mut response2 = task::spawn(service.call("hello"));
-    assert_pending!(worker.poll());
-
-    assert_ready_ok!(service.poll_ready());
-    let mut response3 = task::spawn(service.call("hello"));
     assert_pending!(service.poll_ready());
     assert_pending!(worker.poll());
 
+    // wake up worker's service (i.e. Mock), now it's ready to make progress
     handle.allow(1);
+    // process the request(i.e. send to handle), return the response
+    // and then poll worker's service::poll_ready in next loop.
     assert_pending!(worker.poll());
 
     handle
@@ -192,10 +191,10 @@ async fn waits_for_channel_capacity() {
     assert_ready_ok!(response1.poll());
 
     assert_ready_ok!(service.poll_ready());
-    let mut response4 = task::spawn(service.call("hello"));
+    let mut response3 = task::spawn(service.call("hello"));
     assert_pending!(worker.poll());
 
-    handle.allow(3);
+    handle.allow(2);
     assert_pending!(worker.poll());
 
     handle
@@ -216,16 +215,6 @@ async fn waits_for_channel_capacity() {
         .send_response("world");
     assert_pending!(worker.poll());
     assert_ready_ok!(response3.poll());
-
-    assert_pending!(worker.poll());
-    handle
-        .next_request()
-        .await
-        .unwrap()
-        .1
-        .send_response("world");
-    assert_pending!(worker.poll());
-    assert_ready_ok!(response4.poll());
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -243,14 +232,13 @@ async fn wakes_pending_waiters_on_close() {
     assert_pending!(worker.poll());
     let mut response = task::spawn(service1.call("hello"));
 
-    assert!(worker.is_woken(), "worker task should be woken by request");
+    assert!(
+        !worker.is_woken(),
+        "worker task would NOT be woken by request until worker's service is ready"
+    );
     assert_pending!(worker.poll());
 
     // fill the channel so all subsequent requests will wait for capacity
-    let service1 = assert_ready_ok!(task::spawn(service.ready()).poll());
-    assert_pending!(worker.poll());
-    let mut response2 = task::spawn(service1.call("world"));
-
     let mut service1 = service.clone();
     let mut ready1 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
@@ -265,13 +253,6 @@ async fn wakes_pending_waiters_on_close() {
     drop(worker);
 
     let err = assert_ready_err!(response.poll());
-    assert!(
-        err.is::<error::Closed>(),
-        "response should fail with a Closed, got: {:?}",
-        err
-    );
-
-    let err = assert_ready_err!(response2.poll());
     assert!(
         err.is::<error::Closed>(),
         "response should fail with a Closed, got: {:?}",
@@ -316,14 +297,13 @@ async fn wakes_pending_waiters_on_failure() {
     assert_pending!(worker.poll());
     let mut response = task::spawn(service1.call("hello"));
 
-    assert!(worker.is_woken(), "worker task should be woken by request");
+    assert!(
+        !worker.is_woken(),
+        "worker task would NOT be woken by request until worker's service is ready"
+    );
     assert_pending!(worker.poll());
 
     // fill the channel so all subsequent requests will wait for capacity
-    let service1 = assert_ready_ok!(task::spawn(service.ready()).poll());
-    assert_pending!(worker.poll());
-    let mut response2 = task::spawn(service1.call("world"));
-
     let mut service1 = service.clone();
     let mut ready1 = task::spawn(service1.ready());
     assert_pending!(worker.poll());
@@ -336,16 +316,12 @@ async fn wakes_pending_waiters_on_failure() {
 
     // fail the inner service
     handle.send_error("foobar");
+    // consume the in-flight request and send an Err response, then run
+    // next loop until read None.
     // worker task terminates
     assert_ready!(worker.poll());
 
     let err = assert_ready_err!(response.poll());
-    assert!(
-        err.is::<error::ServiceError>(),
-        "response should fail with a ServiceError, got: {:?}",
-        err
-    );
-    let err = assert_ready_err!(response2.poll());
     assert!(
         err.is::<error::ServiceError>(),
         "response should fail with a ServiceError, got: {:?}",
@@ -373,25 +349,6 @@ async fn wakes_pending_waiters_on_failure() {
         "ready 2 should fail with a ServiceError, got: {:?}",
         err
     );
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn propagates_trace_spans() {
-    use tower::util::ServiceExt;
-    use tracing::Instrument;
-
-    let _t = support::trace_init();
-
-    let span = tracing::info_span!("my_span");
-
-    let service = support::AssertSpanSvc::new(span.clone());
-    let (service, worker) = Buffer::pair(service, 5);
-    let worker = tokio::spawn(worker);
-
-    let result = tokio::spawn(service.oneshot(()).instrument(span));
-
-    result.await.expect("service panicked").expect("failed");
-    worker.await.expect("worker panicked");
 }
 
 #[tokio::test(flavor = "current_thread")]

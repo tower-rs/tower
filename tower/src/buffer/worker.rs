@@ -66,10 +66,7 @@ where
     ///
     /// If a `Message` is returned, the `bool` is true if this is the first time we received this
     /// message, and false otherwise (i.e., we tried to forward it to the backing service before).
-    fn poll_next_msg(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Message<Request, T::Future>>> {
+    fn poll_next_msg(&mut self, cx: &mut Context<'_>) -> Poll<Option<Message<Request, T::Future>>> {
         if self.finish {
             // We've already received None and are shutting down
             return Poll::Ready(None);
@@ -136,23 +133,30 @@ where
         }
 
         loop {
-            match self.service.poll_ready(cx) {
-                Poll::Pending => {
-                    tracing::trace!(service.ready = false);
-                    return Poll::Pending;
-                }
-                Poll::Ready(Err(e)) => {
-                    let error = e.into();
-                    tracing::debug!({ %error }, "service failed");
-                    self.failed(error);
-                }
-                Poll::Ready(Ok(())) => {
-                    tracing::debug!(service.ready = true);
+            if self.failed.is_none() {
+                match self.service.poll_ready(cx) {
+                    Poll::Pending => {
+                        tracing::trace!(service.ready = false);
+                        return Poll::Pending;
+                    }
+                    Poll::Ready(Err(e)) => {
+                        let error = e.into();
+                        tracing::debug!({ %error }, "service failed");
+                        self.failed(error);
+                    }
+                    Poll::Ready(Ok(())) => {
+                        tracing::debug!(service.ready = true);
+                    }
                 }
             }
             match ready!(self.poll_next_msg(cx)) {
                 Some(msg) => {
                     let _guard = msg.span.enter();
+                    if let Some(ref failed) = self.failed {
+                        tracing::trace!("notifying caller about worker failure");
+                        let _ = msg.tx.send(Err(failed.clone()));
+                        continue;
+                    }
 
                     tracing::debug!(service.ready = true, message = "processing request");
                     let response = self.service.call(msg.request);
