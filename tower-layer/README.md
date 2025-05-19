@@ -30,6 +30,8 @@ reusable components that can be applied to very different kinds of services;
 for example, it can be applied to services operating on different protocols,
 and to both the client and server side of a network transaction.
 
+`tower-layer` is `no_std` compatible.
+
 ## License
 
 This project is licensed under the [MIT license](LICENSE).
