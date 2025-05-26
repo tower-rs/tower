@@ -114,7 +114,7 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         ResponseFuture::new(match self.predicate.check(request) {
             Ok(request) => Either::Right(self.inner.call(request).err_into()),
-            Err(e) => Either::Left(futures_util::future::ready(Err(e))),
+            Err(e) => Either::Left(std::future::ready(Err(e))),
         })
     }
 }

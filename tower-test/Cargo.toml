@@ -6,7 +6,7 @@ name = "tower-test"
 #   - README.md
 # - Update CHANGELOG.md.
 # - Create "v0.1.x" git tag.
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Tower Maintainers <team@tower-rs.com>"]
 license = "MIT"
 readme = "README.md"
@@ -20,7 +20,6 @@ categories = ["asynchronous", "network-programming"]
 edition = "2018"
 
 [dependencies]
-futures-util = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tokio-test = { workspace = true }
 tower-layer = { version = "0.3", path = "../tower-layer" }

@@ -3,14 +3,13 @@ use crate::discover::{Change, Discover};
 use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
 use crate::util::rng::{sample_floyd2, HasherRng, Rng};
-use futures_core::ready;
 use futures_util::future::{self, TryFutureExt};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
     fmt,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 use tracing::{debug, trace};

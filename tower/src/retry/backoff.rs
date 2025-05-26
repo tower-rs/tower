@@ -79,10 +79,10 @@ where
     ///
     /// Returns a config validation error if:
     /// - `min` > `max`
-    /// - `max` > 0
-    /// - `jitter` >= `0.0`
-    /// - `jitter` < `100.0`
-    /// - `jitter` is finite
+    /// - `max` == 0
+    /// - `jitter` < `0.0`
+    /// - `jitter` > `100.0`
+    /// - `jitter` is not finite
     pub fn new(
         min: time::Duration,
         max: time::Duration,

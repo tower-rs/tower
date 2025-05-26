@@ -635,7 +635,7 @@ impl<L> ServiceBuilder<L> {
     /// impl Service<Request> for MyService {
     ///   type Response = Response;
     ///   type Error = Error;
-    ///   type Future = futures_util::future::Ready<Result<Response, Error>>;
+    ///   type Future = std::future::Ready<Result<Response, Error>>;
     ///
     ///   fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
     ///       // ...
@@ -790,6 +790,68 @@ impl<L> ServiceBuilder<L> {
         <L::Service as Service<R>>::Future: Send + 'a,
     {
         self.layer(crate::util::BoxCloneService::layer())
+    }
+
+    /// This wraps the inner service with the [`Layer`] returned by [`BoxCloneSyncServiceLayer`].
+    ///
+    /// This is similar to the [`boxed_clone`] method, but it requires that `Self` implement
+    /// [`Sync`], and the returned boxed service implements [`Sync`].
+    ///
+    /// See [`BoxCloneSyncService`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tower::{Service, ServiceBuilder, BoxError, util::BoxCloneSyncService};
+    /// use std::time::Duration;
+    /// #
+    /// # struct Request;
+    /// # struct Response;
+    /// # impl Response {
+    /// #     fn new() -> Self { Self }
+    /// # }
+    ///
+    /// let service: BoxCloneSyncService<Request, Response, BoxError> = ServiceBuilder::new()
+    ///     .load_shed()
+    ///     .concurrency_limit(64)
+    ///     .timeout(Duration::from_secs(10))
+    ///     .boxed_clone_sync()
+    ///     .service_fn(|req: Request| async {
+    ///         Ok::<_, BoxError>(Response::new())
+    ///     });
+    /// # let service = assert_service(service);
+    ///
+    /// // The boxed service can still be cloned.
+    /// service.clone();
+    /// # fn assert_service<S, R>(svc: S) -> S
+    /// # where S: Service<R> { svc }
+    /// ```
+    ///
+    /// [`BoxCloneSyncServiceLayer`]: crate::util::BoxCloneSyncServiceLayer
+    /// [`BoxCloneSyncService`]: crate::util::BoxCloneSyncService
+    /// [`boxed_clone`]: Self::boxed_clone
+    #[cfg(feature = "util")]
+    pub fn boxed_clone_sync<S, R>(
+        self,
+    ) -> ServiceBuilder<
+        Stack<
+            crate::util::BoxCloneSyncServiceLayer<
+                S,
+                R,
+                <L::Service as Service<R>>::Response,
+                <L::Service as Service<R>>::Error,
+            >,
+            Identity,
+        >,
+    >
+    where
+        L: Layer<S> + Send + Sync + 'static,
+        L::Service: Service<R> + Clone + Send + Sync + 'static,
+        <L::Service as Service<R>>::Future: Send + Sync + 'static,
+    {
+        let layer = self.into_inner();
+
+        ServiceBuilder::new().layer(crate::util::BoxCloneSyncServiceLayer::new(layer))
     }
 }
 
