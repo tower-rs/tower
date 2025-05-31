@@ -45,6 +45,11 @@ middleware may take actions such as modify the request.
 
 [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
 [Tower]: https://crates.io/crates/tower
+
+## `no_std`
+
+`tower-service` is `no_std` compatible, but it (currently) requires the `alloc` crate.
+
 ## License
 
 This project is licensed under the [MIT license](LICENSE).
