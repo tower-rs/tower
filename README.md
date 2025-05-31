@@ -37,7 +37,7 @@ released at least six months ago. The current MSRV is 1.64.0.
 
 ## `no_std`
 
-`tower` itself is _not_ `no_std` compatible, but `tower-layer` is.
+`tower` itself is _not_ `no_std` compatible, but `tower-layer` and `tower-service` are.
 
 ## Getting Started
 
