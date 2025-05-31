@@ -48,7 +48,7 @@ middleware may take actions such as modify the request.
 
 ## `no_std`
 
-`tower-service` is `no_std` compatible.
+`tower-service` is `no_std` compatible, but it (currently) requires the `alloc` crate.
 
 ## License
 
