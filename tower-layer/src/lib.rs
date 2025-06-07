@@ -105,7 +105,7 @@ pub trait Layer<S> {
     fn layer(&self, inner: S) -> Self::Service;
 }
 
-impl<'a, T, S> Layer<S> for &'a T
+impl<T, S> Layer<S> for &T
 where
     T: ?Sized + Layer<S>,
 {

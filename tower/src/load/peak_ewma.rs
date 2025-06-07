@@ -398,7 +398,7 @@ mod tests {
         assert_eq!(super::nanos(Duration::new(0, 123)), 123.0);
         assert_eq!(super::nanos(Duration::new(1, 23)), 1_000_000_023.0);
         assert_eq!(
-            super::nanos(Duration::new(::std::u64::MAX, 999_999_999)),
+            super::nanos(Duration::new(u64::MAX, 999_999_999)),
             18446744074709553000.0
         );
     }

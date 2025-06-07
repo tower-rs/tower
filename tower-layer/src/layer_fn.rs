@@ -109,7 +109,7 @@ mod tests {
 
         assert_eq!(
             "LayerFn { f: tower_layer::layer_fn::tests::layer_fn_has_useful_debug_impl::{{closure}} }".to_string(),
-            format!("{:?}", layer),
+            format!("{layer:?}"),
         );
     }
 }
