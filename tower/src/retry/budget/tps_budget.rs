@@ -72,7 +72,7 @@ impl TpsBudget {
         assert!(ttl <= Duration::from_secs(60));
         assert!(retry_percent >= 0.0);
         assert!(retry_percent <= 1000.0);
-        assert!(min_per_sec < ::std::i32::MAX as u32);
+        assert!(min_per_sec < i32::MAX as u32);
 
         let (deposit_amount, withdraw_amount) = if retry_percent == 0.0 {
             // If there is no percent, then you gain nothing from deposits.

@@ -18,7 +18,6 @@ use std::{
     future::Future,
     sync::{Arc, Mutex},
     task::{Context, Poll},
-    u64,
 };
 
 /// Spawn a layer onto a mock service.

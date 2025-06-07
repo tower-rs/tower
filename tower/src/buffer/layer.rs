@@ -56,7 +56,7 @@ where
 }
 
 impl<Request> fmt::Debug for BufferLayer<Request> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BufferLayer")
             .field("bound", &self.bound)
             .finish()
@@ -65,10 +65,7 @@ impl<Request> fmt::Debug for BufferLayer<Request> {
 
 impl<Request> Clone for BufferLayer<Request> {
     fn clone(&self) -> Self {
-        Self {
-            bound: self.bound,
-            _p: PhantomData,
-        }
+        *self
     }
 }
 

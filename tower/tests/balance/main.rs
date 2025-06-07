@@ -45,7 +45,7 @@ fn stress() {
     for _ in 0..100_000 {
         for _ in 0..(rand::random::<u8>() % 8) {
             if !services.is_empty() && rand::random() {
-                if nready == 0 || rand::random::<u8>() > u8::max_value() / 4 {
+                if nready == 0 || rand::random::<u8>() > u8::MAX / 4 {
                     // ready a service
                     // TODO: sometimes ready a removed service?
                     for (_, (handle, ready)) in &mut services {
@@ -114,7 +114,8 @@ fn stress() {
                 } else {
                     // remove
                     while !services.is_empty() {
-                        let k = rand::random::<usize>() % (services.iter().last().unwrap().0 + 1);
+                        let k =
+                            rand::random::<usize>() % (services.iter().next_back().unwrap().0 + 1);
                         if services.contains(k) {
                             let (handle, ready) = services.remove(k);
                             if ready {
@@ -129,7 +130,7 @@ fn stress() {
             } else {
                 // fail a service
                 while !services.is_empty() {
-                    let k = rand::random::<usize>() % (services.iter().last().unwrap().0 + 1);
+                    let k = rand::random::<usize>() % (services.iter().next_back().unwrap().0 + 1);
                     if services.contains(k) {
                         let (mut handle, ready) = services.remove(k);
                         if ready {
