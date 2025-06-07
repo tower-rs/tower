@@ -14,7 +14,6 @@ futures-util = { version = "0.3.22", default-features = false }
 hdrhistogram = { version = "7.0", default-features = false }
 http = "1"
 indexmap = "2.0.2"
-lazy_static = "1.4.0"
 pin-project-lite = "0.2.7"
 quickcheck = "1"
 rand = "0.8"
