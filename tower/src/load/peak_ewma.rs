@@ -10,9 +10,11 @@ use pin_project_lite::pin_project;
 use std::{pin::Pin, task::ready};
 
 use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
+use super::weight::Weight;
 use super::Load;
 use std::task::{Context, Poll};
 use std::{
+    ops,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -68,6 +70,14 @@ pin_project! {
 /// latency estimate multiplied by the number of pending requests.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Cost(f64);
+
+impl ops::Div<Weight> for Cost {
+    type Output = f64;
+
+    fn div(self, weight: Weight) -> f64 {
+        self.0 / weight
+    }
+}
 
 /// Tracks an in-flight request and updates the RTT-estimate on Drop.
 #[derive(Debug)]
