@@ -132,20 +132,24 @@ mod tests {
 
     quickcheck! {
         fn next_f64(counter: u64) -> TestResult {
-            let mut rng = HasherRng::default();
-            rng.counter = counter;
+            let mut rng = HasherRng {
+                counter,
+                ..HasherRng::default()
+            };
             let n = rng.next_f64();
 
-            TestResult::from_bool(n < 1.0 && n >= 0.0)
+            TestResult::from_bool((0.0..1.0).contains(&n))
         }
 
         fn next_range(counter: u64, range: Range<u64>) -> TestResult {
-            if  range.start >= range.end{
+            if range.start >= range.end{
                 return TestResult::discard();
             }
 
-            let mut rng = HasherRng::default();
-            rng.counter = counter;
+            let mut rng = HasherRng {
+                counter,
+                ..HasherRng::default()
+            };
 
             let n = rng.next_range(range.clone());
 
@@ -153,12 +157,14 @@ mod tests {
         }
 
         fn sample_floyd2(counter: u64, length: u64) -> TestResult {
-            if length < 2 || length > 256 {
+            if !(2..=256).contains(&length) {
                 return TestResult::discard();
             }
 
-            let mut rng = HasherRng::default();
-            rng.counter = counter;
+            let mut rng = HasherRng {
+                counter,
+                ..HasherRng::default()
+            };
 
             let [a, b] = super::sample_floyd2(&mut rng, length);
 
