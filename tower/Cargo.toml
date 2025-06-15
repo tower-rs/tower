@@ -50,7 +50,7 @@ load = ["tokio/time", "tracing", "pin-project-lite"]
 load-shed = ["pin-project-lite"]
 make = ["pin-project-lite", "tokio"]
 ready-cache = ["futures-core", "futures-util", "indexmap", "tokio/sync", "tracing", "pin-project-lite"]
-reconnect = ["make", "tokio", "tracing"]
+reconnect = ["make", "tracing"]
 retry = ["tokio/time", "util"]
 spawn-ready = ["futures-util", "tokio/sync", "tokio/rt", "util", "tracing"]
 steer = []
@@ -66,7 +66,7 @@ futures-util = { workspace = true, features = ["alloc"], optional = true }
 hdrhistogram = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
 slab = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["sync"], optional = true }
+tokio = { workspace = true, optional = true }
 tokio-stream = { workspace = true, optional = true }
 tokio-util = { workspace = true, optional = true }
 tracing = { workspace = true, features = ["std"], optional = true }
