@@ -4,7 +4,6 @@ use futures_core::{Stream, TryStream};
 use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
 use hdrhistogram::Histogram;
 use pin_project_lite::pin_project;
-use rand::{self, Rng};
 use std::hash::Hash;
 use std::time::Duration;
 use std::{
@@ -124,7 +123,7 @@ fn gen_disco() -> impl Discover<
 
                     let maxms = u64::from(latency.subsec_millis())
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
-                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
+                    let latency = Duration::from_millis(rand::random_range(0..maxms));
 
                     async move {
                         time::sleep_until(start + latency).await;
