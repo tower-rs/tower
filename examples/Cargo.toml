@@ -7,16 +7,20 @@ edition = "2018"
 # If you copy one of the examples into a new project, you should be using
 # [dependencies] instead.
 [dev-dependencies]
-tower = { version = "0.4", path = "../tower", features = ["full"] }
-tower-service = "0.3"
+tower = { path = "../tower", features = ["full"] }
+tower-service = { path = "../tower-service/" }
 tokio = { version = "1.0", features = ["full"] }
 rand = "0.9"
 pin-project = "1.0"
 futures = "0.3.22"
 tracing = "0.1"
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
 hdrhistogram = "7"
 
 [[example]]
 name = "balance"
 path = "balance.rs"
+
+[[example]]
+name = "buffer"
+path = "buffer.rs"
