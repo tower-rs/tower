@@ -1,4 +1,5 @@
 #![cfg(feature = "limit")]
+mod concurrency;
 mod rate;
 #[path = "../support.rs"]
-mod support;
+pub(crate) mod support;
