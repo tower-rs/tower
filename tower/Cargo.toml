@@ -76,7 +76,6 @@ sync_wrapper = { workspace = true, optional = true }
 [dev-dependencies]
 futures = { workspace = true }
 hdrhistogram = { workspace = true }
-pin-project-lite = { workspace = true }
 tokio = { workspace = true, features = ["macros", "sync", "test-util", "rt-multi-thread"] }
 tokio-stream = { workspace = true }
 tokio-test = { workspace = true }
