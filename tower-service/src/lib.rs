@@ -103,7 +103,7 @@ use core::task::{Context, Poll};
 ///     .connect("127.0.0.1:6379".parse().unwrap())
 ///     .unwrap();
 ///
-/// futures::future::poll_fn(|cx| Service::<Cmd>::poll_ready(&mut client, cx)).await?;
+/// ServiceExt::<Cmd>::ready(&mut client).await?;
 ///
 /// let resp = client.call(Cmd::set("foo", "this is the value of foo")).await?;
 ///
