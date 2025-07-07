@@ -1,11 +1,10 @@
 use super::{future::ResponseFuture, SpawnReadyLayer};
 use crate::{util::ServiceExt, BoxError};
-use futures_core::ready;
 use futures_util::future::TryFutureExt;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 use tracing::Instrument;
@@ -26,7 +25,7 @@ enum Inner<S> {
 
 impl<S> SpawnReady<S> {
     /// Creates a new [`SpawnReady`] wrapping `service`.
-    pub fn new(service: S) -> Self {
+    pub const fn new(service: S) -> Self {
         Self {
             inner: Inner::Service(Some(service)),
         }

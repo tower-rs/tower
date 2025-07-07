@@ -1,10 +1,9 @@
-use futures_util::ready;
 use pin_project_lite::pin_project;
 use std::time::Duration;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 
@@ -62,7 +61,7 @@ impl<Request, F> State<Request, F> {
 }
 
 impl<P, S> Delay<P, S> {
-    pub fn new<Request>(policy: P, service: S) -> Self
+    pub const fn new<Request>(policy: P, service: S) -> Self
     where
         P: Policy<Request>,
         S: Service<Request> + Clone,

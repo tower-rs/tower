@@ -61,7 +61,7 @@ pub struct AsyncFilter<T, U> {
 
 impl<T, U> Filter<T, U> {
     /// Returns a new [`Filter`] service wrapping `inner`.
-    pub fn new(inner: T, predicate: U) -> Self {
+    pub const fn new(inner: T, predicate: U) -> Self {
         Self { inner, predicate }
     }
 
@@ -114,7 +114,7 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         ResponseFuture::new(match self.predicate.check(request) {
             Ok(request) => Either::Right(self.inner.call(request).err_into()),
-            Err(e) => Either::Left(futures_util::future::ready(Err(e))),
+            Err(e) => Either::Left(std::future::ready(Err(e))),
         })
     }
 }
@@ -123,7 +123,7 @@ where
 
 impl<T, U> AsyncFilter<T, U> {
     /// Returns a new [`AsyncFilter`] service wrapping `inner`.
-    pub fn new(inner: T, predicate: U) -> Self {
+    pub const fn new(inner: T, predicate: U) -> Self {
         Self { inner, predicate }
     }
 

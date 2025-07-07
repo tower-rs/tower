@@ -1,11 +1,10 @@
 //! Future types
 
 use super::{Policy, Retry};
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{ready, Context, Poll};
 use tower_service::Service;
 
 pin_project! {
@@ -34,11 +33,11 @@ pin_project! {
             future: F
         },
         // Polling the future from [`Policy::retry`]
-        Checking {
+        Waiting {
             #[pin]
-            checking: P
+            waiting: P
         },
-        // Polling [`Service::poll_ready`] after [`Checking`] was OK.
+        // Polling [`Service::poll_ready`] after [`Waiting`] was OK.
         Retrying,
     }
 }
@@ -63,8 +62,8 @@ where
 
 impl<P, S, Request> Future for ResponseFuture<P, S, Request>
 where
-    P: Policy<Request, S::Response, S::Error> + Clone,
-    S: Service<Request> + Clone,
+    P: Policy<Request, S::Response, S::Error>,
+    S: Service<Request>,
 {
     type Output = Result<S::Response, S::Error>;
 
@@ -74,11 +73,11 @@ where
         loop {
             match this.state.as_mut().project() {
                 StateProj::Called { future } => {
-                    let result = ready!(future.poll(cx));
-                    if let Some(ref req) = this.request {
-                        match this.retry.policy.retry(req, result.as_ref()) {
-                            Some(checking) => {
-                                this.state.set(State::Checking { checking });
+                    let mut result = ready!(future.poll(cx));
+                    if let Some(req) = &mut this.request {
+                        match this.retry.policy.retry(req, &mut result) {
+                            Some(waiting) => {
+                                this.state.set(State::Waiting { waiting });
                             }
                             None => return Poll::Ready(result),
                         }
@@ -87,12 +86,9 @@ where
                         return Poll::Ready(result);
                     }
                 }
-                StateProj::Checking { checking } => {
-                    this.retry
-                        .as_mut()
-                        .project()
-                        .policy
-                        .set(ready!(checking.poll(cx)));
+                StateProj::Waiting { waiting } => {
+                    ready!(waiting.poll(cx));
+
                     this.state.set(State::Retrying);
                 }
                 StateProj::Retrying => {

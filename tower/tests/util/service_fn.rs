@@ -1,4 +1,4 @@
-use futures_util::future::ready;
+use std::future::ready;
 use tower::util::service_fn;
 use tower_service::Service;
 

@@ -2,8 +2,9 @@
 #[path = "../support.rs"]
 mod support;
 
+use std::pin::Pin;
 use tokio_test::{assert_pending, assert_ready, task};
-use tower::ready_cache::ReadyCache;
+use tower::ready_cache::{error, ReadyCache};
 use tower_test::mock;
 
 type Req = &'static str;
@@ -190,4 +191,33 @@ fn duplicate_key_by_index() {
     assert_ready!(task.enter(|cx, _| cache.poll_pending(cx))).unwrap();
     // _and_ service 0 should now be callable
     assert!(task.enter(|cx, _| cache.check_ready(cx, &0)).unwrap());
+}
+
+// Tests https://github.com/tower-rs/tower/issues/415
+#[tokio::test(flavor = "current_thread")]
+async fn cancelation_observed() {
+    let mut cache = ReadyCache::default();
+    let mut handles = vec![];
+
+    // NOTE This test passes at 129 items, but fails at 130 items (if coop
+    // scheduling interferes with cancelation).
+    for _ in 0..130 {
+        let (svc, mut handle) = tower_test::mock::pair::<(), ()>();
+        handle.allow(1);
+        cache.push("ep0", svc);
+        handles.push(handle);
+    }
+
+    struct Ready(ReadyCache<&'static str, tower_test::mock::Mock<(), ()>, ()>);
+    impl Unpin for Ready {}
+    impl std::future::Future for Ready {
+        type Output = Result<(), error::Failed<&'static str>>;
+        fn poll(
+            self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Self::Output> {
+            self.get_mut().0.poll_pending(cx)
+        }
+    }
+    Ready(cache).await.unwrap();
 }

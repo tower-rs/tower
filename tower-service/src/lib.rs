@@ -13,8 +13,16 @@
 //! request / response clients and servers. It is simple but powerful and is
 //! used as the foundation for the rest of Tower.
 
-use std::future::Future;
-use std::task::{Context, Poll};
+#![no_std]
+
+extern crate alloc;
+
+use alloc::boxed::Box;
+
+use core::future::Future;
+use core::marker::Sized;
+use core::result::Result;
+use core::task::{Context, Poll};
 
 /// An asynchronous function from a `Request` to a `Response`.
 ///
@@ -131,7 +139,7 @@ use std::task::{Context, Poll};
 /// }
 ///
 /// impl<T> Timeout<T> {
-///     pub fn new(inner: T, timeout: Duration) -> Timeout<T> {
+///     pub const fn new(inner: T, timeout: Duration) -> Timeout<T> {
 ///         Timeout {
 ///             inner,
 ///             timeout
@@ -205,7 +213,7 @@ use std::task::{Context, Poll};
 /// pub struct TimeoutLayer(Duration);
 ///
 /// impl TimeoutLayer {
-///     pub fn new(delay: Duration) -> Self {
+///     pub const fn new(delay: Duration) -> Self {
 ///         TimeoutLayer(delay)
 ///     }
 /// }
@@ -274,7 +282,7 @@ use std::task::{Context, Poll};
 /// }
 /// ```
 ///
-/// You should instead use [`std::mem::replace`] to take the service that was ready:
+/// You should instead use [`core::mem::replace`] to take the service that was ready:
 ///
 /// ```rust
 /// # use std::pin::Pin;
@@ -332,6 +340,12 @@ pub trait Service<Request> {
     /// Once `poll_ready` returns `Poll::Ready(Ok(()))`, a request may be dispatched to the
     /// service using `call`. Until a request is dispatched, repeated calls to
     /// `poll_ready` must return either `Poll::Ready(Ok(()))` or `Poll::Ready(Err(_))`.
+    ///
+    /// Note that `poll_ready` may reserve shared resources that are consumed in a subsequent
+    /// invocation of `call`. Thus, it is critical for implementations to not assume that `call`
+    /// will always be invoked and to ensure that such resources are released if the service is
+    /// dropped before `call` is invoked or the future returned by `call` is dropped before it
+    /// is polled.
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Process the request and return the response asynchronously.
@@ -346,6 +360,7 @@ pub trait Service<Request> {
     ///
     /// Implementations are permitted to panic if `call` is invoked without
     /// obtaining `Poll::Ready(Ok(()))` from `poll_ready`.
+    #[must_use = "futures do nothing unless you `.await` or poll them"]
     fn call(&mut self, req: Request) -> Self::Future;
 }
 

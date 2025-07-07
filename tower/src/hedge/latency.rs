@@ -1,10 +1,9 @@
-use futures_util::ready;
 use pin_project_lite::pin_project;
 use std::time::Duration;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tokio::time::Instant;
 use tower_service::Service;
@@ -38,7 +37,7 @@ impl<S, R> Latency<R, S>
 where
     R: Record + Clone,
 {
-    pub fn new<Request>(rec: R, service: S) -> Self
+    pub const fn new<Request>(rec: R, service: S) -> Self
     where
         S: Service<Request>,
         S::Error: Into<crate::BoxError>,

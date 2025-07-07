@@ -7,7 +7,7 @@
 #![forbid(unsafe_code)]
 #![allow(elided_lifetimes_in_paths, clippy::type_complexity)]
 #![cfg_attr(test, allow(clippy::float_cmp))]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg))]
 // `rustdoc::broken_intra_doc_links` is checked on CI
 
 //! `async fn(Request) -> Result<Response, Error>`
@@ -22,7 +22,7 @@
 //! response or an error. This abstraction can be used to model both clients and
 //! servers.
 //!
-//! Generic components, like [timeouts], [rate limiting], and [load balancing],
+//! Generic components, like [`timeout`], [rate limiting], and [load balancing],
 //! can be modeled as [`Service`]s that wrap some inner service and apply
 //! additional behavior before or after the inner service is called. This allows
 //! implementing these components in a protocol-agnostic, composable way. Typically,
@@ -97,7 +97,7 @@
 //!   Tower.
 //! * [`warp`]: A lightweight, composable web framework. See
 //!   [here][warp-service] for details on using [`warp`] with Tower.
-//! * [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
+//! * [`tower-lsp`]: implementations of the [Language
 //!   Server Protocol][lsp] based on Tower.
 //!
 //! [`hyper`]: https://crates.io/crates/hyper
@@ -107,7 +107,6 @@
 //! [`warp`]: https://crates.io/crates/warp
 //! [warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
 //! [`tower-lsp`]: https://crates.io/crates/tower-lsp
-//! [`lspower`]: https://crates.io/crates/lspower
 //! [lsp]: https://microsoft.github.io/language-server-protocol/
 //!
 //! If you're the maintainer of a crate that supports Tower, we'd love to add
@@ -131,7 +130,7 @@
 //! ```
 //!
 //! Alternatively, you can only enable some features. For example, to enable
-//! only the [`retry`] and [`timeout`][timeouts] middleware, write:
+//! only the [`retry`] and [`timeout`] middleware, write:
 //!
 //! ```toml
 //! tower = { version = "0.4", features = ["retry", "timeout"] }
@@ -145,11 +144,10 @@
 //!
 //! Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 //! least** 6 months. When increasing the MSRV, the new Rust version must have been
-//! released at least six months ago. The current MSRV is 1.49.0.
+//! released at least six months ago. The current MSRV is 1.64.0.
 //!
 //! [`Service`]: crate::Service
 //! [`Layer`]: crate::Layer
-//! [timeouts]: crate::timeout
 //! [rate limiting]: crate::limit::rate
 //! [load balancing]: crate::balance
 //! [`ServiceBuilder`]: crate::ServiceBuilder
@@ -165,75 +163,63 @@
 #[macro_use]
 pub(crate) mod macros;
 #[cfg(feature = "balance")]
-#[cfg_attr(docsrs, doc(cfg(feature = "balance")))]
 pub mod balance;
 #[cfg(feature = "buffer")]
-#[cfg_attr(docsrs, doc(cfg(feature = "buffer")))]
 pub mod buffer;
 #[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 pub mod discover;
 #[cfg(feature = "filter")]
-#[cfg_attr(docsrs, doc(cfg(feature = "filter")))]
 pub mod filter;
 #[cfg(feature = "hedge")]
-#[cfg_attr(docsrs, doc(cfg(feature = "hedge")))]
 pub mod hedge;
 #[cfg(feature = "limit")]
-#[cfg_attr(docsrs, doc(cfg(feature = "limit")))]
 pub mod limit;
 #[cfg(feature = "load")]
-#[cfg_attr(docsrs, doc(cfg(feature = "load")))]
 pub mod load;
 #[cfg(feature = "load-shed")]
-#[cfg_attr(docsrs, doc(cfg(feature = "load-shed")))]
 pub mod load_shed;
 
 #[cfg(feature = "make")]
-#[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 pub mod make;
 #[cfg(feature = "ready-cache")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ready-cache")))]
 pub mod ready_cache;
 #[cfg(feature = "reconnect")]
-#[cfg_attr(docsrs, doc(cfg(feature = "reconnect")))]
 pub mod reconnect;
 #[cfg(feature = "retry")]
-#[cfg_attr(docsrs, doc(cfg(feature = "retry")))]
 pub mod retry;
 #[cfg(feature = "spawn-ready")]
-#[cfg_attr(docsrs, doc(cfg(feature = "spawn-ready")))]
 pub mod spawn_ready;
 #[cfg(feature = "steer")]
-#[cfg_attr(docsrs, doc(cfg(feature = "steer")))]
 pub mod steer;
 #[cfg(feature = "timeout")]
-#[cfg_attr(docsrs, doc(cfg(feature = "timeout")))]
 pub mod timeout;
 #[cfg(feature = "util")]
-#[cfg_attr(docsrs, doc(cfg(feature = "util")))]
 pub mod util;
 
 pub mod builder;
 pub mod layer;
 
 #[cfg(feature = "util")]
-#[cfg_attr(docsrs, doc(cfg(feature = "util")))]
 #[doc(inline)]
+#[cfg_attr(docsrs, doc(cfg(feature = "util")))]
 pub use self::util::{service_fn, ServiceExt};
 
 #[doc(inline)]
 pub use crate::builder::ServiceBuilder;
+
 #[cfg(feature = "make")]
-#[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 #[doc(inline)]
+#[cfg_attr(docsrs, doc(cfg(feature = "make")))]
 pub use crate::make::MakeService;
+
 #[doc(inline)]
 pub use tower_layer::Layer;
+
 #[doc(inline)]
 pub use tower_service::Service;
 
 #[allow(unreachable_pub)]
+#[cfg(any(feature = "balance", feature = "discover", feature = "make"))]
 mod sealed {
     pub trait Sealed<T> {}
 }

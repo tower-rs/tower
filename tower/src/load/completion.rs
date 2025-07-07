@@ -1,11 +1,10 @@
 //! Application-specific request completion semantics.
 
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 /// Attaches `H`-typed completion tracker to `V` typed values.
@@ -59,7 +58,7 @@ pin_project! {
 
 impl<F, C, H> TrackCompletionFuture<F, C, H> {
     /// Wraps a future, propagating the tracker into its value if successful.
-    pub fn new(completion: C, handle: H, future: F) -> Self {
+    pub const fn new(completion: C, handle: H, future: F) -> Self {
         TrackCompletionFuture {
             future,
             completion,

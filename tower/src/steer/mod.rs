@@ -8,9 +8,8 @@
 //! Here, `GET /` will be sent to the `root` service, while all other requests go to `not_found`.
 //!
 //! ```rust
-//! # use std::task::{Context, Poll};
+//! # use std::task::{Context, Poll, ready};
 //! # use tower_service::Service;
-//! # use futures_util::future::{ready, Ready, poll_fn};
 //! # use tower::steer::Steer;
 //! # use tower::service_fn;
 //! # use tower::util::BoxService;
@@ -91,7 +90,7 @@ where
 ///
 /// An example use case is a sharded service.
 /// It accepts new requests, then:
-/// 1. Determines, via the provided [`Picker`], which [`Service`] the request coresponds to.
+/// 1. Determines, via the provided [`Picker`], which [`Service`] the request corresponds to.
 /// 2. Waits (in [`Service::poll_ready`]) for *all* services to be ready.
 /// 3. Calls the correct [`Service`] with the request, and returns a future corresponding to the
 ///    call.

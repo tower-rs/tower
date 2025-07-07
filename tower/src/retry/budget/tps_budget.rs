@@ -1,4 +1,4 @@
-//! A retry "budget" for allowing only a certain amount of retries over time.
+//! Transactions Per Minute (Tps) Budget implementations
 
 use std::{
     fmt,
@@ -10,25 +10,20 @@ use std::{
 };
 use tokio::time::Instant;
 
-/// Represents a "budget" for retrying requests.
+use super::Budget;
+
+/// A Transactions Per Minute config for managing retry tokens.
 ///
-/// This is useful for limiting the amount of retries a service can perform
-/// over a period of time, or per a certain number of requests attempted.
-pub struct Budget {
-    bucket: Bucket,
-    deposit_amount: isize,
-    withdraw_amount: isize,
-}
-
-/// Indicates that it is not currently allowed to "withdraw" another retry
-/// from the [`Budget`].
-#[derive(Debug)]
-pub struct Overdrawn {
-    _inner: (),
-}
-
-#[derive(Debug)]
-struct Bucket {
+/// [`TpsBudget`] uses a token bucket to decide if the request should be retried.
+///
+/// [`TpsBudget`] works by checking how much retries have been made in a certain period of time.
+/// Minimum allowed number of retries are effectively reset on an interval. Allowed number of
+/// retries depends on failed request count in recent time frame.
+///
+/// For more info about [`Budget`], please see the [module-level documentation].
+///
+/// [module-level documentation]: super
+pub struct TpsBudget {
     generation: Mutex<Generation>,
     /// Initial budget allowed for every second.
     reserve: isize,
@@ -36,9 +31,13 @@ struct Bucket {
     slots: Box<[AtomicIsize]>,
     /// The amount of time represented by each slot.
     window: Duration,
-    /// The changers for the current slot to be commited
+    /// The changers for the current slot to be committed
     /// after the slot expires.
     writer: AtomicIsize,
+    /// Amount of tokens to deposit for each put().
+    deposit_amount: isize,
+    /// Amount of tokens to withdraw for each try_get().
+    withdraw_amount: isize,
 }
 
 #[derive(Debug)]
@@ -49,15 +48,15 @@ struct Generation {
     time: Instant,
 }
 
-// ===== impl Budget =====
+// ===== impl TpsBudget =====
 
-impl Budget {
-    /// Create a [`Budget`] that allows for a certain percent of the total
+impl TpsBudget {
+    /// Create a [`TpsBudget`] that allows for a certain percent of the total
     /// requests to be retried.
     ///
     /// - The `ttl` is the duration of how long a single `deposit` should be
     ///   considered. Must be between 1 and 60 seconds.
-    /// - The `min_per_sec` is the minimum rate of retries allowed to accomodate
+    /// - The `min_per_sec` is the minimum rate of retries allowed to accommodate
     ///   clients that have just started issuing requests, or clients that do
     ///   not issue many requests per window.
     /// - The `retry_percent` is the percentage of calls to `deposit` that can
@@ -73,7 +72,7 @@ impl Budget {
         assert!(ttl <= Duration::from_secs(60));
         assert!(retry_percent >= 0.0);
         assert!(retry_percent <= 1000.0);
-        assert!(min_per_sec < ::std::i32::MAX as u32);
+        assert!(min_per_sec < i32::MAX as u32);
 
         let (deposit_amount, withdraw_amount) = if retry_percent == 0.0 {
             // If there is no percent, then you gain nothing from deposits.
@@ -83,7 +82,7 @@ impl Budget {
             (1, (1.0 / retry_percent) as isize)
         } else {
             // Support for when retry_percent is between 1.0 and 1000.0,
-            // meaning for every deposit D, D*retry_percent withdrawals
+            // meaning for every deposit D, D * retry_percent withdrawals
             // can be made.
             (1000, (1000.0 / retry_percent) as isize)
         };
@@ -98,76 +97,17 @@ impl Budget {
             slots.push(AtomicIsize::new(0));
         }
 
-        Budget {
-            bucket: Bucket {
-                generation: Mutex::new(Generation {
-                    index: 0,
-                    time: Instant::now(),
-                }),
-                reserve,
-                slots: slots.into_boxed_slice(),
-                window: ttl / windows,
-                writer: AtomicIsize::new(0),
-            },
+        TpsBudget {
+            generation: Mutex::new(Generation {
+                index: 0,
+                time: Instant::now(),
+            }),
+            reserve,
+            slots: slots.into_boxed_slice(),
+            window: ttl / windows,
+            writer: AtomicIsize::new(0),
             deposit_amount,
             withdraw_amount,
-        }
-    }
-
-    /// Store a "deposit" in the budget, which will be used to permit future
-    /// withdrawals.
-    pub fn deposit(&self) {
-        self.bucket.put(self.deposit_amount);
-    }
-
-    /// Check whether there is enough "balance" in the budget to issue a new
-    /// retry.
-    ///
-    /// If there is not enough, an `Err(Overdrawn)` is returned.
-    pub fn withdraw(&self) -> Result<(), Overdrawn> {
-        if self.bucket.try_get(self.withdraw_amount) {
-            Ok(())
-        } else {
-            Err(Overdrawn { _inner: () })
-        }
-    }
-}
-
-impl Default for Budget {
-    fn default() -> Budget {
-        Budget::new(Duration::from_secs(10), 10, 0.2)
-    }
-}
-
-impl fmt::Debug for Budget {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Budget")
-            .field("deposit", &self.deposit_amount)
-            .field("withdraw", &self.withdraw_amount)
-            .field("balance", &self.bucket.sum())
-            .finish()
-    }
-}
-
-// ===== impl Bucket =====
-
-impl Bucket {
-    fn put(&self, amt: isize) {
-        self.expire();
-        self.writer.fetch_add(amt, Ordering::SeqCst);
-    }
-
-    fn try_get(&self, amt: isize) -> bool {
-        debug_assert!(amt >= 0);
-
-        self.expire();
-
-        let sum = self.sum();
-        if sum >= amt {
-            self.writer.fetch_add(-amt, Ordering::SeqCst);
-            true
-        } else {
-            false
         }
     }
 
@@ -209,41 +149,88 @@ impl Bucket {
             .saturating_add(windowed_sum)
             .saturating_add(self.reserve)
     }
+
+    fn put(&self, amt: isize) {
+        self.expire();
+        self.writer.fetch_add(amt, Ordering::SeqCst);
+    }
+
+    fn try_get(&self, amt: isize) -> bool {
+        debug_assert!(amt >= 0);
+
+        self.expire();
+
+        let sum = self.sum();
+        if sum >= amt {
+            self.writer.fetch_add(-amt, Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Budget for TpsBudget {
+    fn deposit(&self) {
+        self.put(self.deposit_amount)
+    }
+
+    fn withdraw(&self) -> bool {
+        self.try_get(self.withdraw_amount)
+    }
+}
+
+impl Default for TpsBudget {
+    fn default() -> Self {
+        TpsBudget::new(Duration::from_secs(10), 10, 0.2)
+    }
+}
+
+impl fmt::Debug for TpsBudget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Budget")
+            .field("deposit", &self.deposit_amount)
+            .field("withdraw", &self.withdraw_amount)
+            .field("balance", &self.sum())
+            .finish()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::retry::budget::Budget;
+
     use super::*;
     use tokio::time;
 
     #[test]
-    fn empty() {
-        let bgt = Budget::new(Duration::from_secs(1), 0, 1.0);
-        bgt.withdraw().unwrap_err();
+    fn tps_empty() {
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 1.0);
+        assert!(!bgt.withdraw());
     }
 
     #[tokio::test]
-    async fn leaky() {
+    async fn tps_leaky() {
         time::pause();
 
-        let bgt = Budget::new(Duration::from_secs(1), 0, 1.0);
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 1.0);
         bgt.deposit();
 
         time::advance(Duration::from_secs(3)).await;
 
-        bgt.withdraw().unwrap_err();
+        assert!(!bgt.withdraw());
     }
 
     #[tokio::test]
-    async fn slots() {
+    async fn tps_slots() {
         time::pause();
 
-        let bgt = Budget::new(Duration::from_secs(1), 0, 0.5);
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.5);
         bgt.deposit();
         bgt.deposit();
         time::advance(Duration::from_millis(901)).await;
         // 900ms later, the deposit should still be valid
-        bgt.withdraw().unwrap();
+        assert!(bgt.withdraw());
 
         // blank slate
         time::advance(Duration::from_millis(2001)).await;
@@ -256,18 +243,18 @@ mod tests {
 
         // the first deposit is expired, but the 2nd should still be valid,
         // combining with the 3rd
-        bgt.withdraw().unwrap();
+        assert!(bgt.withdraw());
     }
 
     #[tokio::test]
-    async fn reserve() {
-        let bgt = Budget::new(Duration::from_secs(1), 5, 1.0);
-        bgt.withdraw().unwrap();
-        bgt.withdraw().unwrap();
-        bgt.withdraw().unwrap();
-        bgt.withdraw().unwrap();
-        bgt.withdraw().unwrap();
+    async fn tps_reserve() {
+        let bgt = TpsBudget::new(Duration::from_secs(1), 5, 1.0);
+        assert!(bgt.withdraw());
+        assert!(bgt.withdraw());
+        assert!(bgt.withdraw());
+        assert!(bgt.withdraw());
+        assert!(bgt.withdraw());
 
-        bgt.withdraw().unwrap_err();
+        assert!(!bgt.withdraw());
     }
 }

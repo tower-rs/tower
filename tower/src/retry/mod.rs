@@ -1,5 +1,6 @@
 //! Middleware for retrying "failed" requests.
 
+pub mod backoff;
 pub mod budget;
 pub mod future;
 mod layer;
@@ -17,9 +18,28 @@ pin_project! {
     /// Configure retrying requests of "failed" responses.
     ///
     /// A [`Policy`] classifies what is a "failed" response.
+    ///
+    /// # Clone
+    ///
+    /// This middleware requires that the inner `Service` implements [`Clone`],
+    /// because the `Service` must be stored in each [`ResponseFuture`] in
+    /// order to retry the request in the event of a failure. If the inner
+    /// `Service` type does not implement `Clone`, the [`Buffer`] middleware
+    /// can be added to make any `Service` cloneable.
+    ///
+    /// [`Buffer`]: crate::buffer::Buffer
+    ///
+    /// The `Policy` must also implement `Clone`. This middleware will
+    /// clone the policy for each _request session_. This means a new clone
+    /// of the policy will be created for each initial request and any subsequent
+    /// retries of that request. Therefore, any state stored in the `Policy` instance
+    /// is for that request session only. In order to share data across request
+    /// sessions, that shared state may be stored in an [`Arc`], so that all clones
+    /// of the `Policy` type reference the same instance of the shared state.
+    ///
+    /// [`Arc`]: std::sync::Arc
     #[derive(Clone, Debug)]
     pub struct Retry<P, S> {
-        #[pin]
         policy: P,
         service: S,
     }
@@ -29,7 +49,7 @@ pin_project! {
 
 impl<P, S> Retry<P, S> {
     /// Retry the inner service depending on this [`Policy`].
-    pub fn new(policy: P, service: S) -> Self {
+    pub const fn new(policy: P, service: S) -> Self {
         Retry { policy, service }
     }
 

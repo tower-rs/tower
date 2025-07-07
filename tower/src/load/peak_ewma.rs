@@ -3,11 +3,11 @@
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
-use futures_core::{ready, Stream};
+use futures_core::Stream;
 #[cfg(feature = "discover")]
 use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
-use std::pin::Pin;
+use std::{pin::Pin, task::ready};
 
 use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
 use super::Load;
@@ -186,7 +186,6 @@ impl<D, C> PeakEwmaDiscover<D, C> {
 }
 
 #[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 impl<D, C> Stream for PeakEwmaDiscover<D, C>
 where
     D: Discover,
@@ -310,8 +309,7 @@ fn nanos(d: Duration) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use futures_util::future;
-    use std::time::Duration;
+    use std::{future, time::Duration};
     use tokio::time;
     use tokio_test::{assert_ready, assert_ready_ok, task};
 
@@ -328,7 +326,7 @@ mod tests {
         }
 
         fn call(&mut self, (): ()) -> Self::Future {
-            future::ok(())
+            future::ready(Ok(()))
         }
     }
 
@@ -400,7 +398,7 @@ mod tests {
         assert_eq!(super::nanos(Duration::new(0, 123)), 123.0);
         assert_eq!(super::nanos(Duration::new(1, 23)), 1_000_000_023.0);
         assert_eq!(
-            super::nanos(Duration::new(::std::u64::MAX, 999_999_999)),
+            super::nanos(Duration::new(u64::MAX, 999_999_999)),
             18446744074709553000.0
         );
     }

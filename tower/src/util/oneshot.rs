@@ -1,10 +1,9 @@
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::{
     fmt,
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 
@@ -35,11 +34,11 @@ pin_project! {
 }
 
 impl<S: Service<Req>, Req> State<S, Req> {
-    fn not_ready(svc: S, req: Option<Req>) -> Self {
+    const fn not_ready(svc: S, req: Option<Req>) -> Self {
         Self::NotReady { svc, req }
     }
 
-    fn called(fut: S::Future) -> Self {
+    const fn called(fut: S::Future) -> Self {
         Self::Called { fut }
     }
 }
@@ -71,7 +70,7 @@ where
     S: Service<Req>,
 {
     #[allow(missing_docs)]
-    pub fn new(svc: S, req: Req) -> Self {
+    pub const fn new(svc: S, req: Req) -> Self {
         Oneshot {
             state: State::not_ready(svc, Some(req)),
         }
@@ -89,7 +88,7 @@ where
         loop {
             match this.state.as_mut().project() {
                 StateProj::NotReady { svc, req } => {
-                    let _ = ready!(svc.poll_ready(cx))?;
+                    ready!(svc.poll_ready(cx))?;
                     let f = svc.call(req.take().expect("already called"));
                     this.state.set(State::called(f));
                 }

@@ -2,19 +2,15 @@ use super::super::error;
 use crate::discover::{Change, Discover};
 use crate::load::Load;
 use crate::ready_cache::{error::Failed, ReadyCache};
-use futures_core::ready;
+use crate::util::rng::{sample_floyd2, HasherRng, Rng};
 use futures_util::future::{self, TryFutureExt};
-use pin_project_lite::pin_project;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::{
     fmt,
-    future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
-use tokio::sync::oneshot;
 use tower_service::Service;
 use tracing::{debug, trace};
 
@@ -39,7 +35,7 @@ where
     services: ReadyCache<D::Key, D::Service, Req>,
     ready_index: Option<usize>,
 
-    rng: SmallRng,
+    rng: Box<dyn Rng + Send + Sync>,
 
     _req: PhantomData<Req>,
 }
@@ -58,25 +54,6 @@ where
     }
 }
 
-pin_project! {
-    /// A Future that becomes satisfied when an `S`-typed service is ready.
-    ///
-    /// May fail due to cancelation, i.e., if [`Discover`] removes the service from the service set.
-    struct UnreadyService<K, S, Req> {
-        key: Option<K>,
-        #[pin]
-        cancel: oneshot::Receiver<()>,
-        service: Option<S>,
-
-        _req: PhantomData<Req>,
-    }
-}
-
-enum Error<E> {
-    Inner(E),
-    Canceled,
-}
-
 impl<D, Req> Balance<D, Req>
 where
     D: Discover,
@@ -86,20 +63,20 @@ where
 {
     /// Constructs a load balancer that uses operating system entropy.
     pub fn new(discover: D) -> Self {
-        Self::from_rng(discover, &mut rand::thread_rng()).expect("ThreadRNG must be valid")
+        Self::from_rng(discover, HasherRng::default())
     }
 
     /// Constructs a load balancer seeded with the provided random number generator.
-    pub fn from_rng<R: Rng>(discover: D, rng: R) -> Result<Self, rand::Error> {
-        let rng = SmallRng::from_rng(rng)?;
-        Ok(Self {
+    pub fn from_rng<R: Rng + Send + Sync + 'static>(discover: D, rng: R) -> Self {
+        let rng = Box::new(rng);
+        Self {
             rng,
             discover,
             services: ReadyCache::default(),
             ready_index: None,
 
             _req: PhantomData,
-        })
+        }
     }
 
     /// Returns the number of endpoints currently tracked by the balancer.
@@ -185,14 +162,11 @@ where
             len => {
                 // Get two distinct random indexes (in a random order) and
                 // compare the loads of the service at each index.
-                let idxs = rand::seq::index::sample(&mut self.rng, len, 2);
-
-                let aidx = idxs.index(0);
-                let bidx = idxs.index(1);
+                let [aidx, bidx] = sample_floyd2(&mut self.rng, len as u64);
                 debug_assert_ne!(aidx, bidx, "random indices must be distinct");
 
-                let aload = self.ready_index_load(aidx);
-                let bload = self.ready_index_load(bidx);
+                let aload = self.ready_index_load(aidx as usize);
+                let bload = self.ready_index_load(bidx as usize);
                 let chosen = if aload <= bload { aidx } else { bidx };
 
                 trace!(
@@ -203,7 +177,7 @@ where
                     chosen = if chosen == aidx { "a" } else { "b" },
                     "p2c",
                 );
-                Some(chosen)
+                Some(chosen as usize)
             }
         }
     }
@@ -212,10 +186,6 @@ where
     fn ready_index_load(&self, index: usize) -> <D::Service as Load>::Metric {
         let (_, svc) = self.services.get_ready_index(index).expect("invalid index");
         svc.load()
-    }
-
-    pub(crate) fn discover_mut(&mut self) -> &mut D {
-        &mut self.discover
     }
 }
 
@@ -284,52 +254,5 @@ where
         self.services
             .call_ready_index(index, request)
             .map_err(Into::into)
-    }
-}
-
-impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
-    type Output = Result<(K, S), (K, Error<S::Error>)>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        if let Poll::Ready(Ok(())) = this.cancel.poll(cx) {
-            let key = this.key.take().expect("polled after ready");
-            return Poll::Ready(Err((key, Error::Canceled)));
-        }
-
-        let res = ready!(this
-            .service
-            .as_mut()
-            .expect("poll after ready")
-            .poll_ready(cx));
-
-        let key = this.key.take().expect("polled after ready");
-        let svc = this.service.take().expect("polled after ready");
-
-        match res {
-            Ok(()) => Poll::Ready(Ok((key, svc))),
-            Err(e) => Poll::Ready(Err((key, Error::Inner(e)))),
-        }
-    }
-}
-
-impl<K, S, Req> fmt::Debug for UnreadyService<K, S, Req>
-where
-    K: fmt::Debug,
-    S: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let Self {
-            key,
-            cancel,
-            service,
-            _req,
-        } = self;
-        f.debug_struct("UnreadyService")
-            .field("key", key)
-            .field("cancel", cancel)
-            .field("service", service)
-            .finish()
     }
 }

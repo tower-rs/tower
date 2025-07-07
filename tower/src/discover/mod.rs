@@ -12,7 +12,8 @@
 //! # Examples
 //!
 //! ```rust
-//! use futures_util::{future::poll_fn, pin_mut};
+//! use std::future::poll_fn;
+//! use futures_util::pin_mut;
 //! use tower::discover::{Change, Discover};
 //! async fn services_monitor<D: Discover>(services: D) {
 //!     pin_mut!(services);
@@ -97,7 +98,7 @@ where
 }
 
 /// A change in the service set.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Change<K, V> {
     /// A new service identified by key `K` was identified.
     Insert(K, V),

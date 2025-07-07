@@ -1,7 +1,7 @@
 #![cfg(all(feature = "buffer", feature = "limit", feature = "retry"))]
 mod support;
-use futures_util::{future::Ready, pin_mut};
-use std::time::Duration;
+use futures_util::pin_mut;
+use std::{future::Ready, time::Duration};
 use tower::builder::ServiceBuilder;
 use tower::retry::Policy;
 use tower::util::ServiceExt;
@@ -43,13 +43,13 @@ where
     Req: Clone,
     E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
 {
-    type Future = Ready<Self>;
+    type Future = Ready<()>;
 
-    fn retry(&self, _req: &Req, _result: Result<&Res, &E>) -> Option<Self::Future> {
+    fn retry(&mut self, _req: &mut Req, _result: &mut Result<Res, E>) -> Option<Self::Future> {
         None
     }
 
-    fn clone_request(&self, req: &Req) -> Option<Req> {
+    fn clone_request(&mut self, req: &Req) -> Option<Req> {
         Some(req.clone())
     }
 }

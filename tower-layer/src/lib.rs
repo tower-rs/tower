@@ -14,11 +14,17 @@
 //!
 //! A middleware implements the [`Layer`] and [`Service`] trait.
 //!
-//! [`Service`]: https://docs.rs/tower/trait.Service.html
+//! [`Service`]: https://docs.rs/tower/*/tower/trait.Service.html
+
+#![no_std]
+
+#[cfg(test)]
+extern crate alloc;
 
 mod identity;
 mod layer_fn;
 mod stack;
+mod tuple;
 
 pub use self::{
     identity::Identity,
@@ -40,9 +46,9 @@ pub use self::{
 ///
 /// ```rust
 /// # use tower_service::Service;
-/// # use std::task::{Poll, Context};
+/// # use core::task::{Poll, Context};
 /// # use tower_layer::Layer;
-/// # use std::fmt;
+/// # use core::fmt;
 ///
 /// pub struct LogLayer {
 ///     target: &'static str,
@@ -90,7 +96,7 @@ pub use self::{
 /// is also decoupled from client or server concerns. In other words, the same
 /// log middleware could be used in either a client or a server.
 ///
-/// [`Service`]: https://docs.rs/tower/trait.Service.html
+/// [`Service`]: https://docs.rs/tower/*/tower/trait.Service.html
 pub trait Layer<S> {
     /// The wrapped service
     type Service;
@@ -99,7 +105,7 @@ pub trait Layer<S> {
     fn layer(&self, inner: S) -> Self::Service;
 }
 
-impl<'a, T, S> Layer<S> for &'a T
+impl<T, S> Layer<S> for &T
 where
     T: ?Sized + Layer<S>,
 {

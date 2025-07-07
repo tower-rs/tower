@@ -1,21 +1,39 @@
-use futures_core::{ready, Stream};
+use futures_core::Stream;
 use pin_project_lite::pin_project;
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 
 pin_project! {
     /// The [`Future`] returned by the [`ServiceExt::call_all`] combinator.
-    #[derive(Debug)]
-    pub(crate) struct CallAll<Svc, S, Q> {
+    pub(crate) struct CallAll<Svc, S, Q>
+    where
+        S: Stream,
+    {
         service: Option<Svc>,
         #[pin]
         stream: S,
         queue: Q,
         eof: bool,
+        curr_req: Option<S::Item>
+    }
+}
+
+impl<Svc, S, Q> fmt::Debug for CallAll<Svc, S, Q>
+where
+    Svc: fmt::Debug,
+    S: Stream + fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CallAll")
+            .field("service", &self.service)
+            .field("stream", &self.stream)
+            .field("eof", &self.eof)
+            .finish()
     }
 }
 
@@ -30,16 +48,16 @@ pub(crate) trait Drive<F: Future> {
 impl<Svc, S, Q> CallAll<Svc, S, Q>
 where
     Svc: Service<S::Item>,
-    Svc::Error: Into<crate::BoxError>,
     S: Stream,
     Q: Drive<Svc::Future>,
 {
-    pub(crate) fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
+    pub(crate) const fn new(service: Svc, stream: S, queue: Q) -> CallAll<Svc, S, Q> {
         CallAll {
             service: Some(service),
             stream,
             queue,
             eof: false,
+            curr_req: None,
         }
     }
 
@@ -91,29 +109,33 @@ where
                 }
             }
 
+            // If not done, and we don't have a stored request, gather the next request from the
+            // stream (if there is one), or return `Pending` if the stream is not ready.
+            if this.curr_req.is_none() {
+                *this.curr_req = match ready!(this.stream.as_mut().poll_next(cx)) {
+                    Some(next_req) => Some(next_req),
+                    None => {
+                        // Mark that there will be no more requests.
+                        *this.eof = true;
+                        continue;
+                    }
+                };
+            }
+
             // Then, see that the service is ready for another request
             let svc = this
                 .service
                 .as_mut()
-                .expect("Using CallAll after extracing inner Service");
-            ready!(svc.poll_ready(cx))?;
+                .expect("Using CallAll after extracting inner Service");
 
-            // If it is, gather the next request (if there is one)
-            match this.stream.as_mut().poll_next(cx) {
-                Poll::Ready(r) => match r {
-                    Some(req) => {
-                        this.queue.push(svc.call(req));
-                    }
-                    None => {
-                        // We're all done once any outstanding requests have completed
-                        *this.eof = true;
-                    }
-                },
-                Poll::Pending => {
-                    // TODO: We probably want to "release" the slot we reserved in Svc here.
-                    // It may be a while until we get around to actually using it.
-                }
+            if let Err(e) = ready!(svc.poll_ready(cx)) {
+                // Set eof to prevent the service from being called again after a `poll_ready` error
+                *this.eof = true;
+                return Poll::Ready(Some(Err(e)));
             }
+
+            // Unwrap: The check above always sets `this.curr_req` if none.
+            this.queue.push(svc.call(this.curr_req.take().unwrap()));
         }
     }
 }

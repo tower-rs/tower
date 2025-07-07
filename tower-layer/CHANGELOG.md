@@ -1,3 +1,21 @@
+# 0.3.3 (August 1, 2024)
+
+### Added
+
+- **builder,util**: add convenience methods for boxing services ([#616])
+- **all**: new functions const when possible ([#760])
+
+[#616]: https://github.com/tower-rs/tower/pull/616
+[#760]: https://github.com/tower-rs/tower/pull/760
+
+# 0.3.2 (Octpber  10, 2022)
+
+## Added
+
+- Implement `Layer` for tuples of up to 16 elements ([#694])
+
+[#694]: https://github.com/tower-rs/tower/pull/694
+
 # 0.3.1 (January 7, 2021)
 
 ### Added

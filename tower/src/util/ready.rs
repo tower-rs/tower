@@ -1,10 +1,9 @@
 use std::{fmt, marker::PhantomData};
 
-use futures_core::ready;
 use std::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 
@@ -26,7 +25,7 @@ where
     T: Service<Request>,
 {
     #[allow(missing_docs)]
-    pub fn new(service: T) -> Self {
+    pub const fn new(service: T) -> Self {
         Self {
             inner: Some(service),
             _p: PhantomData,
@@ -69,16 +68,8 @@ where
 /// [`ServiceExt::ready`]: crate::util::ServiceExt::ready
 pub struct Ready<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
 
-/// A future that yields a mutable reference to the service when it is ready to accept a request.
-///
-/// [`ReadyAnd`] values are produced by [`ServiceExt::ready_and`].
-///
-/// [`ServiceExt::ready_and`]: crate::util::ServiceExt::ready_and
-#[deprecated(since = "0.4.6", note = "Please use the Ready future instead")]
-pub type ReadyAnd<'a, T, Request> = Ready<'a, T, Request>;
-
 // Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
-impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
+impl<T, Request> Unpin for Ready<'_, T, Request> {}
 
 impl<'a, T, Request> Ready<'a, T, Request>
 where
@@ -101,7 +92,7 @@ where
     }
 }
 
-impl<'a, T, Request> fmt::Debug for Ready<'a, T, Request>
+impl<T, Request> fmt::Debug for Ready<'_, T, Request>
 where
     T: fmt::Debug,
 {

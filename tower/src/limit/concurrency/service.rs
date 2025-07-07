@@ -3,10 +3,9 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 use tower_service::Service;
 
-use futures_core::ready;
 use std::{
     sync::Arc,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 /// Enforces a limit on the concurrent number of requests the underlying
@@ -107,7 +106,6 @@ impl<T: Clone> Clone for ConcurrencyLimit<T> {
 }
 
 #[cfg(feature = "load")]
-#[cfg_attr(docsrs, doc(cfg(feature = "load")))]
 impl<S> crate::load::Load for ConcurrencyLimit<S>
 where
     S: crate::load::Load,

@@ -3,9 +3,9 @@
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
-use futures_core::{ready, Stream};
+use futures_core::Stream;
 #[cfg(feature = "discover")]
-use std::pin::Pin;
+use std::{pin::Pin, task::ready};
 
 use super::Load;
 use pin_project_lite::pin_project;
@@ -27,7 +27,7 @@ pin_project! {
 
 impl<T, M: Copy> Constant<T, M> {
     /// Wraps a `T`-typed service with a constant `M`-typed load metric.
-    pub fn new(inner: T, load: M) -> Self {
+    pub const fn new(inner: T, load: M) -> Self {
         Self { inner, load }
     }
 }
@@ -60,7 +60,6 @@ where
 
 /// Proxies [`Discover`] such that all changes are wrapped with a constant load.
 #[cfg(feature = "discover")]
-#[cfg_attr(docsrs, doc(cfg(feature = "discover")))]
 impl<D: Discover + Unpin, M: Copy> Stream for Constant<D, M> {
     type Item = Result<Change<D::Key, Constant<D::Service, M>>, D::Error>;
 

@@ -25,8 +25,8 @@ and the duration of the timeout:
 ```rust
 use std::time::Duration;
 
-struct Timeout<T> {
-    inner: T,
+struct Timeout<S> {
+    inner: S,
     timeout: Duration,
 }
 ```
@@ -74,7 +74,7 @@ where
     type Future = S::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Our middleware doesn't care about backpressure so its ready as long
+        // Our middleware doesn't care about backpressure, so it's ready as long
         // as the inner service is ready.
         self.inner.poll_ready(cx)
     }
@@ -90,7 +90,7 @@ the process a bit easier.
 
 To actually add a timeout to the inner service what we essentially have to do is
 detect when the future returned by `self.inner.call(request)` has been running
-longer than `self.duration` and abort with an error.
+longer than `self.timeout` and abort with an error.
 
 The approach we're going to take is to call [`tokio::time::sleep`] to get a
 future that completes when we're out of time and then select the value from
@@ -107,7 +107,7 @@ fn call(&mut self, request: Request) -> Self::Future {
 
     // This variable has type `tokio::time::Sleep`.
     //
-    // We don't have to clone `self.duration` as it implements the `Copy` trait.
+    // We don't have to clone `self.timeout` as it implements the `Copy` trait.
     let sleep = tokio::time::sleep(self.timeout);
 
     // what to write here?
@@ -192,9 +192,9 @@ where
 
 Ideally we want to write something like this:
 
-1. First poll `self.response_future` and if its ready return the response or error it
+1. First poll `self.response_future`, and if it's ready, return the response or error it
    resolved to.
-2. Otherwise poll `self.sleep` and if its ready return an error.
+2. Otherwise, poll `self.sleep`, and if it's ready, return an error.
 3. If neither future is ready return `Poll::Pending`.
 
 We might try:
@@ -323,7 +323,7 @@ where
         // long and we have to return an error.
         match this.sleep.poll(cx) {
             Poll::Ready(()) => {
-                // Our time is up, but error do we return?!
+                // Our time is up, but what error do we return?!
                 todo!()
             }
             Poll::Pending => {
@@ -377,7 +377,7 @@ and can use `match` to get at the exact error, the approach has three issues:
 1. In practice its common to nest lots of middleware. That would make the final
    error enum very large. Its not unlikely to look something like
    `BufferError<RateLimitError<TimeoutError<MyError>>>`. Pattern matching on
-   such a type (to for example determine if the error is retry-able) is very
+   such a type (to, for example, determine if the error is retry-able) is very
    tedious.
 2. If we change the order our middleware are applied in we also change the final
    error type meaning we have to update our pattern matches.
@@ -390,7 +390,7 @@ means we can combine multiple errors type into one. That has the following
 advantages:
 
 1. Our error handling is less fragile since changing the order middleware are
-   applied in wont change the final error type.
+   applied in won't change the final error type.
 2. The error type now has a constant size regardless how many middleware we've
    applied.
 3. Extracting the error no longer requires a big `match` but can instead be done
@@ -412,7 +412,7 @@ For our `Timeout` middleware that means we need to create a struct that
 implements `std::error::Error` such that we can convert it into a `Box<dyn
 std::error::Error + Send + Sync>`. We also have to require that the inner
 service's error type implements `Into<Box<dyn std::error::Error + Send +
-Sync>>`. Luckily most errors automatically satisfies that so it wont require
+Sync>>`. Luckily most errors automatically satisfies that so it won't require
 users to write any additional code. We're using `Into` for the trait bound
 rather than `From` as recommend by the [standard
 library](https://doc.rust-lang.org/stable/std/convert/trait.From.html).
@@ -521,7 +521,7 @@ where
 
 ## Conclusion
 
-Thats it! We've now successfully implemented the `Timeout` middleware as it
+That's it! We've now successfully implemented the `Timeout` middleware as it
 exists in Tower today.
 
 Our final implementation is:

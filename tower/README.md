@@ -44,7 +44,7 @@ middleware with [`Service`]s. If a [`Service`] can be thought of as an
 asynchronous function from a request type to a response type, a [`Layer`] is
 a function taking a [`Service`] of one type and returning a [`Service`] of a
 different type. The [`ServiceBuilder`] type is used to add middleware to a
-service by composing it with multiple multiple [`Layer`]s.
+service by composing it with multiple [`Layer`]s.
 
 ### The Tower Ecosystem
 
@@ -74,7 +74,7 @@ application code, libraries providing middleware implementations, and
 libraries that implement servers and/or clients for various network
 protocols.
 
-Depending on your particular use case, you might use Tower in several ways: 
+Depending on your particular use case, you might use Tower in several ways:
 
 * **Implementing application logic** for a networked program. You might
   use the [`Service`] trait to model your application's behavior, and use
@@ -95,7 +95,7 @@ Depending on your particular use case, you might use Tower in several ways:
 
   Additionally, when a network protocol requires functionality already
   provided by existing Tower middleware, a protocol implementation might use
-  Tower middleware internally, as well as as an integration point.
+  Tower middleware internally, as well as an integration point.
 
 ### Library Support
 
@@ -106,9 +106,8 @@ The following is an incomplete list of such libraries:
 * [`tonic`]: A [gRPC-over-HTTP/2][grpc] implementation built on top of
   [`hyper`]. See [here][tonic-examples] for examples of using [`tonic`] with
   Tower.
-* [`warp`]: A lightweight, composable web framework. See
-  [here][warp-service] for details on using [`warp`] with Tower.
-* [`tower-lsp`] and its fork, [`lspower`]: implementations of the [Language
+* [`axum`]: Ergonomic and modular web framework built with Tokio, Tower, and Hyper.
+* [`tower-lsp`]: implementations of the [Language
   Server Protocol][lsp] based on Tower.
 * [`kube`]: Kubernetes client and futures controller runtime. [`kube::Client`]
   makes use of the Tower ecosystem: [`tower`], [`tower-http`], and
@@ -119,10 +118,8 @@ The following is an incomplete list of such libraries:
 [`tonic`]: https://crates.io/crates/tonic
 [tonic-examples]: https://github.com/hyperium/tonic/tree/master/examples/src/tower
 [grpc]: https://grpc.io
-[`warp`]: https://crates.io/crates/warp
-[warp-service]: https://docs.rs/warp/0.2.5/warp/fn.service.html
+[`axum`]: https://crates.io/crates/axum
 [`tower-lsp`]: https://crates.io/crates/tower-lsp
-[`lspower`]: https://crates.io/crates/lspower
 [lsp]: https://microsoft.github.io/language-server-protocol/
 [`kube`]: https://crates.io/crates/kube
 [`kube::Client`]: https://docs.rs/kube/latest/kube/struct.Client.html
@@ -144,14 +141,14 @@ To get started using all of Tower's optional middleware, add this to your
 `Cargo.toml`:
 
 ```toml
-tower = { version = "0.4", features = ["full"] }
+tower = { version = "0.5.1", features = ["full"] }
 ```
 
 Alternatively, you can only enable some features. For example, to enable
 only the [`retry`] and [`timeout`][timeouts] middleware, write:
 
 ```toml
-tower = { version = "0.4", features = ["retry", "timeout"] }
+tower = { version = "0.5.1", features = ["retry", "timeout"] }
 ```
 
 See [here][all_layers] for a complete list of all middleware provided by
@@ -177,7 +174,7 @@ Tower.
 
 Tower will keep a rolling MSRV (minimum supported Rust version) policy of **at
 least** 6 months. When increasing the MSRV, the new Rust version must have been
-released at least six months ago. The current MSRV is 1.49.0.
+released at least six months ago. The current MSRV is 1.64.0.
 
 ## License
 

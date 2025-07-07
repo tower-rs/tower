@@ -3,11 +3,11 @@
 #[cfg(feature = "discover")]
 use crate::discover::{Change, Discover};
 #[cfg(feature = "discover")]
-use futures_core::{ready, Stream};
+use futures_core::Stream;
 #[cfg(feature = "discover")]
 use pin_project_lite::pin_project;
 #[cfg(feature = "discover")]
-use std::pin::Pin;
+use std::{pin::Pin, task::ready};
 
 use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
 use super::Load;
@@ -45,6 +45,7 @@ pub struct Count(usize);
 
 /// Tracks an in-flight request by reference count.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Handle(RefCount);
 
 // ===== impl PendingRequests =====
@@ -100,7 +101,7 @@ where
 #[cfg(feature = "discover")]
 impl<D, C> PendingRequestsDiscover<D, C> {
     /// Wraps a [`Discover`], wrapping all of its services with [`PendingRequests`].
-    pub fn new<Request>(discover: D, completion: C) -> Self
+    pub const fn new<Request>(discover: D, completion: C) -> Self
     where
         D: Discover,
         D::Service: Service<Request>,
@@ -147,8 +148,10 @@ impl RefCount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures_util::future;
-    use std::task::{Context, Poll};
+    use std::{
+        future,
+        task::{Context, Poll},
+    };
 
     struct Svc;
     impl Service<()> for Svc {
@@ -161,7 +164,7 @@ mod tests {
         }
 
         fn call(&mut self, (): ()) -> Self::Future {
-            future::ok(())
+            future::ready(Ok(()))
         }
     }
 

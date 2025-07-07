@@ -38,7 +38,7 @@ pub struct ThenLayer<F> {
 
 impl<S, F> Then<S, F> {
     /// Creates a new `Then` service.
-    pub fn new(inner: S, f: F) -> Self {
+    pub const fn new(inner: S, f: F) -> Self {
         Then { f, inner }
     }
 
@@ -83,7 +83,7 @@ where
 
 impl<F> ThenLayer<F> {
     /// Creates a new [`ThenLayer`] layer.
-    pub fn new(f: F) -> Self {
+    pub const fn new(f: F) -> Self {
         ThenLayer { f }
     }
 }

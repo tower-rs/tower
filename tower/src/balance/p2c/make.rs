@@ -1,6 +1,5 @@
 use super::Balance;
 use crate::discover::Discover;
-use futures_core::ready;
 use pin_project_lite::pin_project;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -8,7 +7,7 @@ use std::{
     fmt,
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tower_service::Service;
 
@@ -42,7 +41,7 @@ pin_project! {
 
 impl<S, Req> MakeBalance<S, Req> {
     /// Build balancers using operating system entropy.
-    pub fn new(make_discover: S) -> Self {
+    pub const fn new(make_discover: S) -> Self {
         Self {
             inner: make_discover,
             _marker: PhantomData,
