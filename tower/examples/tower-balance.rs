@@ -15,6 +15,7 @@ use tower::balance as lb;
 use tower::discover::{Change, Discover};
 use tower::limit::concurrency::ConcurrencyLimit;
 use tower::load;
+use tower::load::weight::{HasWeight, Weight};
 use tower::util::ServiceExt;
 use tower_service::Service;
 
@@ -34,6 +35,7 @@ static MAX_ENDPOINT_LATENCIES: [Duration; 10] = [
     Duration::from_millis(500),
     Duration::from_millis(1000),
 ];
+static ENDPOINT_WEIGHTS: [f64; 10] = [1.0, 1.0, 0.0, 0.01, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 
 struct Summary {
     latencies: Histogram<u64>,
@@ -54,6 +56,11 @@ async fn main() {
         print!("{l}ms, ");
     }
     println!("]");
+    print!("ENDPOINT_WEIGHTS=[");
+    for weight in &ENDPOINT_WEIGHTS {
+        print!("{}, ", weight);
+    }
+    println!("]");
 
     let decay = Duration::from_secs(10);
     let d = gen_disco();
@@ -66,16 +73,41 @@ async fn main() {
     run("P2C+PeakEWMA...", pe).await;
 
     let d = gen_disco();
+    let pe = lb::p2c::Balance::new(load::WeightedDiscover::new(load::PeakEwmaDiscover::new(
+        d,
+        DEFAULT_RTT,
+        decay,
+        load::CompleteOnResponse::default(),
+    )));
+    run("P2C+PeakEWMA+Weighted...", pe).await;
+
+    let d = gen_disco();
     let ll = lb::p2c::Balance::new(load::PendingRequestsDiscover::new(
         d,
         load::CompleteOnResponse::default(),
     ));
     run("P2C+LeastLoaded...", ll).await;
+
+    let d = gen_disco();
+    let ll = lb::p2c::Balance::new(load::WeightedDiscover::new(
+        load::PendingRequestsDiscover::new(d, load::CompleteOnResponse::default()),
+    ));
+    run("P2C+LeastLoaded+Weighted...", ll).await;
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
-type Key = usize;
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct Key {
+    instance: usize,
+    weight: Weight,
+}
+
+impl HasWeight for Key {
+    fn weight(&self) -> Weight {
+        self.weight
+    }
+}
 
 pin_project! {
     struct Disco<S> {
@@ -116,8 +148,9 @@ fn gen_disco() -> impl Discover<
     Disco::new(
         MAX_ENDPOINT_LATENCIES
             .iter()
+            .zip(&ENDPOINT_WEIGHTS)
             .enumerate()
-            .map(|(instance, latency)| {
+            .map(|(instance, (latency, weight))| {
                 let svc = tower::service_fn(move |_| {
                     let start = Instant::now();
 
@@ -132,7 +165,12 @@ fn gen_disco() -> impl Discover<
                     }
                 });
 
-                (instance, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
+                let key = Key {
+                    instance,
+                    weight: Weight::from(*weight),
+                };
+
+                (key, ConcurrencyLimit::new(svc, ENDPOINT_CAPACITY))
             })
             .collect(),
     )
