@@ -1,8 +1,10 @@
 use super::Rate;
 use std::{
     future::Future,
+    ops::DerefMut,
     pin::Pin,
-    task::{ready, Context, Poll},
+    sync::{Arc, Mutex},
+    task::{Context, Poll, ready},
 };
 use tokio::time::{Instant, Sleep};
 use tower_service::Service;
@@ -10,7 +12,7 @@ use tower_service::Service;
 /// Enforces a rate limit on the number of requests the underlying
 /// service can handle over a period of time.
 #[derive(Debug)]
-pub struct RateLimit<T> {
+struct RateLimitInner<T> {
     inner: T,
     rate: Rate,
     state: State,
@@ -24,7 +26,7 @@ enum State {
     Ready { until: Instant, rem: u64 },
 }
 
-impl<T> RateLimit<T> {
+impl<T> RateLimitInner<T> {
     /// Create a new rate limiter
     pub fn new(inner: T, rate: Rate) -> Self {
         let until = Instant::now();
@@ -33,7 +35,7 @@ impl<T> RateLimit<T> {
             rem: rate.num(),
         };
 
-        RateLimit {
+        RateLimitInner {
             inner,
             rate,
             state,
@@ -60,7 +62,7 @@ impl<T> RateLimit<T> {
     }
 }
 
-impl<S, Request> Service<Request> for RateLimit<S>
+impl<S, Request> Service<Request> for RateLimitInner<S>
 where
     S: Service<Request>,
 {
@@ -118,12 +120,43 @@ where
 }
 
 #[cfg(feature = "load")]
-impl<S> crate::load::Load for RateLimit<S>
+impl<S> crate::load::Load for RateLimitInner<S>
 where
     S: crate::load::Load,
 {
     type Metric = S::Metric;
     fn load(&self) -> Self::Metric {
         self.inner.load()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RateLimit<T> {
+    inner: Arc<Mutex<RateLimitInner<T>>>,
+}
+
+impl<T> RateLimit<T> {
+    /// Create a new rate limiter
+    pub fn new(inner: T, rate: Rate) -> Self {
+        RateLimit {
+            inner: Arc::new(Mutex::new(RateLimitInner::<T>::new(inner, rate))),
+        }
+    }
+}
+
+impl<S, Request> Service<Request> for RateLimit<S>
+where
+    S: Service<Request>,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.lock().unwrap().deref_mut().poll_ready(cx)
+    }
+
+    fn call(&mut self, request: Request) -> Self::Future {
+        self.inner.lock().unwrap().deref_mut().call(request)
     }
 }
