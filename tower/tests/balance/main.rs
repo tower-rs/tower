@@ -4,6 +4,7 @@ mod support;
 
 use std::future::Future;
 use std::task::{Context, Poll};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_test::{assert_pending, assert_ready, task};
 use tower::balance::p2c::Balance;
 use tower::discover::Change;
@@ -28,7 +29,7 @@ impl Service<Req> for Mock {
 impl tower::load::Load for Mock {
     type Metric = usize;
     fn load(&self) -> Self::Metric {
-        rand::random()
+        rand::random_range(usize::MIN..=usize::MAX)
     }
 }
 
@@ -37,15 +38,15 @@ fn stress() {
     let _t = support::trace_init();
     let mut task = task::spawn(());
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<_, &'static str>>();
-    let mut cache = Balance::<_, Req>::new(support::IntoStream::new(rx));
+    let mut cache = Balance::<_, Req>::new(UnboundedReceiverStream::new(rx));
 
     let mut nready = 0;
     let mut services = slab::Slab::<(mock::Handle<Req, Req>, bool)>::new();
     let mut retired = Vec::<mock::Handle<Req, Req>>::new();
     for _ in 0..100_000 {
-        for _ in 0..(rand::random::<u8>() % 8) {
+        for _ in 0..rand::random_range(0u8..8) {
             if !services.is_empty() && rand::random() {
-                if nready == 0 || rand::random::<u8>() > u8::max_value() / 4 {
+                if nready == 0 || rand::random::<u8>() > u8::MAX / 4 {
                     // ready a service
                     // TODO: sometimes ready a removed service?
                     for (_, (handle, ready)) in &mut services {
@@ -114,7 +115,7 @@ fn stress() {
                 } else {
                     // remove
                     while !services.is_empty() {
-                        let k = rand::random::<usize>() % (services.iter().last().unwrap().0 + 1);
+                        let k = rand::random_range(0..=services.iter().next_back().unwrap().0);
                         if services.contains(k) {
                             let (handle, ready) = services.remove(k);
                             if ready {
@@ -129,7 +130,7 @@ fn stress() {
             } else {
                 // fail a service
                 while !services.is_empty() {
-                    let k = rand::random::<usize>() % (services.iter().last().unwrap().0 + 1);
+                    let k = rand::random_range(0..=services.iter().next_back().unwrap().0);
                     if services.contains(k) {
                         let (mut handle, ready) = services.remove(k);
                         if ready {

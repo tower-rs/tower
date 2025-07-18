@@ -4,7 +4,6 @@ use futures_core::{Stream, TryStream};
 use futures_util::{stream, stream::StreamExt, stream::TryStreamExt};
 use hdrhistogram::Histogram;
 use pin_project_lite::pin_project;
-use rand::{self, Rng};
 use std::hash::Hash;
 use std::time::Duration;
 use std::{
@@ -46,13 +45,13 @@ struct Summary {
 async fn main() {
     tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::default()).unwrap();
 
-    println!("REQUESTS={}", REQUESTS);
-    println!("CONCURRENCY={}", CONCURRENCY);
-    println!("ENDPOINT_CAPACITY={}", ENDPOINT_CAPACITY);
+    println!("REQUESTS={REQUESTS}");
+    println!("CONCURRENCY={CONCURRENCY}");
+    println!("ENDPOINT_CAPACITY={ENDPOINT_CAPACITY}");
     print!("MAX_ENDPOINT_LATENCIES=[");
     for max in &MAX_ENDPOINT_LATENCIES {
         let l = max.as_secs() * 1_000 + u64::from(max.subsec_millis());
-        print!("{}ms, ", l);
+        print!("{l}ms, ");
     }
     println!("]");
 
@@ -124,7 +123,7 @@ fn gen_disco() -> impl Discover<
 
                     let maxms = u64::from(latency.subsec_millis())
                         .saturating_add(latency.as_secs().saturating_mul(1_000));
-                    let latency = Duration::from_millis(rand::thread_rng().gen_range(0..maxms));
+                    let latency = Duration::from_millis(rand::random_range(0..maxms));
 
                     async move {
                         time::sleep_until(start + latency).await;
@@ -149,7 +148,7 @@ where
     <D::Service as Service<Req>>::Future: Send,
     <D::Service as load::Load>::Metric: std::fmt::Debug,
 {
-    println!("{}", name);
+    println!("{name}");
 
     let requests = stream::repeat(Req).take(REQUESTS);
     let service = ConcurrencyLimit::new(lb, CONCURRENCY);
@@ -193,7 +192,7 @@ impl Summary {
         }
         for (i, c) in self.count_by_instance.iter().enumerate() {
             let p = *c as f64 / total as f64 * 100.0;
-            println!("  [{:02}] {:>5.01}%", i, p);
+            println!("  [{i:02}] {p:>5.01}%");
         }
 
         println!("  wall {:4}s", self.start.elapsed().as_secs());

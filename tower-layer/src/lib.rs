@@ -16,6 +16,11 @@
 //!
 //! [`Service`]: https://docs.rs/tower/*/tower/trait.Service.html
 
+#![no_std]
+
+#[cfg(test)]
+extern crate alloc;
+
 mod identity;
 mod layer_fn;
 mod stack;
@@ -41,9 +46,9 @@ pub use self::{
 ///
 /// ```rust
 /// # use tower_service::Service;
-/// # use std::task::{Poll, Context};
+/// # use core::task::{Poll, Context};
 /// # use tower_layer::Layer;
-/// # use std::fmt;
+/// # use core::fmt;
 ///
 /// pub struct LogLayer {
 ///     target: &'static str,
@@ -100,7 +105,7 @@ pub trait Layer<S> {
     fn layer(&self, inner: S) -> Self::Service;
 }
 
-impl<'a, T, S> Layer<S> for &'a T
+impl<T, S> Layer<S> for &T
 where
     T: ?Sized + Layer<S>,
 {

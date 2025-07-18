@@ -69,7 +69,7 @@ where
 pub struct Ready<'a, T, Request>(ReadyOneshot<&'a mut T, Request>);
 
 // Safety: This is safe for the same reason that the impl for ReadyOneshot is safe.
-impl<'a, T, Request> Unpin for Ready<'a, T, Request> {}
+impl<T, Request> Unpin for Ready<'_, T, Request> {}
 
 impl<'a, T, Request> Ready<'a, T, Request>
 where
@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<'a, T, Request> fmt::Debug for Ready<'a, T, Request>
+impl<T, Request> fmt::Debug for Ready<'_, T, Request>
 where
     T: fmt::Debug,
 {

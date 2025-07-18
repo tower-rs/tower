@@ -118,7 +118,7 @@ pub trait MakeService<Target, Request>: Sealed<(Target, Request)> {
     /// # };
     /// # }
     /// ```
-    fn as_service(&mut self) -> AsService<Self, Request>
+    fn as_service(&mut self) -> AsService<'_, Self, Request>
     where
         Self: Sized,
     {

@@ -2,10 +2,7 @@
 
 use std::fmt;
 use std::future;
-use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::sync::mpsc;
-use tokio_stream::Stream;
 use tower::Service;
 
 pub(crate) fn trace_init() -> tracing::subscriber::DefaultGuard {
@@ -15,36 +12,6 @@ pub(crate) fn trace_init() -> tracing::subscriber::DefaultGuard {
         .with_thread_names(true)
         .finish();
     tracing::subscriber::set_default(subscriber)
-}
-
-pin_project_lite::pin_project! {
-    #[derive(Clone, Debug)]
-    pub struct IntoStream<S> {
-        #[pin]
-        inner: S
-    }
-}
-
-impl<S> IntoStream<S> {
-    pub fn new(inner: S) -> Self {
-        Self { inner }
-    }
-}
-
-impl<I> Stream for IntoStream<mpsc::Receiver<I>> {
-    type Item = I;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().inner.poll_recv(cx)
-    }
-}
-
-impl<I> Stream for IntoStream<mpsc::UnboundedReceiver<I>> {
-    type Item = I;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().inner.poll_recv(cx)
-    }
 }
 
 #[derive(Clone, Debug)]
