@@ -7,21 +7,35 @@ use core::fmt;
 /// service without modifying it.
 ///
 /// [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
+///
+/// # Examples
+///
+/// ```rust
+/// use tower_layer::Identity;
+/// use tower_layer::Layer;
+///
+/// let identity = Identity::new();
+///
+/// assert_eq!(identity.layer(42), 42);
+/// ```
 #[derive(Default, Clone)]
 pub struct Identity {
     _p: (),
 }
 
 impl Identity {
-    /// Create a new [`Identity`] value
+    /// Creates a new [`Identity`].
+    ///
+    /// ```rust
+    /// use tower_layer::Identity;
+    ///
+    /// let identity = Identity::new();
+    /// ```
     pub const fn new() -> Identity {
         Identity { _p: () }
     }
 }
 
-/// Decorates a [`Service`], transforming either the request or the response.
-///
-/// [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
 impl<S> Layer<S> for Identity {
     type Service = S;
 
