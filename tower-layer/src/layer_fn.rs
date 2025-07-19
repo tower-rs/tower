@@ -4,13 +4,17 @@ use core::fmt;
 /// Returns a new [`LayerFn`] that implements [`Layer`] by calling the
 /// given function.
 ///
-/// The [`Layer::layer`] method takes a type implementing [`Service`] and
+/// The [`Layer::layer()`] method takes a type implementing [`Service`] and
 /// returns a different type implementing [`Service`]. In many cases, this can
 /// be implemented by a function or a closure. The [`LayerFn`] helper allows
 /// writing simple [`Layer`] implementations without needing the boilerplate of
 /// a new struct implementing [`Layer`].
 ///
-/// # Example
+/// [`Service`]: tower_service::Service
+/// [`Layer::layer()`]: crate::Layer::layer
+///
+/// # Examples
+///
 /// ```rust
 /// # use tower::Service;
 /// # use core::task::{Poll, Context};
@@ -61,9 +65,6 @@ use core::fmt;
 /// // Wrap our service in a `LogService` so requests are logged.
 /// let wrapped_service = log_layer.layer(uppercase_service);
 /// ```
-///
-/// [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
-/// [`Layer::layer`]: crate::Layer::layer
 pub fn layer_fn<T>(f: T) -> LayerFn<T> {
     LayerFn { f }
 }
