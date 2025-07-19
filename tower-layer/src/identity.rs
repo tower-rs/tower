@@ -6,7 +6,7 @@ use core::fmt;
 /// When wrapping a [`Service`], the [`Identity`] layer returns the provided
 /// service without modifying it.
 ///
-/// [`Service`]: tower_service::Service
+/// [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
 ///
 /// # Examples
 ///
@@ -27,11 +27,9 @@ impl Identity {
     /// Creates a new [`Identity`].
     ///
     /// ```rust
-    /// # tokio_test::block_on(async {
     /// use tower_layer::Identity;
     ///
     /// let identity = Identity::new();
-    /// # })
     /// ```
     pub const fn new() -> Identity {
         Identity { _p: () }

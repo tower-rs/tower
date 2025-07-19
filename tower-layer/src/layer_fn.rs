@@ -10,7 +10,7 @@ use core::fmt;
 /// writing simple [`Layer`] implementations without needing the boilerplate of
 /// a new struct implementing [`Layer`].
 ///
-/// [`Service`]: tower_service::Service
+/// [`Service`]: https://docs.rs/tower-service/latest/tower_service/trait.Service.html
 /// [`Layer::layer()`]: crate::Layer::layer
 ///
 /// # Examples
