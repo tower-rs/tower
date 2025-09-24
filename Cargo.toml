@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.dependencies]
-futures = "0.3.22"
+futures = { version = "0.3.22", default-features = false }
 futures-core = "0.3.22"
 futures-util = { version = "0.3.22", default-features = false }
 hdrhistogram = { version = "7.0", default-features = false }

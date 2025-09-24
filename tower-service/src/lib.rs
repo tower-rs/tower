@@ -123,7 +123,6 @@ use core::task::{Context, Poll};
 /// ```rust
 /// use tower_service::Service;
 /// use tower_layer::Layer;
-/// use futures::FutureExt;
 /// use std::future::Future;
 /// use std::task::{Context, Poll};
 /// use std::time::Duration;
@@ -332,7 +331,7 @@ pub trait Service<Request> {
     /// If the service is at capacity, then `Poll::Pending` is returned and the task
     /// is notified when the service becomes ready again. This function is
     /// expected to be called while on a task. Generally, this can be done with
-    /// a simple `futures::future::poll_fn` call.
+    /// a simple [`core::future::poll_fn`] call.
     ///
     /// If `Poll::Ready(Err(_))` is returned, the service is no longer able to service requests
     /// and the caller should discard the service instance.
