@@ -14,7 +14,7 @@ jobs:
     # Run `cargo check` first to ensure that the pushed code at least compiles.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Check
         run: cargo check --workspace --all-features --all-targets
@@ -22,7 +22,7 @@ jobs:
   check-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo doc
         working-directory: ${{ matrix.subcrate }}
@@ -33,7 +33,7 @@ jobs:
   check-msrv:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: "install Rust ${{ env.MSRV }}"
         uses: dtolnay/rust-toolchain@master
         with:
@@ -52,7 +52,7 @@ jobs:
   cargo-hack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: install cargo-hack
         uses: taiki-e/install-action@cargo-hack
@@ -72,7 +72,7 @@ jobs:
       matrix:
         rust: [stable, beta, nightly]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: "install Rust ${{ matrix.rust }}"
         uses: dtolnay/rust-toolchain@master
         with:
@@ -84,7 +84,7 @@ jobs:
     needs: check-msrv
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: "install Rust ${{ env.MSRV }}"
         uses: dtolnay/rust-toolchain@master
         with:
@@ -104,7 +104,7 @@ jobs:
     needs: check-stable
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -115,7 +115,7 @@ jobs:
     name: cargo-deny check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: EmbarkStudios/cargo-deny-action@v1
         with:
           command: check
