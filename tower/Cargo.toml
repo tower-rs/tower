@@ -74,7 +74,8 @@ pin-project-lite = { workspace = true, optional = true }
 sync_wrapper = { workspace = true, optional = true }
 
 [dev-dependencies]
-futures = { workspace = true }
+futures = { workspace = true, features = ["std"] }
+futures-util = { workspace = true, features = ["async-await-macro"] }
 hdrhistogram = { workspace = true }
 tokio = { workspace = true, features = ["macros", "sync", "test-util", "rt-multi-thread"] }
 tokio-stream = { workspace = true }
