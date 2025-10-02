@@ -329,7 +329,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// may be used to implement error recovery, by turning some [`Err`]
     /// responses from the service into [`Ok`] responses. Similarly, some
     /// successful responses from the service could be rejected, by returning an
-    /// [`Err`] conditionally, depending on the value inside the [`Ok`.] Finally,
+    /// [`Err`] conditionally, depending on the value inside the [`Ok`]. Finally,
     /// this method can also be used to implement behaviors that must run when a
     /// service's future completes, regardless of whether it succeeded or failed.
     ///
