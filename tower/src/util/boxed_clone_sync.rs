@@ -14,7 +14,6 @@ use tower_service::Service;
 ///
 /// This is similar to [`BoxCloneService`](super::BoxCloneService) except the resulting
 /// service implements [`Sync`].
-/// ```
 pub struct BoxCloneSyncService<T, U, E>(
     Box<
         dyn CloneService<T, Response = U, Error = E, Future = BoxFuture<'static, Result<U, E>>>
