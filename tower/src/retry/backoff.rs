@@ -82,7 +82,7 @@ where
     /// - `max` == 0
     /// - `jitter` < `0.0`
     /// - `jitter` > `100.0`
-    /// - `jitter` is not finite
+    /// - `jitter` is NaN
     pub fn new(
         min: time::Duration,
         max: time::Duration,
@@ -101,8 +101,8 @@ where
         if jitter > 100.0 {
             return Err(InvalidBackoff("jitter must not be greater than 100"));
         }
-        if !jitter.is_finite() {
-            return Err(InvalidBackoff("jitter must be finite"));
+        if jitter.is_nan() {
+            return Err(InvalidBackoff("jitter must not be NaN"));
         }
 
         Ok(ExponentialBackoffMaker {
@@ -258,6 +258,22 @@ mod tests {
             } else {
                 TestResult::from_bool(j > time::Duration::default())
             }
+        }
+    }
+
+    #[test]
+    fn jitter_must_be_finite() {
+        let min = time::Duration::from_millis(0);
+        let max = time::Duration::from_millis(1);
+        let rng = HasherRng::default();
+
+        for n in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            let result = ExponentialBackoffMaker::new(min, max, n, rng.clone());
+            assert!(
+                matches!(result, Err(InvalidBackoff(_))),
+                "{} should be an invalid jitter",
+                n
+            );
         }
     }
 }
