@@ -2,7 +2,7 @@ use super::Rate;
 use std::{
     future::Future,
     pin::Pin,
-    task::{ready, Context, Poll},
+    task::{Context, Poll},
 };
 use tokio::time::{Instant, Sleep};
 use tower_service::Service;
@@ -70,7 +70,7 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match self.state {
-            State::Ready { .. } => return Poll::Ready(ready!(self.inner.poll_ready(cx))),
+            State::Ready { .. } => return self.inner.poll_ready(cx),
             State::Limited => {
                 if Pin::new(&mut self.sleep).poll(cx).is_pending() {
                     tracing::trace!("rate limit exceeded; sleeping.");
@@ -84,7 +84,7 @@ where
             rem: self.rate.num(),
         };
 
-        Poll::Ready(ready!(self.inner.poll_ready(cx)))
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
