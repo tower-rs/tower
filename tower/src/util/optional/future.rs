@@ -3,7 +3,7 @@ use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
-    task::{ready, Context, Poll},
+    task::{Context, Poll},
 };
 
 pin_project! {
@@ -32,7 +32,7 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().inner.as_pin_mut() {
-            Some(inner) => Poll::Ready(Ok(ready!(inner.poll(cx)).map_err(Into::into)?)),
+            Some(inner) => inner.poll(cx).map_err(Into::into),
             None => Poll::Ready(Err(error::None::new().into())),
         }
     }

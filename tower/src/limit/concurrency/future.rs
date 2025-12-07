@@ -5,7 +5,7 @@ use pin_project_lite::pin_project;
 use std::{
     future::Future,
     pin::Pin,
-    task::{ready, Context, Poll},
+    task::{Context, Poll},
 };
 use tokio::sync::OwnedSemaphorePermit;
 
@@ -35,6 +35,6 @@ where
     type Output = Result<T, E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(ready!(self.project().inner.poll(cx)))
+        self.project().inner.poll(cx)
     }
 }
