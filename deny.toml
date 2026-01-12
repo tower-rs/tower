@@ -1,14 +1,12 @@
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
-notice = "warn"
 
 [licenses]
-unlicensed = "deny"
-allow = []
-deny = []
-copyleft = "warn"
-allow-osi-fsf-free = "either"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+]
 confidence-threshold = 0.8
 
 [bans]
