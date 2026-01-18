@@ -48,6 +48,9 @@ use std::future::Future;
 
 use crate::layer::util::Identity;
 
+#[cfg(feature = "buffer")]
+use crate::buffer::Buffer;
+
 pub mod error {
     //! Error types
 
@@ -942,6 +945,20 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Fut: Future<Output = Result<Response, Error>>,
     {
         MapFuture::new(self, f)
+    }
+
+    /// Returns a buffered version of this service.
+    ///
+    /// See [`Buffer::new()`] for the details.
+    #[cfg(feature = "buffer")]
+    fn buffered(self, bound: usize) -> Buffer<Request, Self::Future>
+    where
+        Self: Send + Sized + 'static,
+        Self::Future: Send,
+        Self::Error: Into<crate::BoxError> + Send + Sync,
+        Request: Send + Sized + 'static,
+    {
+        Buffer::new(self, bound)
     }
 
     /// Convert the service into a [`Service`] + [`Send`] trait object.
