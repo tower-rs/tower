@@ -51,6 +51,9 @@ use crate::layer::util::Identity;
 #[cfg(feature = "buffer")]
 use crate::buffer::Buffer;
 
+#[cfg(feature = "retry")]
+use crate::retry::Retry;
+
 pub mod error {
     //! Error types
 
@@ -959,6 +962,17 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Request: Send + Sized + 'static,
     {
         Buffer::new(self, bound)
+    }
+
+    /// Returns a retry version of this service.
+    ///
+    /// See [`Retry::new()`] for the details.
+    #[cfg(feature = "retry")]
+    fn retry<P>(self, policy: P) -> Retry<P, Self>
+    where
+        Self: Sized,
+    {
+        Retry::new(policy, self)
     }
 
     /// Convert the service into a [`Service`] + [`Send`] trait object.
