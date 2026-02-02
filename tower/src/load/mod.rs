@@ -6,6 +6,7 @@
 //! - [`Constant`] — Always returns the same constant load value for a service.
 //! - [`PendingRequests`] — Measures load by tracking the number of in-flight requests.
 //! - [`PeakEwma`] — Measures load using a moving average of the peak latency for the service.
+//! - [`Weight`] - Adds a weighting to an inner Load.
 //!
 //! In general, you will want to use one of these when using the types in [`tower::balance`] which
 //! balance services depending on their load. Which load metric to use depends on your exact
@@ -63,16 +64,21 @@ pub mod completion;
 mod constant;
 pub mod peak_ewma;
 pub mod pending_requests;
+pub mod weight;
 
 pub use self::{
     completion::{CompleteOnResponse, TrackCompletion},
     constant::Constant,
     peak_ewma::PeakEwma,
     pending_requests::PendingRequests,
+    weight::Weight,
 };
 
 #[cfg(feature = "discover")]
-pub use self::{peak_ewma::PeakEwmaDiscover, pending_requests::PendingRequestsDiscover};
+pub use self::{
+    peak_ewma::PeakEwmaDiscover, pending_requests::PendingRequestsDiscover,
+    weight::WeightedDiscover,
+};
 
 /// Types that implement this trait can give an estimate of how loaded they are.
 ///

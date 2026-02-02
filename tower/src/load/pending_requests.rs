@@ -6,10 +6,12 @@ use crate::discover::{Change, Discover};
 use futures_core::Stream;
 #[cfg(feature = "discover")]
 use pin_project_lite::pin_project;
+use std::ops;
 #[cfg(feature = "discover")]
 use std::{pin::Pin, task::ready};
 
 use super::completion::{CompleteOnResponse, TrackCompletion, TrackCompletionFuture};
+use super::weight::Weight;
 use super::Load;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -42,6 +44,14 @@ pin_project! {
 /// Represents the number of currently-pending requests to a given service.
 #[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Ord, Eq)]
 pub struct Count(usize);
+
+impl ops::Div<Weight> for Count {
+    type Output = f64;
+
+    fn div(self, weight: Weight) -> f64 {
+        self.0 / weight
+    }
+}
 
 /// Tracks an in-flight request by reference count.
 #[derive(Debug)]
