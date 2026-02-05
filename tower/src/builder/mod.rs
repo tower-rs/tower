@@ -845,7 +845,7 @@ impl<L> ServiceBuilder<L> {
     where
         L: Layer<S> + Send + Sync + 'static,
         L::Service: Service<R> + Clone + Send + Sync + 'static,
-        <L::Service as Service<R>>::Future: Send + Sync + 'static,
+        <L::Service as Service<R>>::Future: Send + 'static,
     {
         let layer = self.into_inner();
 
