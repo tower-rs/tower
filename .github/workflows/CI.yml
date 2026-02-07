@@ -25,7 +25,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo doc
-        working-directory: ${{ matrix.subcrate }}
         env:
           RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
         run: cargo doc --all-features --no-deps
@@ -57,7 +56,6 @@ jobs:
       - name: install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - name: cargo hack check
-        working-directory: ${{ matrix.subcrate }}
         run: cargo hack check --each-feature --no-dev-deps --workspace
 
   test-versions:
