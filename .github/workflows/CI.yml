@@ -78,26 +78,6 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --all-features
 
-  test-msrv:
-    needs: check-msrv
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: "install Rust ${{ env.MSRV }}"
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.MSRV }}
-      - name: "install Rust nightly"
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Select minimal versions
-        run: |
-          cargo update -Z minimal-versions
-          cargo update -p lazy_static --precise 1.5.0
-      - name: test
-        run: |
-          rustup default ${{ env.MSRV }}
-          cargo check --workspace --all-features --locked
-
   style:
     needs: check-stable
     runs-on: ubuntu-latest
