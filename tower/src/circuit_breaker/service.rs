@@ -1,10 +1,9 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{Context, Poll},
     time::{Duration, Instant},
 };
 
-use tokio::sync::RwLock;
 use tower_service::Service;
 
 use super::future::ResponseFuture;
@@ -53,6 +52,7 @@ pub(crate) struct State {
     pub(crate) consecutive_failures: usize,
     pub(crate) last_failure: Option<Instant>,
     pub(crate) last_transition: Instant,
+    /// Sliding window: `true` = success, `false` = failure (max 100 entries).
     pub(crate) window: Vec<bool>,
 }
 
@@ -86,9 +86,13 @@ impl State {
 ///
 /// See the [module documentation](super) for a full example.
 #[derive(Clone)]
+#[cfg_attr(
+    any(test, feature = "circuit-breaker"),
+    allow(missing_debug_implementations)
+)]
 pub struct CircuitBreaker<S> {
     inner: S,
-    pub(crate) state: Arc<RwLock<State>>,
+    pub(crate) state: Arc<Mutex<State>>,
     pub(crate) failure_threshold: usize,
     pub(crate) success_threshold: f64,
     pub(crate) timeout: Duration,
@@ -104,7 +108,7 @@ impl<S> CircuitBreaker<S> {
     ) -> Self {
         Self {
             inner,
-            state: Arc::new(RwLock::new(State::new())),
+            state: Arc::new(Mutex::new(State::new())),
             failure_threshold,
             success_threshold,
             timeout,
@@ -112,13 +116,17 @@ impl<S> CircuitBreaker<S> {
     }
 
     /// Return the current [`CircuitStatus`].
-    pub async fn status(&self) -> CircuitStatus {
-        self.state.read().await.status.clone()
+    pub fn status(&self) -> CircuitStatus {
+        self.state
+            .lock()
+            .expect("circuit breaker state poisoned")
+            .status
+            .clone()
     }
 
     /// Manually close the circuit (e.g. after operator confirmation).
-    pub async fn reset(&self) {
-        let mut s = self.state.write().await;
+    pub fn reset(&self) {
+        let mut s = self.state.lock().expect("circuit breaker state poisoned");
         s.status = CircuitStatus::Closed;
         s.consecutive_failures = 0;
         s.window.clear();
@@ -128,43 +136,59 @@ impl<S> CircuitBreaker<S> {
 
 impl<S, Request> Service<Request> for CircuitBreaker<S>
 where
-    S: Service<Request> + Clone + Send + 'static,
-    S::Future: Send + 'static,
-    S::Error: Send + 'static,
-    S::Response: Send + 'static,
-    Request: Send + 'static,
+    S: Service<Request>,
 {
     type Response = S::Response;
     type Error = CircuitError<S::Error>;
     type Future = ResponseFuture<S::Future, S::Response, S::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Check circuit state synchronously before delegating to inner.
+        {
+            let mut s = self.state.lock().expect("circuit breaker state poisoned");
+            match s.status {
+                CircuitStatus::Open => {
+                    let elapsed = s
+                        .last_failure
+                        .map(|t| t.elapsed())
+                        .unwrap_or(Duration::ZERO);
+                    if elapsed < self.timeout {
+                        return Poll::Ready(Err(CircuitError::Open));
+                    }
+                    // Timeout elapsed — transition to HalfOpen.
+                    s.status = CircuitStatus::HalfOpen;
+                    s.window.clear();
+                    s.consecutive_failures = 0;
+                    s.last_transition = Instant::now();
+                }
+                CircuitStatus::Closed | CircuitStatus::HalfOpen => {}
+            }
+        }
+
         self.inner.poll_ready(cx).map_err(CircuitError::Inner)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        let state = self.state.clone();
-        let failure_threshold = self.failure_threshold;
-        let success_threshold = self.success_threshold;
-        let timeout = self.timeout;
-
-        let mut inner = self.inner.clone();
-        std::mem::swap(&mut inner, &mut self.inner);
-
-        ResponseFuture::new(state, inner.call(req), failure_threshold, success_threshold, timeout)
+        ResponseFuture::new(
+            self.state.clone(),
+            self.inner.call(req),
+            self.failure_threshold,
+            self.success_threshold,
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::circuit_breaker::CircuitBreakerLayer;
     use std::time::Duration;
-    use tower::{ServiceBuilder, ServiceExt, service_fn};
+    use tower::{ServiceBuilder, ServiceExt};
 
     #[tokio::test]
     async fn closed_passes_requests_through() {
         let mut svc = ServiceBuilder::new()
-            .layer(super::super::layer::CircuitBreakerLayer::new(5, 0.8, Duration::from_secs(60)))
+            .layer(CircuitBreakerLayer::new(5, 0.8, Duration::from_secs(60)))
             .service_fn(|req: &'static str| async move { Ok::<_, &'static str>(req) });
 
         let resp = svc.ready().await.unwrap().call("hello").await;
@@ -174,14 +198,29 @@ mod tests {
     #[tokio::test]
     async fn opens_after_failure_threshold() {
         let mut svc = ServiceBuilder::new()
-            .layer(super::super::layer::CircuitBreakerLayer::new(3, 0.8, Duration::from_secs(60)))
+            .layer(CircuitBreakerLayer::new(3, 0.8, Duration::from_secs(60)))
             .service_fn(|_: &'static str| async move { Err::<&str, _>("fail") });
 
         for _ in 0..3 {
             let _ = svc.ready().await.unwrap().call("req").await;
         }
 
-        let result = svc.ready().await.unwrap().call("req").await;
+        // Circuit is now Open — poll_ready should reject.
+        let result = svc.ready().await;
         assert!(matches!(result, Err(CircuitError::Open)));
+    }
+
+    #[tokio::test]
+    async fn manual_reset_closes_circuit() {
+        let inner = tower::service_fn(|_: &'static str| async move { Err::<&str, _>("fail") });
+        let cb = CircuitBreaker::new(inner, 2, 0.8, Duration::from_secs(60));
+
+        // Open the circuit.
+        let _ = tower::ServiceExt::oneshot(cb.clone(), "req").await;
+        let _ = tower::ServiceExt::oneshot(cb.clone(), "req").await;
+        assert_eq!(cb.status(), CircuitStatus::Open);
+
+        cb.reset();
+        assert_eq!(cb.status(), CircuitStatus::Closed);
     }
 }
