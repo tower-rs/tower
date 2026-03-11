@@ -3,86 +3,68 @@ use std::{
     pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll},
-    time::Instant,
 };
 
 use pin_project_lite::pin_project;
 
-use super::service::{CircuitError, CircuitStatus, State};
+use super::{
+    policy::CircuitPolicy,
+    service::{CircuitError, CircuitStatus, SharedState},
+};
 
 pin_project! {
     /// Response future for [`CircuitBreaker`].
     ///
     /// [`CircuitBreaker`]: super::service::CircuitBreaker
-    pub struct ResponseFuture<F, T, E> {
+    pub struct ResponseFuture<F, T, E, P> {
         #[pin]
         inner: F,
-        state: Arc<Mutex<State>>,
-        failure_threshold: usize,
-        success_threshold: f64,
+        shared: Arc<Mutex<SharedState<P>>>,
         _marker: std::marker::PhantomData<fn() -> (T, E)>,
     }
 }
 
-impl<F, T, E> ResponseFuture<F, T, E> {
-    pub(crate) fn new(
-        state: Arc<Mutex<State>>,
-        inner: F,
-        failure_threshold: usize,
-        success_threshold: f64,
-    ) -> Self {
+impl<F, T, E, P> ResponseFuture<F, T, E, P> {
+    pub(crate) fn new(shared: Arc<Mutex<SharedState<P>>>, inner: F) -> Self {
         Self {
             inner,
-            state,
-            failure_threshold,
-            success_threshold,
+            shared,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<F, T, E> Future for ResponseFuture<F, T, E>
+impl<F, T, E, P> Future for ResponseFuture<F, T, E, P>
 where
     F: Future<Output = Result<T, E>>,
+    P: CircuitPolicy,
 {
     type Output = Result<T, CircuitError<E>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        let failure_threshold = *this.failure_threshold;
-        let success_threshold = *this.success_threshold;
 
         match this.inner.poll(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Ok(resp)) => {
-                let mut s = this.state.lock().expect("circuit breaker state poisoned");
-                s.push_result(true);
-                match s.status {
-                    CircuitStatus::HalfOpen if s.success_rate() >= success_threshold => {
-                        s.status = CircuitStatus::Closed;
-                        s.consecutive_failures = 0;
-                        s.last_transition = Instant::now();
-                    }
-                    CircuitStatus::Closed => {
-                        s.consecutive_failures = 0;
-                    }
-                    _ => {}
+                let mut s = this.shared.lock().expect("circuit breaker state poisoned");
+                let should_close = s.policy.on_success();
+                if should_close && s.status == CircuitStatus::HalfOpen {
+                    s.status = CircuitStatus::Closed;
                 }
                 Poll::Ready(Ok(resp))
             }
             Poll::Ready(Err(e)) => {
-                let mut s = this.state.lock().expect("circuit breaker state poisoned");
-                s.push_result(false);
-                s.consecutive_failures += 1;
-                s.last_failure = Some(Instant::now());
+                let mut s = this.shared.lock().expect("circuit breaker state poisoned");
+                let should_open = s.policy.on_failure();
                 match s.status {
-                    CircuitStatus::Closed if s.consecutive_failures >= failure_threshold => {
-                        s.status = CircuitStatus::Open;
-                        s.last_transition = Instant::now();
-                    }
+                    // Any failure during a probe reopens immediately —
+                    // the backend is not yet ready regardless of threshold.
                     CircuitStatus::HalfOpen => {
                         s.status = CircuitStatus::Open;
-                        s.last_transition = Instant::now();
+                    }
+                    CircuitStatus::Closed if should_open => {
+                        s.status = CircuitStatus::Open;
                     }
                     _ => {}
                 }

@@ -1,12 +1,11 @@
 use std::{
     sync::{Arc, Mutex},
     task::{Context, Poll},
-    time::{Duration, Instant},
 };
 
 use tower_service::Service;
 
-use super::future::ResponseFuture;
+use super::{future::ResponseFuture, policy::CircuitPolicy};
 
 /// Current state of a [`CircuitBreaker`] service.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,122 +45,95 @@ impl<E: std::error::Error + 'static> std::error::Error for CircuitError<E> {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct State {
+/// Shared mutable state between a [`CircuitBreaker`] and its [`ResponseFuture`].
+pub(crate) struct SharedState<P> {
     pub(crate) status: CircuitStatus,
-    pub(crate) consecutive_failures: usize,
-    pub(crate) last_failure: Option<Instant>,
-    pub(crate) last_transition: Instant,
-    /// Sliding window: `true` = success, `false` = failure (max 100 entries).
-    pub(crate) window: Vec<bool>,
+    pub(crate) policy: P,
 }
 
-impl State {
-    pub(crate) fn new() -> Self {
-        Self {
-            status: CircuitStatus::Closed,
-            consecutive_failures: 0,
-            last_failure: None,
-            last_transition: Instant::now(),
-            window: Vec::with_capacity(100),
-        }
-    }
-
-    pub(crate) fn push_result(&mut self, success: bool) {
-        self.window.push(success);
-        if self.window.len() > 100 {
-            self.window.remove(0);
-        }
-    }
-
-    pub(crate) fn success_rate(&self) -> f64 {
-        if self.window.is_empty() {
-            return 0.0;
-        }
-        self.window.iter().filter(|&&v| v).count() as f64 / self.window.len() as f64
-    }
-}
-
-/// Tower [`Service`] that implements the circuit-breaker pattern.
+/// Tower [`Service`] implementing the circuit-breaker pattern.
+///
+/// The open/probe/close criteria are driven by a [`CircuitPolicy`], making
+/// the triggering logic independently customisable.  The built-in policy is
+/// [`ConsecutiveFailures`]; supply any type implementing [`CircuitPolicy`]
+/// via [`CircuitBreaker::new`] or [`CircuitBreakerLayer::with_policy`] for
+/// custom strategies.
+///
+/// # Thread safety
+///
+/// `CircuitBreaker<S, P>` is [`Send`] when both `S` and `P` are [`Send`].
+/// This is enforced structurally: the policy is held behind
+/// `Arc<Mutex<P>>`, so `Arc<Mutex<P>>: Send` requires `P: Send`.
+/// No explicit bound is placed on `P` in the [`Service`] impl, so
+/// `!Send` policies can still be used in single-threaded contexts without
+/// a compile error.  `P: Sync` is never required.
+///
+/// See [`CircuitPolicy`] for more detail.
 ///
 /// See the [module documentation](super) for a full example.
+///
+/// [`ConsecutiveFailures`]: super::ConsecutiveFailures
+/// [`CircuitBreakerLayer::with_policy`]: super::CircuitBreakerLayer::with_policy
+/// [`CircuitPolicy`]: super::CircuitPolicy
 #[derive(Clone)]
-#[cfg_attr(
-    any(test, feature = "circuit-breaker"),
-    allow(missing_debug_implementations)
-)]
-pub struct CircuitBreaker<S> {
+pub struct CircuitBreaker<S, P> {
     inner: S,
-    pub(crate) state: Arc<Mutex<State>>,
-    pub(crate) failure_threshold: usize,
-    pub(crate) success_threshold: f64,
-    pub(crate) timeout: Duration,
+    pub(crate) shared: Arc<Mutex<SharedState<P>>>,
 }
 
-impl<S> CircuitBreaker<S> {
-    /// Wrap `inner` in a circuit breaker.
-    pub fn new(
-        inner: S,
-        failure_threshold: usize,
-        success_threshold: f64,
-        timeout: Duration,
-    ) -> Self {
+impl<S, P: CircuitPolicy> CircuitBreaker<S, P> {
+    /// Wrap `inner` with the given [`CircuitPolicy`].
+    pub fn new(inner: S, policy: P) -> Self {
         Self {
             inner,
-            state: Arc::new(Mutex::new(State::new())),
-            failure_threshold,
-            success_threshold,
-            timeout,
+            shared: Arc::new(Mutex::new(SharedState {
+                status: CircuitStatus::Closed,
+                policy,
+            })),
         }
     }
 
     /// Return the current [`CircuitStatus`].
     pub fn status(&self) -> CircuitStatus {
-        self.state
+        self.shared
             .lock()
             .expect("circuit breaker state poisoned")
             .status
             .clone()
     }
 
-    /// Manually close the circuit (e.g. after operator confirmation).
+    /// Manually close the circuit (e.g. after operator confirmation that the
+    /// backend is healthy).
+    ///
+    /// Calls [`CircuitPolicy::on_half_open`] to reset any per-window counters
+    /// in the policy, then sets the status to [`Closed`][CircuitStatus::Closed].
     pub fn reset(&self) {
-        let mut s = self.state.lock().expect("circuit breaker state poisoned");
+        let mut s = self.shared.lock().expect("circuit breaker state poisoned");
+        s.policy.on_half_open(); // reuse the window-clear hook
         s.status = CircuitStatus::Closed;
-        s.consecutive_failures = 0;
-        s.window.clear();
-        s.last_transition = Instant::now();
     }
 }
 
-impl<S, Request> Service<Request> for CircuitBreaker<S>
+impl<S, P, Request> Service<Request> for CircuitBreaker<S, P>
 where
     S: Service<Request>,
+    P: CircuitPolicy,
 {
     type Response = S::Response;
     type Error = CircuitError<S::Error>;
-    type Future = ResponseFuture<S::Future, S::Response, S::Error>;
+    type Future = ResponseFuture<S::Future, S::Response, S::Error, P>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Check circuit state synchronously before delegating to inner.
         {
-            let mut s = self.state.lock().expect("circuit breaker state poisoned");
-            match s.status {
-                CircuitStatus::Open => {
-                    let elapsed = s
-                        .last_failure
-                        .map(|t| t.elapsed())
-                        .unwrap_or(Duration::ZERO);
-                    if elapsed < self.timeout {
-                        return Poll::Ready(Err(CircuitError::Open));
-                    }
-                    // Timeout elapsed — transition to HalfOpen.
+            let mut s = self.shared.lock().expect("circuit breaker state poisoned");
+            if s.status == CircuitStatus::Open {
+                if s.policy.should_probe() {
+                    s.policy.on_half_open();
                     s.status = CircuitStatus::HalfOpen;
-                    s.window.clear();
-                    s.consecutive_failures = 0;
-                    s.last_transition = Instant::now();
+                    // fall through to delegate to inner service
+                } else {
+                    return Poll::Ready(Err(CircuitError::Open));
                 }
-                CircuitStatus::Closed | CircuitStatus::HalfOpen => {}
             }
         }
 
@@ -169,19 +141,16 @@ where
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        ResponseFuture::new(
-            self.state.clone(),
-            self.inner.call(req),
-            self.failure_threshold,
-            self.success_threshold,
-        )
+        ResponseFuture::new(self.shared.clone(), self.inner.call(req))
     }
 }
+
+// ===== Tests =====
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit_breaker::CircuitBreakerLayer;
+    use crate::circuit_breaker::{CircuitBreakerLayer, ConsecutiveFailures};
     use std::time::Duration;
     use tower::{ServiceBuilder, ServiceExt};
 
@@ -213,14 +182,34 @@ mod tests {
     #[tokio::test]
     async fn manual_reset_closes_circuit() {
         let inner = tower::service_fn(|_: &'static str| async move { Err::<&str, _>("fail") });
-        let cb = CircuitBreaker::new(inner, 2, 0.8, Duration::from_secs(60));
+        let policy = ConsecutiveFailures::new(2, 0.8, Duration::from_secs(60));
+        let cb = CircuitBreaker::new(inner, policy);
 
-        // Open the circuit.
         let _ = tower::ServiceExt::oneshot(cb.clone(), "req").await;
         let _ = tower::ServiceExt::oneshot(cb.clone(), "req").await;
         assert_eq!(cb.status(), CircuitStatus::Open);
 
         cb.reset();
         assert_eq!(cb.status(), CircuitStatus::Closed);
+    }
+
+    #[tokio::test]
+    async fn custom_policy_is_accepted() {
+        // Verify the Service impl compiles and runs with a hand-rolled policy.
+        #[derive(Clone)]
+        struct AlwaysOpen;
+        impl CircuitPolicy for AlwaysOpen {
+            fn on_success(&mut self) -> bool { false }
+            fn on_failure(&mut self) -> bool { true }
+            fn should_probe(&self) -> bool { false }
+            fn on_half_open(&mut self) {}
+        }
+
+        let inner = tower::service_fn(|_: &'static str| async move { Err::<&str, _>("x") });
+        let cb = CircuitBreaker::new(inner, AlwaysOpen);
+
+        // One failure should open the circuit.
+        let _ = tower::ServiceExt::oneshot(cb.clone(), "req").await;
+        assert_eq!(cb.status(), CircuitStatus::Open);
     }
 }
