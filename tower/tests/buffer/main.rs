@@ -457,3 +457,20 @@ fn new_service_with_bound(bound: usize) -> (mock::Spawn<MockBuffer>, Handle) {
         svc
     })
 }
+
+#[test]
+#[should_panic(expected = "buffer bound must be greater than zero")]
+fn buffer_new_zero_bound_panics() {
+    let (service, _handle) = mock::pair::<(), ()>();
+    let _ = Buffer::new(service, 0);
+}
+
+#[test]
+#[should_panic(expected = "buffer bound must be greater than zero")]
+fn buffer_layer_zero_bound_panics() {
+    use tower::Layer;
+
+    let (service, _handle) = mock::pair::<(), ()>();
+    let layer = tower::buffer::BufferLayer::new(0);
+    let _ = layer.layer(service);
+}

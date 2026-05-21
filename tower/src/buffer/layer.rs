@@ -34,6 +34,7 @@ impl<Request> BufferLayer<Request> {
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
     pub const fn new(bound: usize) -> Self {
+        assert!(bound > 0, "buffer bound must be greater than zero");
         BufferLayer {
             bound,
             _p: PhantomData,
