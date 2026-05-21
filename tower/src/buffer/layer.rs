@@ -20,6 +20,12 @@ impl<Request> BufferLayer<Request> {
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
     ///
+    ///
+    /// # Panics
+    ///
+    /// Panics if `bound` is zero.
+    ///
+    ///
     /// # A note on choosing a `bound`
     ///
     /// When [`Buffer`]'s implementation of [`poll_ready`] returns [`Poll::Ready`], it reserves a
