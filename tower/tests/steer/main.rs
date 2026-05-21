@@ -57,3 +57,15 @@ async fn pending_all_ready() {
         ),
     }
 }
+#[test]
+#[should_panic(expected = "steer must contain at least one service")]
+fn steer_new_zero_services_panics() {
+    use std::iter::empty;
+    use tower::steer::Steer;
+    use tower::util::BoxService;
+
+    let empty_services = empty::<BoxService<(), (), tower::BoxError>>();
+
+    // Explicitly annotate the Request type as () so inference succeeds
+    let _: Steer<_, _, ()> = Steer::new(empty_services, |_: &()| 0);
+}
