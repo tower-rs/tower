@@ -85,6 +85,10 @@ pub struct SelectPolicy<P> {
 
 impl<S, P> Hedge<S, P> {
     /// Create a new hedge middleware.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `period` is zero.
     pub fn new<Request>(
         service: S,
         policy: P,
