@@ -70,6 +70,7 @@ where
         S::Error: Into<crate::BoxError> + Send + Sync,
         Req: Send + 'static,
     {
+        assert!(bound > 0, "buffer bound must be greater than zero");
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
         let buffer = Self {
