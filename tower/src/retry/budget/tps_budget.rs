@@ -78,12 +78,12 @@ impl TpsBudget {
             // If there is no percent, then you gain nothing from deposits.
             // Withdrawals can only be made against the reserve, over time.
             (0, 1)
-        } else if retry_percent <= 0.5 {
-            // Small fractional percents lose precision when 1/retry_percent is
-            // truncated to an isize, so scale deposits by 1000 here.
-            (1000, (1000.0 / retry_percent) as isize)
         } else {
-            (1, (1.0 / retry_percent) as isize)
+            // Scale deposits by 1000 so fractional percentages (where
+            // 1/retry_percent truncates badly) and values > 1 both stay
+            // precise.  For example 0.6 -> (1000, 1666) gives exactly
+            // 6 retries per 10 deposits; 2.0 -> (1000, 500) gives 20.
+            (1000, (1000.0 / retry_percent) as isize)
         };
         let reserve = (min_per_sec as isize)
             .saturating_mul(ttl.as_secs() as isize) // ttl is between 1 and 60 seconds
