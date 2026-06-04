@@ -79,7 +79,7 @@ pub struct Handle {
 
 /// Holds the current RTT estimate and the last time this value was updated.
 #[derive(Debug)]
-struct RttEstimate {
+pub struct RttEstimate {
     update_at: Instant,
     rtt_ns: f64,
 }
