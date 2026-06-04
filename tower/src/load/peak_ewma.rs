@@ -107,6 +107,18 @@ impl<S, C> PeakEwma<S, C> {
             rtt_estimate: self.rtt_estimate.clone(),
         }
     }
+
+    /// Returns the current [`RttEstimate`] of the service.
+    ///
+    /// # Panics
+    ///
+    /// This value is stored in a mutex. If the mutex has become poisoned, this will panic.
+    pub fn rtt_estimate(&self) -> RttEstimate {
+        self.rtt_estimate
+            .lock()
+            .expect("mutex should not be poisoned")
+            .clone()
+    }
 }
 
 impl<S, C, Request> Service<Request> for PeakEwma<S, C>
