@@ -228,6 +228,16 @@ where
 // ===== impl RttEstimate =====
 
 impl RttEstimate {
+    /// Returns the [`Instant`] that this estimate was last updated.
+    pub fn updated_at(&self) -> Instant {
+        self.update_at
+    }
+
+    /// Returns the round-trip time estimate, in nanoseconds.
+    pub fn rtt_ns(&self) -> f64 {
+        self.rtt_ns
+    }
+
     fn new(rtt_ns: f64) -> Self {
         debug_assert!(0.0 < rtt_ns, "rtt must be positive");
         Self {
