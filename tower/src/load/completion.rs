@@ -76,9 +76,17 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        let rsp = ready!(this.future.poll(cx))?;
-        let h = this.handle.take().expect("handle");
-        Poll::Ready(Ok(this.completion.track_completion(h, rsp)))
+
+        match ready!(this.future.poll(cx)) {
+            Ok(rsp) => {
+                let h = this.handle.take().expect("handle");
+                Poll::Ready(Ok(this.completion.track_completion(h, rsp)))
+            }
+            Err(err) => {
+                drop(this.handle.take().expect("handle"));
+                Poll::Ready(Err(err))
+            }
+        }
     }
 }
 

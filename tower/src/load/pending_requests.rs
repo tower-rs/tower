@@ -216,4 +216,39 @@ mod tests {
         drop(i0);
         assert_eq!(svc.load(), Count(0));
     }
+
+    // Regression test for #858: a request that resolves to `Err` must stop
+    // counting as pending as soon as its response future resolves, not only
+    // once the future object is dropped.
+    #[test]
+    fn failed_response_completes_immediately() {
+        use tokio_test::task;
+
+        struct ErrSvc;
+        impl Service<()> for ErrSvc {
+            type Response = ();
+            type Error = ();
+            type Future = future::Ready<Result<(), ()>>;
+
+            fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+                Poll::Ready(Ok(()))
+            }
+
+            fn call(&mut self, (): ()) -> Self::Future {
+                future::ready(Err(()))
+            }
+        }
+
+        let mut svc = PendingRequests::new(ErrSvc, CompleteOnResponse);
+        assert_eq!(svc.load(), Count(0));
+
+        let mut fut = task::spawn(svc.call(()));
+        assert_eq!(svc.load(), Count(1));
+
+        assert!(matches!(fut.poll(), Poll::Ready(Err(()))));
+
+        // The request has completed (with an error), so it must no longer be
+        // counted as pending -- even though `fut` has not been dropped yet.
+        assert_eq!(svc.load(), Count(0));
+    }
 }
