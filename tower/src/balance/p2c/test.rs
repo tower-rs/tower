@@ -193,11 +193,17 @@ async fn ready_index_reset_after_removal() {
     // Promote endpoints one per poll so the ready set is deterministically
     // ordered [a@0, b@1, c@2]. P2C selects `a` first (the only ready service)
     // and keeps it cached while it stays ready.
-    changes.borrow_mut().push_back(Change::Insert(0, endpoint(0, 0)));
+    changes
+        .borrow_mut()
+        .push_back(Change::Insert(0, endpoint(0, 0)));
     assert_ready_ok!(svc.poll_ready());
-    changes.borrow_mut().push_back(Change::Insert(1, endpoint(1, 1)));
+    changes
+        .borrow_mut()
+        .push_back(Change::Insert(1, endpoint(1, 1)));
     assert_ready_ok!(svc.poll_ready());
-    changes.borrow_mut().push_back(Change::Insert(2, endpoint(2, 10)));
+    changes
+        .borrow_mut()
+        .push_back(Change::Insert(2, endpoint(2, 10)));
     assert_ready_ok!(svc.poll_ready());
 
     // Remove the cached endpoint `a`. `evict` swap-removes index 0 and moves the
