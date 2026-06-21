@@ -131,8 +131,8 @@ impl<T, U> AsyncFilter<T, U> {
     /// service with the given [`AsyncPredicate`].
     ///
     /// [`Layer`]: crate::Layer
-    pub fn layer(predicate: U) -> FilterLayer<U> {
-        FilterLayer::new(predicate)
+    pub fn layer(predicate: U) -> AsyncFilterLayer<U> {
+        AsyncFilterLayer::new(predicate)
     }
 
     /// Check a `Request` value against this filter's predicate.
