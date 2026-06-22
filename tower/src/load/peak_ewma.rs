@@ -78,8 +78,8 @@ pub struct Handle {
 }
 
 /// Holds the current RTT estimate and the last time this value was updated.
-#[derive(Debug)]
-struct RttEstimate {
+#[derive(Clone, Debug)]
+pub struct RttEstimate {
     update_at: Instant,
     rtt_ns: f64,
 }
@@ -106,6 +106,18 @@ impl<S, C> PeakEwma<S, C> {
             sent_at: Instant::now(),
             rtt_estimate: self.rtt_estimate.clone(),
         }
+    }
+
+    /// Returns the current [`RttEstimate`] of the service.
+    ///
+    /// # Panics
+    ///
+    /// This value is stored in a mutex. If the mutex has become poisoned, this will panic.
+    pub fn rtt_estimate(&self) -> RttEstimate {
+        self.rtt_estimate
+            .lock()
+            .expect("mutex should not be poisoned")
+            .clone()
     }
 }
 
@@ -216,6 +228,16 @@ where
 // ===== impl RttEstimate =====
 
 impl RttEstimate {
+    /// Returns the [`Instant`] that this estimate was last updated.
+    pub fn updated_at(&self) -> Instant {
+        self.update_at
+    }
+
+    /// Returns the round-trip time estimate, in nanoseconds.
+    pub fn rtt_ns(&self) -> f64 {
+        self.rtt_ns
+    }
+
     fn new(rtt_ns: f64) -> Self {
         debug_assert!(0.0 < rtt_ns, "rtt must be positive");
         Self {
