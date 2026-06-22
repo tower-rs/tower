@@ -33,6 +33,10 @@ where
     /// The default Tokio executor is used to run the given service, which means that this method
     /// must be called while on the Tokio runtime.
     ///
+    /// # Panics
+    ///
+    /// Panics if `bound` is zero.
+    ///
     /// # A note on choosing a `bound`
     ///
     /// When [`Buffer`]'s implementation of [`poll_ready`] returns [`Poll::Ready`], it reserves a
@@ -63,6 +67,10 @@ where
     /// This is useful if you do not want to spawn directly onto the tokio runtime
     /// but instead want to use your own executor. This will return the [`Buffer`] and
     /// the background `Worker` that you can then spawn.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `bound` is zero.
     pub fn pair<S>(service: S, bound: usize) -> (Self, Worker<S, Req>)
     where
         S: Service<Req, Future = F> + Send + 'static,
@@ -70,6 +78,7 @@ where
         S::Error: Into<crate::BoxError> + Send + Sync,
         Req: Send + 'static,
     {
+        assert!(bound > 0, "buffer bound must be greater than zero");
         let (tx, rx) = mpsc::channel(bound);
         let (handle, worker) = Worker::new(service, rx);
         let buffer = Self {

@@ -20,6 +20,12 @@ impl<Request> BufferLayer<Request> {
     /// `bound` gives the maximal number of requests that can be queued for the service before
     /// backpressure is applied to callers.
     ///
+    ///
+    /// # Panics
+    ///
+    /// Panics if `bound` is zero.
+    ///
+    ///
     /// # A note on choosing a `bound`
     ///
     /// When [`Buffer`]'s implementation of [`poll_ready`] returns [`Poll::Ready`], it reserves a
@@ -34,6 +40,7 @@ impl<Request> BufferLayer<Request> {
     /// [`call`]: crate::Service::call
     /// [`poll_ready`]: crate::Service::poll_ready
     pub const fn new(bound: usize) -> Self {
+        assert!(bound > 0, "buffer bound must be greater than zero");
         BufferLayer {
             bound,
             _p: PhantomData,
