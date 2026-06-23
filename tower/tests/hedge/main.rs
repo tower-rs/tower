@@ -182,3 +182,26 @@ fn new_service<P: Policy<Req> + Clone>(policy: P) -> (mock::Spawn<Hedge<Mock, P>
 
     (mock::Spawn::new(service), handle)
 }
+
+#[test]
+#[should_panic(expected = "histogram rotation period must be greater than zero")]
+fn hedge_new_with_mock_latencies_zero_period_panics() {
+    let (service, _handle) = tower_test::mock::pair::<Req, Res>();
+    let mock_latencies: [u64; 2] = [10, 20];
+
+    let _service = Hedge::new_with_mock_latencies(
+        service,
+        TestPolicy,
+        10,
+        0.9,
+        Duration::ZERO,
+        &mock_latencies,
+    );
+}
+#[test]
+#[should_panic(expected = "histogram rotation period must be greater than zero")]
+fn hedge_new_zero_period_panics() {
+    let (service, _handle) = tower_test::mock::pair::<Req, Res>();
+
+    let _service = Hedge::new(service, TestPolicy, 10, 0.9, Duration::ZERO);
+}

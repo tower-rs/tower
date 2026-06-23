@@ -85,6 +85,10 @@ pub struct SelectPolicy<P> {
 
 impl<S, P> Hedge<S, P> {
     /// Create a new hedge middleware.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `period` is zero.
     pub fn new<Request>(
         service: S,
         policy: P,
@@ -97,6 +101,10 @@ impl<S, P> Hedge<S, P> {
         S::Error: Into<crate::BoxError>,
         P: Policy<Request> + Clone,
     {
+        assert!(
+            period > Duration::ZERO,
+            "histogram rotation period must be greater than zero"
+        );
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
         Self::new_with_histo(service, policy, min_data_points, latency_percentile, histo)
     }
@@ -116,6 +124,11 @@ impl<S, P> Hedge<S, P> {
         S::Error: Into<crate::BoxError>,
         P: Policy<Request> + Clone,
     {
+        assert!(
+            period > Duration::ZERO,
+            "histogram rotation period must be greater than zero"
+        );
+
         let histo = Arc::new(Mutex::new(RotatingHistogram::new(period)));
         {
             let mut locked = histo.lock().unwrap();
