@@ -29,6 +29,7 @@ full = [
   "limit",
   "load",
   "load-shed",
+  "circuit-breaker",
   "make",
   "ready-cache",
   "reconnect",
@@ -48,6 +49,7 @@ hedge = ["util", "filter", "futures-util", "hdrhistogram", "tokio/time", "tracin
 limit = ["tokio/time", "tokio/sync", "tokio-util", "tracing", "pin-project-lite"]
 load = ["tokio/time", "tracing", "pin-project-lite"]
 load-shed = ["pin-project-lite"]
+circuit-breaker = ["tokio/sync", "tokio/time", "pin-project-lite"]
 make = ["pin-project-lite", "tokio"]
 ready-cache = ["futures-core", "futures-util", "indexmap", "tokio/sync", "tracing", "pin-project-lite"]
 reconnect = ["make", "tracing"]

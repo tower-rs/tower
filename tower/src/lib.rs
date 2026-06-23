@@ -166,6 +166,8 @@ pub(crate) mod macros;
 pub mod balance;
 #[cfg(feature = "buffer")]
 pub mod buffer;
+#[cfg(feature = "circuit-breaker")]
+pub mod circuit_breaker;
 #[cfg(feature = "discover")]
 pub mod discover;
 #[cfg(feature = "filter")]
