@@ -392,6 +392,56 @@ mod tests {
         assert!(svc.load() < Cost(100_000.0));
     }
 
+    // Regression test for #858: a request that resolves to `Err` must stop
+    // contributing to load as soon as the response future resolves, not only
+    // when the future object is dropped.
+    #[tokio::test]
+    async fn completes_on_error() {
+        time::pause();
+
+        struct ErrSvc;
+        impl Service<()> for ErrSvc {
+            type Response = ();
+            type Error = ();
+            type Future = future::Ready<Result<(), ()>>;
+
+            fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+                Poll::Ready(Ok(()))
+            }
+
+            fn call(&mut self, (): ()) -> Self::Future {
+                future::ready(Err(()))
+            }
+        }
+
+        let mut svc = PeakEwma::new(
+            ErrSvc,
+            Duration::from_millis(10),
+            NANOS_PER_MILLI * 1_000.0,
+            CompleteOnResponse,
+        );
+
+        let baseline = svc.load();
+        let mut fut = task::spawn(svc.call(()));
+        let pending = svc.load();
+        assert!(pending > baseline, "an in-flight request should raise load");
+
+        // Poll the failed response to completion. The future object is kept
+        // alive afterwards.
+        assert!(matches!(fut.poll(), Poll::Ready(Err(()))));
+
+        // With the fix, the failed response releases its load handle at
+        // completion, so it no longer counts as pending even though `fut` has
+        // not been dropped.
+        let after = svc.load();
+        assert!(
+            after < pending,
+            "a failed request must stop counting as pending once its response resolves"
+        );
+
+        drop(fut);
+    }
+
     #[test]
     fn nanos() {
         assert_eq!(super::nanos(Duration::new(0, 0)), 0.0);
