@@ -113,9 +113,17 @@ pub struct Steer<S, F, Req> {
 impl<S, F, Req> Steer<S, F, Req> {
     /// Make a new [`Steer`] with a list of [`Service`]'s and a [`Picker`].
     ///
+    /// # Panics
+    ///
+    /// Panics if the `services` collection is empty
+    ///
     /// Note: the order of the [`Service`]'s is significant for [`Picker::pick`]'s return value.
     pub fn new(services: impl IntoIterator<Item = S>, router: F) -> Self {
         let services: Vec<_> = services.into_iter().collect();
+        assert!(
+            !services.is_empty(),
+            "steer must contain at least one service"
+        );
         let not_ready: VecDeque<_> = services.iter().enumerate().map(|(i, _)| i).collect();
         Self {
             router,
