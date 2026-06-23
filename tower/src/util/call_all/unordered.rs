@@ -38,12 +38,20 @@ where
     S: Stream,
 {
     /// Create new [`CallAllUnordered`] combinator.
-    ///
-    /// [`Stream`]: https://docs.rs/futures/latest/futures/stream/trait.Stream.html
     pub fn new(service: Svc, stream: S) -> CallAllUnordered<Svc, S> {
         CallAllUnordered {
             inner: common::CallAll::new(service, stream, FuturesUnordered::new()),
         }
+    }
+
+    /// Create a new [`CallAllUnordered`] from an existing, partially-evaluated [`CallAll`] instance.
+    ///
+    /// This constructor allows type-safe state migrations across combinators
+    /// without spilling buffered requests from `curr_req`.
+    pub(crate) fn from_inner(
+        inner: common::CallAll<Svc, S, FuturesUnordered<Svc::Future>>,
+    ) -> Self {
+        CallAllUnordered { inner }
     }
 
     /// Extract the wrapped [`Service`].

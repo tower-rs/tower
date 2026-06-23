@@ -74,10 +74,33 @@ where
             .expect("Service already taken")
     }
 
-    pub(crate) fn unordered(mut self) -> super::CallAllUnordered<Svc, S> {
-        assert!(self.queue.is_empty() && !self.eof);
+    /// Transition this `CallAll` instance into a `CallAllUnordered` stream.
+    ///
+    /// This conversion preserves the internal stream, backpressure flags (`eof`),
+    /// and any pulled but un-submitted request currently sitting in `curr_req`.
+    pub(crate) fn unordered(self) -> super::CallAllUnordered<Svc, S> {
+        // Ensure we don't discard any active, in-flight response futures.
+        assert!(self.queue.is_empty());
 
-        super::CallAllUnordered::new(self.service.take().unwrap(), self.stream)
+        let CallAll {
+            service,
+            stream,
+            queue: _,
+            eof,
+            curr_req,
+        } = self;
+
+        // Reassemble the internal state machine while transitioning
+        // to an unordered concurrency driver.
+        let inner = CallAll {
+            service,
+            stream,
+            queue: futures_util::stream::FuturesUnordered::new(),
+            eof,
+            curr_req,
+        };
+
+        super::CallAllUnordered::from_inner(inner)
     }
 }
 

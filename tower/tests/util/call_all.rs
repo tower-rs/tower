@@ -1,6 +1,6 @@
 use super::support;
 use futures_core::Stream;
-use futures_util::pin_mut;
+use futures_util::{pin_mut, StreamExt};
 use std::fmt;
 use std::future::{ready, Future, Ready};
 use std::task::{Context, Poll};
@@ -248,4 +248,35 @@ async fn stream_does_not_block_service() {
     assert_request_eq!(handle, "req").send_response("res");
     let res = assert_ready!(task.enter(|cx, _| call.as_mut().poll(cx)));
     assert_eq!(res.unwrap(), "res");
+}
+
+#[tokio::test]
+async fn call_all_unordered_preserves_curr_req_on_conversion() {
+    let _t = support::trace_init();
+
+    let (mock, mut handle) = mock::pair::<_, &'static str>();
+    let mut task = task::spawn(());
+
+    let items = vec!["request-1"];
+    let stream = futures_util::stream::iter(items);
+
+    // Keep ca as an owned, unpinned value so we can move it later.
+    let mut ca = mock.call_all(stream);
+
+    // Drive the poll via Pin::new to safely access poll_next on the mutable borrow.
+    assert_pending!(task.enter(|cx, _| std::pin::Pin::new(&mut ca).poll_next(cx)));
+
+    // Catch the request on the mock handle side.
+    let (_, ready_tx) = handle.next_request().await.unwrap();
+
+    // Move the unpinned, owned ca safely into the conversion method.
+    let unordered_stream = ca.unordered();
+    pin_mut!(unordered_stream);
+
+    // Satisfy backpressure requirements and reply.
+    ready_tx.send_response("response-1");
+
+    // Pull the final response from the migrated unordered stream.
+    let response = assert_ready!(task.enter(|cx, _| unordered_stream.as_mut().poll_next(cx)));
+    assert_eq!(response.transpose().unwrap(), Some("response-1"));
 }
