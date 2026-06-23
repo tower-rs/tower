@@ -98,3 +98,8 @@ features = ["full"]
 name = "tower-balance"
 path = "examples/tower-balance.rs"
 required-features = ["full"]
+
+[[example]]
+name = "service-builder"
+path = "examples/service-builder.rs"
+required-features = ["full"]
