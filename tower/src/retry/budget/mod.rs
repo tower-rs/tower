@@ -70,8 +70,10 @@
 //! }
 //! ```
 
+pub mod basic_budget;
 pub mod tps_budget;
 
+pub use basic_budget::BasicBudget;
 pub use tps_budget::TpsBudget;
 
 /// For more info about [`Budget`], please see the [module-level documentation].
