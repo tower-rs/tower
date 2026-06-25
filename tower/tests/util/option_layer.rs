@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 
 use tower::util::{option_layer, MapErrLayer};
-use tower::{Layer, ServiceExt};
+use tower::{Layer, Service, ServiceExt};
 
 // Regression test for #665: `option_layer` previously returned an
 // `Either<L, Identity>` whose service required both branches to share an error

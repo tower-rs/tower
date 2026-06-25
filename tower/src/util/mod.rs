@@ -48,8 +48,6 @@ pub use self::{
 pub use self::call_all::{CallAll, CallAllUnordered};
 use std::future::Future;
 
-use crate::layer::util::Identity;
-
 #[cfg(feature = "buffer")]
 use crate::buffer::Buffer;
 
