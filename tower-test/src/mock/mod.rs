@@ -1,4 +1,8 @@
-//! Mock `Service` that can be used in tests.
+//! Mock [`Service`]s for use in tests.
+//!
+//! See the [crate-level documentation](crate) for an overview and an example.
+//!
+//! [`Service`]: tower_service::Service
 
 pub mod error;
 pub mod future;
@@ -20,7 +24,10 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Spawn a layer onto a mock service.
+/// Apply a [`Layer`] to a mock [`Service`] and spawn the result on a mock task.
+///
+/// Returns the layered service wrapped in a [`Spawn`], along with the [`Handle`]
+/// for the underlying [`Mock`].
 pub fn spawn_layer<T, U, L>(layer: L) -> (Spawn<L::Service>, Handle<T, U>)
 where
     L: Layer<Mock<T, U>>,
@@ -31,14 +38,22 @@ where
     (Spawn::new(svc), handle)
 }
 
-/// Spawn a Service onto a mock task.
+/// Create a mock [`Service`] spawned on a mock task.
+///
+/// The returned [`Spawn`] wraps a [`Mock`] so that its readiness can be polled
+/// synchronously in tests; the paired [`Handle`] is used to receive requests
+/// and send responses. See [`pair`] for the un-spawned equivalent.
 pub fn spawn<T, U>() -> (Spawn<Mock<T, U>>, Handle<T, U>) {
     let (svc, handle) = pair();
 
     (Spawn::new(svc), handle)
 }
 
-/// Spawn a Service via the provided wrapper closure.
+/// Create a mock [`Service`], pass it through `f`, and spawn the result on a
+/// mock task.
+///
+/// This is like [`spawn()`], but the closure `f` may wrap the [`Mock`] in
+/// additional middleware before it is spawned.
 pub fn spawn_with<T, U, F, S>(f: F) -> (Spawn<S>, Handle<T, U>)
 where
     F: Fn(Mock<T, U>) -> S,
@@ -50,7 +65,12 @@ where
     (Spawn::new(svc), handle)
 }
 
-/// A mock service
+/// A mock [`Service`].
+///
+/// Every request is forwarded to the paired [`Handle`], which decides whether
+/// and how to respond. Construct one with [`pair`] (or one of the `spawn*`
+/// functions). Cloning a `Mock` produces another service backed by the same
+/// [`Handle`], so a single handle can observe the requests of every clone.
 #[derive(Debug)]
 pub struct Mock<T, U> {
     id: u64,
@@ -59,7 +79,17 @@ pub struct Mock<T, U> {
     can_send: bool,
 }
 
-/// Handle to the `Mock`.
+/// Drives a paired [`Mock`].
+///
+/// A `Handle` receives the requests made to its [`Mock`] (via
+/// [`next_request`]/[`poll_request`], each of which yields a [`SendResponse`]
+/// for replying), can fail the mock's readiness with [`send_error`], and can
+/// limit how many requests the mock accepts with [`allow`].
+///
+/// [`next_request`]: Handle::next_request
+/// [`poll_request`]: Handle::poll_request
+/// [`send_error`]: Handle::send_error
+/// [`allow`]: Handle::allow
 #[derive(Debug)]
 pub struct Handle<T, U> {
     rx: Rx<T, U>,
@@ -68,7 +98,12 @@ pub struct Handle<T, U> {
 
 type Request<T, U> = (T, SendResponse<U>);
 
-/// Send a response in reply to a received request.
+/// Sends a response (or error) back for a single request received by a [`Mock`].
+///
+/// Returned, paired with the request, by [`Handle::next_request`] and
+/// [`Handle::poll_request`] (and by the [`assert_request_eq!`] macro).
+///
+/// [`assert_request_eq!`]: crate::assert_request_eq
 #[derive(Debug)]
 pub struct SendResponse<T> {
     tx: oneshot::Sender<Result<T, Error>>,
@@ -95,7 +130,10 @@ struct State {
 type Tx<T, U> = mpsc::UnboundedSender<Request<T, U>>;
 type Rx<T, U> = mpsc::UnboundedReceiver<Request<T, U>>;
 
-/// Create a new `Mock` and `Handle` pair.
+/// Create a [`Mock`] [`Service`] paired with its [`Handle`].
+///
+/// By default the mock accepts any number of requests (its `poll_ready` is
+/// always ready); use [`Handle::allow`] to apply backpressure.
 pub fn pair<T, U>() -> (Mock<T, U>, Handle<T, U>) {
     let (tx, rx) = mpsc::unbounded_channel();
     let tx = Mutex::new(tx);
@@ -228,17 +266,32 @@ impl<T, U> Drop for Mock<T, U> {
 // ===== impl Handle =====
 
 impl<T, U> Handle<T, U> {
-    /// Asynchronously gets the next request
+    /// Polls for the next request made to the [`Mock`].
+    ///
+    /// On [`Ready`], yields the request together with a [`SendResponse`] used to
+    /// reply to it, or [`None`] once every [`Mock`] clone has been dropped.
+    ///
+    /// [`Ready`]: std::task::Poll::Ready
     pub fn poll_request(&mut self) -> Poll<Option<Request<T, U>>> {
         tokio_test::task::spawn(()).enter(|cx, _| Box::pin(self.rx.recv()).as_mut().poll(cx))
     }
 
-    /// Gets the next request.
+    /// Waits for the next request made to the [`Mock`].
+    ///
+    /// Resolves to the request together with a [`SendResponse`] used to reply to
+    /// it, or [`None`] once every [`Mock`] clone has been dropped.
     pub async fn next_request(&mut self) -> Option<Request<T, U>> {
         self.rx.recv().await
     }
 
-    /// Allow a certain number of requests
+    /// Allow the [`Mock`] to accept `num` more requests.
+    ///
+    /// Once the mock has accepted that many requests, its `poll_ready` returns
+    /// [`Pending`] until `allow` is called again. A newly-created mock starts
+    /// out allowing `u64::MAX` requests, so this is only needed to exert
+    /// backpressure in a test.
+    ///
+    /// [`Pending`]: std::task::Poll::Pending
     pub fn allow(&mut self, num: u64) {
         let mut state = self.state.lock().unwrap();
         state.rem = num;
@@ -250,7 +303,7 @@ impl<T, U> Handle<T, U> {
         }
     }
 
-    /// Make the next poll_ method error with the given error.
+    /// Make the [`Mock`]'s next `poll_ready` resolve to the given error.
     pub fn send_error<E: Into<Error>>(&mut self, e: E) {
         let mut state = self.state.lock().unwrap();
         state.err_with = Some(e.into());
@@ -285,13 +338,13 @@ impl<T, U> Drop for Handle<T, U> {
 // ===== impl SendResponse =====
 
 impl<T> SendResponse<T> {
-    /// Resolve the pending request future for the linked request with the given response.
+    /// Resolve the request's response future with the given response.
     pub fn send_response(self, response: T) {
         // TODO: Should the result be dropped?
         let _ = self.tx.send(Ok(response));
     }
 
-    /// Resolve the pending request future for the linked request with the given error.
+    /// Resolve the request's response future with the given error.
     pub fn send_error<E: Into<Error>>(self, err: E) {
         // TODO: Should the result be dropped?
         let _ = self.tx.send(Err(err.into()));
