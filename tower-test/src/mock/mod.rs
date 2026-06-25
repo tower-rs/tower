@@ -52,7 +52,7 @@ pub fn spawn<T, U>() -> (Spawn<Mock<T, U>>, Handle<T, U>) {
 /// Create a mock [`Service`], pass it through `f`, and spawn the result on a
 /// mock task.
 ///
-/// This is like [`spawn`], but the closure `f` may wrap the [`Mock`] in
+/// This is like [`spawn()`], but the closure `f` may wrap the [`Mock`] in
 /// additional middleware before it is spawned.
 pub fn spawn_with<T, U, F, S>(f: F) -> (Spawn<S>, Handle<T, U>)
 where

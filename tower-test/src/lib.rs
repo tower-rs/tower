@@ -19,7 +19,7 @@
 //! respond (including failing).
 //!
 //! Create a [`Mock`]/[`Handle`] pair with [`mock::pair`], or use
-//! [`mock::spawn`] to get a [`mock::Spawn`] wrapper whose readiness can be
+//! [`mock::spawn()`] to get a [`mock::Spawn`] wrapper whose readiness can be
 //! polled synchronously in tests (for example with [tokio-test]).
 //!
 //! # Example
