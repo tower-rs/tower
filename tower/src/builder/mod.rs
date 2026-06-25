@@ -155,7 +155,7 @@ impl<L> ServiceBuilder<L> {
     pub fn option_layer<T>(
         self,
         layer: Option<T>,
-    ) -> ServiceBuilder<Stack<crate::util::Either<T, Identity>, L>> {
+    ) -> ServiceBuilder<Stack<crate::util::OptionLayer<T>, L>> {
         self.layer(crate::util::option_layer(layer))
     }
 
