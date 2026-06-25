@@ -16,6 +16,7 @@ mod map_result;
 mod map_future;
 mod oneshot;
 mod optional;
+mod optional_layer;
 mod ready;
 mod service_fn;
 mod then;
@@ -38,6 +39,7 @@ pub use self::{
     map_result::{MapResult, MapResultLayer},
     oneshot::Oneshot,
     optional::Optional,
+    optional_layer::{OptionLayer, OptionService},
     ready::{Ready, ReadyOneshot},
     service_fn::{service_fn, ServiceFn},
     then::{Then, ThenLayer},
@@ -69,6 +71,7 @@ pub mod future {
     pub use super::map_response::MapResponseFuture;
     pub use super::map_result::MapResultFuture;
     pub use super::optional::future as optional;
+    pub use super::optional_layer::ResponseFuture as OptionResponseFuture;
     pub use super::then::ThenFuture;
 }
 
@@ -1077,6 +1080,10 @@ impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Servi
 
 /// Convert an `Option<Layer>` into a [`Layer`].
 ///
+/// The returned [`OptionLayer`] unifies the error types of the layered and
+/// unlayered branches to [`BoxError`], so the optional layer is allowed to
+/// change the error type.
+///
 /// ```
 /// # use std::time::Duration;
 /// # use tower::Service;
@@ -1095,10 +1102,8 @@ impl<T: ?Sized, Request> ServiceExt<Request> for T where T: tower_service::Servi
 /// ```
 ///
 /// [`Layer`]: crate::layer::Layer
-pub fn option_layer<L>(layer: Option<L>) -> Either<L, Identity> {
-    if let Some(layer) = layer {
-        Either::Left(layer)
-    } else {
-        Either::Right(Identity::new())
-    }
+/// [`OptionLayer`]: crate::util::OptionLayer
+/// [`BoxError`]: crate::BoxError
+pub fn option_layer<L>(layer: Option<L>) -> OptionLayer<L> {
+    OptionLayer::new(layer)
 }
