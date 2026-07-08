@@ -10,7 +10,7 @@ use std::{
 /// Attaches `H`-typed completion tracker to `V` typed values.
 ///
 /// Handles (of type `H`) are intended to be RAII guards that primarily implement [`Drop`] and update
-/// load metric state as they are dropped. This trait allows implementors to "forward" the handle
+/// load metric state as they are dropped. This trait allows implementers to "forward" the handle
 /// to later parts of the request-handling pipeline, so that the handle is only dropped when the
 /// request has truly completed.
 ///

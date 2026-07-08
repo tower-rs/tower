@@ -17,7 +17,7 @@ use tokio::time;
 
 use crate::util::rng::{HasherRng, Rng};
 
-/// Trait used to construct [`Backoff`] trait implementors.
+/// Trait used to construct [`Backoff`] trait implementers.
 pub trait MakeBackoff {
     /// The backoff type produced by this maker.
     type Backoff: Backoff;
@@ -27,7 +27,7 @@ pub trait MakeBackoff {
 }
 
 /// A backoff trait where a single mutable reference represents a single
-/// backoff session. Implementors must also implement [`Clone`] which will
+/// backoff session. Implementers must also implement [`Clone`] which will
 /// reset the backoff back to the default state for the next session.
 pub trait Backoff {
     /// The future associated with each backoff. This usually will be some sort
