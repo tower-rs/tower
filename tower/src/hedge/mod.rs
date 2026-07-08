@@ -1,4 +1,4 @@
-//! Pre-emptively retry requests which have been outstanding for longer
+//! Preemptively retry requests which have been outstanding for longer
 //! than a given latency percentile.
 
 #![warn(missing_debug_implementations, missing_docs, unreachable_pub)]
@@ -32,7 +32,7 @@ type Service<S, P> = select::Select<
     Delay<DelayPolicy, AsyncFilter<Latency<Histo, S>, PolicyPredicate<P>>>,
 >;
 
-/// A middleware that pre-emptively retries requests which have been outstanding
+/// A middleware that preemptively retries requests which have been outstanding
 /// for longer than a given latency percentile.  If either of the original
 /// future or the retry future completes, that value is used.
 #[derive(Debug)]
