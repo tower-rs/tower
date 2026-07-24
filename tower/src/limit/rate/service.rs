@@ -58,6 +58,16 @@ impl<T> RateLimit<T> {
     pub fn into_inner(self) -> T {
         self.inner
     }
+
+    /// Returns the rate configuration for this service.
+    pub fn rate(&self) -> &Rate {
+        &self.rate
+    }
+
+    /// Returns `true` if the rate limit is currently exceeded.
+    pub fn is_limited(&self) -> bool {
+        matches!(self.state, State::Limited)
+    }
 }
 
 impl<S, Request> Service<Request> for RateLimit<S>
