@@ -33,11 +33,11 @@ use tower_service::Service;
 /// #     fn new() -> Self { Self }
 /// # }
 ///
-/// fn common_layer<S, T>() -> BoxCloneServiceLayer<S, T, S::Response, BoxError>
+/// fn common_layer<'a, S, T>() -> BoxCloneServiceLayer<'a, S, T, S::Response, BoxError>
 /// where
-///     S: Service<T> + Clone + Send + 'static,
-///     S::Future: Send + 'static,
-///     S::Error: Into<BoxError> + 'static,
+///     S: Service<T> + Clone + Send + 'a,
+///     S::Future: Send + 'a,
+///     S::Error: Into<BoxError> + 'a,
 /// {
 ///     let builder = ServiceBuilder::new()
 ///         .concurrency_limit(100);
@@ -82,17 +82,17 @@ use tower_service::Service;
 /// [`Service`]: tower_service::Service
 /// [`BoxService`]: super::BoxService
 /// [`Timeout`]: crate::timeout
-pub struct BoxCloneServiceLayer<In, T, U, E> {
-    boxed: Arc<dyn Layer<In, Service = BoxCloneService<T, U, E>> + Send + Sync + 'static>,
+pub struct BoxCloneServiceLayer<'a, In, T, U, E> {
+    boxed: Arc<dyn Layer<In, Service = BoxCloneService<'a, T, U, E>> + Send + Sync + 'a>,
 }
 
-impl<In, T, U, E> BoxCloneServiceLayer<In, T, U, E> {
+impl<'a, In, T, U, E> BoxCloneServiceLayer<'a, In, T, U, E> {
     /// Create a new [`BoxCloneServiceLayer`].
     pub fn new<L>(inner_layer: L) -> Self
     where
-        L: Layer<In> + Send + Sync + 'static,
-        L::Service: Service<T, Response = U, Error = E> + Send + Clone + 'static,
-        <L::Service as Service<T>>::Future: Send + 'static,
+        L: Layer<In> + Send + Sync + 'a,
+        L::Service: Service<T, Response = U, Error = E> + Send + Clone + 'a,
+        <L::Service as Service<T>>::Future: Send + 'a,
     {
         let layer = layer_fn(move |inner: In| {
             let out = inner_layer.layer(inner);
@@ -105,15 +105,15 @@ impl<In, T, U, E> BoxCloneServiceLayer<In, T, U, E> {
     }
 }
 
-impl<In, T, U, E> Layer<In> for BoxCloneServiceLayer<In, T, U, E> {
-    type Service = BoxCloneService<T, U, E>;
+impl<'a, In, T, U, E> Layer<In> for BoxCloneServiceLayer<'a, In, T, U, E> {
+    type Service = BoxCloneService<'a, T, U, E>;
 
     fn layer(&self, inner: In) -> Self::Service {
         self.boxed.layer(inner)
     }
 }
 
-impl<In, T, U, E> Clone for BoxCloneServiceLayer<In, T, U, E> {
+impl<'a, In, T, U, E> Clone for BoxCloneServiceLayer<'a, In, T, U, E> {
     fn clone(&self) -> Self {
         Self {
             boxed: Arc::clone(&self.boxed),
@@ -121,7 +121,7 @@ impl<In, T, U, E> Clone for BoxCloneServiceLayer<In, T, U, E> {
     }
 }
 
-impl<In, T, U, E> fmt::Debug for BoxCloneServiceLayer<In, T, U, E> {
+impl<'a, In, T, U, E> fmt::Debug for BoxCloneServiceLayer<'a, In, T, U, E> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BoxCloneServiceLayer").finish()
     }
