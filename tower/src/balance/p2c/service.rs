@@ -116,6 +116,13 @@ where
                 Some(Change::Remove(key)) => {
                     trace!("remove");
                     self.services.evict(&key);
+                    // `evict` removes from the ready set with `swap_remove`,
+                    // which can move a different endpoint into the slot a
+                    // previously-selected `ready_index` points at. Discard the
+                    // cached selection so `poll_ready` re-runs P2C over the
+                    // current ready set instead of dispatching to the
+                    // swapped-in endpoint.
+                    self.ready_index = None;
                 }
                 Some(Change::Insert(key, svc)) => {
                     trace!("insert");
@@ -206,8 +213,11 @@ where
     >;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // `ready_index` may have already been set by a prior invocation. These
-        // updates cannot disturb the order of existing ready services.
+        // `ready_index` may have already been set by a prior invocation. If a
+        // discovered removal evicts a service, `update_pending_from_discover`
+        // clears it, since eviction can reorder the ready set (via
+        // `swap_remove`) and leave the cached index pointing at a different
+        // endpoint.
         let _ = self.update_pending_from_discover(cx)?;
         self.promote_pending_to_ready(cx);
 

@@ -1,7 +1,22 @@
 use super::Layer;
 use core::fmt;
 
-/// Two middlewares chained together.
+/// Two [`Layer`]s chained together.
+///
+/// # Examples
+///
+/// ```rust
+/// use tower_layer::{Stack, layer_fn, Layer};
+///
+/// let inner = layer_fn(|service| service+2);
+/// let outer = layer_fn(|service| service*2);
+///
+/// let inner_outer_stack = Stack::new(inner, outer);
+///
+/// // (4 + 2) * 2 = 12
+/// // (4 * 2) + 2 = 10
+/// assert_eq!(inner_outer_stack.layer(4), 12);
+/// ```
 #[derive(Clone)]
 pub struct Stack<Inner, Outer> {
     inner: Inner,
@@ -9,7 +24,15 @@ pub struct Stack<Inner, Outer> {
 }
 
 impl<Inner, Outer> Stack<Inner, Outer> {
-    /// Create a new `Stack`.
+    /// Creates a new [`Stack`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use tower_layer::{Stack, Identity};
+    ///
+    /// let stack = Stack::new(Identity::new(), Identity::new());
+    /// ```
     pub const fn new(inner: Inner, outer: Outer) -> Self {
         Stack { inner, outer }
     }

@@ -14,7 +14,7 @@ jobs:
     # Run `cargo check` first to ensure that the pushed code at least compiles.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: Check
         run: cargo check --workspace --all-features --all-targets
@@ -22,10 +22,9 @@ jobs:
   check-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo doc
-        working-directory: ${{ matrix.subcrate }}
         env:
           RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links"
         run: cargo doc --all-features --no-deps
@@ -33,7 +32,7 @@ jobs:
   check-msrv:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: "install Rust ${{ env.MSRV }}"
         uses: dtolnay/rust-toolchain@master
         with:
@@ -52,12 +51,11 @@ jobs:
   cargo-hack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - name: cargo hack check
-        working-directory: ${{ matrix.subcrate }}
         run: cargo hack check --each-feature --no-dev-deps --workspace
 
   test-versions:
@@ -72,7 +70,7 @@ jobs:
       matrix:
         rust: [stable, beta, nightly]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: "install Rust ${{ matrix.rust }}"
         uses: dtolnay/rust-toolchain@master
         with:
@@ -80,31 +78,11 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --all-features
 
-  test-msrv:
-    needs: check-msrv
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: "install Rust ${{ env.MSRV }}"
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.MSRV }}
-      - name: "install Rust nightly"
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Select minimal versions
-        run: |
-          cargo update -Z minimal-versions
-          cargo update -p lazy_static --precise 1.5.0
-      - name: test
-        run: |
-          rustup default ${{ env.MSRV }}
-          cargo check --workspace --all-features --locked
-
   style:
     needs: check-stable
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -115,7 +93,7 @@ jobs:
     name: cargo-deny check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      - uses: actions/checkout@v6
+      - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check

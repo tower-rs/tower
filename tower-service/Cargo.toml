@@ -25,4 +25,3 @@ edition = "2018"
 http = { workspace = true }
 tower-layer = { version = "0.3", path = "../tower-layer" }
 tokio = { workspace = true, features = ["macros", "time"] }
-futures = { workspace = true }

@@ -48,6 +48,12 @@ use std::future::Future;
 
 use crate::layer::util::Identity;
 
+#[cfg(feature = "buffer")]
+use crate::buffer::Buffer;
+
+#[cfg(feature = "retry")]
+use crate::retry::Retry;
+
 pub mod error {
     //! Error types
 
@@ -329,7 +335,7 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
     /// may be used to implement error recovery, by turning some [`Err`]
     /// responses from the service into [`Ok`] responses. Similarly, some
     /// successful responses from the service could be rejected, by returning an
-    /// [`Err`] conditionally, depending on the value inside the [`Ok`.] Finally,
+    /// [`Err`] conditionally, depending on the value inside the [`Ok`]. Finally,
     /// this method can also be used to implement behaviors that must run when a
     /// service's future completes, regardless of whether it succeeded or failed.
     ///
@@ -942,6 +948,31 @@ pub trait ServiceExt<Request>: tower_service::Service<Request> {
         Fut: Future<Output = Result<Response, Error>>,
     {
         MapFuture::new(self, f)
+    }
+
+    /// Returns a buffered version of this service.
+    ///
+    /// See [`Buffer::new()`] for the details.
+    #[cfg(feature = "buffer")]
+    fn buffered(self, bound: usize) -> Buffer<Request, Self::Future>
+    where
+        Self: Send + Sized + 'static,
+        Self::Future: Send,
+        Self::Error: Into<crate::BoxError> + Send + Sync,
+        Request: Send + Sized + 'static,
+    {
+        Buffer::new(self, bound)
+    }
+
+    /// Returns a retry version of this service.
+    ///
+    /// See [`Retry::new()`] for the details.
+    #[cfg(feature = "retry")]
+    fn retry<P>(self, policy: P) -> Retry<P, Self>
+    where
+        Self: Sized,
+    {
+        Retry::new(policy, self)
     }
 
     /// Convert the service into a [`Service`] + [`Send`] trait object.

@@ -40,7 +40,7 @@ pub trait Rng {
     ///
     /// # Panic
     ///
-    /// - If start < end this will panic in debug mode.
+    /// - If `range.start >= range.end` this will panic in debug mode.
     fn next_range(&mut self, range: Range<u64>) -> u64 {
         debug_assert!(
             range.start < range.end,
