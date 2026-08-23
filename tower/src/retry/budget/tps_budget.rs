@@ -78,12 +78,13 @@ impl TpsBudget {
             // If there is no percent, then you gain nothing from deposits.
             // Withdrawals can only be made against the reserve, over time.
             (0, 1)
-        } else if retry_percent <= 1.0 {
+        } else if retry_percent <= 0.5 {
             (1, (1.0 / retry_percent) as isize)
         } else {
-            // Support for when retry_percent is between 1.0 and 1000.0,
-            // meaning for every deposit D, D * retry_percent withdrawals
-            // can be made.
+            // Above 0.5, `1.0 / retry_percent` truncates to 1 (or 0 past 1.0),
+            // so scale deposits by 1000 to keep the ratio.  For example
+            // 0.6 -> (1000, 1666) gives 6 retries per 10 deposits, and
+            // 2.0 -> (1000, 500) gives 20.
             (1000, (1000.0 / retry_percent) as isize)
         };
         let reserve = (min_per_sec as isize)
@@ -256,5 +257,19 @@ mod tests {
         assert!(bgt.withdraw());
 
         assert!(!bgt.withdraw());
+    }
+
+    #[test]
+    fn tps_fractional_retry_percent_below_one() {
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.6);
+        for _ in 0..10 {
+            bgt.deposit();
+        }
+        let allowed = (0..10).filter(|_| bgt.withdraw()).count();
+        assert!(
+            allowed <= 6,
+            "10 deposits at retry_percent=0.6 should allow at most 6 retries, got {}",
+            allowed
+        );
     }
 }
