@@ -40,7 +40,7 @@ full = [
 ]
 # FIXME: Use weak dependency once available (https://github.com/rust-lang/cargo/issues/8832)
 log = ["tracing/log"]
-balance = ["discover", "load", "ready-cache", "make", "slab", "util"]
+balance = ["discover", "load", "ready-cache", "make", "util"]
 buffer = ["tokio/sync", "tokio/rt", "tokio-util", "tracing", "pin-project-lite"]
 discover = ["futures-core", "pin-project-lite"]
 filter = ["futures-util", "pin-project-lite"]
@@ -66,7 +66,6 @@ futures-core = { workspace = true, optional = true }
 futures-util = { workspace = true, features = ["alloc"], optional = true }
 hdrhistogram = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
-slab = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-util = { workspace = true, optional = true }
 tracing = { workspace = true, features = ["std"], optional = true }
@@ -77,6 +76,7 @@ sync_wrapper = { workspace = true, optional = true }
 futures = { workspace = true, features = ["std"] }
 futures-util = { workspace = true, features = ["async-await-macro"] }
 hdrhistogram = { workspace = true }
+slab = { workspace = true }
 tokio = { workspace = true, features = ["macros", "sync", "test-util", "rt-multi-thread"] }
 tokio-stream = { workspace = true }
 tokio-test = { workspace = true }
