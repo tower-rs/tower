@@ -185,10 +185,17 @@ mod tests {
     async fn pending_service_debug_impl() {
         let mut pending_svc = future_service(ready(Ok(DebugService)));
 
-        assert_eq!(
-            format!("{pending_svc:?}"),
-            "FutureService { state: State::Future(<core::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, core::convert::Infallible>>>) }"
-        );
+        if rustversion::cfg!(since(2026 - 08 - 24)) {
+            assert_eq!(
+                format!("{pending_svc:?}"),
+                "FutureService { state: State::Future(<core::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, !>>>) }"
+            );
+        } else {
+            assert_eq!(
+                format!("{pending_svc:?}"),
+                "FutureService { state: State::Future(<core::future::ready::Ready<core::result::Result<tower::util::future_service::tests::DebugService, core::convert::Infallible>>>) }"
+            );
+        }
 
         pending_svc.ready().await.unwrap();
 
