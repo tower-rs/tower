@@ -193,6 +193,8 @@ pub mod spawn_ready;
 pub mod steer;
 #[cfg(feature = "timeout")]
 pub mod timeout;
+#[cfg(feature = "timeout")]
+pub mod timer;
 #[cfg(feature = "util")]
 pub mod util;
 
