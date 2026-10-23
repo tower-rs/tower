@@ -14,24 +14,25 @@ pin_project! {
     ///
     /// [`Timeout`]: crate::timeout::Timeout
     #[derive(Debug)]
-    pub struct ResponseFuture<T> {
+    pub struct ResponseFuture<T, S = Sleep> {
         #[pin]
         response: T,
         #[pin]
-        sleep: Sleep,
+        sleep: S,
     }
 }
 
-impl<T> ResponseFuture<T> {
-    pub(crate) fn new(response: T, sleep: Sleep) -> Self {
+impl<T, S> ResponseFuture<T, S> {
+    pub(crate) fn new(response: T, sleep: S) -> Self {
         ResponseFuture { response, sleep }
     }
 }
 
-impl<F, T, E> Future for ResponseFuture<F>
+impl<F, S, T, E> Future for ResponseFuture<F, S>
 where
     F: Future<Output = Result<T, E>>,
     E: Into<crate::BoxError>,
+    S: Future<Output = ()>,
 {
     type Output = Result<T, crate::BoxError>;
 
