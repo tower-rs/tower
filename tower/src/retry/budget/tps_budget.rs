@@ -66,6 +66,13 @@ impl TpsBudget {
     ///   As an example, if `0.1` is used, then for every 10 calls to `deposit`,
     ///   1 retry will be allowed. If `2.0` is used, then every `deposit`
     ///   allows for 2 retries.
+    ///
+    ///   Token costs are rounded up, so integer quantization can allow fewer
+    ///   retries than the configured percentage. Rates at or below `0.5` use
+    ///   one token per deposit; higher rates use 1000. For example, `0.6`
+    ///   allows 5 retries after 10 deposits and 499 after 833 deposits.
+    ///   If a retry's token cost exceeds `isize::MAX`, deposits contribute
+    ///   no tokens and only the minimum reserve is available.
     pub fn new(ttl: Duration, min_per_sec: u32, retry_percent: f32) -> Self {
         // assertions taken from finagle
         assert!(ttl >= Duration::from_secs(1));
@@ -78,13 +85,15 @@ impl TpsBudget {
             // If there is no percent, then you gain nothing from deposits.
             // Withdrawals can only be made against the reserve, over time.
             (0, 1)
-        } else if retry_percent <= 1.0 {
-            (1, (1.0 / retry_percent) as isize)
         } else {
-            // Support for when retry_percent is between 1.0 and 1000.0,
-            // meaning for every deposit D, D * retry_percent withdrawals
-            // can be made.
-            (1000, (1000.0 / retry_percent) as isize)
+            // Keep common small rates in single-token units, while allowing
+            // fractional rates above 0.5 and rates greater than one.
+            let deposit_amount = if retry_percent <= 0.5 { 1 } else { 1000 };
+            match Self::withdrawal_cost(deposit_amount, retry_percent) {
+                Some(cost) => (deposit_amount, cost),
+                // Clamping the cost would make the effective rate too high.
+                None => (0, 1),
+            }
         };
         let reserve = (min_per_sec as isize)
             .saturating_mul(ttl.as_secs() as isize) // ttl is between 1 and 60 seconds
@@ -108,6 +117,30 @@ impl TpsBudget {
             writer: AtomicIsize::new(0),
             deposit_amount,
             withdraw_amount,
+        }
+    }
+
+    fn withdrawal_cost(deposit_amount: isize, retry_percent: f32) -> Option<isize> {
+        // Decode the exact positive, finite f32 validated by new(). Floating
+        // division can round away a fractional token even before ceil().
+        let bits = retry_percent.to_bits();
+        let exponent = (bits >> 23) & 0xff;
+        let fraction = bits & 0x7f_ffff;
+        let (significand, shift) = if exponent == 0 {
+            (fraction, 149)
+        } else {
+            // retry_percent <= 1000 implies exponent <= 136.
+            (fraction | (1 << 23), 150 - exponent)
+        };
+        let numerator = 1_u128
+            .checked_shl(shift)?
+            .checked_mul(deposit_amount as u128)?;
+        let denominator = u128::from(significand);
+        let cost = numerator / denominator + u128::from(numerator % denominator != 0);
+        if cost <= isize::MAX as u128 {
+            Some(cost as isize)
+        } else {
+            None
         }
     }
 
@@ -256,5 +289,121 @@ mod tests {
         assert!(bgt.withdraw());
 
         assert!(!bgt.withdraw());
+    }
+
+    #[test]
+    fn tps_fractional_retry_percent_below_one() {
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.6);
+        for _ in 0..10 {
+            bgt.deposit();
+        }
+        let allowed = (0..10).filter(|_| bgt.withdraw()).count();
+        assert!(
+            allowed <= 6,
+            "10 deposits at retry_percent=0.6 should allow at most 6 retries, got {}",
+            allowed
+        );
+    }
+
+    #[tokio::test]
+    async fn tps_fractional_high_volume_does_not_overissue() {
+        time::pause();
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.6);
+        for _ in 0..833 {
+            bgt.deposit();
+        }
+        let allowed = (0..834).filter(|_| bgt.withdraw()).count();
+        assert!(allowed > 0 && allowed <= 499, "allowed {} retries", allowed);
+    }
+
+    #[tokio::test]
+    async fn tps_small_fraction_does_not_overissue() {
+        time::pause();
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.3);
+        for _ in 0..30 {
+            bgt.deposit();
+        }
+        let allowed = (0..31).filter(|_| bgt.withdraw()).count();
+        assert!(allowed > 0 && allowed <= 9, "allowed {} retries", allowed);
+    }
+
+    #[tokio::test]
+    async fn tps_common_retry_ratios() {
+        time::pause();
+        for (percent, deposits, expected) in [
+            (0.0, 10, 0),
+            (0.1, 10, 1),
+            (0.2, 10, 2),
+            (0.5, 10, 5),
+            (1.0, 10, 10),
+            (2.0, 10, 20),
+            (10.0, 1, 10),
+            (20.0, 1, 20),
+            (1000.0, 1, 1000),
+        ] {
+            let bgt = TpsBudget::new(Duration::from_secs(1), 0, percent);
+            for _ in 0..deposits {
+                bgt.deposit();
+            }
+            let allowed = (0..expected + 1).filter(|_| bgt.withdraw()).count();
+            assert_eq!(allowed, expected, "retry_percent={}", percent);
+        }
+    }
+
+    #[tokio::test]
+    async fn tps_reciprocal_rounding_does_not_overissue() {
+        time::pause();
+        // 0.01_f32 is slightly below 1/100, despite 1.0_f32 / 0.01 == 100.0.
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 0.01);
+        for _ in 0..100 {
+            bgt.deposit();
+        }
+        assert!(!bgt.withdraw());
+        bgt.deposit();
+        assert!(bgt.withdraw());
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[tokio::test]
+    async fn tps_large_reciprocal_does_not_overissue() {
+        time::pause();
+        // This is exactly 3 * 2^-60. Its reciprocal is
+        // 384307168202282325 + 1/3, whose fraction is lost even in f64.
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, f32::from_bits(0x2240_0000));
+        // Seed the balance rather than performing 384 quadrillion deposits.
+        bgt.writer.store(384_307_168_202_282_325, Ordering::SeqCst);
+        assert!(!bgt.withdraw());
+        bgt.deposit();
+        assert!(bgt.withdraw());
+    }
+
+    #[tokio::test]
+    async fn tps_unrepresentable_cost_preserves_minimum_reserve() {
+        time::pause();
+        // The last value has a cost that fits u128 but exceeds isize::MAX.
+        for percent in [
+            f32::from_bits(1),
+            f32::MIN_POSITIVE,
+            f32::from_bits((128 - isize::BITS) << 23),
+        ] {
+            let bgt = TpsBudget::new(Duration::from_secs(1), 2, percent);
+            for _ in 0..10 {
+                bgt.deposit();
+            }
+            assert!(bgt.withdraw());
+            assert!(bgt.withdraw());
+            assert!(!bgt.withdraw());
+        }
+    }
+
+    #[tokio::test]
+    async fn tps_above_one_does_not_overissue() {
+        time::pause();
+        let bgt = TpsBudget::new(Duration::from_secs(1), 0, 3.0);
+        for _ in 0..333 {
+            bgt.deposit();
+        }
+        let allowed = (0..1001).filter(|_| bgt.withdraw()).count();
+        assert!(allowed > 0 && allowed <= 999, "allowed {} retries", allowed);
     }
 }
